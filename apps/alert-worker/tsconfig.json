@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": "../..",
+    "lib": ["ES2022", "DOM"],
     "noEmit": true,
     "paths": {
       "@chaoran-property-intelligence/application": [
@@ -9,6 +10,12 @@
       ],
       "@chaoran-property-intelligence/domain": [
         "packages/domain/src/index.ts"
+      ],
+      "@chaoran-property-intelligence/rentcast": [
+        "packages/rentcast/src/index.ts"
+      ],
+      "@chaoran-property-intelligence/telegram": [
+        "packages/telegram/src/index.ts"
       ]
     }
   },

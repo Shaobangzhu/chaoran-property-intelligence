@@ -23,6 +23,12 @@ importers:
       '@chaoran-property-intelligence/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@chaoran-property-intelligence/rentcast':
+        specifier: workspace:*
+        version: link:../../packages/rentcast
+      '@chaoran-property-intelligence/telegram':
+        specifier: workspace:*
+        version: link:../../packages/telegram
 
   packages/application: {}
 

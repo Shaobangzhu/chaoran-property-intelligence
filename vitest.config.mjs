@@ -11,6 +11,14 @@ export default defineConfig({
         "./packages/domain/src/index.ts",
         import.meta.url,
       ).pathname,
+      "@chaoran-property-intelligence/rentcast": new URL(
+        "./packages/rentcast/src/index.ts",
+        import.meta.url,
+      ).pathname,
+      "@chaoran-property-intelligence/telegram": new URL(
+        "./packages/telegram/src/index.ts",
+        import.meta.url,
+      ).pathname,
     },
   },
 });

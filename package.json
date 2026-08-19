@@ -8,10 +8,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "alert-worker:dry-run": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p apps/alert-worker/tsconfig.build.json && node apps/alert-worker/dist/index.js --dry-run",
+    "alert-worker:dry-run": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p apps/alert-worker/tsconfig.build.json && node apps/alert-worker/dist/index.js --dry-run",
     "build": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/telegram/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p apps/alert-worker/tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json"
+    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json",
+    "verify:local": "vitest run apps/alert-worker/src/localIntegration.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
