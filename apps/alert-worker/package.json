@@ -1,0 +1,10 @@
+{
+  "name": "@chaoran-property-intelligence/alert-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@chaoran-property-intelligence/application": "workspace:*",
+    "@chaoran-property-intelligence/domain": "workspace:*"
+  }
+}
