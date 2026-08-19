@@ -8,9 +8,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p packages/domain/tsconfig.build.json",
+    "build": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json"
+    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
