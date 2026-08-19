@@ -11,6 +11,10 @@ export default defineConfig({
         "./packages/domain/src/index.ts",
         import.meta.url,
       ).pathname,
+      "@chaoran-property-intelligence/postgres": new URL(
+        "./packages/postgres/src/index.ts",
+        import.meta.url,
+      ).pathname,
       "@chaoran-property-intelligence/rentcast": new URL(
         "./packages/rentcast/src/index.ts",
         import.meta.url,

@@ -101,3 +101,16 @@ This ADR does not create:
 
 Those should be introduced in later blocks when the application use case and
 deployment shape make the required boundary clearer.
+
+## Implementation Status
+
+Block 11 introduced the first PostgreSQL implementation for the alert worker:
+
+- normalized listing storage
+- an independent baseline initialization marker
+- notification status persistence
+- transactional baseline initialization
+- versioned SQL migrations
+
+PostGIS extensions, spatial columns, and geometry indexes remain deferred until
+the map and geospatial query use cases define their exact requirements.

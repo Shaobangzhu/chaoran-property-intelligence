@@ -6,6 +6,7 @@
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
     "@chaoran-property-intelligence/domain": "workspace:*",
+    "@chaoran-property-intelligence/postgres": "workspace:*",
     "@chaoran-property-intelligence/rentcast": "workspace:*",
     "@chaoran-property-intelligence/telegram": "workspace:*"
   }

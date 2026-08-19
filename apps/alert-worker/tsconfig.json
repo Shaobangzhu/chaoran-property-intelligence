@@ -11,6 +11,9 @@
       "@chaoran-property-intelligence/domain": [
         "packages/domain/src/index.ts"
       ],
+      "@chaoran-property-intelligence/postgres": [
+        "packages/postgres/src/index.ts"
+      ],
       "@chaoran-property-intelligence/rentcast": [
         "packages/rentcast/src/index.ts"
       ],

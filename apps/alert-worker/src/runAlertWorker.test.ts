@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { runAlertWorker } from "./runAlertWorker.js";
 
@@ -24,7 +24,7 @@ describe("runAlertWorker", () => {
     expect(stderr.output).toBe("");
   });
 
-  it("rejects execution without the dry-run flag", async () => {
+  it("rejects execution without an explicit mode flag", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
 
@@ -37,8 +37,50 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toContain(
-      "This worker currently supports only --dry-run.",
+      "This worker supports only --dry-run or --run.",
     );
+  });
+
+  it("runs the production action only with the run flag", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const runProduction = vi.fn(async () => {});
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--run"],
+        stdout,
+        stderr,
+      },
+      { runProduction },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(runProduction).toHaveBeenCalledOnce();
+    expect(stdout.output).toBe("Production run completed.\n");
+    expect(stderr.output).toBe("");
+  });
+
+  it("returns a failing exit code when the production action fails", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--run"],
+        stdout,
+        stderr,
+      },
+      {
+        runProduction: async () => {
+          throw new Error("Database unavailable");
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toBe("Worker failed: Database unavailable\n");
   });
 });
 
