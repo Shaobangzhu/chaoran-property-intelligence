@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "build": "tsc -p packages/domain/tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json"
   },
