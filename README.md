@@ -122,6 +122,7 @@ runtime flow, security controls, and resource lifecycle.
 - [Project roadmap](docs/roadmap.md)
 - [AWS system design and configuration](docs/aws-system-design.md)
 - [AWS deployment decision](docs/adr/0002-aws-deployment-foundation.md)
+- [API, web, and map foundation decision](docs/adr/0003-api-web-map-foundation.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)

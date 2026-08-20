@@ -19,20 +19,39 @@ entrypoint -> application -> domain
 infrastructure -> application ports
 ```
 
-Expected ownership, subject to reinspection when Block 15 defines the API and
-web foundations:
+ADR 0003 defines the API and web foundation ownership:
 
-- domain models and pure rules belong in domain code
-- use cases and ports belong in application code
+- the normalized listing model and pure rules belong in domain code
+- use cases and ports, including `ListListings` and `ListingQueryPort`, belong
+  in application code
 - PostgreSQL repositories and migrations belong in the persistence adapter
-- HTTP routes, cookies, CORS, and middleware belong in the future API app
-- forms, route guards, map interactions, and review screens belong in the
-  future web app
+- HTTP DTO mapping, routes, cookies, CORS, and middleware belong in `apps/api`
+- forms, route guards, map interactions, and review screens belong in
+  `apps/web`
 - Argon2id, JWT, and OpenAI SDK details remain replaceable infrastructure
   adapters behind application ports
 
+Block 15 establishes a local-only `GET /api/listings` vertical slice. Listing
+reads come from PostgreSQL through the application query port; neither the API
+nor browser calls RentCast. The HTTP DTO uses the stable listing UUID and omits
+the ingestion deduplication key and Telegram notification state.
+
+The target production boundary uses one HTTPS origin, with CloudFront routing
+static web requests to private S3 and `/api/*` to the future API origin. The
+exact API compute service remains deferred. Do not publicly deploy the API or
+web application until Block 16 protects listing reads and completes the
+production security review.
+
 React route guards improve user experience but never replace API authentication
 and authorization.
+
+### Block 16 Entry Dependency
+
+Block 16 starts only after the ADR 0003 entry criteria are satisfied, including
+stable listing identity, the tested database-backed query path, the local API,
+the React read states, and MapLibre/OpenFreeMap rendering. Reinspect those
+criteria during Block 15.5 rather than assuming roadmap status proves runtime
+readiness.
 
 ## Block 16: Single-User JWT Authentication
 
@@ -47,6 +66,7 @@ In scope:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- protect `GET /api/listings` before any public deployment
 - short-lived access JWT, initially around one hour
 - authentication and admin authorization middleware
 

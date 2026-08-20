@@ -13,7 +13,7 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1 are complete. The repository currently contains:
+Blocks 0-14.1 and Block 15.0 are complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -87,6 +87,29 @@ Reinspect the repository and plan the transition from the worker-only MVP to an
 authenticated API and React/MapLibre application. Define the smallest useful
 API and web foundations before creating either app. The output of this block
 must establish the entry criteria for Block 16.
+
+Block 15.0 architecture planning is complete. The accepted direction is a
+database-backed `GET /api/listings` vertical slice, stable listing UUIDs, a
+separate read query port, an Express API, and a React/Vite application using
+MapLibre with OpenFreeMap. The browser never calls RentCast. Block 15 remains
+local-only until Block 16 protects listing reads and the application is approved
+for public deployment. See
+[ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md).
+
+Planned sub-block mapping:
+
+1. `15.0` Record architecture, contracts, risks, tests, and Block 16 entry
+   criteria. **Complete.**
+2. `15.1` Add stable listing identity, shared model ownership, the listing query
+   use case, and the PostgreSQL query adapter.
+3. `15.2` Add the Express app factory and local-only listings endpoint.
+4. `15.3` Add the Vite React app, typed API client, and complete read states.
+5. `15.4` Add MapLibre/OpenFreeMap rendering and list/map selection.
+6. `15.5` Verify the local vertical slice and review the authenticated
+   production deployment plan.
+
+Each item remains separately gated. Block 16 starts only after the Block 16
+entry criteria in ADR 0003 are satisfied.
 
 ## Planned Product Features
 
