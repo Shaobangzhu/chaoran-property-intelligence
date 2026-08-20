@@ -1,0 +1,74 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type deploy-production to confirm
+        required: true
+        type: string
+
+concurrency:
+  cancel-in-progress: false
+  group: production-deployment
+
+jobs:
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'deploy-production'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      CPI_ALERT_EMAIL: ${{ secrets.CPI_ALERT_EMAIL }}
+      CPI_MONTHLY_BUDGET_USD: ${{ vars.CPI_MONTHLY_BUDGET_USD || '20' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Validate deployment configuration
+        run: test -n "$CPI_ALERT_EMAIL"
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: us-west-2
+          role-session-name: cpi-github-deployment
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy
+
+      - name: Deploy disabled-schedule stacks
+        run: >-
+          pnpm --dir infra/aws exec cdk deploy --all
+          -c scheduleEnabled=false
+          --require-approval never
+          --parameters ChaoranPropertyIntelligenceGuardrails:AlertEmail="$CPI_ALERT_EMAIL"
+          --parameters ChaoranPropertyIntelligenceGuardrails:MonthlyBudgetUsd="$CPI_MONTHLY_BUDGET_USD"
+          --parameters ChaoranPropertyIntelligenceProduction:AlertEmail="$CPI_ALERT_EMAIL"

@@ -4,6 +4,9 @@
 
 Accepted
 
+The current deployed topology and configuration are documented in
+[AWS System Design and Configuration](../aws-system-design.md).
+
 ## Context
 
 The alert worker is a short-lived daily batch process. It needs outbound HTTPS
@@ -68,7 +71,8 @@ credits continuously. A one-off scheduled task matches the workload.
   simple for the MVP.
 - Scheduler retries and its dead-letter queue cover target invocation failures;
   they do not automatically retry a container that starts and later exits with
-  an error. Block 13 must verify ECS stopped-task visibility and alerting.
+  an error. EventBridge routes task startup failures and non-zero exits to an
+  email-backed SNS topic.
 - Secrets Manager, Fargate, Aurora, public IPv4, logs, and related AWS services
   can incur charges. Cost alarms and a teardown drill are Block 13 prerequisites.
 - Retaining Aurora and its credentials protects production data but means stack
@@ -77,9 +81,25 @@ credits continuously. A one-off scheduled task matches the workload.
 
 ## Deferred Work
 
-- AWS account bootstrap and resource deployment
-- GitHub Actions OpenID Connect deployment role
-- production secret population and rotation
+- production secret rotation
+- GitHub workflow publication and repository configuration
 - scheduler enablement
-- cost alerts and runtime failure alerts
 - first controlled production baseline execution
+
+## Block 13 Additions
+
+Block 13 adds a separate account guardrails stack containing a retained monthly
+gross-cost budget and a GitHub Actions OIDC provider. The OIDC trust policy is
+limited to the `main` branch of this repository. The deployment role may assume
+the CDK bootstrap roles but does not hold long-lived AWS credentials.
+
+The production stack now emits email alerts for ECS task startup failures and
+non-zero container exits. These subscriptions require recipient confirmation
+after deployment. The GitHub deployment workflow is manual-only and explicitly
+keeps the scheduler disabled.
+
+The initial `us-west-2` deployment uses temporary IAM Identity Center
+credentials. The CDK bootstrap, guardrails stack, production stack, application
+secret population, budget configuration, and SNS subscription verification are
+complete. The scheduler remains disabled and the first worker execution remains
+owned by Block 14.

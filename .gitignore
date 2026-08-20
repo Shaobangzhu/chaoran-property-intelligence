@@ -111,6 +111,7 @@ dist
 # Serverless directories
 .serverless/
 cdk.out/
+cdk.context.json
 
 # FuseBox cache
 .fusebox/

@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+  CfnParameter,
   Duration,
   RemovalPolicy,
   Stack,
@@ -17,6 +18,8 @@ import {
   Secret as EcsSecret,
   UlimitName,
 } from "aws-cdk-lib/aws-ecs";
+import { Rule } from "aws-cdk-lib/aws-events";
+import { SnsTopic } from "aws-cdk-lib/aws-events-targets";
 import {
   AuroraPostgresEngineVersion,
   ClusterInstance,
@@ -33,6 +36,8 @@ import {
 } from "aws-cdk-lib/aws-scheduler";
 import { EcsRunFargateTask } from "aws-cdk-lib/aws-scheduler-targets";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
+import { Topic } from "aws-cdk-lib/aws-sns";
+import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 
@@ -40,6 +45,7 @@ const databaseName = "property_intelligence";
 
 export interface PropertyAlertStackProps extends StackProps {
   containerImage?: ContainerImage;
+  failureAlertEmail?: string;
   repositoryRoot?: string;
   scheduleEnabled?: boolean;
 }
@@ -166,6 +172,49 @@ export class PropertyAlertStack extends Stack {
     const cluster = new Cluster(this, "Cluster", {
       vpc,
     });
+    const failureAlertEmail =
+      props.failureAlertEmail ??
+      new CfnParameter(this, "AlertEmail", {
+        allowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+        constraintDescription: "must be a valid email address",
+        type: "String",
+      }).valueAsString;
+    const failureTopic = new Topic(this, "WorkerFailureTopic", {
+      displayName: "CPI production worker failures",
+      enforceSSL: true,
+      topicName: "cpi-production-worker-failures",
+    });
+    failureTopic.addSubscription(new EmailSubscription(failureAlertEmail));
+
+    const eventPatternBase = {
+      detailType: ["ECS Task State Change"],
+      source: ["aws.ecs"],
+    };
+    const taskFailedToStartRule = new Rule(this, "TaskFailedToStartRule", {
+      eventPattern: {
+        ...eventPatternBase,
+        detail: {
+          clusterArn: [cluster.clusterArn],
+          lastStatus: ["STOPPED"],
+          stopCode: ["TaskFailedToStart"],
+        },
+      },
+    });
+    taskFailedToStartRule.addTarget(new SnsTopic(failureTopic));
+
+    const nonZeroExitRule = new Rule(this, "NonZeroExitRule", {
+      eventPattern: {
+        ...eventPatternBase,
+        detail: {
+          clusterArn: [cluster.clusterArn],
+          containers: {
+            exitCode: [{ "anything-but": 0 }],
+          },
+          lastStatus: ["STOPPED"],
+        },
+      },
+    });
+    nonZeroExitRule.addTarget(new SnsTopic(failureTopic));
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       cpu: 256,
       memoryLimitMiB: 512,

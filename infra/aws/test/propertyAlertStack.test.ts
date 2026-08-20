@@ -13,6 +13,20 @@ function createTemplate(): Template {
       account: "111111111111",
       region: "us-west-2",
     },
+    failureAlertEmail: "alerts@example.com",
+  });
+
+  return Template.fromStack(stack);
+}
+
+function createParameterizedTemplate(): Template {
+  const app = new App();
+  const stack = new PropertyAlertStack(app, "ParameterizedPropertyAlertStack", {
+    containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
+    env: {
+      account: "111111111111",
+      region: "us-west-2",
+    },
   });
 
   return Template.fromStack(stack);
@@ -122,6 +136,54 @@ describe("PropertyAlertStack", () => {
       IpProtocol: "tcp",
       SourceSecurityGroupId: Match.anyValue(),
       ToPort: 5432,
+    });
+  });
+
+  it("alerts on task startup failures and non-zero container exits", () => {
+    const template = createTemplate();
+
+    template.resourceCountIs("AWS::SNS::Topic", 1);
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Endpoint: "alerts@example.com",
+      Protocol: "email",
+    });
+    template.resourceCountIs("AWS::Events::Rule", 2);
+    template.hasResourceProperties("AWS::Events::Rule", {
+      EventPattern: Match.objectLike({
+        detail: Match.objectLike({
+          lastStatus: ["STOPPED"],
+          stopCode: ["TaskFailedToStart"],
+        }),
+        "detail-type": ["ECS Task State Change"],
+        source: ["aws.ecs"],
+      }),
+      State: "ENABLED",
+    });
+    template.hasResourceProperties("AWS::Events::Rule", {
+      EventPattern: Match.objectLike({
+        detail: Match.objectLike({
+          containers: {
+            exitCode: [{ "anything-but": 0 }],
+          },
+          lastStatus: ["STOPPED"],
+        }),
+        "detail-type": ["ECS Task State Change"],
+        source: ["aws.ecs"],
+      }),
+      State: "ENABLED",
+    });
+  });
+
+  it("requires the failure alert email as a deployment parameter", () => {
+    const template = createParameterizedTemplate();
+
+    template.hasParameter("AlertEmail", {
+      AllowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+      Type: "String",
+    });
+    template.hasResourceProperties("AWS::SNS::Subscription", {
+      Endpoint: { Ref: "AlertEmail" },
+      Protocol: "email",
     });
   });
 });

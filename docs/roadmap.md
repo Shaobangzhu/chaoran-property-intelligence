@@ -47,6 +47,14 @@ reviewed stack, and verify observability and teardown procedures. This is the
 first block allowed to create billable AWS resources, and it requires explicit
 confirmation immediately before deployment.
 
+Implementation status: the AWS account is bootstrapped in `us-west-2`; the
+guardrail and production stacks, application secret, budget notifications, and
+confirmed failure-alert subscription are deployed and verified. The scheduler
+is disabled and no worker task has run. The GitHub workflow is prepared locally;
+its repository configuration follows when this change is committed and pushed.
+The as-built architecture is recorded in
+[AWS System Design and Configuration](aws-system-design.md).
+
 ### Block 14: Production Baseline Verification
 
 Run the first production worker execution under controlled conditions. Verify

@@ -51,9 +51,9 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits.
 
-## AWS deployment foundation
+## AWS deployment
 
-Block 12 defines the deployment without creating AWS resources:
+The production deployment is defined with AWS CDK:
 
 - The deployment region defaults to `us-west-2`. Set `CPI_AWS_REGION` only when
   an intentional project-level override is needed.
@@ -80,14 +80,25 @@ docker run --rm cpi-alert-worker:block12 \
   timeout --signal=TERM 15m node apps/alert-worker/dist/index.js --dry-run
 ```
 
-Do not run `cdk bootstrap` or `cdk deploy` during Block 12. Block 13 will first
-configure AWS budget alerts and secrets, review the synthesized changes, and
-then require explicit confirmation before creating billable resources. The
-schedule may only be enabled after that setup with the CDK context
-`scheduleEnabled=true`.
+Block 13 adds a retained monthly gross-cost budget, a branch-restricted GitHub
+OIDC deployment role, and email alerts for ECS startup failures and non-zero
+container exits. Production deployment is manual-only, and the schedule remains
+disabled until the controlled baseline run in Block 14.
+
+Follow the [AWS deployment runbook](docs/runbooks/aws-deployment.md). Never run
+`cdk bootstrap`, `cdk deploy`, or `cdk destroy` without reviewing the target AWS
+account, region, parameters, and retained resources first.
+Local AWS access uses temporary IAM Identity Center credentials through the
+`cpi-admin` CLI profile.
+
+The [AWS system design and configuration](docs/aws-system-design.md) documents
+the deployed topology, stack ownership, identity model, network boundaries,
+runtime flow, security controls, and resource lifecycle.
 
 ## Project planning
 
 - [Project roadmap](docs/roadmap.md)
+- [AWS system design and configuration](docs/aws-system-design.md)
 - [AWS deployment decision](docs/adr/0002-aws-deployment-foundation.md)
+- [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
