@@ -55,6 +55,12 @@ states. It validates API responses at runtime and never receives database,
 RentCast, Telegram, or AWS credentials. The web application remains local-only
 and is not deployed.
 
+The approved production target is AWS: CloudFront serves the React/Vite build
+from a private S3 origin and routes `/api/*` under the same HTTPS origin to an
+AWS-hosted Express application. Vercel is not part of the current production
+plan. The specific Express compute service remains gated on the Block 15.5/16
+networking, cost, and security review.
+
 ## Production runtime
 
 Local production-mode execution accepts a PostgreSQL connection string:
@@ -154,7 +160,8 @@ Local AWS access uses temporary IAM Identity Center credentials through the
 
 The [AWS system design and configuration](docs/aws-system-design.md) documents
 the deployed topology, stack ownership, identity model, network boundaries,
-runtime flow, security controls, and resource lifecycle.
+runtime flow, security controls, resource lifecycle, and the explicitly labeled
+planned React/Express production boundary.
 
 ## Project planning
 

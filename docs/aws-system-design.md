@@ -3,13 +3,15 @@
 ## Purpose
 
 This document describes the deployed AWS architecture for
-`chaoran-property-intelligence`. It is the as-built system view: resource
-boundaries, identity, networking, runtime flow, security controls, deployment
-configuration, observability, cost controls, and resource lifecycle.
+`chaoran-property-intelligence`. It is primarily the as-built system view:
+resource boundaries, identity, networking, runtime flow, security controls,
+deployment configuration, observability, cost controls, and resource lifecycle.
+Future resources are included only in sections explicitly labeled as planned.
 
 The TypeScript CDK code under `infra/aws` remains the infrastructure source of
 truth. This document explains that code; the deployment runbook owns commands
-and operator procedures, while ADR 0002 owns the reasons behind the design.
+and operator procedures. ADR 0002 owns the deployed worker foundation, while
+ADR 0003 owns the planned React and Express production boundary.
 
 ## Deployment Status
 
@@ -31,6 +33,10 @@ Last verified: 2026-08-20.
 
 The AWS account ID, IAM Identity Center portal URL, alert email, and all secret
 values are intentionally excluded from the repository.
+
+The React web application and Express API are not deployed. Their approved AWS
+target boundary is documented below as planned architecture and must not be read
+as current stack inventory.
 
 ## Architecture
 
@@ -68,6 +74,81 @@ flowchart TD
     Rules --> Topic[SNS failure topic]
     Topic --> AlertEmail[Confirmed email subscriber]
 ```
+
+## Planned Authenticated Web and API Boundary
+
+**Status: approved target architecture; not deployed.** Public implementation
+is gated on Block 16 server-enforced authentication and a production security
+review.
+
+```mermaid
+flowchart LR
+    Browser[Browser] -->|HTTPS, one application origin| CloudFront[CloudFront]
+    CloudFront -->|default behavior: static reads| S3[Private S3 web origin]
+    S3 --> WebBuild[React and Vite build artifacts]
+    CloudFront -->|/api/*: caching disabled| ApiOrigin[AWS API origin]
+    ApiOrigin --> Express[Express application]
+    Express -->|TLS, private network path| Aurora[Aurora PostgreSQL]
+    GitHub[GitHub Actions] -->|OIDC, no access keys| WebDeploy[CDK and asset deployment]
+    WebDeploy --> CloudFront
+    WebDeploy --> S3
+    WebDeploy --> ApiOrigin
+```
+
+### React static origin
+
+- AWS, rather than Vercel, is the selected production platform.
+- `pnpm build:web` produces `apps/web/dist`; only those static artifacts are
+  published to the web bucket.
+- The S3 bucket keeps all Block Public Access controls enabled and grants read
+  access only to CloudFront through Origin Access Control.
+- The default CloudFront behavior serves `index.html` and static assets over
+  HTTPS. Hashed JavaScript and CSS use long-lived immutable caching;
+  `index.html` uses a short or disabled cache policy so releases become visible.
+- The browser receives no database, RentCast, Telegram, AWS, or server signing
+  credentials.
+- Client-side route fallback must be designed when Block 16 introduces routes;
+  it must never rewrite `/api/*` failures to `index.html`.
+
+### Express API origin
+
+- CloudFront routes `/api/*` to an AWS-hosted Express origin under the same
+  public HTTPS origin used by the React application.
+- The API behavior disables shared caching and forwards only the cookies,
+  headers, query strings, and HTTP methods required by the authenticated API.
+- Express performs authentication and authorization on every protected route.
+  Neither CloudFront nor React route guards are an authorization boundary.
+- The API runtime uses a dedicated least-privilege IAM role, a dedicated
+  security group, TLS database validation, bounded timeouts, and private Aurora
+  connectivity.
+- The chosen origin must prevent direct-origin access from bypassing the
+  intended CloudFront request boundary.
+
+The specific Express compute service is intentionally unselected. Block 15.5
+and Block 16 will compare Lambda and suitable AWS container services using
+private VPC connectivity, Aurora resume and connection behavior, idle cost,
+startup latency, scaling, deployment rollback, logging, and origin-protection
+requirements. No public API or new VPC path may be created merely by accepting
+this target architecture.
+
+### Deployment and certificate boundary
+
+The future resources remain CDK-managed and use the existing branch-restricted
+GitHub OIDC deployment path. No long-lived AWS keys are introduced. CloudFront
+is global; application resources remain in the approved `us-west-2` project
+region. A custom-domain CloudFront certificate, when introduced, is managed in
+the AWS region required by CloudFront and reviewed as part of the deployment
+change.
+
+The web/API rollout order is:
+
+1. Complete the local map/list vertical slice and Block 15.5 review.
+2. Add and verify Block 16 server-side authentication and origin controls.
+3. Select the Express compute service and review CDK diff, networking, cost,
+   observability, rollback, and retained resources.
+4. Deploy without changing the worker scheduler state.
+5. Verify HTTPS, static caching, `/api/*` no-cache behavior, direct-origin
+   restrictions, authentication, logout, and budget alerts.
 
 ## Account and Identity Configuration
 
@@ -387,6 +468,9 @@ The following are release gates, not suggestions:
 - [Production baseline runbook](runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](runbooks/telegram-production-smoke-test.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
+- [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)
+- [AWS: secure static website with CloudFront and S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/getting-started-secure-static-website-cloudformation-template.html)
+- [AWS: CloudFront cache behavior settings](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)
 - [Production stack](../infra/aws/lib/propertyAlertStack.ts)

@@ -126,6 +126,13 @@ Block 15.3 added the local React/Vite application, runtime-validating listings
 client, responsive operational list, and loading, empty, error, retry, and
 content states. The browser uses a Vite loopback proxy and remains undeployed.
 
+The approved production platform is AWS. The React/Vite build will be served by
+CloudFront from a private S3 origin, and `/api/*` will route under the same HTTPS
+origin to an AWS-hosted Express application. Vercel is not in the current target
+architecture. Selection of the Express compute service remains a gated Block
+15.5/16 decision based on private Aurora networking, cost, runtime behavior,
+observability, and origin protection. No public deployment is authorized yet.
+
 ## Planned Product Features
 
 ### Block 16: Single-User JWT Authentication

@@ -190,15 +190,41 @@ The target production browser boundary is one HTTPS origin:
 
 ```text
 CloudFront
-  / and static assets -> private S3 web origin
-  /api/*              -> API origin
+  /*      -> private S3 web origin -> React/Vite static build
+  /api/*  -> AWS API origin        -> Express application
 ```
 
-The same-origin design supports Block 16 HttpOnly cookies and avoids making
-cross-origin credentials the default architecture. The exact API compute
-service is deferred until the API and authentication runtime are measured and
-reviewed against the existing Aurora networking and cost constraints. Block 15
-does not modify the deployed worker stack, scheduler state, or Aurora network.
+AWS is the selected production platform for both applications. The React/Vite
+build is uploaded from `apps/web/dist` to an S3 bucket that blocks all public
+access. CloudFront reads that bucket through Origin Access Control; the bucket
+is not exposed as a public website endpoint. Hashed assets receive long-lived
+immutable caching, while `index.html` receives a short or disabled cache policy.
+
+The `/api/*` behavior routes to an AWS-hosted Express origin, disables shared
+caching, supports the required HTTP methods, and forwards the authentication
+cookies and request metadata selected during Block 16. The API remains the
+authorization boundary; CloudFront routing and React route guards do not replace
+server-side authentication.
+
+This same-origin design supports Block 16 HttpOnly cookies and avoids making
+cross-origin credentials the default architecture. Vercel is not part of the
+target production path because the project already uses AWS identity,
+infrastructure as code, cost controls, private Aurora networking, and GitHub
+OIDC deployment.
+
+The exact AWS compute service for Express remains deferred until Block 15.5 and
+Block 16 can compare private Aurora connectivity, idle cost, startup behavior,
+scaling, observability, and origin protection. Candidate evaluation may include
+Lambda and container services, but no service is selected by this ADR. The
+selected service must run in or connect safely to the existing VPC, use a
+dedicated least-privilege runtime identity and security group, and prevent a
+direct origin URL from bypassing the intended CloudFront boundary.
+
+Static and API infrastructure will be managed through CDK and deployed through
+the existing GitHub OIDC trust rather than long-lived AWS access keys. Block 15
+does not create these resources or modify the deployed worker stack, scheduler
+state, or Aurora network. Public deployment remains blocked until Block 16
+protects listing reads and completes the production security review.
 
 ### Geospatial Scope
 
@@ -315,6 +341,15 @@ PostGIS remains the accepted direction for actual spatial queries.
 Rejected because Block 16 owns the security boundary and production property
 data must not be exposed through an unauthenticated endpoint.
 
+### Host the React application on Vercel
+
+Rejected for the current production plan. Vercel would provide convenient
+frontend previews, but this client-rendered Vite application does not need SSR
+or framework-specific compute. Adding another production platform would split
+identity, deployment, cost, and same-origin routing across vendors while the
+database and API already require AWS integration. Reconsider only if a future
+requirement creates a concrete benefit that outweighs that operational cost.
+
 ### Add a React framework, router, map wrapper, and query library immediately
 
 Deferred because the first slice has one screen and one read endpoint. Add each
@@ -330,6 +365,7 @@ justifies it.
 - The first map can ship without prematurely choosing spatial schema details.
 - The UI must communicate that stored records are snapshots until listing
   lifecycle synchronization is designed.
-- Production API compute and deployment remain deliberate future decisions.
+- AWS, private S3, CloudFront, and the `/api/*` Express origin are decided;
+  selection of the Express compute service remains a deliberate future decision.
 - Block 16 can add authentication around an existing tested vertical slice
   instead of mixing foundational data access with security implementation.

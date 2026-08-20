@@ -36,11 +36,19 @@ reads come from PostgreSQL through the application query port; neither the API
 nor browser calls RentCast. The HTTP DTO uses the stable listing UUID and omits
 the ingestion deduplication key and Telegram notification state.
 
-The target production boundary uses one HTTPS origin, with CloudFront routing
-static web requests to private S3 and `/api/*` to the future API origin. The
-exact API compute service remains deferred. Do not publicly deploy the API or
-web application until Block 16 protects listing reads and completes the
-production security review.
+AWS is the selected production platform. The target boundary uses one HTTPS
+origin, with CloudFront reading the React/Vite build from private S3 through
+Origin Access Control and routing `/api/*` to an AWS-hosted Express origin.
+Vercel is not part of the current production plan. The exact Express compute
+service remains deferred until private Aurora connectivity, cost, startup,
+scaling, observability, and origin protection are reviewed.
+
+The `/api/*` CloudFront behavior must disable shared caching and forward the
+Block 16 authentication cookie and required request metadata. Express remains
+the authorization boundary, and the selected API origin must not expose a
+direct path that bypasses the intended CloudFront boundary. Do not publicly
+deploy either application until Block 16 protects listing reads and completes
+the production security review.
 
 React route guards improve user experience but never replace API authentication
 and authorization.
