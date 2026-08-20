@@ -37,8 +37,36 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toContain(
-      "This worker supports only --dry-run, --run, or --verify-baseline.",
+      "This worker supports only --dry-run, --run, --verify-baseline, or --telegram-smoke-test.",
     );
+  });
+
+  it("runs only the Telegram production smoke-test action", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const runProduction = vi.fn(async () => {});
+    const verifyProductionBaseline = vi.fn(async () => createBaselineState());
+    const runTelegramSmokeTest = vi.fn(async () => {});
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--telegram-smoke-test"],
+        stdout,
+        stderr,
+      },
+      {
+        runProduction,
+        runTelegramSmokeTest,
+        verifyProductionBaseline,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(runTelegramSmokeTest).toHaveBeenCalledOnce();
+    expect(runProduction).not.toHaveBeenCalled();
+    expect(verifyProductionBaseline).not.toHaveBeenCalled();
+    expect(stdout.output).toBe("Telegram production smoke test completed.\n");
+    expect(stderr.output).toBe("");
   });
 
   it("runs the production action only with the run flag", async () => {
@@ -54,6 +82,7 @@ describe("runAlertWorker", () => {
       },
       {
         runProduction,
+        runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
       },
     );
@@ -76,7 +105,11 @@ describe("runAlertWorker", () => {
         stdout,
         stderr,
       },
-      { runProduction, verifyProductionBaseline },
+      {
+        runProduction,
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline,
+      },
     );
 
     expect(exitCode).toBe(0);
@@ -111,6 +144,7 @@ describe("runAlertWorker", () => {
         runProduction: async () => {
           throw new Error("Database unavailable");
         },
+        runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
       },
     );
@@ -118,6 +152,32 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toBe("Worker failed: Database unavailable\n");
+  });
+
+  it("returns a failing exit code when the Telegram smoke test fails", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--telegram-smoke-test"],
+        stdout,
+        stderr,
+      },
+      {
+        runProduction: async () => {},
+        runTelegramSmokeTest: async () => {
+          throw new Error("Telegram unavailable");
+        },
+        verifyProductionBaseline: async () => createBaselineState(),
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toBe(
+      "Telegram smoke test failed: Telegram unavailable\n",
+    );
   });
 });
 

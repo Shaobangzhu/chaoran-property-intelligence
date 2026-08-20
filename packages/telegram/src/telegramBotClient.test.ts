@@ -49,6 +49,26 @@ describe("TelegramBotClient", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("sends a fixed production smoke-test message without listing data", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json({ ok: true, result: {} }),
+    );
+    const client = createClient(fetch);
+
+    await client.sendProductionSmokeTest();
+
+    expect(fetch).toHaveBeenCalledOnce();
+    const { body } = expectTelegramRequest(fetch, 0);
+    expect(body).toEqual({
+      chat_id: "123456",
+      text: [
+        "CPI production smoke test",
+        "Telegram delivery is working.",
+        "No listing data was used.",
+      ].join("\n"),
+    });
+  });
+
   it("sends only listing addresses separated by newlines", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Response.json({ ok: true, result: {} }),

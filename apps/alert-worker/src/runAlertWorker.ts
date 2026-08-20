@@ -14,17 +14,19 @@ export interface AlertWorkerRuntime {
 
 export interface AlertWorkerActions {
   runProduction(): Promise<void>;
+  runTelegramSmokeTest(): Promise<void>;
   verifyProductionBaseline(): Promise<BaselineState>;
 }
+
+const supportedModesMessage =
+  "This worker supports only --dry-run, --run, --verify-baseline, or --telegram-smoke-test.\n";
 
 export async function runAlertWorker(
   runtime: AlertWorkerRuntime,
   actions?: AlertWorkerActions,
 ): Promise<number> {
   if (runtime.args.length !== 1) {
-    runtime.stderr.write(
-      "This worker supports only --dry-run, --run, or --verify-baseline.\n",
-    );
+    runtime.stderr.write(supportedModesMessage);
     return 1;
   }
 
@@ -71,9 +73,20 @@ export async function runAlertWorker(
     }
   }
 
-  runtime.stderr.write(
-    "This worker supports only --dry-run, --run, or --verify-baseline.\n",
-  );
+  if (runtime.args[0] === "--telegram-smoke-test" && actions !== undefined) {
+    try {
+      await actions.runTelegramSmokeTest();
+      runtime.stdout.write("Telegram production smoke test completed.\n");
+      return 0;
+    } catch (error) {
+      runtime.stderr.write(
+        `Telegram smoke test failed: ${getErrorMessage(error)}\n`,
+      );
+      return 1;
+    }
+  }
+
+  runtime.stderr.write(supportedModesMessage);
   return 1;
 }
 

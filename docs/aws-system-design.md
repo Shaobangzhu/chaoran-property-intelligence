@@ -13,7 +13,7 @@ and operator procedures, while ADR 0002 owns the reasons behind the design.
 
 ## Deployment Status
 
-Last verified: 2026-08-19.
+Last verified: 2026-08-20.
 
 | Item | Verified state |
 | --- | --- |
@@ -25,7 +25,8 @@ Last verified: 2026-08-19.
 | Aurora | Available, private, encrypted, deletion-protected, 0-1 ACU |
 | Failure email | SNS subscription confirmed |
 | Application secret | Three required keys populated and verified without logging values |
-| Worker execution | No production task has run; first execution belongs to Block 14 |
+| Worker execution | Block 14 baseline complete: marker present, baseline 28, pending 0, sent 0 |
+| Telegram smoke test | Block 14.1 complete; one fixed message delivered and confirmed |
 | Template drift | Final post-deployment CDK diff reported no differences |
 
 The AWS account ID, IAM Identity Center portal URL, alert email, and all secret
@@ -210,6 +211,11 @@ and aggregate baseline/pending/sent counts. It is used before and after the
 first production run from inside the VPC because Aurora is not publicly
 reachable.
 
+The image also exposes `--telegram-smoke-test` for a controlled one-message
+delivery check. That mode loads only the Telegram bot token and chat ID, sends a
+fixed non-listing message, and does not create a database connection or a
+RentCast client.
+
 ## Database Design
 
 | Setting | Value |
@@ -353,8 +359,8 @@ The following are release gates, not suggestions:
   reviewed.
 - AWS operations use federated temporary credentials, never root or long-lived
   access keys.
-- The scheduler remains disabled until the controlled Block 14 baseline run is
-  approved and verified.
+- The scheduler remains disabled until a separate recurring-execution decision
+  is approved after the Block 14 and 14.1 production checks.
 - Aurora remains private and accepts TCP 5432 only from the worker security
   group.
 - The worker has no inbound security-group rules.
@@ -379,6 +385,7 @@ The following are release gates, not suggestions:
 
 - [AWS deployment runbook](runbooks/aws-deployment.md)
 - [Production baseline runbook](runbooks/production-baseline.md)
+- [Telegram production smoke-test runbook](runbooks/telegram-production-smoke-test.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)

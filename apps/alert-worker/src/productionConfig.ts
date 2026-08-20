@@ -7,17 +7,30 @@ export interface ProductionConfig {
   telegramChatId: string;
 }
 
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+}
+
 export function loadProductionConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): ProductionConfig {
+  const telegram = loadTelegramConfig(environment);
+
   return {
     databaseConnection: loadDatabaseConnectionConfig(environment),
     rentCastApiKey: readRequiredVariable(environment, "RENTCAST_API_KEY"),
-    telegramBotToken: readRequiredVariable(
-      environment,
-      "TELEGRAM_BOT_TOKEN",
-    ),
-    telegramChatId: readRequiredVariable(environment, "TELEGRAM_CHAT_ID"),
+    telegramBotToken: telegram.botToken,
+    telegramChatId: telegram.chatId,
+  };
+}
+
+export function loadTelegramConfig(
+  environment: Readonly<Record<string, string | undefined>>,
+): TelegramConfig {
+  return {
+    botToken: readRequiredVariable(environment, "TELEGRAM_BOT_TOKEN"),
+    chatId: readRequiredVariable(environment, "TELEGRAM_CHAT_ID"),
   };
 }
 

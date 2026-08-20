@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   loadDatabaseConnectionConfig,
   loadProductionConfig,
+  loadTelegramConfig,
 } from "./productionConfig.js";
 
 describe("loadProductionConfig", () => {
@@ -14,6 +15,18 @@ describe("loadProductionConfig", () => {
     ).toEqual({
       kind: "connection-string",
       connectionString: "postgresql://database.example/app",
+    });
+  });
+
+  it("loads Telegram-only configuration for the production smoke test", () => {
+    expect(
+      loadTelegramConfig({
+        TELEGRAM_BOT_TOKEN: "telegram-secret",
+        TELEGRAM_CHAT_ID: "123456789",
+      }),
+    ).toEqual({
+      botToken: "telegram-secret",
+      chatId: "123456789",
     });
   });
 

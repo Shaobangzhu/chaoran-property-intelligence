@@ -63,6 +63,16 @@ or Telegram. Follow the
 [production baseline runbook](docs/runbooks/production-baseline.md) before its
 first AWS use.
 
+The image also provides an isolated Telegram production smoke test:
+
+```bash
+node apps/alert-worker/dist/index.js --telegram-smoke-test
+```
+
+This mode loads only the Telegram bot token and chat ID, sends one fixed test
+message, and does not connect to PostgreSQL or call RentCast. Follow the
+[Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md).
+
 ## AWS deployment
 
 The production deployment is defined with AWS CDK:
@@ -114,4 +124,5 @@ runtime flow, security controls, and resource lifecycle.
 - [AWS deployment decision](docs/adr/0002-aws-deployment-foundation.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
+- [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)

@@ -1,5 +1,10 @@
 const telegramApiBaseUrl = "https://api.telegram.org";
 const telegramMessageTextLimit = 4096;
+const productionSmokeTestText = [
+  "CPI production smoke test",
+  "Telegram delivery is working.",
+  "No listing data was used.",
+].join("\n");
 
 export interface TelegramNotificationPort {
   sendListingAddresses(addresses: string[]): Promise<void>;
@@ -31,6 +36,10 @@ export class TelegramBotClient implements TelegramNotificationPort {
     for (const text of messageChunks) {
       await this.sendMessage(text);
     }
+  }
+
+  async sendProductionSmokeTest(): Promise<void> {
+    await this.sendMessage(productionSmokeTestText);
   }
 
   private async sendMessage(text: string): Promise<void> {

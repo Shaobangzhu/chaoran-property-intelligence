@@ -1,5 +1,6 @@
 import { runAlertWorker } from "./runAlertWorker.js";
 import { runProduction } from "./runProduction.js";
+import { runTelegramSmokeTest } from "./runTelegramSmokeTest.js";
 import { verifyProductionBaseline } from "./verifyProductionBaseline.js";
 
 interface ProcessLike {
@@ -24,6 +25,11 @@ process.exitCode = await runAlertWorker(
         environment: process.env,
         fetch: globalThis.fetch,
         now: () => new Date(),
+      }),
+    runTelegramSmokeTest: () =>
+      runTelegramSmokeTest({
+        environment: process.env,
+        fetch: globalThis.fetch,
       }),
     verifyProductionBaseline: () =>
       verifyProductionBaseline({

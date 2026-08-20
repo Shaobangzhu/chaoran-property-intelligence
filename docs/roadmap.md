@@ -13,7 +13,7 @@ features early.
 
 ## Current Status
 
-Blocks 0-14 are complete. The repository currently contains:
+Blocks 0-14.1 are complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -67,6 +67,19 @@ execution runbook are complete. The approved production baseline completed on
 2026-08-20 with 28 baseline records, an independent initialized marker, and zero
 pending or sent records. The Scheduler remains disabled and no ECS tasks remain
 running. The operator confirmed that no Telegram listing message was received.
+
+### Block 14.1: Telegram Production Smoke Test
+
+Verify the production Telegram delivery path independently from listing
+detection. The one-off ECS mode loads only Telegram credentials, sends one
+fixed smoke-test message, does not connect to PostgreSQL or call RentCast, and
+leaves the Scheduler disabled.
+
+Implementation status: the isolated `--telegram-smoke-test` mode is deployed.
+The one approved ECS task exited 0, CloudWatch recorded the expected completion
+line, the Scheduler remains disabled, and the final CDK diff is empty. Operator
+receipt of exactly one expected fixed message is confirmed. Block 14.1 completed
+on 2026-08-20.
 
 ### Block 15: API, React, and Map Foundation
 
