@@ -67,6 +67,14 @@ checks.
 
 ## Block 16: Single-User JWT Authentication
 
+### Implementation Status
+
+- `16.0` complete: ADR 0004 records the accepted authentication architecture,
+  threat model, contracts, and test inventory.
+- `16.1` complete: the user domain model, repository port, users migration, and
+  PostgreSQL adapter are implemented and covered by isolated tests.
+- `16.2` through `16.7` remain separately gated and unimplemented.
+
 ### Product Scope
 
 The first release has one administrator but uses a normal `users` table and user
@@ -94,6 +102,15 @@ Out of scope:
 
 The planned model includes a server-generated ID, normalized email, password
 hash, `admin` role, `active` or `disabled` status, and server timestamps.
+
+Block 16.1 implements email normalization as trim plus lowercase with a
+254-character bound and basic email-shape validation. The application port
+separates an ID-based `UserAccount` lookup from the internal email-based
+`UserAuthenticationRecord`, so ordinary user records do not contain a password
+hash. Migration `003_create_users` enforces the role, status, canonical email,
+email length, and named unique-email constraints. Applying that migration to a
+real database remains an explicit runtime operation; the block did not alter a
+local or AWS database.
 
 The initial user is created with a one-time command such as
 `pnpm user:create-admin`. The password must come from an approved non-source

@@ -6,3 +6,13 @@ export {
   type ListingCandidate,
 } from "./listingFilter.js";
 export type { NormalizedListing } from "./normalizedListing.js";
+export {
+  InvalidUserEmailError,
+  isUserRole,
+  isUserStatus,
+  normalizeUserEmail,
+  type NormalizedUserEmail,
+  type UserAccount,
+  type UserRole,
+  type UserStatus,
+} from "./user.js";

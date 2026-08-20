@@ -12,3 +12,9 @@ export type {
   ListingRecord,
   ListListingsOptions,
 } from "./listListings.js";
+export {
+  UserEmailAlreadyExistsError,
+  type CreateUserInput,
+  type UserAuthenticationRecord,
+  type UserRepositoryPort,
+} from "./userRepository.js";

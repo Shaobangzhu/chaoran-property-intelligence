@@ -59,7 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(2);
+    expect(database.transactionCount).toBe(3);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -81,6 +81,17 @@ describe("runMigrations", () => {
     expect(database.queries[5]?.parameters).toEqual([
       "002_add_listing_identity",
     ]);
+    expect(database.queries[6]?.text).toContain("CREATE TABLE users");
+    expect(database.queries[6]?.text).toContain(
+      "CONSTRAINT users_normalized_email_unique",
+    );
+    expect(database.queries[6]?.text).toContain(
+      "CHECK (role IN ('admin'))",
+    );
+    expect(database.queries[6]?.text).toContain(
+      "CHECK (status IN ('active', 'disabled'))",
+    );
+    expect(database.queries[7]?.parameters).toEqual(["003_create_users"]);
   });
 
   it("applies only the identity migration when the initial schema exists", async () => {
@@ -91,13 +102,15 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(1);
+    expect(database.transactionCount).toBe(2);
     expect(database.queries[2]?.text).toContain(
       "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
     );
     expect(database.queries[3]?.parameters).toEqual([
       "002_add_listing_identity",
     ]);
+    expect(database.queries[4]?.text).toContain("CREATE TABLE users");
+    expect(database.queries[5]?.parameters).toEqual(["003_create_users"]);
   });
 });
 

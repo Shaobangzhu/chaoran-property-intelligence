@@ -13,6 +13,7 @@ export {
 } from "./nodePostgresDatabase.js";
 export { PostgresListingRepository } from "./postgresListingRepository.js";
 export { PostgresListingQuery } from "./postgresListingQuery.js";
+export { PostgresUserRepository } from "./postgresUserRepository.js";
 export { runBundledMigrations } from "./runBundledMigrations.js";
 export { runMigrations, type Migration } from "./runMigrations.js";
 export type {

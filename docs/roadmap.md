@@ -162,7 +162,7 @@ Planned sub-block mapping:
 1. `16.0` Inspect the API/web architecture, record the authentication threat
    model, contracts, and test plan. **Complete.**
 2. `16.1` Add the user domain model, migration, `UserRepository` port, and
-   PostgreSQL adapter.
+   PostgreSQL adapter. **Complete.**
 3. `16.2` Add password policy, Argon2id hashing, and the admin creation CLI.
 4. `16.3` Add JWT configuration, the token service, and required claims.
 5. `16.4` Add login, logout, and current-user use cases.
@@ -184,6 +184,13 @@ validation for unsafe requests, an App Runner origin guard, and layered login
 rate limiting. The same-origin topology does not enable CORS. Public AWS
 deployment remains a separately reviewed operational gate after the security
 implementation is complete.
+
+Block 16.1 added the bounded normalized-email domain type, `admin` role,
+`active` and `disabled` statuses, the `UserRepositoryPort`, and migration
+`003_create_users`. The PostgreSQL adapter translates only the named normalized
+email uniqueness violation into a bounded application error, rejects malformed
+rows, and keeps password hashes out of ID-based user records. No migration was
+applied to a local or production database in this block.
 
 ### Block 17: Manual Listing Management
 
