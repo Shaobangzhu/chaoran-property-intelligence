@@ -39,27 +39,31 @@ the ingestion deduplication key and Telegram notification state.
 AWS is the selected production platform. The target boundary uses one HTTPS
 origin, with CloudFront reading the React/Vite build from private S3 through
 Origin Access Control and routing `/api/*` to an AWS-hosted Express origin.
-Vercel is not part of the current production plan. The exact Express compute
-service remains deferred until private Aurora connectivity, cost, startup,
-scaling, observability, and origin protection are reviewed.
+Vercel is not part of the current production plan. Block 15.5 selected App
+Runner as the Express compute target. A dedicated VPC Connector and security
+group provide outbound access to private Aurora while the App Runner instance
+role reads only the required database secret.
 
 The `/api/*` CloudFront behavior must disable shared caching and forward the
 Block 16 authentication cookie and required request metadata. Express remains
-the authorization boundary, and the selected API origin must not expose a
-direct path that bypasses the intended CloudFront boundary. Do not publicly
-deploy either application until Block 16 protects listing reads and completes
-the production security review.
+the authorization boundary. CloudFront must overwrite a dedicated origin
+verification header, and Express must reject requests without the expected
+value before authentication middleware runs. This protects the otherwise
+public App Runner service URL from becoming an accepted bypass path. Do not
+publicly deploy either application until Block 16 protects listing reads,
+implements this origin check, and completes the production security review.
 
 React route guards improve user experience but never replace API authentication
 and authorization.
 
 ### Block 16 Entry Dependency
 
-Block 16 starts only after the ADR 0003 entry criteria are satisfied, including
-stable listing identity, the tested database-backed query path, the local API,
-the React read states, and MapLibre/OpenFreeMap rendering. Reinspect those
-criteria during Block 15.5 rather than assuming roadmap status proves runtime
-readiness.
+Block 16 starts only after the ADR 0003 entry criteria are satisfied. Block
+15.5 confirmed the local PostgreSQL-to-Express path directly and through the
+Vite proxy, including stable UUIDs, valid map coordinates, `no-store` responses,
+and omission of ingestion and notification fields. React read states and
+MapLibre interactions remain covered by the Block 15 automated and browser
+checks.
 
 ## Block 16: Single-User JWT Authentication
 

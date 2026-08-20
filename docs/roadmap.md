@@ -110,7 +110,7 @@ Planned sub-block mapping:
 5. `15.4` Add MapLibre/OpenFreeMap rendering and list/map selection.
    **Complete.**
 6. `15.5` Verify the local vertical slice and review the authenticated
-   production deployment plan.
+   production deployment plan. **Complete.**
 
 Each item remains separately gated. Block 16 starts only after the Block 16
 entry criteria in ADR 0003 are satisfied.
@@ -133,12 +133,20 @@ states, and an injected map driver for external-service-free automated tests.
 Clustering, PostGIS, viewport queries, and public deployment remain out of
 scope.
 
+Block 15.5 ran migrations against the local Docker PostgreSQL database and
+verified the real `PostgreSQL -> Express -> Vite proxy` read path with temporary,
+uniquely tagged fixtures. The API returned stable UUIDs, valid coordinates,
+`Cache-Control: no-store`, bounded `404` JSON, and no deduplication or
+notification fields. The fixtures were removed after verification. Tests,
+typecheck, and builds remain the completion gate.
+
 The approved production platform is AWS. The React/Vite build will be served by
 CloudFront from a private S3 origin, and `/api/*` will route under the same HTTPS
-origin to an AWS-hosted Express application. Vercel is not in the current target
-architecture. Selection of the Express compute service remains a gated Block
-15.5/16 decision based on private Aurora networking, cost, runtime behavior,
-observability, and origin protection. No public deployment is authorized yet.
+origin to App Runner. App Runner preserves the Express container and
+`node-postgres` model, reaches private Aurora through a VPC Connector, and avoids
+an always-on load balancer. CloudFront origin-header verification and Block 16
+server-side authentication are required before public deployment. No AWS
+resources were created or changed in Block 15.5.
 
 ## Planned Product Features
 

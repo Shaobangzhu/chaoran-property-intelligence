@@ -86,9 +86,9 @@ flowchart LR
     Browser[Browser] -->|HTTPS, one application origin| CloudFront[CloudFront]
     CloudFront -->|default behavior: static reads| S3[Private S3 web origin]
     S3 --> WebBuild[React and Vite build artifacts]
-    CloudFront -->|/api/*: caching disabled| ApiOrigin[AWS API origin]
-    ApiOrigin --> Express[Express application]
-    Express -->|TLS, private network path| Aurora[Aurora PostgreSQL]
+    CloudFront -->|/api/*: no cache and origin header| ApiOrigin[App Runner service]
+    ApiOrigin --> Express[Express application container]
+    Express -->|VPC Connector and API security group| Aurora[Aurora PostgreSQL]
     GitHub[GitHub Actions] -->|OIDC, no access keys| WebDeploy[CDK and asset deployment]
     WebDeploy --> CloudFront
     WebDeploy --> S3
@@ -121,15 +121,36 @@ flowchart LR
 - The API runtime uses a dedicated least-privilege IAM role, a dedicated
   security group, TLS database validation, bounded timeouts, and private Aurora
   connectivity.
-- The chosen origin must prevent direct-origin access from bypassing the
-  intended CloudFront request boundary.
+- App Runner is the selected compute target. It deploys the API as an image from
+  private ECR and uses a VPC Connector in private subnets for outbound database
+  traffic. The connector security group is the only new principal allowed into
+  the Aurora security group.
+- App Runner service ingress remains on its managed public hostname. CloudFront
+  overwrites a dedicated origin verification header, and Express rejects a
+  missing or mismatched value before authentication. The value is generated and
+  rotated through CDK and is never exposed to browser code.
+- The App Runner instance role can read only the production database secret.
+  It does not receive RentCast or Telegram credentials because the API does not
+  call either service.
+- The first configuration uses `0.25 vCPU`, `0.5 GB`, and a minimum of one
+  provisioned instance. At the current `us-west-2` memory rate, the idle memory
+  baseline is approximately USD 2.56 per 730-hour month, plus active CPU,
+  CloudWatch, ECR, data transfer, CloudFront, and database charges.
+- The service does not use RDS Proxy because its retained database connections
+  would prevent Aurora Serverless v2 from auto-pausing. Health checks must not
+  query the database. The API connection timeout and startup path must tolerate
+  Aurora resume latency.
+- App Runner reserves `PORT`. The production composition root must bind to
+  `0.0.0.0` using an explicitly validated deployment mode while preserving the
+  current loopback-only local default.
 
-The specific Express compute service is intentionally unselected. Block 15.5
-and Block 16 will compare Lambda and suitable AWS container services using
-private VPC connectivity, Aurora resume and connection behavior, idle cost,
-startup latency, scaling, deployment rollback, logging, and origin-protection
-requirements. No public API or new VPC path may be created merely by accepting
-this target architecture.
+Lambda was not selected because the existing Express and `node-postgres`
+runtime would need additional VPC and database lifecycle work, while Lambda
+function URL origin protection adds signed-payload requirements for future POST
+routes. ECS Fargate behind an internal load balancer provides a stronger private
+origin, but its continuously running task and load balancer are disproportionate
+for the current low-traffic single-user application. Revisit the choice if
+traffic, compliance, or private-ingress requirements materially change.
 
 ### Deployment and certificate boundary
 
@@ -144,8 +165,8 @@ The web/API rollout order is:
 
 1. Complete the local map/list vertical slice and Block 15.5 review.
 2. Add and verify Block 16 server-side authentication and origin controls.
-3. Select the Express compute service and review CDK diff, networking, cost,
-   observability, rollback, and retained resources.
+3. Implement the selected App Runner service and review the CDK diff,
+   networking, cost, observability, rollback, and retained resources.
 4. Deploy without changing the worker scheduler state.
 5. Verify HTTPS, static caching, `/api/*` no-cache behavior, direct-origin
    restrictions, authentication, logout, and budget alerts.
@@ -467,10 +488,16 @@ The following are release gates, not suggestions:
 - [AWS deployment runbook](runbooks/aws-deployment.md)
 - [Production baseline runbook](runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](runbooks/telegram-production-smoke-test.md)
+- [Local listings vertical-slice runbook](runbooks/local-listings-vertical-slice.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)
 - [AWS: secure static website with CloudFront and S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/getting-started-secure-static-website-cloudformation-template.html)
 - [AWS: CloudFront cache behavior settings](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html)
+- [AWS: App Runner VPC access](https://docs.aws.amazon.com/apprunner/latest/dg/network-vpc.html)
+- [AWS: App Runner environment secrets](https://docs.aws.amazon.com/apprunner/latest/dg/env-variable-manage.html)
+- [AWS: App Runner pricing](https://aws.amazon.com/apprunner/pricing/)
+- [AWS: CloudFront custom origin headers](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/add-origin-custom-headers.html)
+- [AWS: Aurora Serverless v2 auto-pause](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)
 - [Production stack](../infra/aws/lib/propertyAlertStack.ts)

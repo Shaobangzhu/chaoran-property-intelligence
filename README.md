@@ -64,8 +64,11 @@ driver tests use fakes and never contact the style or tile service.
 The approved production target is AWS: CloudFront serves the React/Vite build
 from a private S3 origin and routes `/api/*` under the same HTTPS origin to an
 AWS-hosted Express application. Vercel is not part of the current production
-plan. The specific Express compute service remains gated on the Block 15.5/16
-networking, cost, and security review.
+plan. App Runner is the selected Express compute target: it preserves the
+container and `node-postgres` runtime, reaches private Aurora through a VPC
+Connector, and receives traffic through a CloudFront-protected origin. The API
+and web application remain undeployed until Block 16 adds server-enforced
+authentication and the origin controls pass review.
 
 ## Production runtime
 

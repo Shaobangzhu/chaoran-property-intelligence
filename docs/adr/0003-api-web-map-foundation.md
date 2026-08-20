@@ -212,13 +212,25 @@ target production path because the project already uses AWS identity,
 infrastructure as code, cost controls, private Aurora networking, and GitHub
 OIDC deployment.
 
-The exact AWS compute service for Express remains deferred until Block 15.5 and
-Block 16 can compare private Aurora connectivity, idle cost, startup behavior,
-scaling, observability, and origin protection. Candidate evaluation may include
-Lambda and container services, but no service is selected by this ADR. The
-selected service must run in or connect safely to the existing VPC, use a
-dedicated least-privilege runtime identity and security group, and prevent a
-direct origin URL from bypassing the intended CloudFront boundary.
+Block 15.5 selects App Runner as the Express compute target. It preserves the
+existing container and `node-postgres` runtime, accesses private Aurora through
+a VPC Connector, supports Secrets Manager references and CloudWatch logs, and
+avoids a continuously billed load balancer. The API uses a dedicated instance
+role and connector security group. It receives only the database secret, not
+the worker's RentCast or Telegram credentials.
+
+App Runner ingress uses a managed public service URL. CloudFront therefore
+overwrites a dedicated origin verification header and Express rejects requests
+without the expected value before authentication. This origin check complements
+Block 16 authentication; it does not replace user authorization. The value is
+managed and rotated through CDK and never enters the React build.
+
+The initial service size is `0.25 vCPU` and `0.5 GB` with one provisioned
+instance. Its idle memory baseline is approximately USD 2.56 per 730-hour month
+at the documented `us-west-2` rate, before active CPU and other AWS services.
+The design intentionally omits RDS Proxy so Aurora can auto-pause. Database
+health checks remain out of the request-independent health route, and startup
+timeouts must tolerate Aurora resume latency.
 
 Static and API infrastructure will be managed through CDK and deployed through
 the existing GitHub OIDC trust rather than long-lived AWS access keys. Block 15
@@ -253,7 +265,7 @@ sub-block is not authorized by accepting this ADR.
 
 ## Implementation Status
 
-Blocks 15.1 through 15.4 are complete:
+Blocks 15.1 through 15.5 are complete:
 
 - `NormalizedListing` is owned and exported by the domain package
 - migration `002_add_listing_identity` adds a database-generated UUID primary
@@ -289,11 +301,15 @@ Blocks 15.1 through 15.4 are complete:
 - Vite binds to loopback and proxies `/api` to the local Express process without
   adding a development CORS policy
 
-The migration is checked into the repository but has not been run against the
-AWS production database. A future production execution remains separately
-gated. Neither the API nor the web application has been deployed. Local
-PostgreSQL-backed vertical-slice verification and the final production plan
-review remain in Block 15.5.
+Block 15.5 ran both bundled migrations against the local Docker PostgreSQL
+database. A temporary two-listing fixture verified the direct Express endpoint
+and Vite proxy with stable UUIDs, valid coordinates, `Cache-Control: no-store`,
+bounded unknown-route behavior, and no ingestion or notification fields. The
+tagged fixtures were removed afterward. No external API or AWS call was made.
+
+The migration has not been run against the AWS production database. Neither the
+API nor the web application has been deployed, and the existing worker stack and
+scheduler state were not changed.
 
 ## Test Strategy
 
@@ -353,6 +369,21 @@ PostGIS remains the accepted direction for actual spatial queries.
 Rejected because Block 16 owns the security boundary and production property
 data must not be exposed through an unauthenticated endpoint.
 
+### Run Express on Lambda
+
+Rejected for the first production API. Lambda has attractive request-based
+pricing, but the current Express and `node-postgres` composition would require
+additional VPC and connection-lifecycle adaptation. CloudFront OAC for Lambda
+function URLs also requires signed payload handling for future POST requests,
+which conflicts with the planned browser login and mutation surface.
+
+### Run Express on ECS Fargate behind a load balancer
+
+Deferred as a future higher-isolation option. It preserves the container model
+and can provide a private origin, but an always-running service plus load
+balancer has a larger fixed cost and operating surface than the current
+single-user, low-traffic API justifies.
+
 ### Host the React application on Vercel
 
 Rejected for the current production plan. Vercel would provide convenient
@@ -377,7 +408,8 @@ justifies it.
 - The first map can ship without prematurely choosing spatial schema details.
 - The UI must communicate that stored records are snapshots until listing
   lifecycle synchronization is designed.
-- AWS, private S3, CloudFront, and the `/api/*` Express origin are decided;
-  selection of the Express compute service remains a deliberate future decision.
+- AWS, private S3, CloudFront, App Runner, and the `/api/*` Express origin are
+  decided; implementation remains gated on Block 16 security work and a reviewed
+  CDK change.
 - Block 16 can add authentication around an existing tested vertical slice
   instead of mixing foundational data access with security implementation.
