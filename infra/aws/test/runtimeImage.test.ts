@@ -24,5 +24,6 @@ describe("production runtime image", () => {
     expect(dockerfile).toContain("RUN pnpm build:alert-worker");
     expect(dockerfile).not.toContain("RUN pnpm build:runtime");
     expect(dockerfile).not.toContain("COPY apps/api");
+    expect(dockerfile).not.toContain("COPY apps/web");
   });
 });

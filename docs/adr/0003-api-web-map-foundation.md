@@ -227,7 +227,7 @@ sub-block is not authorized by accepting this ADR.
 
 ## Implementation Status
 
-Blocks 15.1 and 15.2 are complete:
+Blocks 15.1 through 15.3 are complete:
 
 - `NormalizedListing` is owned and exported by the domain package
 - migration `002_add_listing_identity` adds a database-generated UUID primary
@@ -245,10 +245,17 @@ Blocks 15.1 and 15.2 are complete:
   binds to `127.0.0.1`, and closes its HTTP server and database on shutdown
 - CI builds both runtimes while the production worker image continues to build
   only the alert-worker dependency graph
+- `apps/web` provides the React/Vite application, a runtime-validating typed
+  client for `/api/listings`, and injected loading behavior for isolated tests
+- the first listings screen renders bounded loading, empty, error, retry, and
+  content states in responsive desktop and mobile layouts
+- Vite binds to loopback and proxies `/api` to the local Express process without
+  adding a development CORS policy
 
 The migration is checked into the repository but has not been run against the
 AWS production database. A future production execution remains separately
-gated. The API has not been deployed, and no web application exists yet.
+gated. Neither the API nor the web application has been deployed. Map rendering
+and list/map selection remain in Block 15.4.
 
 ## Test Strategy
 

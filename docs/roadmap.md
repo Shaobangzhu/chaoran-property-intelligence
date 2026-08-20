@@ -13,7 +13,7 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1 and Blocks 15.0-15.2 are complete. The repository currently
+Blocks 0-14.1 and Blocks 15.0-15.3 are complete. The repository currently
 contains:
 
 - a TypeScript and pnpm workspace
@@ -106,6 +106,7 @@ Planned sub-block mapping:
 3. `15.2` Add the Express app factory and local-only listings endpoint.
    **Complete.**
 4. `15.3` Add the Vite React app, typed API client, and complete read states.
+   **Complete.**
 5. `15.4` Add MapLibre/OpenFreeMap rendering and list/map selection.
 6. `15.5` Verify the local vertical slice and review the authenticated
    production deployment plan.
@@ -120,6 +121,10 @@ listing query boundary. The migration has not been applied to the AWS database.
 Block 15.2 added the Express 5 app factory, explicit listing DTO mapping, safe
 JSON errors, loopback-only database composition, and an isolated worker/API
 build structure. The API remains undeployed and unauthenticated.
+
+Block 15.3 added the local React/Vite application, runtime-validating listings
+client, responsive operational list, and loading, empty, error, retry, and
+content states. The browser uses a Vite loopback proxy and remains undeployed.
 
 ## Planned Product Features
 

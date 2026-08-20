@@ -38,6 +38,23 @@ This endpoint is intentionally local-only and unauthenticated. Do not bind it to
 a public interface or point it at the AWS production database. Public deployment
 is blocked until Block 16 adds server-enforced authentication.
 
+## Local web application
+
+With the local API running, start the Vite development server in a second
+terminal:
+
+```bash
+pnpm web:dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the loopback API at
+`http://127.0.0.1:3000`, so no development CORS policy is required.
+
+The React application renders loading, empty, error, retry, and listing content
+states. It validates API responses at runtime and never receives database,
+RentCast, Telegram, or AWS credentials. The web application remains local-only
+and is not deployed.
+
 ## Production runtime
 
 Local production-mode execution accepts a PostgreSQL connection string:
