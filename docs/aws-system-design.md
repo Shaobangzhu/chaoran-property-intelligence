@@ -118,6 +118,12 @@ flowchart LR
   headers, query strings, and HTTP methods required by the authenticated API.
 - Express performs authentication and authorization on every protected route.
   Neither CloudFront nor React route guards are an authorization boundary.
+- The browser and API use one CloudFront HTTPS origin. The accepted flow does
+  not enable CORS. Express requires an exact configured `Origin` for unsafe
+  methods and uses `SameSite=Strict` HttpOnly cookies as an additional control.
+- A short-lived JWT identifies a candidate user, but each protected request
+  reloads current role and status from Aurora before authorization. Disabled or
+  missing users are rejected before listing data is returned.
 - The API runtime uses a dedicated least-privilege IAM role, a dedicated
   security group, TLS database validation, bounded timeouts, and private Aurora
   connectivity.
@@ -143,6 +149,11 @@ flowchart LR
 - App Runner reserves `PORT`. The production composition root must bind to
   `0.0.0.0` using an explicitly validated deployment mode while preserving the
   current loopback-only local default.
+- CloudFront WAF applies a rate-based rule scoped to `POST /api/auth/login`.
+  The application also limits login before Argon2 verification, but its local
+  counters are defense in depth rather than the distributed production control.
+- API authentication values live in a separate retained Secrets Manager secret
+  and never share the worker's RentCast or Telegram secret.
 
 Lambda was not selected because the existing Express and `node-postgres`
 runtime would need additional VPC and database lifecycle work, while Lambda
@@ -491,6 +502,7 @@ The following are release gates, not suggestions:
 - [Local listings vertical-slice runbook](runbooks/local-listings-vertical-slice.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)
+- [ADR 0004: Single-User Authentication](adr/0004-single-user-authentication.md)
 - [AWS: secure static website with CloudFront and S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/getting-started-secure-static-website-cloudformation-template.html)
 - [AWS: CloudFront cache behavior settings](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html)
 - [AWS: App Runner VPC access](https://docs.aws.amazon.com/apprunner/latest/dg/network-vpc.html)
@@ -498,6 +510,7 @@ The following are release gates, not suggestions:
 - [AWS: App Runner pricing](https://aws.amazon.com/apprunner/pricing/)
 - [AWS: CloudFront custom origin headers](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/add-origin-custom-headers.html)
 - [AWS: Aurora Serverless v2 auto-pause](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html)
+- [AWS: rate-limit requests to a login page](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rate-based-example-limit-login-page.html)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)
 - [Production stack](../infra/aws/lib/propertyAlertStack.ts)

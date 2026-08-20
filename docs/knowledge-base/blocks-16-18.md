@@ -103,6 +103,15 @@ endpoint.
 
 Use Argon2id through an injected `PasswordHasher` port. Never use plaintext,
 SHA-256, reversible encryption, or a custom password-hashing implementation.
+Use the maintained `argon2` package and its PHC hash representation, beginning
+with `19 MiB`, two iterations, and parallelism one. Benchmark without weakening
+that documented baseline. Passwords support Unicode and spaces, use consistent
+NFC normalization, require 15-128 characters, have no composition rules, and
+are checked against a bounded common and context-specific blocklist.
+
+Unknown-email authentication performs one verification against a fixed valid
+dummy hash. Unknown email, wrong password, and disabled user return the same
+public status and error shape.
 
 ### JWT and Cookie Contract
 
@@ -116,6 +125,12 @@ It never contains passwords, hashes, API keys, or unnecessary personal data.
 JWT issuer, audience, and signing secret are server configuration. The signing
 secret must never enter the React bundle.
 
+Use `jose`, fixed `HS256` verification, a random secret with at least 256 bits
+of entropy, an explicit token type, and a 60-minute initial lifetime. JWT
+verification identifies a candidate user only. Every protected request reloads
+that user by `sub`, requires `active` status, and derives authorization from the
+current database role rather than trusting the token role alone.
+
 The API returns the JWT in a cookie with:
 
 - `HttpOnly`
@@ -124,21 +139,26 @@ The API returns the JWT in a cookie with:
 - `Path=/`
 - bounded `Max-Age`
 
-Localhost may use `Secure=false` only through explicit environment-aware
+Local development may use `Secure=false` only through explicit environment-aware
 configuration. Logout clears the exact cookie contract used by login. Do not
 store the token in `localStorage` or `sessionStorage`.
 
 ### HTTP Security
 
-- allow only the exact configured frontend origin
-- enable credentialed CORS only for that origin
-- validate `Origin` or use an equivalently documented CSRF defense
+- keep the accepted local Vite-proxy and production CloudFront flows
+  same-origin; do not enable CORS
+- require an exact configured `Origin` for every unsafe request, including
+  login and logout
 - use HTTPS in production
-- rate-limit login
+- run the App Runner origin guard before body parsing and authentication
+- layer an application login limiter with a CloudFront WAF rate rule
 - return the same generic error for unknown email and incorrect password
 - deny disabled users
 - log security outcomes without password, token, or cookie values
 - return only the minimum profile from `/auth/me`
+
+A future cross-origin client requires a separate review and exact credentialed
+allowlist. Wildcard credentialed CORS is never allowed.
 
 ### Authentication Test Inventory
 
@@ -153,6 +173,10 @@ store the token in `localStorage` or `sessionStorage`.
 - admin-only route returns 403 for insufficient authorization
 - logout clears the cookie
 - login rate limiting and CSRF/origin behavior
+
+The complete accepted threat model, route contracts, residual risks, and
+sub-block ownership are recorded in
+[ADR 0004](../adr/0004-single-user-authentication.md).
 
 ## Block 17: Manual Listing Management
 

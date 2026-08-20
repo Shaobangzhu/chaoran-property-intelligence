@@ -13,8 +13,8 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1 and Blocks 15.0-15.3 are complete. The repository currently
-contains:
+Blocks 0-14.1, Blocks 15.0-15.5, and Block 16.0 are complete. The repository
+currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -159,17 +159,31 @@ authorization.
 
 Planned sub-block mapping:
 
-1. `16.0` Inspect the API/web architecture and authentication threat surface.
-2. `16.1` Add the user domain model and `UserRepository` port.
-3. `16.2` Add Argon2id password hashing and the admin creation CLI.
-4. `16.3` Add the token service and required JWT claims.
+1. `16.0` Inspect the API/web architecture, record the authentication threat
+   model, contracts, and test plan. **Complete.**
+2. `16.1` Add the user domain model, migration, `UserRepository` port, and
+   PostgreSQL adapter.
+3. `16.2` Add password policy, Argon2id hashing, and the admin creation CLI.
+4. `16.3` Add JWT configuration, the token service, and required claims.
 5. `16.4` Add login, logout, and current-user use cases.
-6. `16.5` Add Express routes, cookie handling, and auth middleware.
-7. `16.6` Add the React login and protected-write experience.
-8. `16.7` Complete rate-limit, CSRF, authorization, and security tests.
+6. `16.5` Add Express routes, cookies, origin checks, auth middleware, protected
+   listings, and database-independent health.
+7. `16.6` Add React session bootstrap, login, logout, and the protected
+   workspace.
+8. `16.7` Complete application rate limiting, security headers, CSRF,
+   authorization, and end-to-end security tests.
 
 Each numbered item is separately gated and must not be implemented as one large
 change.
+
+Block 16.0 accepted
+[ADR 0004: Single-User Authentication](adr/0004-single-user-authentication.md).
+The selected design uses Argon2id password hashes, a short-lived JWT in an
+HttpOnly same-site cookie, live database user-status checks, exact Origin
+validation for unsafe requests, an App Runner origin guard, and layered login
+rate limiting. The same-origin topology does not enable CORS. Public AWS
+deployment remains a separately reviewed operational gate after the security
+implementation is complete.
 
 ### Block 17: Manual Listing Management
 
