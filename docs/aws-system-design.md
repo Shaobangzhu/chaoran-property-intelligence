@@ -180,8 +180,11 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Current state | `DISABLED` |
 | Fargate CPU | 256 CPU units |
 | Fargate memory | 512 MiB |
+| CPU architecture | X86_64 |
+| Operating system | Linux |
 | Platform version | Latest |
 | Hard process limit | 15 minutes |
+| RentCast request timeout | 30 seconds, no automatic retry |
 | Scheduler retry attempts | 2 |
 | Maximum scheduler event age | 1 hour |
 | Dead-letter retention | 14 days, SQS-managed encryption |
@@ -194,7 +197,18 @@ timeout --signal=TERM 15m node apps/alert-worker/dist/index.js --run
 
 The image is built from the repository `Dockerfile`, published to the CDK
 bootstrap ECR repository, and referenced by the ECS task definition. The image
-contains the AWS RDS global certificate bundle.
+asset is explicitly built for `linux/amd64`, matching the task definition's
+X86_64 runtime on both Apple Silicon developer machines and GitHub's Linux
+runner. The image contains the AWS RDS global certificate bundle. Its directory
+is mode `0755` and the public CA file is mode `0444`, allowing the non-root
+`node` runtime user to validate Aurora's certificate chain.
+
+For controlled operations, the same image exposes `--verify-baseline`. That
+mode uses only the database connection, performs no migration or external HTTP
+request, and logs only schema readiness, migration state, the baseline marker,
+and aggregate baseline/pending/sent counts. It is used before and after the
+first production run from inside the VPC because Aurora is not publicly
+reachable.
 
 ## Database Design
 
@@ -364,6 +378,7 @@ The following are release gates, not suggestions:
 ## References
 
 - [AWS deployment runbook](runbooks/aws-deployment.md)
+- [Production baseline runbook](runbooks/production-baseline.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)

@@ -1,5 +1,6 @@
 import { runAlertWorker } from "./runAlertWorker.js";
 import { runProduction } from "./runProduction.js";
+import { verifyProductionBaseline } from "./verifyProductionBaseline.js";
 
 interface ProcessLike {
   argv: string[];
@@ -23,6 +24,10 @@ process.exitCode = await runAlertWorker(
         environment: process.env,
         fetch: globalThis.fetch,
         now: () => new Date(),
+      }),
+    verifyProductionBaseline: () =>
+      verifyProductionBaseline({
+        environment: process.env,
       }),
   },
 );

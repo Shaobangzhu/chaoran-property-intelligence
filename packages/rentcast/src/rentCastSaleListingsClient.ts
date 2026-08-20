@@ -1,5 +1,5 @@
 const rentCastSaleListingsUrl = "https://api.rentcast.io/v1/listings/sale";
-const defaultTimeoutMs = 10000;
+const defaultTimeoutMs = 30000;
 
 export interface RentCastSaleListingsClientOptions {
   apiKey: string;

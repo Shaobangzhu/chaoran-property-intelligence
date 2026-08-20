@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { loadProductionConfig } from "./productionConfig.js";
+import {
+  loadDatabaseConnectionConfig,
+  loadProductionConfig,
+} from "./productionConfig.js";
 
 describe("loadProductionConfig", () => {
+  it("loads database-only configuration for baseline verification", () => {
+    expect(
+      loadDatabaseConnectionConfig({
+        DATABASE_URL: "postgresql://database.example/app",
+      }),
+    ).toEqual({
+      kind: "connection-string",
+      connectionString: "postgresql://database.example/app",
+    });
+  });
+
   it("loads a local DATABASE_URL with the shared production settings", () => {
     expect(
       loadProductionConfig({

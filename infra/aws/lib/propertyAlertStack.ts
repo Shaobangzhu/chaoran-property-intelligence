@@ -12,12 +12,15 @@ import { Port, Vpc, SecurityGroup, SubnetType } from "aws-cdk-lib/aws-ec2";
 import {
   Cluster,
   ContainerImage,
+  CpuArchitecture,
   FargatePlatformVersion,
   FargateTaskDefinition,
   LogDrivers,
+  OperatingSystemFamily,
   Secret as EcsSecret,
   UlimitName,
 } from "aws-cdk-lib/aws-ecs";
+import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { SnsTopic } from "aws-cdk-lib/aws-events-targets";
 import {
@@ -218,6 +221,10 @@ export class PropertyAlertStack extends Stack {
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       cpu: 256,
       memoryLimitMiB: 512,
+      runtimePlatform: {
+        cpuArchitecture: CpuArchitecture.X86_64,
+        operatingSystemFamily: OperatingSystemFamily.LINUX,
+      },
     });
     const logGroup = new LogGroup(this, "WorkerLogGroup", {
       logGroupName: "/cpi/production/alert-worker",
@@ -245,6 +252,7 @@ export class PropertyAlertStack extends Stack {
         props.containerImage ??
         ContainerImage.fromAsset(
           props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
+          { platform: Platform.LINUX_AMD64 },
         ),
       logging: LogDrivers.awsLogs({
         logGroup,

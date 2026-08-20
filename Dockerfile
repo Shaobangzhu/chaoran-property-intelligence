@@ -43,7 +43,9 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-COPY --from=rds-certificate /global-bundle.pem /app/certs/global-bundle.pem
+RUN install -d -m 0755 /app/certs
+
+COPY --from=rds-certificate --chmod=0444 /global-bundle.pem /app/certs/global-bundle.pem
 COPY --from=build --chown=node:node /deploy /app/apps/alert-worker
 
 USER node

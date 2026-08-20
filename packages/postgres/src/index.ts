@@ -3,6 +3,10 @@ export {
   type PostgresConnectionConfig,
 } from "./createPostgresDatabase.js";
 export {
+  inspectBaselineState,
+  type BaselineState,
+} from "./inspectBaselineState.js";
+export {
   NodePostgresDatabase,
   type PgPoolLike,
 } from "./nodePostgresDatabase.js";

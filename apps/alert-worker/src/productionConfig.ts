@@ -11,7 +11,7 @@ export function loadProductionConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): ProductionConfig {
   return {
-    databaseConnection: readDatabaseConnection(environment),
+    databaseConnection: loadDatabaseConnectionConfig(environment),
     rentCastApiKey: readRequiredVariable(environment, "RENTCAST_API_KEY"),
     telegramBotToken: readRequiredVariable(
       environment,
@@ -21,7 +21,7 @@ export function loadProductionConfig(
   };
 }
 
-function readDatabaseConnection(
+export function loadDatabaseConnectionConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): PostgresConnectionConfig {
   const databaseUrl = readOptionalVariable(environment, "DATABASE_URL");

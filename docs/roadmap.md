@@ -13,7 +13,7 @@ features early.
 
 ## Current Status
 
-Blocks 0-11 are complete. The repository currently contains:
+Blocks 0-14 are complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -61,6 +61,12 @@ Run the first production worker execution under controlled conditions. Verify
 that it writes the independent baseline marker, stores all current matches as
 baseline records, creates no pending or sent records, and sends no Telegram
 notification.
+
+Implementation status: the database-only `--verify-baseline` mode and controlled
+execution runbook are complete. The approved production baseline completed on
+2026-08-20 with 28 baseline records, an independent initialized marker, and zero
+pending or sent records. The Scheduler remains disabled and no ECS tasks remain
+running. The operator confirmed that no Telegram listing message was received.
 
 ### Block 15: API, React, and Map Foundation
 

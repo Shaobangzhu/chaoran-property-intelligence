@@ -51,6 +51,18 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits.
 
+The production image also provides a read-only aggregate baseline check:
+
+```bash
+node apps/alert-worker/dist/index.js --verify-baseline
+```
+
+This mode queries only schema readiness, migration state, the baseline marker,
+and baseline/pending/sent counts. It does not run migrations or call RentCast
+or Telegram. Follow the
+[production baseline runbook](docs/runbooks/production-baseline.md) before its
+first AWS use.
+
 ## AWS deployment
 
 The production deployment is defined with AWS CDK:
@@ -101,4 +113,5 @@ runtime flow, security controls, and resource lifecycle.
 - [AWS system design and configuration](docs/aws-system-design.md)
 - [AWS deployment decision](docs/adr/0002-aws-deployment-foundation.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
+- [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)

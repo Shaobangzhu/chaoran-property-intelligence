@@ -168,4 +168,38 @@ describe("RentCastSaleListingsClient", () => {
 
     vi.useRealTimers();
   });
+
+  it("allows the default production request up to 30 seconds", async () => {
+    vi.useFakeTimers();
+
+    let timedOut = false;
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted", "AbortError"));
+          });
+        }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+    const search = client.searchSaleListings().catch((error: unknown) => {
+      timedOut = true;
+      return error;
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(timedOut).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(20_000);
+      await expect(search).resolves.toEqual(
+        new Error("RentCast sale listings request timed out"),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

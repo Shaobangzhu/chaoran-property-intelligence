@@ -42,6 +42,10 @@ describe("PropertyAlertStack", () => {
       Memory: "512",
       NetworkMode: "awsvpc",
       RequiresCompatibilities: ["FARGATE"],
+      RuntimePlatform: {
+        CpuArchitecture: "X86_64",
+        OperatingSystemFamily: "LINUX",
+      },
       ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Command: [

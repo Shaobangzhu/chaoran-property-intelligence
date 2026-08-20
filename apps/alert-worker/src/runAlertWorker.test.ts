@@ -37,7 +37,7 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toContain(
-      "This worker supports only --dry-run or --run.",
+      "This worker supports only --dry-run, --run, or --verify-baseline.",
     );
   });
 
@@ -52,12 +52,48 @@ describe("runAlertWorker", () => {
         stdout,
         stderr,
       },
-      { runProduction },
+      {
+        runProduction,
+        verifyProductionBaseline: async () => createBaselineState(),
+      },
     );
 
     expect(exitCode).toBe(0);
     expect(runProduction).toHaveBeenCalledOnce();
     expect(stdout.output).toBe("Production run completed.\n");
+    expect(stderr.output).toBe("");
+  });
+
+  it("prints aggregate baseline state without running production", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const runProduction = vi.fn(async () => {});
+    const verifyProductionBaseline = vi.fn(async () => createBaselineState());
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--verify-baseline"],
+        stdout,
+        stderr,
+      },
+      { runProduction, verifyProductionBaseline },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(runProduction).not.toHaveBeenCalled();
+    expect(verifyProductionBaseline).toHaveBeenCalledOnce();
+    expect(stdout.output).toBe(
+      [
+        "Production baseline verification completed.",
+        "Schema ready: yes",
+        "Migration applied: yes",
+        "Baseline initialized: yes",
+        "Baseline listings: 4",
+        "Pending listings: 0",
+        "Sent listings: 0",
+        "",
+      ].join("\n"),
+    );
     expect(stderr.output).toBe("");
   });
 
@@ -75,6 +111,7 @@ describe("runAlertWorker", () => {
         runProduction: async () => {
           throw new Error("Database unavailable");
         },
+        verifyProductionBaseline: async () => createBaselineState(),
       },
     );
 
@@ -83,6 +120,17 @@ describe("runAlertWorker", () => {
     expect(stderr.output).toBe("Worker failed: Database unavailable\n");
   });
 });
+
+function createBaselineState() {
+  return {
+    schemaReady: true,
+    migrationApplied: true,
+    baselineInitialized: true,
+    baselineListings: 4,
+    pendingListings: 0,
+    sentListings: 0,
+  };
+}
 
 class MemoryWriter {
   output = "";

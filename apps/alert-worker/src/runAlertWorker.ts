@@ -1,3 +1,5 @@
+import type { BaselineState } from "@chaoran-property-intelligence/postgres";
+
 import { runDryRun } from "./runDryRun.js";
 
 export interface TextWriter {
@@ -12,6 +14,7 @@ export interface AlertWorkerRuntime {
 
 export interface AlertWorkerActions {
   runProduction(): Promise<void>;
+  verifyProductionBaseline(): Promise<BaselineState>;
 }
 
 export async function runAlertWorker(
@@ -20,7 +23,7 @@ export async function runAlertWorker(
 ): Promise<number> {
   if (runtime.args.length !== 1) {
     runtime.stderr.write(
-      "This worker supports only --dry-run or --run.\n",
+      "This worker supports only --dry-run, --run, or --verify-baseline.\n",
     );
     return 1;
   }
@@ -55,8 +58,37 @@ export async function runAlertWorker(
     }
   }
 
-  runtime.stderr.write("This worker supports only --dry-run or --run.\n");
+  if (runtime.args[0] === "--verify-baseline" && actions !== undefined) {
+    try {
+      const state = await actions.verifyProductionBaseline();
+      writeBaselineState(runtime.stdout, state);
+      return 0;
+    } catch (error) {
+      runtime.stderr.write(
+        `Baseline verification failed: ${getErrorMessage(error)}\n`,
+      );
+      return 1;
+    }
+  }
+
+  runtime.stderr.write(
+    "This worker supports only --dry-run, --run, or --verify-baseline.\n",
+  );
   return 1;
+}
+
+function writeBaselineState(writer: TextWriter, state: BaselineState): void {
+  writer.write("Production baseline verification completed.\n");
+  writer.write(`Schema ready: ${state.schemaReady ? "yes" : "no"}\n`);
+  writer.write(
+    `Migration applied: ${state.migrationApplied ? "yes" : "no"}\n`,
+  );
+  writer.write(
+    `Baseline initialized: ${state.baselineInitialized ? "yes" : "no"}\n`,
+  );
+  writer.write(`Baseline listings: ${state.baselineListings}\n`);
+  writer.write(`Pending listings: ${state.pendingListings}\n`);
+  writer.write(`Sent listings: ${state.sentListings}\n`);
 }
 
 function getErrorMessage(error: unknown): string {
