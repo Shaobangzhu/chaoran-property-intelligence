@@ -105,7 +105,7 @@ separately designed ingestion change.
 
 ### Initial HTTP Contract
 
-Block 15.2 will implement one read endpoint:
+Block 15.2 implements one read endpoint:
 
 ```text
 GET /api/listings
@@ -227,7 +227,7 @@ sub-block is not authorized by accepting this ADR.
 
 ## Implementation Status
 
-Block 15.1 is complete:
+Blocks 15.1 and 15.2 are complete:
 
 - `NormalizedListing` is owned and exported by the domain package
 - migration `002_add_listing_identity` adds a database-generated UUID primary
@@ -237,10 +237,18 @@ Block 15.1 is complete:
 - `PostgresListingQuery` returns normalized records in deterministic order
 - the worker repository and query adapter share defensive row parsing without
   exposing notification state through the read port
+- `apps/api` provides an injected Express 5 app factory and explicitly maps
+  `GET /api/listings` results to the agreed HTTP DTO
+- query failures and unknown routes return bounded JSON errors without exposing
+  database details, deduplication keys, or notification state
+- the local composition root loads only database configuration, runs migrations,
+  binds to `127.0.0.1`, and closes its HTTP server and database on shutdown
+- CI builds both runtimes while the production worker image continues to build
+  only the alert-worker dependency graph
 
 The migration is checked into the repository but has not been run against the
 AWS production database. A future production execution remains separately
-gated. No API or web application exists yet.
+gated. The API has not been deployed, and no web application exists yet.
 
 ## Test Strategy
 

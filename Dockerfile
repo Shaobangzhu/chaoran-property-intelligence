@@ -33,7 +33,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 COPY apps/alert-worker apps/alert-worker
 COPY packages packages
 
-RUN pnpm build:runtime \
+RUN pnpm build:alert-worker \
   && pnpm --filter @chaoran-property-intelligence/alert-worker \
     deploy --prod /deploy
 

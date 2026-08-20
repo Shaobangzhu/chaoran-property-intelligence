@@ -27,19 +27,28 @@ export type PostgresConnectionConfig =
       ssl: true;
     };
 
+export interface PostgresDatabaseOptions {
+  applicationName?: string;
+}
+
 export function createPostgresDatabase(
   connection: PostgresConnectionConfig,
+  options: PostgresDatabaseOptions = {},
 ): SqlDatabase {
-  const pool = new Pool(createPoolConfig(connection));
+  const pool = new Pool(createPoolConfig(connection, options));
 
   return new NodePostgresDatabase(new PgPoolAdapter(pool));
 }
 
-function createPoolConfig(connection: PostgresConnectionConfig): PoolConfig {
+function createPoolConfig(
+  connection: PostgresConnectionConfig,
+  options: PostgresDatabaseOptions,
+): PoolConfig {
   const sharedConfig: PoolConfig = {
     max: 1,
     connectionTimeoutMillis: 60_000,
-    application_name: "chaoran-property-alert-worker",
+    application_name:
+      options.applicationName ?? "chaoran-property-alert-worker",
   };
 
   if (connection.kind === "connection-string") {

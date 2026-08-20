@@ -1,6 +1,7 @@
 export {
   createPostgresDatabase,
   type PostgresConnectionConfig,
+  type PostgresDatabaseOptions,
 } from "./createPostgresDatabase.js";
 export {
   inspectBaselineState,

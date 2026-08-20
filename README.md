@@ -16,6 +16,28 @@ Run the CLI with in-memory adapters and fixture listings:
 pnpm alert-worker:dry-run
 ```
 
+## Local listings API
+
+Set `DATABASE_URL` in `.env.local`, then start the loopback-only API:
+
+```bash
+pnpm api:start
+```
+
+The command builds the API, loads `.env.local` with Node's built-in env-file
+support, runs bundled PostgreSQL migrations, and listens on
+`http://127.0.0.1:3000` by default. Set `API_PORT` to use another local port.
+
+The first endpoint is:
+
+```text
+GET http://127.0.0.1:3000/api/listings
+```
+
+This endpoint is intentionally local-only and unauthenticated. Do not bind it to
+a public interface or point it at the AWS production database. Public deployment
+is blocked until Block 16 adds server-enforced authentication.
+
 ## Production runtime
 
 Local production-mode execution accepts a PostgreSQL connection string:
