@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+**/*.test.ts
+**/*.test.tsx
+coverage
+cdk.out
+infra
+docs
+README.md

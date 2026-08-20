@@ -24,7 +24,7 @@ describe("runProduction", () => {
     await runProduction(createRuntime(), dependencies);
 
     expect(events).toEqual([
-      "database:postgresql://database.example/app",
+      "database:connection-string",
       "migrate",
       "source:rentcast-secret",
       "notifications:telegram-secret:123456789",
@@ -75,8 +75,8 @@ function createDependencies(
   events: string[],
 ): ProductionDependencies {
   return {
-    createDatabase(connectionString) {
-      events.push(`database:${connectionString}`);
+    createDatabase(connection) {
+      events.push(`database:${connection.kind}`);
       return database;
     },
     async runMigrations() {

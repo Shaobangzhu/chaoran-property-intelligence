@@ -1,11 +1,17 @@
 packages:
   - "apps/*"
+  - "infra/*"
   - "packages/*"
 
 verifyDepsBeforeRun: false
+injectWorkspacePackages: true
 
 allowBuilds:
   esbuild: true
 
 onlyBuiltDependencies:
   - esbuild
+
+minimumReleaseAgeExclude:
+  - aws-cdk-lib@2.266.0
+  - aws-cdk@2.1138.0

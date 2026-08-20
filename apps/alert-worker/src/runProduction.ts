@@ -8,6 +8,7 @@ import {
   createPostgresDatabase,
   PostgresListingRepository,
   runBundledMigrations,
+  type PostgresConnectionConfig,
   type SqlDatabase,
 } from "@chaoran-property-intelligence/postgres";
 import { RentCastSaleListingsClient } from "@chaoran-property-intelligence/rentcast";
@@ -35,7 +36,7 @@ export interface ProductionNotificationOptions {
 }
 
 export interface ProductionDependencies {
-  createDatabase(connectionString: string): SqlDatabase;
+  createDatabase(connection: PostgresConnectionConfig): SqlDatabase;
   runMigrations(database: SqlDatabase): Promise<void>;
   createSource(options: ProductionSourceOptions): ListingSourcePort;
   createNotifications(
@@ -69,7 +70,7 @@ export async function runProduction(
   dependencies: ProductionDependencies = defaultDependencies,
 ): Promise<void> {
   const config = loadProductionConfig(runtime.environment);
-  const database = dependencies.createDatabase(config.databaseUrl);
+  const database = dependencies.createDatabase(config.databaseConnection);
 
   try {
     await dependencies.runMigrations(database);

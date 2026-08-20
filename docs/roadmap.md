@@ -36,6 +36,10 @@ stack. The planned runtime is EventBridge Scheduler, an ECS Fargate one-off
 task, and Aurora PostgreSQL Serverless v2. This block must not provision AWS
 resources.
 
+Implementation status: the container, CDK stack, contract tests, local synth,
+and deployment ADR are complete. The schedule remains disabled by default until
+Block 13 configures production secrets and receives deployment approval.
+
 ### Block 13: AWS Bootstrap and Deployment
 
 Create cost alerts, bootstrap CDK, establish GitHub Actions OIDC, provision the

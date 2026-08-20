@@ -1,4 +1,7 @@
-export { createPostgresDatabase } from "./createPostgresDatabase.js";
+export {
+  createPostgresDatabase,
+  type PostgresConnectionConfig,
+} from "./createPostgresDatabase.js";
 export {
   NodePostgresDatabase,
   type PgPoolLike,
