@@ -39,3 +39,8 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits. Deployment configuration is intentionally deferred to the next
 block.
+
+## Project planning
+
+- [Project roadmap](docs/roadmap.md)
+- [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
