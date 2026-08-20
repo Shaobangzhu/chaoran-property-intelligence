@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
+
 import {
   CheckNewListings,
   type ListingCriteriaPort,
   type ListingNotificationPort,
   type ListingRepositoryPort,
   type ListingSourcePort,
-  type NormalizedListing,
   type StoredListing,
 } from "./checkNewListings.js";
 

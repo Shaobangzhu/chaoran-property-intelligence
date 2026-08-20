@@ -225,6 +225,23 @@ geometry type, SRID, index, and distance semantics.
 Every sub-block requires a fresh explanation and explicit confirmation. A later
 sub-block is not authorized by accepting this ADR.
 
+## Implementation Status
+
+Block 15.1 is complete:
+
+- `NormalizedListing` is owned and exported by the domain package
+- migration `002_add_listing_identity` adds a database-generated UUID primary
+  key and preserves `deduplication_key` as the worker's unique ingestion key
+- `ListListings`, `ListingRecord`, and `ListingQueryPort` establish the
+  application read boundary
+- `PostgresListingQuery` returns normalized records in deterministic order
+- the worker repository and query adapter share defensive row parsing without
+  exposing notification state through the read port
+
+The migration is checked into the repository but has not been run against the
+AWS production database. A future production execution remains separately
+gated. No API or web application exists yet.
+
 ## Test Strategy
 
 - Block 15.1 tests the migration, deterministic reads, row validation, stable

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
+    "@chaoran-property-intelligence/domain": "workspace:*",
     "pg": "^8.23.0"
   },
   "devDependencies": {

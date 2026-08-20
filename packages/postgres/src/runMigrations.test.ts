@@ -59,6 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
+    expect(database.transactionCount).toBe(2);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -67,6 +68,35 @@ describe("runMigrations", () => {
     );
     expect(database.queries[3]?.parameters).toEqual([
       "001_initial_alert_schema",
+    ]);
+    expect(database.queries[4]?.text).toContain(
+      "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
+    );
+    expect(database.queries[4]?.text).toContain(
+      "PRIMARY KEY (id)",
+    );
+    expect(database.queries[4]?.text).toContain(
+      "UNIQUE (deduplication_key)",
+    );
+    expect(database.queries[5]?.parameters).toEqual([
+      "002_add_listing_identity",
+    ]);
+  });
+
+  it("applies only the identity migration when the initial schema exists", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [] },
+      { rows: [{ version: "001_initial_alert_schema" }] },
+    ]);
+
+    await runBundledMigrations(database);
+
+    expect(database.transactionCount).toBe(1);
+    expect(database.queries[2]?.text).toContain(
+      "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
+    );
+    expect(database.queries[3]?.parameters).toEqual([
+      "002_add_listing_identity",
     ]);
   });
 });

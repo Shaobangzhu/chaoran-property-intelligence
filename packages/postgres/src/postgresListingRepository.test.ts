@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NormalizedListing } from "@chaoran-property-intelligence/application";
+import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
 
 import { PostgresListingRepository } from "./postgresListingRepository.js";
 import type {

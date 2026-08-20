@@ -5,3 +5,4 @@ export {
   matchesMvpSearchCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
+export type { NormalizedListing } from "./normalizedListing.js";

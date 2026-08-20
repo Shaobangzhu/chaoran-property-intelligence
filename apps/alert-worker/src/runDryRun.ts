@@ -2,9 +2,11 @@ import {
   CheckNewListings,
   type ListingNotificationPort,
   type ListingSourcePort,
-  type NormalizedListing,
 } from "@chaoran-property-intelligence/application";
-import { matchesMvpSearchCriteria } from "@chaoran-property-intelligence/domain";
+import {
+  matchesMvpSearchCriteria,
+  type NormalizedListing,
+} from "@chaoran-property-intelligence/domain";
 
 import { InMemoryListingRepository } from "./inMemoryListingRepository.js";
 

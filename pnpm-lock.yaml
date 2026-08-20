@@ -50,7 +50,11 @@ importers:
         specifier: 2.1138.0
         version: 2.1138.0
 
-  packages/application: {}
+  packages/application:
+    dependencies:
+      '@chaoran-property-intelligence/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/domain: {}
 
@@ -59,6 +63,9 @@ importers:
       '@chaoran-property-intelligence/application':
         specifier: workspace:*
         version: link:../application
+      '@chaoran-property-intelligence/domain':
+        specifier: workspace:*
+        version: link:../domain
       pg:
         specifier: ^8.23.0
         version: 8.23.0

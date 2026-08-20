@@ -13,7 +13,8 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1 and Block 15.0 are complete. The repository currently contains:
+Blocks 0-14.1 and Blocks 15.0-15.1 are complete. The repository currently
+contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -101,7 +102,7 @@ Planned sub-block mapping:
 1. `15.0` Record architecture, contracts, risks, tests, and Block 16 entry
    criteria. **Complete.**
 2. `15.1` Add stable listing identity, shared model ownership, the listing query
-   use case, and the PostgreSQL query adapter.
+   use case, and the PostgreSQL query adapter. **Complete.**
 3. `15.2` Add the Express app factory and local-only listings endpoint.
 4. `15.3` Add the Vite React app, typed API client, and complete read states.
 5. `15.4` Add MapLibre/OpenFreeMap rendering and list/map selection.
@@ -110,6 +111,10 @@ Planned sub-block mapping:
 
 Each item remains separately gated. Block 16 starts only after the Block 16
 entry criteria in ADR 0003 are satisfied.
+
+Block 15.1 moved `NormalizedListing` into the domain package, added the stable
+UUID identity migration, and established the tested application and PostgreSQL
+listing query boundary. The migration has not been applied to the AWS database.
 
 ## Planned Product Features
 

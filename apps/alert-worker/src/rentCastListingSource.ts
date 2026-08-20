@@ -1,7 +1,5 @@
-import type {
-  ListingSourcePort,
-  NormalizedListing,
-} from "@chaoran-property-intelligence/application";
+import type { ListingSourcePort } from "@chaoran-property-intelligence/application";
+import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
 import type {
   RentCastListingsPort,
   RentCastSaleListing,

@@ -4,6 +4,11 @@ export type {
   ListingNotificationPort,
   ListingRepositoryPort,
   ListingSourcePort,
-  NormalizedListing,
   StoredListing,
 } from "./checkNewListings.js";
+export { ListListings } from "./listListings.js";
+export type {
+  ListingQueryPort,
+  ListingRecord,
+  ListListingsOptions,
+} from "./listListings.js";
