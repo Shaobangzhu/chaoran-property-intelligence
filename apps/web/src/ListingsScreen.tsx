@@ -6,11 +6,14 @@ import {
   CalendarDays,
   Database,
   Inbox,
+  List,
+  Map,
   MapPin,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 
+import { ListingsMap, type ListingsMapProps } from "./ListingsMap.js";
 import type { ListingSummary } from "./listingsApi.js";
 
 export type ListingsLoader = (
@@ -19,7 +22,10 @@ export type ListingsLoader = (
 
 export interface ListingsScreenProps {
   loadListings: ListingsLoader;
+  mapView?: ComponentType<ListingsMapViewProps>;
 }
+
+export type ListingsMapViewProps = Omit<ListingsMapProps, "createMap">;
 
 type ListingsState =
   | { status: "loading" }
@@ -28,9 +34,14 @@ type ListingsState =
 
 export function ListingsScreen({
   loadListings,
+  mapView: MapView = ListingsMap,
 }: ListingsScreenProps): React.JSX.Element {
   const [requestNumber, setRequestNumber] = useState(0);
   const [state, setState] = useState<ListingsState>({ status: "loading" });
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(
+    null,
+  );
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,7 +91,51 @@ export function ListingsScreen({
         <EmptyState />
       ) : null}
       {state.status === "ready" && state.listings.length > 0 ? (
-        <ListingList listings={state.listings} />
+        <>
+          <div
+            className="mobile-view-control"
+            role="group"
+            aria-label="Listing view"
+          >
+            <button
+              type="button"
+              aria-label="List view"
+              aria-pressed={mobileView === "list"}
+              onClick={() => setMobileView("list")}
+            >
+              <List aria-hidden="true" size={16} strokeWidth={2} />
+              List
+            </button>
+            <button
+              type="button"
+              aria-label="Map view"
+              aria-pressed={mobileView === "map"}
+              onClick={() => setMobileView("map")}
+            >
+              <Map aria-hidden="true" size={16} strokeWidth={2} />
+              Map
+            </button>
+          </div>
+          <div className={`list-map-workspace mobile-mode-${mobileView}`}>
+            <div className="list-panel">
+              <ListingList
+                listings={state.listings}
+                onSelect={setSelectedListingId}
+                selectedListingId={selectedListingId}
+              />
+            </div>
+            <div className="map-panel">
+              <MapView
+                listings={state.listings}
+                selectedListingId={selectedListingId}
+                onSelect={(listingId) => {
+                  setSelectedListingId(listingId);
+                  setMobileView("list");
+                }}
+              />
+            </div>
+          </div>
+        </>
       ) : null}
     </main>
   );
@@ -134,23 +189,53 @@ function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
 
 function ListingList({
   listings,
+  selectedListingId,
+  onSelect,
 }: {
   listings: ListingSummary[];
+  selectedListingId: string | null;
+  onSelect: (listingId: string) => void;
 }): React.JSX.Element {
   return (
     <section className="listing-list" aria-label="Stored listings">
       {listings.map((listing) => (
-        <ListingRow listing={listing} key={listing.id} />
+        <ListingRow
+          isSelected={listing.id === selectedListingId}
+          listing={listing}
+          key={listing.id}
+          onSelect={onSelect}
+        />
       ))}
     </section>
   );
 }
 
-function ListingRow({ listing }: { listing: ListingSummary }): React.JSX.Element {
+function ListingRow({
+  isSelected,
+  listing,
+  onSelect,
+}: {
+  isSelected: boolean;
+  listing: ListingSummary;
+  onSelect: (listingId: string) => void;
+}): React.JSX.Element {
   const mlsReference = formatMlsReference(listing);
 
   return (
-    <article className="listing-row">
+    <article
+      aria-label={listing.formattedAddress}
+      aria-pressed={isSelected}
+      className={`listing-row${isSelected ? " is-selected" : ""}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(listing.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(listing.id);
+        }
+      }}
+    >
       <div className="listing-address">
         <div className="property-icon" aria-hidden="true">
           <Building2 size={20} strokeWidth={1.8} />

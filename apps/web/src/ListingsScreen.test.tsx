@@ -6,14 +6,23 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ListingsScreen } from "./ListingsScreen.js";
+import {
+  ListingsScreen,
+  type ListingsMapViewProps,
+} from "./ListingsScreen.js";
+import { coronaListing, eastvaleListing } from "./listingFixtures.js";
 import type { ListingSummary } from "./listingsApi.js";
 
 afterEach(cleanup);
 
 describe("ListingsScreen", () => {
   it("shows a stable loading state while listings are pending", () => {
-    render(<ListingsScreen loadListings={() => new Promise(() => {})} />);
+    render(
+      <ListingsScreen
+        loadListings={() => new Promise(() => {})}
+        mapView={PassiveMap}
+      />,
+    );
 
     expect(
       screen.getByRole("status", { name: "Loading listings" }),
@@ -21,7 +30,9 @@ describe("ListingsScreen", () => {
   });
 
   it("shows the empty state when no stored listings exist", async () => {
-    render(<ListingsScreen loadListings={async () => []} />);
+    render(
+      <ListingsScreen loadListings={async () => []} mapView={PassiveMap} />,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "No stored listings" }),
@@ -36,7 +47,9 @@ describe("ListingsScreen", () => {
         new Error("postgresql://user:password@private-host/database"),
       )
       .mockResolvedValueOnce([listing]);
-    render(<ListingsScreen loadListings={loadListings} />);
+    render(
+      <ListingsScreen loadListings={loadListings} mapView={PassiveMap} />,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Listings unavailable" }),
@@ -52,10 +65,15 @@ describe("ListingsScreen", () => {
   });
 
   it("renders the listing content returned by the API client", async () => {
-    render(<ListingsScreen loadListings={async () => [listing]} />);
+    render(
+      <ListingsScreen
+        loadListings={async () => [eastvaleListing]}
+        mapView={PassiveMap}
+      />,
+    );
 
     expect(
-      await screen.findByRole("heading", { name: listing.addressLine1 }),
+      await screen.findByRole("heading", { name: eastvaleListing.addressLine1 }),
     ).toBeInTheDocument();
     expect(screen.getByText("$825,000")).toBeInTheDocument();
     expect(screen.getByText("4 bd")).toBeInTheDocument();
@@ -63,28 +81,71 @@ describe("ListingsScreen", () => {
     expect(screen.getByText(/CRMLS #IG26000001/)).toBeInTheDocument();
     expect(screen.getByText("1 stored listing")).toBeInTheDocument();
   });
+
+  it("coordinates selection from the listing into the map", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsScreen
+        loadListings={async () => [eastvaleListing, coronaListing]}
+        mapView={FakeMap}
+      />,
+    );
+
+    const row = await screen.findByRole("button", {
+      name: new RegExp(eastvaleListing.addressLine1),
+    });
+    await user.click(row);
+
+    expect(row).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("map-selection")).toHaveTextContent(
+      eastvaleListing.id,
+    );
+  });
+
+  it("coordinates map selection back to the list and mobile list mode", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsScreen
+        loadListings={async () => [eastvaleListing, coronaListing]}
+        mapView={FakeMap}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: eastvaleListing.addressLine1 });
+    await user.click(screen.getByRole("button", { name: "Map view" }));
+    expect(screen.getByRole("button", { name: "Map view" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Select Corona marker" }));
+
+    expect(
+      screen.getByRole("button", { name: new RegExp(coronaListing.addressLine1) }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "List view" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
 });
 
-const listing: ListingSummary = {
-  id: "0198c7d2-7668-7775-b0fc-b789690a60c1",
-  source: "rentcast",
-  sourceListingId: "rentcast-listing-id",
-  mlsName: "CRMLS",
-  mlsNumber: "IG26000001",
-  formattedAddress: "123 Main St, Eastvale, CA 92880",
-  addressLine1: "123 Main St",
-  addressLine2: null,
-  city: "Eastvale",
-  state: "CA",
-  zipCode: "92880",
-  latitude: 33.9525,
-  longitude: -117.5848,
-  propertyType: "Single Family",
-  bedrooms: 4,
-  bathrooms: 2.5,
-  price: 825000,
-  status: "Active",
-  listedDate: "2026-08-19",
-  lastSeenDate: "2026-08-19",
-  firstDiscoveredAt: "2026-08-19T17:00:00.000Z",
-};
+const listing: ListingSummary = eastvaleListing;
+
+function FakeMap({
+  onSelect,
+  selectedListingId,
+}: ListingsMapViewProps): React.JSX.Element {
+  return (
+    <div>
+      <span data-testid="map-selection">{selectedListingId ?? "none"}</span>
+      <button type="button" onClick={() => onSelect(coronaListing.id)}>
+        Select Corona marker
+      </button>
+    </div>
+  );
+}
+
+function PassiveMap(): React.JSX.Element {
+  return <div aria-label="Listings map" />;
+}

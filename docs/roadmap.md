@@ -108,6 +108,7 @@ Planned sub-block mapping:
 4. `15.3` Add the Vite React app, typed API client, and complete read states.
    **Complete.**
 5. `15.4` Add MapLibre/OpenFreeMap rendering and list/map selection.
+   **Complete.**
 6. `15.5` Verify the local vertical slice and review the authenticated
    production deployment plan.
 
@@ -125,6 +126,12 @@ build structure. The API remains undeployed and unauthenticated.
 Block 15.3 added the local React/Vite application, runtime-validating listings
 client, responsive operational list, and loading, empty, error, retry, and
 content states. The browser uses a Vite loopback proxy and remains undeployed.
+
+Block 15.4 added the MapLibre/OpenFreeMap map, minimal client-side GeoJSON,
+responsive list/map workspace, bidirectional listing selection, bounded map
+states, and an injected map driver for external-service-free automated tests.
+Clustering, PostGIS, viewport queries, and public deployment remain out of
+scope.
 
 The approved production platform is AWS. The React/Vite build will be served by
 CloudFront from a private S3 origin, and `/api/*` will route under the same HTTPS

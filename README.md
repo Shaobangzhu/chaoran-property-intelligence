@@ -51,9 +51,15 @@ Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the loopback API a
 `http://127.0.0.1:3000`, so no development CORS policy is required.
 
 The React application renders loading, empty, error, retry, and listing content
-states. It validates API responses at runtime and never receives database,
-RentCast, Telegram, or AWS credentials. The web application remains local-only
-and is not deployed.
+states alongside a MapLibre map using the OpenFreeMap Liberty style. Listings
+are converted to a minimal client-side GeoJSON point source, and selecting a
+listing or marker keeps the two views synchronized. It validates API responses
+at runtime and never receives database, RentCast, Telegram, or AWS credentials.
+The web application remains local-only and is not deployed.
+
+OpenFreeMap requires no browser API key, but its public service is an external
+development dependency without a project-specific availability guarantee. Map
+driver tests use fakes and never contact the style or tile service.
 
 The approved production target is AWS: CloudFront serves the React/Vite build
 from a private S3 origin and routes `/api/*` under the same HTTPS origin to an

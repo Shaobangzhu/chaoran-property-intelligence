@@ -253,7 +253,7 @@ sub-block is not authorized by accepting this ADR.
 
 ## Implementation Status
 
-Blocks 15.1 through 15.3 are complete:
+Blocks 15.1 through 15.4 are complete:
 
 - `NormalizedListing` is owned and exported by the domain package
 - migration `002_add_listing_identity` adds a database-generated UUID primary
@@ -275,13 +275,25 @@ Blocks 15.1 through 15.3 are complete:
   client for `/api/listings`, and injected loading behavior for isolated tests
 - the first listings screen renders bounded loading, empty, error, retry, and
   content states in responsive desktop and mobile layouts
+- MapLibre GL JS renders an OpenFreeMap Liberty basemap and a client-created
+  GeoJSON point source containing only listing IDs and selected state
+- MapLibre v6 uses Vite's `?worker&url` pipeline and an explicit worker URL so
+  vector-tile parsing is emitted as a self-contained, same-origin worker asset
+- the desktop workspace keeps a scrollable listing panel beside the map, while
+  narrow screens use an accessible List/Map segmented control
+- listing activation focuses its map point, map point activation selects the
+  listing, and mobile point activation returns the user to the selected row
+- map initialization, updates, selection, fitting, errors, retries, resizing,
+  and cleanup are isolated behind a small driver boundary so automated tests do
+  not load external styles or tiles
 - Vite binds to loopback and proxies `/api` to the local Express process without
   adding a development CORS policy
 
 The migration is checked into the repository but has not been run against the
 AWS production database. A future production execution remains separately
-gated. Neither the API nor the web application has been deployed. Map rendering
-and list/map selection remain in Block 15.4.
+gated. Neither the API nor the web application has been deployed. Local
+PostgreSQL-backed vertical-slice verification and the final production plan
+review remain in Block 15.5.
 
 ## Test Strategy
 
