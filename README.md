@@ -38,6 +38,11 @@ This endpoint is intentionally local-only and unauthenticated. Do not bind it to
 a public interface or point it at the AWS production database. Public deployment
 is blocked until Block 16 adds server-enforced authentication.
 
+Block 16.3 defines server-only JWT configuration in `.env.example`. Follow the
+[local authentication configuration runbook](docs/runbooks/local-auth-configuration.md)
+to generate a base64url signing secret for ignored `.env.local`. The current API
+does not consume or issue JWTs until the later authentication composition block.
+
 ## Local administrator
 
 After confirming `DATABASE_URL` points to the local Docker PostgreSQL database,

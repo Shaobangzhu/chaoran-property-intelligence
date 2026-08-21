@@ -6,6 +6,7 @@
   "main": "./dist/server.js",
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
+    "@chaoran-property-intelligence/auth": "workspace:*",
     "@chaoran-property-intelligence/postgres": "workspace:*",
     "express": "5.2.1"
   },

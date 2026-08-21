@@ -135,9 +135,9 @@ flowchart LR
   overwrites a dedicated origin verification header, and Express rejects a
   missing or mismatched value before authentication. The value is generated and
   rotated through CDK and is never exposed to browser code.
-- The App Runner instance role can read only the production database secret.
-  It does not receive RentCast or Telegram credentials because the API does not
-  call either service.
+- The App Runner instance role can read only the production database secret and
+  the separate API-auth secret. It does not receive RentCast or Telegram
+  credentials because the API does not call either service.
 - The first configuration uses `0.25 vCPU`, `0.5 GB`, and a minimum of one
   provisioned instance. At the current `us-west-2` memory rate, the idle memory
   baseline is approximately USD 2.56 per 730-hour month, plus active CPU,
@@ -355,6 +355,7 @@ does not use the local developer `DATABASE_URL` in AWS.
 | --- | --- | --- |
 | `cpi/production/database` | Generated `username` and `password` | Retained with production data |
 | `cpi/production/application` | `RENTCAST_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Destroyed with the production stack |
+| `cpi/production/api-auth` | `JWT_SIGNING_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `ALLOWED_ORIGIN`, `ORIGIN_HEADER_SECRET` | Retained and rotated with coordinated API deployment |
 
 Application values originate in the ignored local `.env.local` file. The sync
 command validates all three values, writes the AWS CLI payload to a random
@@ -441,6 +442,9 @@ configuration required before publishing the workflow is:
 | `RENTCAST_API_KEY` | `.env.local`; AWS Secret | Yes | Worker container |
 | `TELEGRAM_BOT_TOKEN` | `.env.local`; AWS Secret | Yes | Worker container |
 | `TELEGRAM_CHAT_ID` | `.env.local`; AWS Secret | Yes | Worker container |
+| `JWT_SIGNING_SECRET` | `.env.local`; API-auth Secret | Yes | Express API only |
+| `JWT_ISSUER` | `.env.local`; API-auth Secret | No | Express API only |
+| `JWT_AUDIENCE` | `.env.local`; API-auth Secret | No | Express API only |
 | Database username/password | Generated AWS Secret | Yes | Aurora and worker container |
 | `scheduleEnabled` | CDK context | Operationally sensitive | EventBridge Scheduler state |
 

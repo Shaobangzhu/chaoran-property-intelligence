@@ -75,7 +75,10 @@ checks.
   PostgreSQL adapter are implemented and covered by isolated tests.
 - `16.2` complete: password policy, the Argon2id adapter, and the masked-input
   local administrator CLI are implemented and covered by isolated tests.
-- `16.3` through `16.7` remain separately gated and unimplemented.
+- `16.3` complete: JWT configuration, the application token port, and the
+  strict JOSE access-token adapter are implemented and covered by isolated
+  tests.
+- `16.4` through `16.7` remain separately gated and unimplemented.
 
 ### Product Scope
 
@@ -163,6 +166,18 @@ of entropy, an explicit token type, and a 60-minute initial lifetime. JWT
 verification identifies a candidate user only. Every protected request reloads
 that user by `sub`, requires `active` status, and derives authorization from the
 current database role rather than trusting the token role alone.
+
+Block 16.3 implements this profile with `jose@6.2.9`. The signing secret is
+canonical base64url that decodes to 32-64 bytes. The protected header contains
+only `alg=HS256` and `typ=cpi-access+jwt`; the payload contains only the seven
+required claims. Subject and token ID are UUIDs, audience must be the configured
+scalar value, lifetime is exactly 3600 seconds, and clock tolerance is five
+seconds. All verification failures cross the application boundary as the same
+`InvalidAccessTokenError`.
+
+`apps/api` exposes an independent `loadAuthConfig` for `JWT_SIGNING_SECRET`,
+`JWT_ISSUER`, and `JWT_AUDIENCE`, but the current server does not call it yet.
+No token, cookie, login route, or production secret was created in Block 16.3.
 
 The API returns the JWT in a cookie with:
 

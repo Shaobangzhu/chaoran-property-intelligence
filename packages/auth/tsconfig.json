@@ -3,6 +3,7 @@
   "compilerOptions": {
     "baseUrl": "../..",
     "noEmit": true,
+    "types": ["node"],
     "paths": {
       "@chaoran-property-intelligence/application": [
         "packages/application/src/index.ts"

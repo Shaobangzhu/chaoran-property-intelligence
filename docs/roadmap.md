@@ -166,6 +166,7 @@ Planned sub-block mapping:
 3. `16.2` Add password policy, Argon2id hashing, and the admin creation CLI.
    **Complete.**
 4. `16.3` Add JWT configuration, the token service, and required claims.
+   **Complete.**
 5. `16.4` Add login, logout, and current-user use cases.
 6. `16.5` Add Express routes, cookies, origin checks, auth middleware, protected
    listings, and database-independent health.
@@ -199,6 +200,13 @@ masked-input admin CLI. Hashing uses Argon2id with `19 MiB`, two iterations, and
 parallelism one. Host and Node 24 Linux-container benchmarks remained well
 below the accepted one-second target. The implementation did not execute the
 CLI or create a user in any database.
+
+Block 16.3 added the application-level `TokenServicePort`, a strict
+`jose@6.2.9` HS256 adapter, and independently loadable API JWT configuration.
+The adapter accepts only the `cpi-access+jwt` profile with the seven required
+claims, exact issuer and scalar audience, UUID subject and token ID, a 60-minute
+lifetime, and five seconds of clock tolerance. The API does not yet load this
+configuration at startup or issue tokens; that composition remains gated.
 
 ### Block 17: Manual Listing Management
 

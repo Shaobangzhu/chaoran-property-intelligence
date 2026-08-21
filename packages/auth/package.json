@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
-    "argon2": "0.45.1"
+    "argon2": "0.45.1",
+    "jose": "6.2.9"
   },
   "devDependencies": {
-    "@chaoran-property-intelligence/domain": "workspace:*"
+    "@chaoran-property-intelligence/domain": "workspace:*",
+    "@types/node": "^24.13.3"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
