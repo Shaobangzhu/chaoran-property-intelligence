@@ -73,7 +73,9 @@ checks.
   threat model, contracts, and test inventory.
 - `16.1` complete: the user domain model, repository port, users migration, and
   PostgreSQL adapter are implemented and covered by isolated tests.
-- `16.2` through `16.7` remain separately gated and unimplemented.
+- `16.2` complete: password policy, the Argon2id adapter, and the masked-input
+  local administrator CLI are implemented and covered by isolated tests.
+- `16.3` through `16.7` remain separately gated and unimplemented.
 
 ### Product Scope
 
@@ -125,6 +127,20 @@ with `19 MiB`, two iterations, and parallelism one. Benchmark without weakening
 that documented baseline. Passwords support Unicode and spaces, use consistent
 NFC normalization, require 15-128 characters, have no composition rules, and
 are checked against a bounded common and context-specific blocklist.
+
+Block 16.2 implements separate normalization and new-password validation paths.
+Verification can continue to normalize an existing password if a later release
+expands the blocklist, while account creation applies both the blocklist and
+context derived from the normalized email. `packages/auth` owns the maintained
+Argon2 dependency and PHC representation. `apps/admin-cli` requires an explicit
+`--email`, asks for matching passwords through masked prompts, emits only
+bounded errors, runs bundled migrations, and closes the database on every
+post-connection outcome.
+
+Five-sample benchmarks with the accepted Argon2id parameters measured a maximum
+hash time of 16.2 ms on the ARM64 Mac development host and 18.7 ms in the ARM64
+Node 24 Debian container. No CI timing assertion was added. The CLI was not run,
+so Block 16.2 did not create a local or production administrator.
 
 Unknown-email authentication performs one verification against a fixed valid
 dummy hash. Unknown email, wrong password, and disabled user return the same

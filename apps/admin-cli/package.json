@@ -1,0 +1,21 @@
+{
+  "name": "@chaoran-property-intelligence/admin-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "dependencies": {
+    "@chaoran-property-intelligence/application": "workspace:*",
+    "@chaoran-property-intelligence/auth": "workspace:*",
+    "@chaoran-property-intelligence/domain": "workspace:*",
+    "@chaoran-property-intelligence/postgres": "workspace:*",
+    "@inquirer/password": "5.1.2"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

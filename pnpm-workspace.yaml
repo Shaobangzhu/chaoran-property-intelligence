@@ -7,9 +7,11 @@ verifyDepsBeforeRun: false
 injectWorkspacePackages: true
 
 allowBuilds:
+  argon2: true
   esbuild: true
 
 onlyBuiltDependencies:
+  - argon2
   - esbuild
 
 minimumReleaseAgeExclude:

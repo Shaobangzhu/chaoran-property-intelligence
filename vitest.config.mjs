@@ -3,6 +3,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
+      "@chaoran-property-intelligence/auth": new URL(
+        "./packages/auth/src/index.ts",
+        import.meta.url,
+      ).pathname,
       "@chaoran-property-intelligence/application": new URL(
         "./packages/application/src/index.ts",
         import.meta.url,

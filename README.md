@@ -38,6 +38,22 @@ This endpoint is intentionally local-only and unauthenticated. Do not bind it to
 a public interface or point it at the AWS production database. Public deployment
 is blocked until Block 16 adds server-enforced authentication.
 
+## Local administrator
+
+After confirming `DATABASE_URL` points to the local Docker PostgreSQL database,
+create the initial administrator with:
+
+```bash
+pnpm user:create-admin -- --email admin@example.com
+```
+
+The command builds the dedicated admin CLI, loads `.env.local`, runs bundled
+migrations, and requests the password twice with masked input. It never prints
+the password or hash. Follow the
+[local administrator runbook](docs/runbooks/create-local-admin.md) before
+executing this database-writing command. Block 16.2 implemented and tested the
+command but did not create a real user.
+
 ## Local web application
 
 With the local API running, start the Vite development server in a second

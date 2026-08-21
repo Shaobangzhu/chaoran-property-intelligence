@@ -1,0 +1,25 @@
+{
+  "name": "@chaoran-property-intelligence/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@chaoran-property-intelligence/application": "workspace:*",
+    "argon2": "0.45.1"
+  },
+  "devDependencies": {
+    "@chaoran-property-intelligence/domain": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

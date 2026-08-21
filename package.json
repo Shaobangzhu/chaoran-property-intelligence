@@ -5,21 +5,23 @@
   "type": "module",
   "packageManager": "pnpm@11.19.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "alert-worker:dry-run": "pnpm build:alert-worker && node apps/alert-worker/dist/index.js --dry-run",
     "api:start": "pnpm build:api && node --env-file-if-exists=.env.local apps/api/dist/server.js",
     "aws:synth": "pnpm --dir infra/aws synth",
     "build": "pnpm build:runtime && pnpm --dir infra/aws build",
-    "build:alert-worker": "pnpm build:packages && tsc -p apps/alert-worker/tsconfig.build.json",
+    "build:admin-cli": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p packages/auth/tsconfig.build.json && tsc -p apps/admin-cli/tsconfig.build.json",
+    "build:alert-worker": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/telegram/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p apps/alert-worker/tsconfig.build.json",
     "build:api": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json",
-    "build:packages": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/telegram/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json",
-    "build:runtime": "pnpm build:packages && tsc -p apps/alert-worker/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json && pnpm build:web",
+    "build:packages": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/telegram/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p packages/auth/tsconfig.build.json",
+    "build:runtime": "pnpm build:packages && tsc -p apps/alert-worker/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json && tsc -p apps/admin-cli/tsconfig.build.json && pnpm build:web",
     "build:web": "pnpm --dir apps/web build",
     "test": "vitest run",
     "typecheck": "pnpm typecheck:runtime && pnpm --dir infra/aws typecheck",
-    "typecheck:runtime": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p packages/postgres/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && pnpm --dir apps/web typecheck",
+    "typecheck:runtime": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p packages/postgres/tsconfig.json && tsc --noEmit -p packages/auth/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/admin-cli/tsconfig.json && pnpm --dir apps/web typecheck",
+    "user:create-admin": "pnpm build:admin-cli && node --env-file-if-exists=.env.local apps/admin-cli/dist/index.js",
     "verify:local": "vitest run apps/alert-worker/src/localIntegration.test.ts",
     "web:dev": "pnpm --dir apps/web dev"
   },

@@ -164,6 +164,7 @@ Planned sub-block mapping:
 2. `16.1` Add the user domain model, migration, `UserRepository` port, and
    PostgreSQL adapter. **Complete.**
 3. `16.2` Add password policy, Argon2id hashing, and the admin creation CLI.
+   **Complete.**
 4. `16.3` Add JWT configuration, the token service, and required claims.
 5. `16.4` Add login, logout, and current-user use cases.
 6. `16.5` Add Express routes, cookies, origin checks, auth middleware, protected
@@ -191,6 +192,13 @@ Block 16.1 added the bounded normalized-email domain type, `admin` role,
 email uniqueness violation into a bounded application error, rejects malformed
 rows, and keeps password hashes out of ID-based user records. No migration was
 applied to a local or production database in this block.
+
+Block 16.2 added the Unicode-aware password policy, `PasswordHasherPort`,
+`CreateAdminUser`, the `argon2@0.45.1` infrastructure adapter, and a dedicated
+masked-input admin CLI. Hashing uses Argon2id with `19 MiB`, two iterations, and
+parallelism one. Host and Node 24 Linux-container benchmarks remained well
+below the accepted one-second target. The implementation did not execute the
+CLI or create a user in any database.
 
 ### Block 17: Manual Listing Management
 

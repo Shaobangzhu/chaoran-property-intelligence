@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@chaoran-property-intelligence/application": [
+        "packages/application/src/index.ts"
+      ],
+      "@chaoran-property-intelligence/auth": ["packages/auth/src/index.ts"],
+      "@chaoran-property-intelligence/domain": [
+        "packages/domain/src/index.ts"
+      ],
+      "@chaoran-property-intelligence/postgres": [
+        "packages/postgres/src/index.ts"
+      ]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

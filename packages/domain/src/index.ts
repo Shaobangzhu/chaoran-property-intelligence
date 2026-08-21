@@ -7,6 +7,14 @@ export {
 } from "./listingFilter.js";
 export type { NormalizedListing } from "./normalizedListing.js";
 export {
+  PasswordPolicyError,
+  normalizePassword,
+  validateNewPassword,
+  type NormalizedPassword,
+  type PasswordContext,
+  type PasswordPolicyErrorReason,
+} from "./password.js";
+export {
   InvalidUserEmailError,
   isUserRole,
   isUserStatus,
