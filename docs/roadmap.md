@@ -422,6 +422,20 @@ prompt-injection boundary, and required guardrail categories. This block added
 no OpenAI SDK or API call, model selection, API key, endpoint, persistence,
 migration, semantic compliance classifier, or AWS resource.
 
+Block 18.5 is complete. A dedicated `packages/openai` adapter implements the
+application `ShowingListGenerator` port with the official `openai@7.5.0`
+TypeScript SDK, Responses API, and strict Zod Structured Outputs. The approved
+production profile is `gpt-5.6-terra` with medium reasoning, a 16,000-token
+response ceiling, `store: false`, disabled truncation, a 120-second request
+timeout, and two SDK retries. The adapter uses the Block 18.4 instructions and
+untrusted JSON input unchanged, returns only validated draft and bounded usage
+metadata, and maps authentication, rate-limit, timeout, refusal, incomplete,
+invalid-response, and service failures to stable non-sensitive errors. Tests
+exercise the real SDK parser and request construction through mocked `fetch`;
+CI makes no OpenAI request. This block added no endpoint, `.env` variable,
+runtime composition, persistence, migration, real provider smoke test, GitHub
+configuration, secret write, or AWS resource.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

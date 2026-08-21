@@ -769,11 +769,61 @@ Housing, schema, and review guardrails. Block 18.4 performs no provider call and
 adds no SDK, model selection, API key, endpoint, persistence, migration, or AWS
 resource.
 
-Before implementing Block 18.5, consult current official OpenAI documentation
-and ask for an explicit model choice after explaining quality, latency, and
-cost. Use the Responses API and Structured Outputs rather than parsing arbitrary
-Markdown. The OpenAI API key remains backend-only; never introduce a
-`VITE_OPENAI_API_KEY`.
+### Block 18.5 OpenAI Responses Adapter
+
+The user explicitly selected `gpt-5.6-terra` with medium reasoning after a
+quality, latency, and cost review on August 20, 2026. At selection time, the
+[official OpenAI model comparison](https://developers.openai.com/api/docs/models/compare)
+described Terra as the intelligence-and-cost balance in the GPT-5.6 family,
+supported the Responses API and Structured Outputs, and listed standard text
+pricing of USD 2 per million input tokens and USD 12 per million output tokens.
+Pricing and model availability remain external service facts that must be
+rechecked before a later production deployment or model change.
+
+`packages/openai` implements `ShowingListGenerator` with the official
+`openai@7.5.0` TypeScript SDK. Its approved configuration is fixed in code:
+
+```ts
+const OPENAI_SHOWING_LIST_CONFIGURATION = {
+  model: "gpt-5.6-terra",
+  reasoningEffort: "medium",
+  maxOutputTokens: 16_000,
+  timeoutMs: 120_000,
+  maxRetries: 2,
+  responseFormatName: "showing_list_draft",
+};
+```
+
+The adapter uses `responses.parse()` with the application-owned Zod schema via
+`zodTextFormat`. It sends the Block 18.4 fixed prompt as `instructions`, the
+separate JSON envelope as `input`, `store: false`, `truncation: "disabled"`, and
+low text verbosity. It enables no model tools and does not send a conversation,
+previous response, browser actor ID, customer contact detail, private note, or
+provider credential inside the body. The API key is supplied only to the
+backend SDK client.
+
+A successful call returns the parsed draft plus the actual response model,
+response ID, nullable input/output/total token counts, and integer elapsed
+milliseconds. The Block 18.3 use case still revalidates the complete result and
+exact listing-ID set; SDK parsing is not treated as the sole trust boundary.
+
+Provider and transport failures cross the adapter as fixed, non-sensitive error
+classes for authentication/access, rate limiting, timeout, refusal, incomplete
+output, invalid response, or general unavailability. Provider messages,
+request IDs, response bodies, refusal text, API keys, and network details do not
+appear in those errors. A content-filter incomplete result is classified as a
+refusal; a max-output-token result is incomplete; malformed or schema-invalid
+JSON is invalid; failed terminal responses and connection errors are
+unavailable.
+
+Adapter tests exercise the actual SDK request builder, JSON Schema helper, and
+response parser behind mocked `fetch`. They verify the model and reasoning
+profile, `store: false`, prompt/input separation, usage metadata, and every
+failure category without contacting OpenAI. Block 18.5 does not add
+`OPENAI_API_KEY` to `.env.example`, `.env.local`, GitHub, AWS Secrets Manager, or
+any frontend variable because no runtime composition exists yet. Never
+introduce `VITE_OPENAI_API_KEY`. Live secret injection and an explicitly
+authorized provider smoke test remain later deployment gates.
 
 ### Persistence and Review
 

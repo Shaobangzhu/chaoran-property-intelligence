@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "noEmit": true,
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@chaoran-property-intelligence/application": [
+        "packages/application/src/index.ts"
+      ]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
