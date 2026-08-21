@@ -55,6 +55,18 @@ export interface GenerateShowingListDraftOptions {
   generator: ShowingListGenerator;
 }
 
+export interface PreparedShowingListDraft {
+  generationInput: ShowingListGenerationInput;
+  listings: readonly ShowingListPropertyContext[];
+  result: ShowingListGenerationResult;
+}
+
+export interface ShowingListDraftPreparationPort {
+  prepare(
+    input: GenerateShowingListDraftInput,
+  ): Promise<PreparedShowingListDraft>;
+}
+
 export class InvalidShowingListGenerationInputError extends Error {
   constructor() {
     super("Showing List generation input was invalid");
@@ -76,7 +88,9 @@ export class InvalidShowingListGenerationResultError extends Error {
   }
 }
 
-export class GenerateShowingListDraft {
+export class GenerateShowingListDraft
+  implements ShowingListDraftPreparationPort
+{
   private readonly query: ShowingListListingQueryPort;
   private readonly generator: ShowingListGenerator;
 
@@ -88,6 +102,12 @@ export class GenerateShowingListDraft {
   async execute(
     input: GenerateShowingListDraftInput,
   ): Promise<ShowingListGenerationResult> {
+    return (await this.prepare(input)).result;
+  }
+
+  async prepare(
+    input: GenerateShowingListDraftInput,
+  ): Promise<PreparedShowingListDraft> {
     if (!actorIdSchema.safeParse(input.actorUserId).success) {
       throw new InvalidShowingListGenerationInputError();
     }
@@ -122,7 +142,11 @@ export class GenerateShowingListDraft {
       request.listingIds,
       parsedResult.data.draft.stops.map((stop) => stop.listingId),
     );
-    return parsedResult.data;
+    return {
+      generationInput: request,
+      listings: context.listings,
+      result: parsedResult.data,
+    };
   }
 }
 

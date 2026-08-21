@@ -189,18 +189,19 @@ The web/API rollout order is:
 ## Planned Weekly Showing List Publication Boundary
 
 **Status: partially implemented in source; not deployed or enabled by Block
-18.6.3.**
+18.6.4.**
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
-Blocks 18.6.1 through 18.6.3 have implemented the application persistence
+Blocks 18.6.1 through 18.6.4 have implemented the application persistence
 contracts, PostgreSQL adapter, bundled singleton migration, bounded PDFKit
 renderer, current-artifact store port, stable-key AWS SDK v3 S3 adapter, and
-dedicated private unversioned bucket definition in source. The renderer produces
-the complete review-marked PDF before any future publication call. Migration
-005 has not been applied to Aurora or a local database, and this block did not
-deploy the new bucket or make a real S3 request. Publication orchestration,
-least-privilege weekly-task access, runtime configuration, the Showing List
+dedicated private unversioned bucket definition in source. The application now
+also owns the ordered render, stable-object replacement, singleton metadata
+commit, and one-attempt metadata reconciliation use case. Migration 005 has not
+been applied to Aurora or a local database, and no real renderer, S3, database,
+or model call was made while implementing the orchestration. Least-privilege
+weekly-task access, runtime composition and configuration, the Showing List
 task, weekly schedule, presigned URL creation, and Telegram delivery remain
 unimplemented or unprovisioned.
 
@@ -243,6 +244,10 @@ flowchart LR
 - After S3 publication, the task upserts singleton metadata with the generation
   ID and object ETag. Retries reconcile those values idempotently and do not
   create another object.
+- The application performs one bounded metadata reconciliation attempt with the
+  identical generation ID, ETag, and persistence payload. It does not regenerate,
+  rerender, or reupload during that attempt, and it does not retry an identity
+  conflict.
 
 Latest-only applies to application-visible primary storage. Aurora automated
 backups retain database changes for their configured seven-day window, and

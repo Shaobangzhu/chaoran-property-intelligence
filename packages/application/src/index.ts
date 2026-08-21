@@ -41,8 +41,17 @@ export {
   ShowingListSelectionUnavailableError,
   type GenerateShowingListDraftInput,
   type GenerateShowingListDraftOptions,
+  type PreparedShowingListDraft,
+  type ShowingListDraftPreparationPort,
   type ShowingListListingQueryPort,
 } from "./generateShowingListDraft.js";
+export {
+  InvalidShowingListPublicationInputError,
+  InvalidShowingListPublicationResultError,
+  PublishCurrentShowingListDraft,
+  type PublishCurrentShowingListDraftInput,
+  type PublishCurrentShowingListDraftOptions,
+} from "./publishCurrentShowingListDraft.js";
 export {
   InvalidShowingListArtifactInputError,
   SHOWING_LIST_ARTIFACT_LIMITS,

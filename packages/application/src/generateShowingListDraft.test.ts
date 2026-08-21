@@ -20,6 +20,44 @@ const secondListingId = "22222222-2222-4222-8222-222222222222";
 const thirdListingId = "33333333-3333-4333-8333-333333333333";
 
 describe("GenerateShowingListDraft", () => {
+  it("returns the validated publication context without reloading listings", async () => {
+    const record = createRecord(firstListingId);
+    const result = createResult([firstListingId]);
+    const query = new RecordingShowingListQuery([record]);
+    const generator = new FakeShowingListGenerator({
+      type: "success",
+      result,
+    });
+    const useCase = new GenerateShowingListDraft({ query, generator });
+
+    const prepared = await useCase.prepare(
+      createInput({
+        request: createRequest({
+          preferences: {
+            clientDisplayName: "  A. Buyer  ",
+            showingDate: "2026-08-22",
+            agentInstructions: "  Review before publication.  ",
+          },
+        }),
+      }),
+    );
+
+    expect(prepared).toEqual({
+      generationInput: {
+        listingIds: [firstListingId],
+        preferences: {
+          clientDisplayName: "A. Buyer",
+          showingDate: "2026-08-22",
+          agentInstructions: "Review before publication.",
+        },
+      },
+      listings: generator.calls[0]?.listings,
+      result,
+    });
+    expect(query.calls).toEqual([[firstListingId]]);
+    expect(generator.calls).toHaveLength(1);
+  });
+
   it("reloads authoritative records and restores selection order", async () => {
     const firstRecord = createRecord(firstListingId, {
       formattedAddress: "123 Main St, Eastvale, CA 92880",

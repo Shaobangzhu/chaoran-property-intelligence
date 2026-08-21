@@ -988,6 +988,57 @@ the bucket count, encryption, ownership, public access, lifecycle, TLS policy,
 versioning, Object Lock, CORS, and deletion policies. No AWS stack was deployed
 and no real S3 request was made in this block.
 
+### Block 18.6.4 Publication Orchestration
+
+`GenerateShowingListDraft` retains its result-only `execute` method and now also
+implements `ShowingListDraftPreparationPort`. The preparation result contains
+the normalized generation input, the exact minimal authoritative listing
+projection sent to the generator, and the already validated draft plus bounded
+provider metadata. This prevents publication from reloading listings after
+generation and accidentally rendering facts from a different database moment.
+
+`PublishCurrentShowingListDraft` does not invoke the model. Its immutable input
+contains a server-owned generation UUID, actor UUID, ISO timestamp, normalized
+generation input, authoritative listing projection, validated draft, and
+bounded generation metadata. The strict top-level parser rejects unknown fields
+before rendering. A complete placeholder persistence candidate is then parsed
+before side effects, so an invalid draft or model metadata cannot replace the
+current object.
+
+The use case owns one ordered sequence:
+
+1. validate the immutable publication envelope
+2. render the complete PDF in memory
+3. replace `showing-lists/current.pdf`
+4. validate the returned fixed key and ETag
+5. replace or reconcile the singleton PostgreSQL row
+6. validate that the returned current row matches the generation ID and ETag
+
+Rendering failure makes no S3 or PostgreSQL call. S3 failure makes no PostgreSQL
+call. After S3 succeeds, a non-conflict repository error receives exactly one
+bounded reconciliation call with the identical persistence payload. The second
+call does not invoke OpenAI, rerender the PDF, or replace S3 again. This covers a
+transient database failure and the ambiguous case where PostgreSQL committed but
+the first response was lost. A `CurrentShowingListGenerationConflictError` is
+not retried because the same generation ID with a different ETag represents an
+identity violation rather than a transient commit outcome.
+
+S3 and PostgreSQL still do not share a transaction. If both metadata attempts
+fail, the use case fails after the stable object may already have changed, and
+Telegram must not run. Any additional retry in the future task must retain the
+same immutable publication envelope and generation identity; it must not call
+the model again under the old generation ID. Task-level retry ownership and
+operational recovery from process termination in this cross-service window
+remain explicit Block 18.8 concerns.
+
+Focused tests use only in-memory ports. They cover the exact render, store, and
+persist order; prompt-version and ETag mapping; strict input rejection; invalid
+generation metadata before rendering; renderer and storage failures; malformed
+storage and repository output; one-attempt ambiguous-commit reconciliation;
+bounded repeated database failure; and no retry for a generation conflict. No
+real renderer, S3, PostgreSQL, OpenAI, Telegram, endpoint, task, schedule, IAM
+grant, migration, secret, or deployment was used in this block.
+
 ### Latest-Only Retention
 
 Latest-only is an application invariant for the current single-administrator

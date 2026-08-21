@@ -62,8 +62,16 @@ partial upload.
 S3 and PostgreSQL do not provide one cross-service transaction. If the metadata
 upsert fails after object replacement, the job fails and retries by the same
 generation ID and ETag until the singleton metadata is reconciled. It never
-creates a history object. This bounded recovery path is covered by integration
-tests.
+creates a history object. Block 18.6.4 covers the application retry boundary;
+Block 18.9 retains the cross-adapter integration-test gate.
+
+Block 18.6.4 implements the first reconciliation boundary in the application
+use case. A non-conflict metadata error receives one additional repository call
+with the identical immutable payload while the generated envelope remains in
+memory. That retry does not call the model, rerender, or upload the object again.
+A generation identity conflict is not retried. If both metadata calls fail, the
+future task must fail before Telegram delivery; any further retry must preserve
+the same envelope and identity rather than regenerate content under the old ID.
 
 ## Telegram Delivery
 

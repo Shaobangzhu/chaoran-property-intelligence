@@ -494,6 +494,26 @@ AWS call, deployed no stack, granted no access to the existing daily worker,
 generated no presigned URL, and added no publication orchestration, database
 write, OpenAI call, Telegram delivery, endpoint, or schedule.
 
+Block 18.6.4 is complete. `GenerateShowingListDraft` preserves its existing
+result-only `execute` contract and now also exposes a validated preparation
+envelope containing the normalized generation request, the exact authoritative
+listing projection used by the model, and the validated structured result.
+`PublishCurrentShowingListDraft` accepts that immutable envelope plus a
+server-owned generation UUID, actor UUID, and generation timestamp. It validates
+the complete persistence candidate before rendering, renders the PDF, replaces
+the one stable S3 object, and only then upserts singleton metadata with prompt
+version `v1` and the returned ETag. Repository output must strictly validate and
+match both the attempted generation ID and artifact ETag. A non-conflict
+metadata error receives one bounded reconciliation attempt with the identical
+payload; that retry does not rerender, reupload, or regenerate model content.
+Generation identity conflicts fail immediately. Focused tests lock the ordered
+side effects, strict inputs and outputs, no-write rendering and upload failures,
+malformed adapter results, ambiguous-commit reconciliation, bounded retry, and
+conflict behavior. Block 18.6 is now complete in source, but no runtime has
+composed the real OpenAI, PDF, S3, or PostgreSQL adapters. This block made no
+provider, database, Telegram, or AWS call; added no endpoint, task, schedule,
+presigned URL, secret, IAM grant, migration execution, or deployment.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 
