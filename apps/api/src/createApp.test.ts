@@ -3,8 +3,11 @@ import type { Server } from "node:http";
 
 import {
   AuthenticationRequiredError,
+  CurrentShowingListDraftChangedError,
+  CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
   type CreateManualListingInput,
+  type CurrentShowingListDraft,
   InvalidCredentialsError,
   InvalidManualListingError,
   ManualListingNotFoundError,
@@ -12,7 +15,10 @@ import {
   type ListingRecord,
   type LoginInput,
   type LoginResult,
+  type MarkCurrentShowingListDraftReviewedInput,
   type ManualListingRecord,
+  type RenderedShowingListArtifact,
+  type SaveCurrentShowingListDraftInput,
   type UpdateManualListingInput,
 } from "@chaoran-property-intelligence/application";
 import { describe, expect, it } from "vitest";
@@ -24,8 +30,12 @@ import {
   type CreateManualListingUseCase,
   type CreateAppOptions,
   type GetCurrentUserUseCase,
+  type GetCurrentShowingListArtifactUseCase,
+  type GetCurrentShowingListDraftUseCase,
   type ListListingsUseCase,
   type LoginUseCase,
+  type MarkCurrentShowingListDraftReviewedUseCase,
+  type SaveCurrentShowingListDraftUseCase,
   type UpdateManualListingUseCase,
 } from "./createApp.js";
 
@@ -530,6 +540,167 @@ describe("createApp", () => {
           firstDiscoveredAt: "2026-08-19T17:00:00.000Z",
         },
       ],
+    });
+  });
+
+  it("protects and returns only the bounded current Showing List review DTO", async () => {
+    const getCurrentShowingListDraft = new FakeGetCurrentShowingListDraft();
+    const app = createTestApp({ getCurrentShowingListDraft });
+
+    expect((await request(app, "/api/showing-list/current")).status).toBe(401);
+    expect(getCurrentShowingListDraft.calls).toBe(0);
+
+    const response = await request(app, "/api/showing-list/current", {
+      headers: sessionHeaders(),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      current: {
+        artifact: {
+          fileName: "showing-list-draft.pdf",
+          kind: "generated-snapshot",
+        },
+        deliveryStatus: "pending",
+        draft: createCurrentShowingListDraft().draft,
+        generatedAt: "2026-08-20T20:00:00.000Z",
+        generationId: "0198c7d2-7668-7775-b0fc-b789690a60f1",
+        preferences: {
+          clientDisplayName: "Alex",
+          showingDate: "2026-08-23",
+        },
+        status: "draft",
+        updatedAt: "2026-08-20T20:00:00.000Z",
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("artifact-etag");
+    expect(JSON.stringify(body)).not.toContain("gpt-5.6-terra");
+    expect(JSON.stringify(body)).not.toContain("agentInstructions");
+  });
+
+  it("saves and reviews a current Showing List with concurrency identity", async () => {
+    const save = new FakeSaveCurrentShowingListDraft();
+    const mark = new FakeMarkCurrentShowingListDraftReviewed();
+    const logger = new RecordingLogger();
+    const current = createCurrentShowingListDraft();
+    const app = createTestApp({
+      logger,
+      markCurrentShowingListDraftReviewed: mark,
+      saveCurrentShowingListDraft: save,
+    });
+
+    const savedResponse = await request(app, "/api/showing-list/current", {
+      body: JSON.stringify({
+        draft: current.draft,
+        expectedUpdatedAt: current.updatedAt,
+        generationId: current.generationId,
+      }),
+      headers: manualListingHeaders(),
+      method: "PATCH",
+    });
+    expect(savedResponse.status).toBe(200);
+    expect(save.inputs).toEqual([
+      {
+        draft: current.draft,
+        expectedUpdatedAt: current.updatedAt,
+        generationId: current.generationId,
+      },
+    ]);
+
+    const reviewedResponse = await request(
+      app,
+      "/api/showing-list/current/review",
+      {
+        body: JSON.stringify({
+          expectedUpdatedAt: current.updatedAt,
+          generationId: current.generationId,
+        }),
+        headers: manualListingHeaders(),
+        method: "POST",
+      },
+    );
+    expect(reviewedResponse.status).toBe(200);
+    expect(mark.inputs).toHaveLength(1);
+    expect(logger.infos).toContainEqual({
+      context: { requestId },
+      event: "api.showing_list.current.saved",
+    });
+    expect(logger.infos).toContainEqual({
+      context: { requestId },
+      event: "api.showing_list.current.reviewed",
+    });
+  });
+
+  it("rejects malformed and stale Showing List review writes safely", async () => {
+    const save = new FakeSaveCurrentShowingListDraft();
+    const malformed = await request(
+      createTestApp({ saveCurrentShowingListDraft: save }),
+      "/api/showing-list/current",
+      {
+        body: JSON.stringify({ generationId: "extra-only" }),
+        headers: manualListingHeaders(),
+        method: "PATCH",
+      },
+    );
+    expect(malformed.status).toBe(400);
+    expect(save.inputs).toEqual([]);
+
+    const stale = await request(
+      createTestApp({
+        saveCurrentShowingListDraft: new FakeSaveCurrentShowingListDraft(
+          new CurrentShowingListDraftChangedError(),
+        ),
+      }),
+      "/api/showing-list/current",
+      {
+        body: JSON.stringify({
+          draft: createCurrentShowingListDraft().draft,
+          expectedUpdatedAt: "2026-08-20T20:00:00.000Z",
+          generationId: "0198c7d2-7668-7775-b0fc-b789690a60f1",
+        }),
+        headers: manualListingHeaders(),
+        method: "PATCH",
+      },
+    );
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({
+      error: { code: "SHOWING_LIST_CHANGED" },
+    });
+  });
+
+  it("downloads the authenticated generated PDF snapshot", async () => {
+    const artifact = new FakeGetCurrentShowingListArtifact();
+    const response = await request(
+      createTestApp({ getCurrentShowingListArtifact: artifact }),
+      "/api/showing-list/current/download",
+      { headers: sessionHeaders() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="showing-list-draft.pdf"',
+    );
+    expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([
+      37, 80, 68, 70,
+    ]);
+    expect(artifact.calls).toBe(1);
+  });
+
+  it("maps a missing current artifact to a bounded 404", async () => {
+    const response = await request(
+      createTestApp({
+        getCurrentShowingListArtifact: new FakeGetCurrentShowingListArtifact(
+          new CurrentShowingListDraftNotFoundError(),
+        ),
+      }),
+      "/api/showing-list/current/download",
+      { headers: sessionHeaders() },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "SHOWING_LIST_NOT_FOUND" },
     });
   });
 
@@ -1087,6 +1258,73 @@ class FakeArchiveManualListing implements ArchiveManualListingUseCase {
   }
 }
 
+class FakeGetCurrentShowingListDraft
+  implements GetCurrentShowingListDraftUseCase
+{
+  calls = 0;
+
+  constructor(
+    private readonly current: CurrentShowingListDraft | null =
+      createCurrentShowingListDraft(),
+  ) {}
+
+  async execute(): Promise<CurrentShowingListDraft | null> {
+    this.calls += 1;
+    return this.current;
+  }
+}
+
+class FakeSaveCurrentShowingListDraft
+  implements SaveCurrentShowingListDraftUseCase
+{
+  readonly inputs: SaveCurrentShowingListDraftInput[] = [];
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(
+    input: SaveCurrentShowingListDraftInput,
+  ): Promise<CurrentShowingListDraft> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return createCurrentShowingListDraft();
+  }
+}
+
+class FakeMarkCurrentShowingListDraftReviewed
+  implements MarkCurrentShowingListDraftReviewedUseCase
+{
+  readonly inputs: MarkCurrentShowingListDraftReviewedInput[] = [];
+
+  async execute(
+    input: MarkCurrentShowingListDraftReviewedInput,
+  ): Promise<CurrentShowingListDraft> {
+    this.inputs.push(input);
+    return createCurrentShowingListDraft({ status: "reviewed" });
+  }
+}
+
+class FakeGetCurrentShowingListArtifact
+  implements GetCurrentShowingListArtifactUseCase
+{
+  calls = 0;
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(): Promise<RenderedShowingListArtifact> {
+    this.calls += 1;
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return {
+      bytes: new Uint8Array([37, 80, 68, 70]),
+      fileName: "showing-list-draft.pdf",
+      mediaType: "application/pdf",
+    };
+  }
+}
+
 class FailingListListings implements ListListingsUseCase {
   async execute(): Promise<ListingRecord[]> {
     throw new Error("postgresql://user:password@private-host/database");
@@ -1139,10 +1377,15 @@ function createTestApp(
     listListings: new FakeListListings([]),
     login: new FakeLogin(),
     getCurrentUser: new FakeGetCurrentUser(),
+    getCurrentShowingListArtifact: new FakeGetCurrentShowingListArtifact(),
+    getCurrentShowingListDraft: new FakeGetCurrentShowingListDraft(),
     httpSecurity: localHttpSecurity,
     logger: new RecordingLogger(),
     now: () => now,
     requestIdFactory: () => requestId,
+    markCurrentShowingListDraftReviewed:
+      new FakeMarkCurrentShowingListDraftReviewed(),
+    saveCurrentShowingListDraft: new FakeSaveCurrentShowingListDraft(),
     updateManualListing: new FakeUpdateManualListing(),
     ...overrides,
   });
@@ -1241,6 +1484,56 @@ function createManualListingRecord(): ManualListingRecord {
     archivedAt: null,
     createdAt: "2026-08-20T20:00:00.000Z",
     updatedAt: "2026-08-20T20:00:00.000Z",
+  };
+}
+
+function createCurrentShowingListDraft(
+  overrides: Partial<CurrentShowingListDraft> = {},
+): CurrentShowingListDraft {
+  const listingId = "0198c7d2-7668-7775-b0fc-b789690a60c1";
+  return {
+    artifact: {
+      etag: '"artifact-etag"',
+      key: "showing-lists/current.pdf",
+    },
+    createdByUserId: authenticatedUser.id,
+    deliveredAt: null,
+    deliveryStatus: "pending",
+    draft: {
+      clientMessage: "Please review these properties before the showing.",
+      reviewWarnings: ["Licensed-agent review is required."],
+      stops: [{
+        considerations: ["Confirm showing availability"],
+        highlights: ["Four bedrooms"],
+        listingId,
+        orderReason: "Suggested order for agent review.",
+        proposedOrder: 1,
+      }],
+      summary: "An unreviewed draft for the selected properties.",
+      title: "Saturday Showing List",
+    },
+    generatedAt: "2026-08-20T20:00:00.000Z",
+    generationId: "0198c7d2-7668-7775-b0fc-b789690a60f1",
+    generationInput: {
+      listingIds: [listingId],
+      preferences: {
+        agentInstructions: "Private notes",
+        clientDisplayName: "Alex",
+        showingDate: "2026-08-23",
+      },
+    },
+    generationMetadata: {
+      durationMs: 1_250,
+      inputTokens: 100,
+      model: "gpt-5.6-terra",
+      outputTokens: 80,
+      responseId: "resp_123",
+      totalTokens: 180,
+    },
+    promptVersion: "v1",
+    status: "draft",
+    updatedAt: "2026-08-20T20:00:00.000Z",
+    ...overrides,
   };
 }
 

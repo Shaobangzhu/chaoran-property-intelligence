@@ -1,9 +1,15 @@
 import {
   ArchiveManualListing,
   CreateManualListing,
+  GetCurrentShowingListArtifact,
+  GetCurrentShowingListDraft,
   GetCurrentUser,
   ListListings,
   Login,
+  MarkCurrentShowingListDraftReviewed,
+  SaveCurrentShowingListDraft,
+  ShowingListArtifactReaderUnavailableError,
+  type ShowingListArtifactReaderPort,
   UpdateManualListing,
 } from "@chaoran-property-intelligence/application";
 import {
@@ -15,10 +21,12 @@ import {
   createPostgresDatabase,
   PostgresListingQuery,
   PostgresManualListingRepository,
+  PostgresCurrentShowingListDraftRepository,
   PostgresUserRepository,
   runBundledMigrations,
   type SqlDatabase,
 } from "@chaoran-property-intelligence/postgres";
+import { S3ShowingListArtifactReader } from "@chaoran-property-intelligence/s3";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import type { Server } from "node:http";
@@ -61,6 +69,31 @@ async function startApi(): Promise<void> {
       repository: manualListingRepository,
       now: () => new Date(),
     });
+    const showingListRepository =
+      new PostgresCurrentShowingListDraftRepository(database);
+    const getCurrentShowingListDraft = new GetCurrentShowingListDraft(
+      showingListRepository,
+    );
+    const saveCurrentShowingListDraft = new SaveCurrentShowingListDraft({
+      now: () => new Date(),
+      repository: showingListRepository,
+    });
+    const markCurrentShowingListDraftReviewed =
+      new MarkCurrentShowingListDraftReviewed({
+        now: () => new Date(),
+        repository: showingListRepository,
+      });
+    const getCurrentShowingListArtifact = new GetCurrentShowingListArtifact({
+      reader:
+        config.showingListArtifactStorage === null
+          ? new UnconfiguredShowingListArtifactReader()
+          : new S3ShowingListArtifactReader({
+              bucketName: config.showingListArtifactStorage.bucketName,
+              expectedBucketOwner:
+                config.showingListArtifactStorage.expectedBucketOwner,
+            }),
+      repository: showingListRepository,
+    });
     const userRepository = new PostgresUserRepository(database);
     const tokenService = new JoseAccessTokenService(authConfig);
     const login = new Login({
@@ -79,6 +112,8 @@ async function startApi(): Promise<void> {
       listListings,
       login,
       getCurrentUser,
+      getCurrentShowingListArtifact,
+      getCurrentShowingListDraft,
       httpSecurity: {
         deploymentMode: config.deploymentMode,
         publicOrigin: config.publicOrigin,
@@ -92,6 +127,8 @@ async function startApi(): Promise<void> {
           process.stdout.write(`${JSON.stringify({ event, ...context })}\n`);
         },
       },
+      markCurrentShowingListDraftReviewed,
+      saveCurrentShowingListDraft,
       updateManualListing,
     });
     const server = app.listen(config.port, config.host);
@@ -104,6 +141,14 @@ async function startApi(): Promise<void> {
   } catch (error) {
     await database.close();
     throw error;
+  }
+}
+
+class UnconfiguredShowingListArtifactReader
+  implements ShowingListArtifactReaderPort
+{
+  async readCurrentArtifact(): Promise<never> {
+    throw new ShowingListArtifactReaderUnavailableError();
   }
 }
 

@@ -14,7 +14,8 @@
       ],
       "@chaoran-property-intelligence/postgres": [
         "packages/postgres/src/index.ts"
-      ]
+      ],
+      "@chaoran-property-intelligence/s3": ["packages/s3/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

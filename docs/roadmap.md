@@ -514,6 +514,26 @@ composed the real OpenAI, PDF, S3, or PostgreSQL adapters. This block made no
 provider, database, Telegram, or AWS call; added no endpoint, task, schedule,
 presigned URL, secret, IAM grant, migration execution, or deployment.
 
+Block 18.7 is complete in source. The authenticated administrator application
+now has a first-level Showing List workspace alongside Listings. It loads the
+singleton current draft and authoritative listing summaries, edits title,
+summary, client message, order rationale, highlights, and considerations,
+reorders stops with continuous numbering, copies the editable draft, downloads
+the generated PDF snapshot, saves, and marks a clean saved draft reviewed.
+Every read and mutation passes through the existing session and administrator
+authorization boundary. Save and review commands use the generation ID plus
+expected update timestamp for optimistic concurrency; a stale tab receives a
+bounded conflict and must reload. Saving any edit resets lifecycle state to
+`draft`. The generated PDF remains the immutable publication snapshot for that
+generation, and the UI explicitly states that later structured edits do not
+rewrite it. The API omits actor identity, model/provider metadata, token usage,
+private agent instructions, bucket identity, object key, and ETag. Authenticated
+downloads read the stable private object with S3 `If-Match` against the current
+database ETag. PostgreSQL, application, S3, API, API-client, component, and
+session-boundary tests cover the workflow without calling AWS or modifying a
+database. The production API still needs the Block 18.8 IAM grant and injected
+artifact-bucket configuration before private S3 downloads work in AWS.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

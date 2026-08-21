@@ -189,21 +189,22 @@ The web/API rollout order is:
 ## Planned Weekly Showing List Publication Boundary
 
 **Status: partially implemented in source; not deployed or enabled by Block
-18.6.4.**
+18.7.**
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
-Blocks 18.6.1 through 18.6.4 have implemented the application persistence
+Blocks 18.6.1 through 18.7 have implemented the application persistence
 contracts, PostgreSQL adapter, bundled singleton migration, bounded PDFKit
 renderer, current-artifact store port, stable-key AWS SDK v3 S3 adapter, and
-dedicated private unversioned bucket definition in source. The application now
-also owns the ordered render, stable-object replacement, singleton metadata
-commit, and one-attempt metadata reconciliation use case. Migration 005 has not
-been applied to Aurora or a local database, and no real renderer, S3, database,
-or model call was made while implementing the orchestration. Least-privilege
-weekly-task access, runtime composition and configuration, the Showing List
-task, weekly schedule, presigned URL creation, and Telegram delivery remain
-unimplemented or unprovisioned.
+dedicated private unversioned bucket definition in source. The application also
+owns the ordered publication use case, optimistic review mutations, bounded
+review DTOs, authenticated Express routes, React review workspace, and an S3
+reader that guards downloads with the current database ETag. Migration 005 has
+not been applied to Aurora or a local database, and no real renderer, S3,
+database, or model call was made while implementing these source changes.
+Least-privilege API and weekly-task access, deployed runtime configuration, the
+Showing List task, weekly schedule, presigned URL creation, and Telegram
+delivery remain unimplemented or unprovisioned.
 
 ```mermaid
 flowchart LR
@@ -217,6 +218,16 @@ flowchart LR
     Express --> Aurora
     Express -->|authorized current download| Drafts
 ```
+
+The deployed Express runtime requires both
+`SHOWING_LIST_ARTIFACT_BUCKET=<generated private bucket name>` and the
+unhyphenated 12-digit `AWS_ACCOUNT_ID`. They are server-side variables, never
+`VITE_*` variables. When both are absent in local development, the API keeps
+review routes available but returns a bounded `503` for PDF download. Supplying
+only one or an invalid value fails startup configuration validation. The future
+API task role receives only `s3:GetObject` on
+`showing-lists/current.pdf`; Block 18.7 does not grant that permission or deploy
+the API service.
 
 ### Retention and publication contract
 

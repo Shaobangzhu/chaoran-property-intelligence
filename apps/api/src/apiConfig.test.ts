@@ -18,6 +18,7 @@ describe("loadApiConfig", () => {
       port: 3000,
       publicOrigin: "http://127.0.0.1:5173",
       originVerificationSecret: null,
+      showingListArtifactStorage: null,
     });
   });
 
@@ -70,7 +71,41 @@ describe("loadApiConfig", () => {
       port: 8080,
       publicOrigin: "https://app.example.com",
       originVerificationSecret: "o".repeat(32),
+      showingListArtifactStorage: null,
     });
+  });
+
+  it("loads paired private Showing List artifact storage configuration", () => {
+    expect(
+      loadApiConfig({
+        AWS_ACCOUNT_ID: "191227990660",
+        DATABASE_URL: "postgresql://localhost/cpi",
+        SHOWING_LIST_ARTIFACT_BUCKET: "cpi-private-artifacts",
+      }).showingListArtifactStorage,
+    ).toEqual({
+      bucketName: "cpi-private-artifacts",
+      expectedBucketOwner: "191227990660",
+    });
+  });
+
+  it.each([
+    { SHOWING_LIST_ARTIFACT_BUCKET: "cpi-private-artifacts" },
+    { AWS_ACCOUNT_ID: "191227990660" },
+    {
+      AWS_ACCOUNT_ID: "1912-2799-0660",
+      SHOWING_LIST_ARTIFACT_BUCKET: "cpi-private-artifacts",
+    },
+    {
+      AWS_ACCOUNT_ID: "191227990660",
+      SHOWING_LIST_ARTIFACT_BUCKET: "INVALID_BUCKET",
+    },
+  ])("rejects incomplete or invalid artifact config: %o", (artifactConfig) => {
+    expect(() =>
+      loadApiConfig({
+        DATABASE_URL: "postgresql://localhost/cpi",
+        ...artifactConfig,
+      }),
+    ).toThrow("Invalid Showing List artifact storage configuration");
   });
 
   it.each(["development", "prod", "LOCAL"])(

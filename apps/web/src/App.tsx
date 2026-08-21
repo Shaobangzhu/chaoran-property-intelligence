@@ -1,5 +1,7 @@
 import {
   AlertCircle,
+  Building2,
+  ClipboardList,
   LoaderCircle,
   LogIn,
   LogOut,
@@ -31,6 +33,19 @@ import {
   updateManualListing,
 } from "./listingsApi.js";
 import {
+  ShowingListScreen,
+  type CurrentShowingListDownloader,
+  type CurrentShowingListLoader,
+  type CurrentShowingListReviewer,
+  type CurrentShowingListSaver,
+} from "./ShowingListScreen.js";
+import {
+  downloadCurrentShowingList,
+  fetchCurrentShowingList,
+  markCurrentShowingListReviewed,
+  saveCurrentShowingList,
+} from "./showingListApi.js";
+import {
   InvalidCredentialsError,
   LoginRateLimitedError,
   type AuthenticatedUser,
@@ -46,6 +61,14 @@ const defaultUpdateListing: ManualListingUpdater = (listingId, patch) =>
   updateManualListing(listingId, patch);
 const defaultArchiveListing: ManualListingArchiver = (listingId) =>
   archiveManualListing(listingId);
+const defaultLoadCurrentShowingList: CurrentShowingListLoader = (signal) =>
+  fetchCurrentShowingList({ signal });
+const defaultSaveCurrentShowingList: CurrentShowingListSaver = (input) =>
+  saveCurrentShowingList(input);
+const defaultReviewCurrentShowingList: CurrentShowingListReviewer = (input) =>
+  markCurrentShowingListReviewed(input);
+const defaultDownloadCurrentShowingList: CurrentShowingListDownloader = () =>
+  downloadCurrentShowingList();
 
 type AppState =
   | { status: "checking" }
@@ -56,23 +79,34 @@ type AppState =
 interface AppProps {
   archiveListing?: ManualListingArchiver;
   createListing?: ManualListingCreator;
+  downloadShowingList?: CurrentShowingListDownloader;
+  loadCurrentShowingList?: CurrentShowingListLoader;
+  markShowingListReviewed?: CurrentShowingListReviewer;
   sessionClient?: SessionClient;
   loadListings?: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
+  saveShowingList?: CurrentShowingListSaver;
   updateListing?: ManualListingUpdater;
 }
 
 export function App({
   archiveListing = defaultArchiveListing,
   createListing = defaultCreateListing,
+  downloadShowingList = defaultDownloadCurrentShowingList,
+  loadCurrentShowingList = defaultLoadCurrentShowingList,
+  markShowingListReviewed = defaultReviewCurrentShowingList,
   sessionClient = defaultSessionClient,
   loadListings = defaultLoadListings,
   mapView,
+  saveShowingList = defaultSaveCurrentShowingList,
   updateListing = defaultUpdateListing,
 }: AppProps = {}): React.JSX.Element {
   const [state, setState] = useState<AppState>({ status: "checking" });
   const [sessionRequest, setSessionRequest] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState<
+    "listings" | "showing-list"
+  >("listings");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -154,6 +188,61 @@ export function App({
     [archiveListing],
   );
 
+  const protectedShowingListLoader = useCallback<CurrentShowingListLoader>(
+    async (signal) => {
+      try {
+        return await loadCurrentShowingList(signal);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [loadCurrentShowingList],
+  );
+
+  const protectedShowingListSaver = useCallback<CurrentShowingListSaver>(
+    async (input) => {
+      try {
+        return await saveShowingList(input);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [saveShowingList],
+  );
+
+  const protectedShowingListReviewer =
+    useCallback<CurrentShowingListReviewer>(
+      async (input) => {
+        try {
+          return await markShowingListReviewed(input);
+        } catch (error) {
+          if (error instanceof SessionAuthenticationRequiredError) {
+            setState({ status: "signed-out" });
+          }
+          throw error;
+        }
+      },
+      [markShowingListReviewed],
+    );
+
+  const protectedShowingListDownloader =
+    useCallback<CurrentShowingListDownloader>(async () => {
+      try {
+        return await downloadShowingList();
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    }, [downloadShowingList]);
+
   const handleLogout = async (): Promise<void> => {
     if (state.status !== "authenticated" || isSigningOut) {
       return;
@@ -227,13 +316,43 @@ export function App({
               Sign out failed. Your workspace remains open.
             </div>
           ) : null}
-          <ListingsScreen
-            archiveListing={protectedListingArchiver}
-            createListing={protectedListingCreator}
-            loadListings={protectedListingsLoader}
-            {...(mapView === undefined ? {} : { mapView })}
-            updateListing={protectedListingUpdater}
-          />
+          <nav className="workspace-tabs" aria-label="Workspace">
+            <button
+              type="button"
+              aria-current={activeWorkspace === "listings" ? "page" : undefined}
+              onClick={() => setActiveWorkspace("listings")}
+            >
+              <Building2 aria-hidden="true" size={17} />
+              Listings
+            </button>
+            <button
+              type="button"
+              aria-current={
+                activeWorkspace === "showing-list" ? "page" : undefined
+              }
+              onClick={() => setActiveWorkspace("showing-list")}
+            >
+              <ClipboardList aria-hidden="true" size={17} />
+              Showing List
+            </button>
+          </nav>
+          {activeWorkspace === "listings" ? (
+            <ListingsScreen
+              archiveListing={protectedListingArchiver}
+              createListing={protectedListingCreator}
+              loadListings={protectedListingsLoader}
+              {...(mapView === undefined ? {} : { mapView })}
+              updateListing={protectedListingUpdater}
+            />
+          ) : (
+            <ShowingListScreen
+              downloadArtifact={protectedShowingListDownloader}
+              loadCurrent={protectedShowingListLoader}
+              loadListings={protectedListingsLoader}
+              markReviewed={protectedShowingListReviewer}
+              saveDraft={protectedShowingListSaver}
+            />
+          )}
         </>
       ) : null}
     </div>

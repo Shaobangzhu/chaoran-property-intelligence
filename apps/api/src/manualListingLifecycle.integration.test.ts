@@ -49,6 +49,8 @@ describe("manual listing authenticated API lifecycle integration", () => {
         repository,
       }),
       getCurrentUser: new StaticCurrentUser(),
+      getCurrentShowingListArtifact: unusedShowingListUseCase(),
+      getCurrentShowingListDraft: unusedShowingListUseCase(),
       httpSecurity: {
         deploymentMode: "local",
         originVerificationSecret: null,
@@ -57,7 +59,9 @@ describe("manual listing authenticated API lifecycle integration", () => {
       listListings: new ListListings({ query: repository }),
       logger,
       login: new UnusedLogin(),
+      markCurrentShowingListDraftReviewed: unusedShowingListUseCase(),
       requestIdFactory: () => "0198c7d2-7668-7775-b0fc-b789690a60ff",
+      saveCurrentShowingListDraft: unusedShowingListUseCase(),
       updateManualListing: new UpdateManualListing({ now, repository }),
     });
 
@@ -145,6 +149,14 @@ describe("manual listing authenticated API lifecycle integration", () => {
     ]);
   });
 });
+
+function unusedShowingListUseCase(): { execute(): Promise<never> } {
+  return {
+    async execute() {
+      throw new Error("Not used by this integration test");
+    },
+  };
+}
 
 class InMemoryListingRepository
   implements

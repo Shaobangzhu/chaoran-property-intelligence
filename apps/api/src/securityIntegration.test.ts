@@ -64,6 +64,8 @@ describe("authentication security integration", () => {
         },
       },
       getCurrentUser: new GetCurrentUser({ repository, tokenService }),
+      getCurrentShowingListArtifact: unusedShowingListUseCase(),
+      getCurrentShowingListDraft: unusedShowingListUseCase(),
       httpSecurity: {
         deploymentMode: "local",
         originVerificationSecret: null,
@@ -77,8 +79,10 @@ describe("authentication security integration", () => {
         repository,
         tokenService,
       }),
+      markCurrentShowingListDraftReviewed: unusedShowingListUseCase(),
       now: () => now,
       requestIdFactory: () => requestId,
+      saveCurrentShowingListDraft: unusedShowingListUseCase(),
       updateManualListing: {
         async execute() {
           throw new Error("Not used by this integration test");
@@ -139,6 +143,14 @@ describe("authentication security integration", () => {
     ]);
   });
 });
+
+function unusedShowingListUseCase(): { execute(): Promise<never> } {
+  return {
+    async execute() {
+      throw new Error("Not used by this integration test");
+    },
+  };
+}
 
 class InMemoryUserRepository implements UserRepositoryPort {
   constructor(private readonly user: UserAuthenticationRecord) {}

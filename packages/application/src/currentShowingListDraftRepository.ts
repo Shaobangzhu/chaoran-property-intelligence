@@ -51,6 +51,11 @@ const artifactSchema = z.strictObject({
   key: z.literal(SHOWING_LIST_CURRENT_ARTIFACT_KEY),
   etag: boundedString(SHOWING_LIST_PERSISTENCE_LIMITS.artifactEtag),
 });
+const reviewMutationIdentityShape = {
+  generationId: uuidSchema,
+  expectedUpdatedAt: timestampSchema,
+  updatedAt: timestampSchema,
+};
 
 export const replaceCurrentShowingListDraftInputSchema = z.strictObject({
   generationId: uuidSchema,
@@ -100,6 +105,15 @@ export const currentShowingListDraftSchema = z
     }
   });
 
+export const saveCurrentShowingListDraftInputSchema = z.strictObject({
+  ...reviewMutationIdentityShape,
+  draft: generatedShowingListSchema,
+});
+
+export const markCurrentShowingListDraftReviewedInputSchema = z.strictObject({
+  ...reviewMutationIdentityShape,
+});
+
 export type ShowingListStatus = z.infer<typeof showingListStatusSchema>;
 export type ShowingListDeliveryStatus = z.infer<
   typeof showingListDeliveryStatusSchema
@@ -109,6 +123,12 @@ export type ReplaceCurrentShowingListDraftInput = z.infer<
 >;
 export type CurrentShowingListDraft = z.infer<
   typeof currentShowingListDraftSchema
+>;
+export type SaveCurrentShowingListDraftPersistenceInput = z.infer<
+  typeof saveCurrentShowingListDraftInputSchema
+>;
+export type MarkCurrentShowingListDraftReviewedPersistenceInput = z.infer<
+  typeof markCurrentShowingListDraftReviewedInputSchema
 >;
 
 type PersistedGenerationMetadata = z.infer<typeof generationMetadataSchema>;
@@ -122,11 +142,25 @@ type PersistedMetadataMatchesGenerator = Assert<
 >;
 type _PersistedMetadataContract = PersistedMetadataMatchesGenerator;
 
-export interface CurrentShowingListDraftRepositoryPort {
+export interface CurrentShowingListDraftQueryPort {
   findCurrentDraft(): Promise<CurrentShowingListDraft | null>;
+}
+
+export interface CurrentShowingListDraftRepositoryPort
+  extends CurrentShowingListDraftQueryPort {
   replaceCurrentDraft(
     input: ReplaceCurrentShowingListDraftInput,
   ): Promise<CurrentShowingListDraft>;
+}
+
+export interface CurrentShowingListDraftReviewRepositoryPort
+  extends CurrentShowingListDraftQueryPort {
+  saveCurrentDraft(
+    input: SaveCurrentShowingListDraftPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null>;
+  markCurrentDraftReviewed(
+    input: MarkCurrentShowingListDraftReviewedPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null>;
 }
 
 export class CurrentShowingListGenerationConflictError extends Error {
@@ -142,6 +176,16 @@ export function safeParseReplaceCurrentShowingListDraftInput(value: unknown) {
 
 export function safeParseCurrentShowingListDraft(value: unknown) {
   return currentShowingListDraftSchema.safeParse(value);
+}
+
+export function safeParseSaveCurrentShowingListDraftInput(value: unknown) {
+  return saveCurrentShowingListDraftInputSchema.safeParse(value);
+}
+
+export function safeParseMarkCurrentShowingListDraftReviewedInput(
+  value: unknown,
+) {
+  return markCurrentShowingListDraftReviewedInputSchema.safeParse(value);
 }
 
 function boundedString(maximumLength: number) {

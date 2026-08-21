@@ -67,6 +67,9 @@ importers:
       '@chaoran-property-intelligence/postgres':
         specifier: workspace:*
         version: link:../../packages/postgres
+      '@chaoran-property-intelligence/s3':
+        specifier: workspace:*
+        version: link:../../packages/s3
       cookie:
         specifier: 2.0.1
         version: 2.0.1

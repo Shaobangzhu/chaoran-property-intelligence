@@ -1,10 +1,15 @@
 import {
   CurrentShowingListGenerationConflictError,
   safeParseCurrentShowingListDraft,
+  safeParseMarkCurrentShowingListDraftReviewedInput,
   safeParseReplaceCurrentShowingListDraftInput,
+  safeParseSaveCurrentShowingListDraftInput,
   type CurrentShowingListDraft,
   type CurrentShowingListDraftRepositoryPort,
+  type CurrentShowingListDraftReviewRepositoryPort,
+  type MarkCurrentShowingListDraftReviewedPersistenceInput,
   type ReplaceCurrentShowingListDraftInput,
+  type SaveCurrentShowingListDraftPersistenceInput,
 } from "@chaoran-property-intelligence/application";
 
 import type {
@@ -74,8 +79,33 @@ const selectIdempotentCurrentDraftSql = `
   LIMIT 1
 `;
 
+const saveCurrentDraftSql = `
+  UPDATE current_showing_list_draft
+  SET
+    draft = $3::jsonb,
+    status = 'draft',
+    updated_at = $4
+  WHERE singleton_key = 'current'
+    AND generation_id = $1
+    AND updated_at = $2
+  RETURNING ${currentDraftColumns}
+`;
+
+const markCurrentDraftReviewedSql = `
+  UPDATE current_showing_list_draft
+  SET
+    status = 'reviewed',
+    updated_at = $3
+  WHERE singleton_key = 'current'
+    AND generation_id = $1
+    AND updated_at = $2
+  RETURNING ${currentDraftColumns}
+`;
+
 export class PostgresCurrentShowingListDraftRepository
-  implements CurrentShowingListDraftRepositoryPort
+  implements
+    CurrentShowingListDraftRepositoryPort,
+    CurrentShowingListDraftReviewRepositoryPort
 {
   constructor(private readonly database: SqlDatabase) {}
 
@@ -124,6 +154,43 @@ export class PostgresCurrentShowingListDraftRepository
       }
       return parseRequiredCurrentDraft(idempotentResult);
     });
+  }
+
+  async saveCurrentDraft(
+    input: SaveCurrentShowingListDraftPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null> {
+    const parsedInput = safeParseSaveCurrentShowingListDraftInput(input);
+    if (!parsedInput.success) {
+      throw new Error(
+        "Current Showing List draft review persistence input was invalid",
+      );
+    }
+
+    const result = await this.database.query(saveCurrentDraftSql, [
+      parsedInput.data.generationId,
+      parsedInput.data.expectedUpdatedAt,
+      JSON.stringify(parsedInput.data.draft),
+      parsedInput.data.updatedAt,
+    ]);
+    return parseOptionalCurrentDraft(result);
+  }
+
+  async markCurrentDraftReviewed(
+    input: MarkCurrentShowingListDraftReviewedPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null> {
+    const parsedInput = safeParseMarkCurrentShowingListDraftReviewedInput(input);
+    if (!parsedInput.success) {
+      throw new Error(
+        "Current Showing List draft review persistence input was invalid",
+      );
+    }
+
+    const result = await this.database.query(markCurrentDraftReviewedSql, [
+      parsedInput.data.generationId,
+      parsedInput.data.expectedUpdatedAt,
+      parsedInput.data.updatedAt,
+    ]);
+    return parseOptionalCurrentDraft(result);
   }
 }
 
@@ -191,6 +258,12 @@ function parseRequiredCurrentDraft(
     return throwInvalidCurrentDraftRowError();
   }
   return parsed.data;
+}
+
+function parseOptionalCurrentDraft(
+  result: SqlQueryResult,
+): CurrentShowingListDraft | null {
+  return result.rows.length === 0 ? null : parseRequiredCurrentDraft(result);
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

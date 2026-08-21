@@ -77,6 +77,27 @@ describe("App authentication boundary", () => {
     expect(loadListings).toHaveBeenCalledTimes(1);
   });
 
+  it("switches to the protected Showing List workspace", async () => {
+    const user = userEvent.setup();
+    const loadCurrentShowingList = vi.fn(async () => null);
+    render(
+      <App
+        loadCurrentShowingList={loadCurrentShowingList}
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Showing List" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "No current Showing List" }),
+    ).toBeInTheDocument();
+    expect(loadCurrentShowingList).toHaveBeenCalledTimes(1);
+  });
+
   it("recovers when the initial session check fails", async () => {
     const user = userEvent.setup();
     const getCurrentUser = vi
@@ -260,6 +281,27 @@ describe("App authentication boundary", () => {
     expect(
       screen.queryByRole("heading", { name: "Listings unavailable" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("returns to login when the Showing List session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        loadCurrentShowingList={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Showing List" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
   });
 
   it("returns to login when the manual-create session expires", async () => {

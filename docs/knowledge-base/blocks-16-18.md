@@ -1039,6 +1039,58 @@ bounded repeated database failure; and no retry for a generation conflict. No
 real renderer, S3, PostgreSQL, OpenAI, Telegram, endpoint, task, schedule, IAM
 grant, migration, secret, or deployment was used in this block.
 
+### Block 18.7 Review Workspace
+
+The React application exposes Showing List as a first-level authenticated
+administrator workspace next to Listings. It does not expose generation or
+client delivery controls. The workspace loads the current singleton draft and
+the existing bounded listing summaries so generated listing IDs can be shown
+with authoritative addresses. It supports editing title, summary, client
+message, order rationale, highlights, and considerations; moving stops up or
+down with continuous proposed-order renumbering; saving; marking reviewed;
+copying the editable content; and downloading the generated PDF snapshot.
+
+The Express API provides four administrator-only routes:
+
+- `GET /api/showing-list/current`
+- `PATCH /api/showing-list/current`
+- `POST /api/showing-list/current/review`
+- `GET /api/showing-list/current/download`
+
+The response DTO contains only generation identity, non-private client/showing
+labels, structured draft, lifecycle and delivery states, timestamps, and the
+fixed artifact filename/kind. It deliberately omits creator identity, private
+agent instructions, prompt/model/provider metadata, token use, duration, S3
+bucket/key/ETag, and secrets. All responses retain `Cache-Control: no-store`.
+
+Save and review requests carry `generationId` and `expectedUpdatedAt`.
+PostgreSQL updates only when both still match the singleton row. A concurrent
+weekly replacement or another browser save therefore returns a bounded `409`
+instead of silently overwriting newer work. Saving structured content always
+resets status to `draft`; review is permitted only for the current clean saved
+version and is idempotent when it is already reviewed.
+
+The PDF is intentionally the immutable generated artifact for its publication
+generation. Structured review edits do not rerender or replace it in Block
+18.7. The workspace labels the download `PDF snapshot` and states this boundary
+next to the command bar. A future requirement for an edited PDF must add a
+separate render-and-replace command with an explicit artifact/database
+reconciliation contract; it must not happen as a hidden side effect of text
+editing.
+
+The private download path reads the current database metadata first and sends
+S3 `GetObject` with the fixed key, expected account owner, and `If-Match` for
+the current ETag. A replacement race fails closed. The adapter accepts only the
+fixed PDF content type, one through 5 MiB, the expected ETag, and no VersionId.
+Provider details never reach the client. Local API startup may omit
+`AWS_ACCOUNT_ID` and `SHOWING_LIST_ARTIFACT_BUCKET`; in that mode review works
+and download returns a bounded unavailable response. AWS runtime composition
+requires both values together plus a least-privilege current-object read grant.
+
+No AWS request, deployment, database migration execution, OpenAI call,
+Telegram delivery, task, schedule, or production IAM mutation occurred in
+Block 18.7.
+
 ### Latest-Only Retention
 
 Latest-only is an application invariant for the current single-administrator

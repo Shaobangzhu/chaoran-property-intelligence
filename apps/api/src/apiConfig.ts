@@ -18,6 +18,10 @@ export interface ApiConfig extends ApiHttpSecurityConfig {
   databaseConnection: PostgresConnectionConfig;
   host: "127.0.0.1" | "0.0.0.0";
   port: number;
+  showingListArtifactStorage: {
+    bucketName: string;
+    expectedBucketOwner: string;
+  } | null;
 }
 
 export function loadApiConfig(
@@ -41,7 +45,42 @@ export function loadApiConfig(
       deploymentMode === "production"
         ? readOriginVerificationSecret(environment)
         : null,
+    showingListArtifactStorage: readShowingListArtifactStorage(environment),
   };
+}
+
+function readShowingListArtifactStorage(
+  environment: Readonly<Record<string, string | undefined>>,
+): ApiConfig["showingListArtifactStorage"] {
+  const bucketName = environment.SHOWING_LIST_ARTIFACT_BUCKET;
+  const expectedBucketOwner = environment.AWS_ACCOUNT_ID;
+  if (
+    (bucketName === undefined || bucketName.length === 0) &&
+    (expectedBucketOwner === undefined || expectedBucketOwner.length === 0)
+  ) {
+    return null;
+  }
+  if (
+    bucketName === undefined ||
+    !isBucketName(bucketName) ||
+    expectedBucketOwner === undefined ||
+    !/^\d{12}$/.test(expectedBucketOwner)
+  ) {
+    throw new Error(
+      "Invalid Showing List artifact storage configuration: SHOWING_LIST_ARTIFACT_BUCKET/AWS_ACCOUNT_ID",
+    );
+  }
+  return { bucketName, expectedBucketOwner };
+}
+
+function isBucketName(value: string): boolean {
+  return (
+    value.length >= 3 &&
+    value.length <= 63 &&
+    /^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(value) &&
+    !value.includes("..") &&
+    !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)
+  );
 }
 
 function readDeploymentMode(

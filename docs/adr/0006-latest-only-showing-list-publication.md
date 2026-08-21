@@ -108,6 +108,22 @@ presigned URL, API key, bot token, or credential.
 This keeps active draft storage constant while preserving the existing bounded
 operational recovery and diagnostics policy.
 
+## Review and Download Semantics
+
+The current structured draft and generated PDF share one generation identity,
+but Block 18.7 does not silently rerender the artifact when an administrator
+edits structured content. Saving an edit atomically updates the singleton JSON,
+resets lifecycle status to `draft`, and leaves the generated PDF snapshot and
+ETag unchanged. Marking reviewed is allowed only against the exact saved
+generation and update timestamp.
+
+The authenticated browser download reads the singleton metadata first and uses
+S3 `If-Match` with its ETag. This prevents a concurrent weekly replacement from
+serving a new object as though it belonged to an older database read. The UI
+labels the file as a generated snapshot. Edited-PDF publication, if required
+later, needs its own explicit render, stable-key replacement, and metadata
+reconciliation decision.
+
 ## Consequences
 
 - a successful weekly run deliberately replaces the prior draft

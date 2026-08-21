@@ -89,6 +89,111 @@ describe("PostgresCurrentShowingListDraftRepository", () => {
     await expect(repository.findCurrentDraft()).resolves.toBeNull();
   });
 
+  it("saves an edited draft and resets review status atomically", async () => {
+    const editedDraft = {
+      ...createDraft(),
+      title: "Reviewed Saturday route",
+    };
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createCurrentDraftRow({
+            draft: editedDraft,
+            status: "draft",
+            updated_at: new Date("2026-08-20T20:15:00.000Z"),
+          }),
+        ],
+      },
+    ]);
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.saveCurrentDraft({
+        draft: editedDraft,
+        expectedUpdatedAt: "2026-08-20T20:10:00.000Z",
+        generationId,
+        updatedAt: "2026-08-20T20:15:00.000Z",
+      }),
+    ).resolves.toMatchObject({ draft: editedDraft, status: "draft" });
+
+    expect(database.queries[0]?.text).toContain("draft = $3::jsonb");
+    expect(database.queries[0]?.text).toContain("status = 'draft'");
+    expect(database.queries[0]?.text).toContain("updated_at = $2");
+    expect(database.queries[0]?.parameters).toEqual([
+      generationId,
+      "2026-08-20T20:10:00.000Z",
+      JSON.stringify(editedDraft),
+      "2026-08-20T20:15:00.000Z",
+    ]);
+  });
+
+  it("marks the matching current draft reviewed atomically", async () => {
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createCurrentDraftRow({
+            status: "reviewed",
+            updated_at: new Date("2026-08-20T20:15:00.000Z"),
+          }),
+        ],
+      },
+    ]);
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.markCurrentDraftReviewed({
+        expectedUpdatedAt: "2026-08-20T20:10:00.000Z",
+        generationId,
+        updatedAt: "2026-08-20T20:15:00.000Z",
+      }),
+    ).resolves.toMatchObject({ status: "reviewed" });
+
+    expect(database.queries[0]?.text).toContain("status = 'reviewed'");
+    expect(database.queries[0]?.text).toContain("updated_at = $2");
+    expect(database.queries[0]?.parameters).toEqual([
+      generationId,
+      "2026-08-20T20:10:00.000Z",
+      "2026-08-20T20:15:00.000Z",
+    ]);
+  });
+
+  it("returns null when a review mutation loses its concurrency race", async () => {
+    const database = new RecordingSqlDatabase([{ rows: [] }, { rows: [] }]);
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.saveCurrentDraft({
+        draft: createDraft(),
+        expectedUpdatedAt: "2026-08-20T20:00:00.000Z",
+        generationId,
+        updatedAt: "2026-08-20T20:01:00.000Z",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repository.markCurrentDraftReviewed({
+        expectedUpdatedAt: "2026-08-20T20:00:00.000Z",
+        generationId,
+        updatedAt: "2026-08-20T20:01:00.000Z",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects invalid review persistence input before querying", async () => {
+    const database = new RecordingSqlDatabase();
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.markCurrentDraftReviewed({
+        expectedUpdatedAt: "not-a-timestamp",
+        generationId,
+        updatedAt: "2026-08-20T20:01:00.000Z",
+      }),
+    ).rejects.toThrow(
+      "Current Showing List draft review persistence input was invalid",
+    );
+    expect(database.queries).toEqual([]);
+  });
+
   it("rejects the same generation ID with a different ETag", async () => {
     const database = new RecordingSqlDatabase([{ rows: [] }, { rows: [] }]);
     const repository = new PostgresCurrentShowingListDraftRepository(database);

@@ -1,11 +1,17 @@
 import {
   AuthenticationRequiredError,
+  CurrentShowingListDraftChangedError,
+  CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
   type CreateManualListingInput,
   InvalidManualListingPatchError,
+  InvalidShowingListReviewInputError,
   InvalidCredentialsError,
   InvalidManualListingError,
   ManualListingNotFoundError,
+  ShowingListArtifactChangedError,
+  ShowingListArtifactReaderInvalidResponseError,
+  ShowingListArtifactReaderUnavailableError,
   type UpdateManualListingInput,
   type AuthenticatedUser,
   type GetCurrentUserInput,
@@ -13,6 +19,10 @@ import {
   type LoginInput,
   type LoginResult,
   type ManualListingRecord,
+  type CurrentShowingListDraft,
+  type MarkCurrentShowingListDraftReviewedInput,
+  type RenderedShowingListArtifact,
+  type SaveCurrentShowingListDraftInput,
 } from "@chaoran-property-intelligence/application";
 import { randomUUID } from "node:crypto";
 import express, {
@@ -36,6 +46,13 @@ import {
   toUpdateManualListingResponse,
 } from "./manualListingDto.js";
 import {
+  InvalidShowingListRequestError,
+  parseMarkCurrentShowingListDraftReviewedRequest,
+  parseSaveCurrentShowingListDraftRequest,
+  toCurrentShowingListDraftDto,
+  type GetCurrentShowingListDraftResponse,
+} from "./showingListDto.js";
+import {
   createLoginRateLimiter,
   defaultLoginRateLimitConfig,
   type LoginRateLimitConfig,
@@ -54,6 +71,7 @@ import {
 
 const loginJsonBodyLimitBytes = 4_096;
 const manualListingJsonBodyLimitBytes = 8_192;
+const showingListJsonBodyLimitBytes = 256 * 1_024;
 const requestIdHeaderName = "x-request-id";
 
 export type { ApiLogger } from "./apiLogger.js";
@@ -82,17 +100,41 @@ export interface ArchiveManualListingUseCase {
   execute(input: ArchiveManualListingInput): Promise<void>;
 }
 
+export interface GetCurrentShowingListDraftUseCase {
+  execute(): Promise<CurrentShowingListDraft | null>;
+}
+
+export interface SaveCurrentShowingListDraftUseCase {
+  execute(
+    input: SaveCurrentShowingListDraftInput,
+  ): Promise<CurrentShowingListDraft>;
+}
+
+export interface MarkCurrentShowingListDraftReviewedUseCase {
+  execute(
+    input: MarkCurrentShowingListDraftReviewedInput,
+  ): Promise<CurrentShowingListDraft>;
+}
+
+export interface GetCurrentShowingListArtifactUseCase {
+  execute(): Promise<RenderedShowingListArtifact>;
+}
+
 export interface CreateAppOptions {
   archiveManualListing: ArchiveManualListingUseCase;
   createManualListing: CreateManualListingUseCase;
   listListings: ListListingsUseCase;
   login: LoginUseCase;
   getCurrentUser: GetCurrentUserUseCase;
+  getCurrentShowingListArtifact: GetCurrentShowingListArtifactUseCase;
+  getCurrentShowingListDraft: GetCurrentShowingListDraftUseCase;
   httpSecurity: ApiHttpSecurityConfig;
   logger: ApiLogger;
   loginRateLimit?: LoginRateLimitConfig;
   now?: () => Date;
   requestIdFactory?: () => string;
+  markCurrentShowingListDraftReviewed: MarkCurrentShowingListDraftReviewedUseCase;
+  saveCurrentShowingListDraft: SaveCurrentShowingListDraftUseCase;
   updateManualListing: UpdateManualListingUseCase;
 }
 
@@ -199,6 +241,75 @@ export function createApp(options: CreateAppOptions): Express {
       user: toAuthenticatedUserDto(readAuthenticatedUser(response.locals)),
     });
   });
+
+  app.get(
+    "/api/showing-list/current",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const current = await options.getCurrentShowingListDraft.execute();
+      const body: GetCurrentShowingListDraftResponse = {
+        current:
+          current === null ? null : toCurrentShowingListDraftDto(current),
+      };
+      response.status(200).json(body);
+    },
+  );
+
+  app.patch(
+    "/api/showing-list/current",
+    authenticate,
+    requireAdmin,
+    createJsonBodyParser(showingListJsonBodyLimitBytes),
+    async (request, response) => {
+      const current = await options.saveCurrentShowingListDraft.execute(
+        parseSaveCurrentShowingListDraftRequest(request.body),
+      );
+      options.logger.info(
+        "api.showing_list.current.saved",
+        readLogContext(response.locals),
+      );
+      response.status(200).json({
+        current: toCurrentShowingListDraftDto(current),
+      });
+    },
+  );
+
+  app.post(
+    "/api/showing-list/current/review",
+    authenticate,
+    requireAdmin,
+    createJsonBodyParser(showingListJsonBodyLimitBytes),
+    async (request, response) => {
+      const current =
+        await options.markCurrentShowingListDraftReviewed.execute(
+          parseMarkCurrentShowingListDraftReviewedRequest(request.body),
+        );
+      options.logger.info(
+        "api.showing_list.current.reviewed",
+        readLogContext(response.locals),
+      );
+      response.status(200).json({
+        current: toCurrentShowingListDraftDto(current),
+      });
+    },
+  );
+
+  app.get(
+    "/api/showing-list/current/download",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const artifact = await options.getCurrentShowingListArtifact.execute();
+      response.set("Content-Type", artifact.mediaType);
+      response.set(
+        "Content-Disposition",
+        `attachment; filename="${artifact.fileName}"`,
+      );
+      response.set("Content-Length", String(artifact.bytes.byteLength));
+      response.status(200).send(Buffer.from(artifact.bytes));
+    },
+  );
 
   app.get(
     "/api/listings",
@@ -330,12 +441,57 @@ export function createApp(options: CreateAppOptions): Express {
       error instanceof InvalidRequestBodyError ||
       error instanceof InvalidManualListingRequestError ||
       error instanceof InvalidManualListingPatchError ||
+      error instanceof InvalidShowingListRequestError ||
+      error instanceof InvalidShowingListReviewInputError ||
       isBodyParserError(error)
     ) {
       response.status(400).json({
         error: {
           code: "INVALID_REQUEST",
           message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof CurrentShowingListDraftChangedError) {
+      response.status(409).json({
+        error: {
+          code: "SHOWING_LIST_CHANGED",
+          message: "Showing List draft changed; reload before continuing",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof CurrentShowingListDraftNotFoundError) {
+      response.status(404).json({
+        error: {
+          code: "SHOWING_LIST_NOT_FOUND",
+          message: "Showing List draft was not found",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof ShowingListArtifactChangedError) {
+      response.status(409).json({
+        error: {
+          code: "SHOWING_LIST_CHANGED",
+          message: "Showing List draft changed; reload before continuing",
+        },
+      });
+      return;
+    }
+
+    if (
+      error instanceof ShowingListArtifactReaderUnavailableError ||
+      error instanceof ShowingListArtifactReaderInvalidResponseError
+    ) {
+      response.status(503).json({
+        error: {
+          code: "SHOWING_LIST_DOWNLOAD_UNAVAILABLE",
+          message: "Showing List download is temporarily unavailable",
         },
       });
       return;
