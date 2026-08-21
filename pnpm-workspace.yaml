@@ -17,3 +17,4 @@ onlyBuiltDependencies:
 minimumReleaseAgeExclude:
   - aws-cdk-lib@2.266.0
   - aws-cdk@2.1138.0
+  - '@aws-sdk/client-s3@3.1115.0'

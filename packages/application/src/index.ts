@@ -52,6 +52,13 @@ export {
   type ShowingListArtifactRenderInput,
 } from "./showingListArtifactRenderer.js";
 export {
+  InvalidShowingListArtifactStoreInputError,
+  ShowingListArtifactStoreInvalidResponseError,
+  ShowingListArtifactStoreUnavailableError,
+  type ShowingListArtifactStorePort,
+  type StoredShowingListArtifact,
+} from "./showingListArtifactStore.js";
+export {
   CurrentShowingListGenerationConflictError,
   SHOWING_LIST_CURRENT_ARTIFACT_KEY,
   SHOWING_LIST_PERSISTENCE_LIMITS,

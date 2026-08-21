@@ -27,6 +27,10 @@ export default defineConfig({
         "./packages/rentcast/src/index.ts",
         import.meta.url,
       ).pathname,
+      "@chaoran-property-intelligence/s3": new URL(
+        "./packages/s3/src/index.ts",
+        import.meta.url,
+      ).pathname,
       "@chaoran-property-intelligence/telegram": new URL(
         "./packages/telegram/src/index.ts",
         import.meta.url,

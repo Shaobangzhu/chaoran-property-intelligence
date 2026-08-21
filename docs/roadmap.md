@@ -475,6 +475,25 @@ QA. This block added no S3 call or bucket, persistence orchestration, endpoint,
 runtime composition, OpenAI call, Telegram delivery, secret, database write, or
 AWS deployment.
 
+Block 18.6.3 is complete. The application package now owns a provider-neutral
+current-artifact store port whose caller supplies only the validated PDF
+artifact and cannot choose an object key. The dedicated `packages/s3` adapter
+uses AWS SDK v3 `PutObject` to overwrite only
+`showing-lists/current.pdf`, sends an expected-owner guard, SHA-256 checksum,
+SSE-S3 request, attachment disposition, exact PDF content type, and `no-store`
+cache policy, and returns only the bounded S3 ETag with the fixed key. It rejects
+empty, oversized, malformed, or metadata-bearing artifacts before the provider
+call and fails closed on a missing ETag or any returned S3 VersionId. Provider
+failures map to one non-sensitive application error. The CDK production stack
+now defines one dedicated bucket with all public access blocked, ACLs disabled,
+S3-managed encryption, TLS 1.2 enforcement, versioning disabled, Object Lock
+disabled, no CORS, and a one-day incomplete-multipart cleanup rule. The bucket
+and its current object are destroyed together on stack deletion. Focused tests
+lock the SDK command and CloudFormation contract. This block made no real S3 or
+AWS call, deployed no stack, granted no access to the existing daily worker,
+generated no presigned URL, and added no publication orchestration, database
+write, OpenAI call, Telegram delivery, endpoint, or schedule.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

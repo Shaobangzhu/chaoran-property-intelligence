@@ -38,6 +38,12 @@ import {
   TimeWindow,
 } from "aws-cdk-lib/aws-scheduler";
 import { EcsRunFargateTask } from "aws-cdk-lib/aws-scheduler-targets";
+import {
+  BlockPublicAccess,
+  Bucket,
+  BucketEncryption,
+  ObjectOwnership,
+} from "aws-cdk-lib/aws-s3";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
@@ -54,6 +60,8 @@ export interface PropertyAlertStackProps extends StackProps {
 }
 
 export class PropertyAlertStack extends Stack {
+  readonly showingListArtifactBucket: Bucket;
+
   constructor(
     scope: Construct,
     id: string,
@@ -171,6 +179,29 @@ export class PropertyAlertStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       secretName: "cpi/production/application",
     });
+
+    this.showingListArtifactBucket = new Bucket(
+      this,
+      "ShowingListArtifactBucket",
+      {
+        autoDeleteObjects: true,
+        blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        encryption: BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+        lifecycleRules: [
+          {
+            abortIncompleteMultipartUploadAfter: Duration.days(1),
+            enabled: true,
+            id: "AbortIncompleteMultipartUploads",
+          },
+        ],
+        minimumTLSVersion: 1.2,
+        objectLockEnabled: false,
+        objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        removalPolicy: RemovalPolicy.DESTROY,
+        versioned: false,
+      },
+    );
 
     const cluster = new Cluster(this, "Cluster", {
       vpc,

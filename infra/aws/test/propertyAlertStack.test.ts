@@ -131,6 +131,84 @@ describe("PropertyAlertStack", () => {
     });
   });
 
+  it("keeps one latest-only Showing List artifact bucket private", () => {
+    const template = createTemplate();
+
+    template.resourceCountIs("AWS::S3::Bucket", 1);
+    template.hasResource("AWS::S3::Bucket", {
+      DeletionPolicy: "Delete",
+      Properties: {
+        BucketEncryption: {
+          ServerSideEncryptionConfiguration: [
+            {
+              ServerSideEncryptionByDefault: {
+                SSEAlgorithm: "AES256",
+              },
+            },
+          ],
+        },
+        LifecycleConfiguration: {
+          Rules: Match.arrayWith([
+            Match.objectLike({
+              AbortIncompleteMultipartUpload: {
+                DaysAfterInitiation: 1,
+              },
+              Id: "AbortIncompleteMultipartUploads",
+              Status: "Enabled",
+            }),
+          ]),
+        },
+        OwnershipControls: {
+          Rules: [{ ObjectOwnership: "BucketOwnerEnforced" }],
+        },
+        PublicAccessBlockConfiguration: {
+          BlockPublicAcls: true,
+          BlockPublicPolicy: true,
+          IgnorePublicAcls: true,
+          RestrictPublicBuckets: true,
+        },
+      },
+      UpdateReplacePolicy: "Delete",
+    });
+
+    const buckets = Object.values(
+      template.findResources("AWS::S3::Bucket"),
+    );
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]?.Properties).not.toHaveProperty(
+      "VersioningConfiguration",
+    );
+    expect(buckets[0]?.Properties).toHaveProperty("ObjectLockEnabled", false);
+    expect(buckets[0]?.Properties).not.toHaveProperty("CorsConfiguration");
+  });
+
+  it("requires TLS for every Showing List artifact bucket request", () => {
+    const template = createTemplate();
+
+    template.hasResourceProperties("AWS::S3::BucketPolicy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "s3:*",
+            Condition: {
+              Bool: { "aws:SecureTransport": "false" },
+            },
+            Effect: "Deny",
+            Principal: { AWS: "*" },
+          }),
+          Match.objectLike({
+            Action: "s3:*",
+            Condition: {
+              NumericLessThan: { "s3:TlsVersion": 1.2 },
+            },
+            Effect: "Deny",
+            Principal: { AWS: "*" },
+          }),
+        ]),
+      },
+    });
+  });
+
   it("permits PostgreSQL only from the worker security group", () => {
     const template = createTemplate();
 

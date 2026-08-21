@@ -188,17 +188,21 @@ The web/API rollout order is:
 
 ## Planned Weekly Showing List Publication Boundary
 
-**Status: accepted Block 18 target architecture; not provisioned or enabled.**
+**Status: partially implemented in source; not deployed or enabled by Block
+18.6.3.**
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
-Blocks 18.6.1 and 18.6.2 have implemented the application persistence contracts,
-PostgreSQL adapter, bundled singleton migration, provider-neutral artifact port,
-and bounded in-memory PDFKit renderer in source. The renderer produces the
-complete review-marked PDF before any future publication call. Migration 005
-has not been applied to Aurora or a local database. The private artifact bucket,
-S3 adapter, publication orchestration, Showing List task, weekly schedule, and
-Telegram delivery remain unprovisioned.
+Blocks 18.6.1 through 18.6.3 have implemented the application persistence
+contracts, PostgreSQL adapter, bundled singleton migration, bounded PDFKit
+renderer, current-artifact store port, stable-key AWS SDK v3 S3 adapter, and
+dedicated private unversioned bucket definition in source. The renderer produces
+the complete review-marked PDF before any future publication call. Migration
+005 has not been applied to Aurora or a local database, and this block did not
+deploy the new bucket or make a real S3 request. Publication orchestration,
+least-privilege weekly-task access, runtime configuration, the Showing List
+task, weekly schedule, presigned URL creation, and Telegram delivery remain
+unimplemented or unprovisioned.
 
 ```mermaid
 flowchart LR
@@ -551,7 +555,7 @@ and CDK context files are ignored by Git.
 | Aurora cluster and writer | Retained; deletion protection enabled | Can continue to incur storage, I/O, backup, and compute cost |
 | Database credentials secret | Retained | Continues Secrets Manager monthly cost |
 | Application secret | Destroyed | Cost stops after deletion |
-| Showing List artifact bucket (planned) | Defined during Block 18 infrastructure implementation | One unversioned current object; no draft-history growth |
+| Showing List artifact bucket | Destroyed with automatic object deletion | At most one unversioned current object; no draft-history growth or retained bucket after stack deletion |
 | CloudWatch log group | Destroyed | Existing retained logs are removed |
 | VPC, ECS, Scheduler, SQS, SNS | Destroyed | Service-specific ongoing cost stops |
 | Project budget | Retained if the guardrails stack is deleted | Monitoring remains active |

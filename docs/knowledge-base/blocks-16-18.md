@@ -882,8 +882,9 @@ the current record.
 
 Block 18.6.1 checked in the migration and adapter but did not connect to or
 modify a local or AWS database. It did not call S3, provision a bucket, compose
-a runtime, call OpenAI, create a presigned URL, or send Telegram. Those
-boundaries remain in Blocks 18.6.3 through 18.8.
+a runtime, call OpenAI, create a presigned URL, or send Telegram. Later
+sub-blocks preserve those execution boundaries unless they explicitly introduce
+and review the corresponding operation.
 
 ### Block 18.6.2 PDF Artifact Rendering
 
@@ -930,6 +931,62 @@ glyphs, malformed input, mismatched IDs, and byte-limit failure. A representativ
 four-property PDF was rendered to PNG page images and visually checked for
 wrapping, hierarchy, page breaks, overlap, clipping, and footer placement. S3
 publication and stable-key replacement begin in Block 18.6.3.
+
+### Block 18.6.3 Stable-Key S3 Storage
+
+The application layer owns `ShowingListArtifactStorePort`. Its only write
+operation accepts a `RenderedShowingListArtifact` and returns the fixed current
+key plus a bounded ETag. The caller cannot supply a bucket, object key, ACL,
+custom metadata, cache policy, encryption mode, or provider command. This keeps
+dated keys, generation-specific keys, and arbitrary object publication outside
+the application contract.
+
+`packages/s3` implements the port with the modular AWS SDK for JavaScript v3
+S3 client. Before any provider call it strictly accepts only the three-field PDF
+artifact contract, requires one through 5 MiB of bytes, and copies the byte array
+so caller mutation cannot change an in-flight upload. Every replacement uses one
+`PutObjectCommand` with:
+
+- bucket name and 12-digit expected AWS account owner supplied at composition
+- key `showing-lists/current.pdf`
+- exact `application/pdf` content type and attachment filename
+- `Cache-Control: no-store, max-age=0`
+- a precomputed SHA-256 transfer checksum
+- SSE-S3 request encryption and no ACL or user-defined object metadata
+
+The adapter requires a nonblank bounded ETag for database reconciliation. Any
+returned VersionId is rejected as configuration drift because the production
+bucket must remain unversioned. AWS failures map to one stable non-sensitive
+unavailable error; missing ETag, oversized ETag, or unexpected version identity
+maps to a distinct invalid-response error. The adapter performs no logging and
+does not expose the bucket name or provider message through its errors.
+
+The production CDK stack now defines a dedicated Showing List artifact bucket.
+It uses a generated physical name and is separate from the planned React static
+asset bucket. Its synthesized contract is:
+
+- all four S3 Block Public Access controls enabled
+- bucket-owner-enforced ownership with ACLs disabled
+- S3-managed server-side encryption
+- HTTPS and TLS 1.2 minimum enforced by bucket policy
+- versioning disabled and Object Lock explicitly disabled
+- no CORS configuration or public website behavior
+- incomplete multipart uploads aborted after one day
+- `RemovalPolicy.DESTROY` with automatic object deletion during stack deletion
+
+The bucket is exposed as a stack construct for a later least-privilege grant,
+but Block 18.6.3 does not grant the existing daily property-alert task access.
+It does not define the weekly task, inject bucket configuration, generate a
+presigned URL, or compose the renderer, S3 adapter, and PostgreSQL repository.
+Those responsibilities remain in Blocks 18.6.4 and 18.8.
+
+Adapter tests use an injected command client and make no network request. They
+cover the exact PutObject request, stable-key reuse, checksum, object metadata,
+input limits, malformed provider output, unexpected version identity,
+non-sensitive error mapping, and configuration validation. CDK assertions cover
+the bucket count, encryption, ownership, public access, lifecycle, TLS policy,
+versioning, Object Lock, CORS, and deletion policies. No AWS stack was deployed
+and no real S3 request was made in this block.
 
 ### Latest-Only Retention
 
