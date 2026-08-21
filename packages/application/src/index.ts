@@ -25,6 +25,12 @@ export type {
   ShowingListPropertyContext,
 } from "./showingListGenerator.js";
 export {
+  buildShowingListPrompt,
+  SHOWING_LIST_PROMPT_INSTRUCTIONS,
+  SHOWING_LIST_PROMPT_VERSION,
+  type ShowingListPrompt,
+} from "./showingListPrompt.js";
+export {
   FakeShowingListGenerator,
   type FakeShowingListGeneratorOutcome,
 } from "./fakeShowingListGenerator.js";

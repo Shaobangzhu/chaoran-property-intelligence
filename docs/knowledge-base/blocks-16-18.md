@@ -720,18 +720,25 @@ Block 18.3 does not expose an HTTP endpoint or persist a draft. Authentication
 middleware, persistence, lifecycle updates, prompt construction, provider calls,
 and publication remain owned by later sub-blocks.
 
-At implementation time, consult current official OpenAI documentation and ask
-for an explicit model choice after explaining quality, latency, and cost. Use
-the Responses API and Structured Outputs rather than parsing arbitrary Markdown.
-The OpenAI API key remains backend-only; never introduce a
-`VITE_OPENAI_API_KEY`.
+### Block 18.4 Fixed Prompt and Guardrails
 
-### Prompt and Output Integrity
+The application package owns `SHOWING_LIST_PROMPT_VERSION = "v1"`, the fixed
+`SHOWING_LIST_PROMPT_INSTRUCTIONS`, and a deterministic
+`buildShowingListPrompt(context)` function. The returned value contains the
+version, the static instructions, and a JSON input envelope with a fixed task
+name and `untrustedContext`. It is provider-SDK neutral and maps directly to the
+Responses API separation between `instructions` and `input` documented by the
+[official OpenAI Responses API](https://developers.openai.com/api/reference/cli/resources/responses/methods/create).
 
-Use a fixed, server-owned, explicitly versioned prompt such as
-`SHOWING_LIST_PROMPT_VERSION = "v1"`. The client cannot provide a system prompt.
+Listing facts, client display name, and agent instructions are serialized only
+inside the input envelope. They are never interpolated into the developer
+instructions. The prompt explicitly treats every input value as untrusted data;
+`agentInstructions` can express optional preferences but cannot change roles,
+policy, output shape, grounding rules, or reveal fixed instructions. JSON
+encoding safely preserves quotes, newlines, and delimiter-like text without
+turning those values into a higher-priority prompt segment.
 
-The prompt and programmatic validation require:
+The fixed v1 instructions require:
 
 - only supplied authoritative data and listing IDs
 - no invented or duplicate property
@@ -745,6 +752,28 @@ The prompt and programmatic validation require:
 
 Precise routing remains a future routing-engine concern. A language model can
 explain an order but does not calculate a guaranteed shortest route.
+
+The v1 prompt also carries the accepted Fair Housing constraints: objective
+property facts only; no recommendation, exclusion, ranking, or steering based
+on protected characteristics or proxies; no demographic or neighborhood
+composition claims; and a neutral review warning when conflicting preference
+text is ignored. This is an instruction-layer defense combined with the strict
+schema and exact-ID validation from Blocks 18.1 and 18.3. It is not presented as
+a comprehensive semantic compliance classifier, and every result remains an
+unreviewed draft for a licensed agent.
+
+Tests verify the fixed version, deterministic JSON envelope, separation of
+authoritative values from developer instructions, special-character encoding,
+prompt-injection isolation, and the presence of grounding, routing, Fair
+Housing, schema, and review guardrails. Block 18.4 performs no provider call and
+adds no SDK, model selection, API key, endpoint, persistence, migration, or AWS
+resource.
+
+Before implementing Block 18.5, consult current official OpenAI documentation
+and ask for an explicit model choice after explaining quality, latency, and
+cost. Use the Responses API and Structured Outputs rather than parsing arbitrary
+Markdown. The OpenAI API key remains backend-only; never introduce a
+`VITE_OPENAI_API_KEY`.
 
 ### Persistence and Review
 

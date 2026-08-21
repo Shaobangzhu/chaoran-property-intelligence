@@ -410,6 +410,18 @@ exactly. This block added no endpoint, prompt, OpenAI SDK or API call, provider
 error mapping, migration, draft persistence, environment variable, or AWS
 resource.
 
+Block 18.4 is complete. The application package now owns a fixed
+`SHOWING_LIST_PROMPT_VERSION = "v1"` and deterministic prompt builder. Static
+developer instructions are separated from a JSON-serialized untrusted context,
+so listing fields and preference text never enter the instruction string. The
+v1 prompt requires supplied-data grounding, exact listing-ID coverage,
+continuous order values, missing-fact disclosure, non-optimized routing
+language, Fair Housing protections, strict schema output, and licensed-agent
+review. Tests lock the version, stable envelope, special-character handling,
+prompt-injection boundary, and required guardrail categories. This block added
+no OpenAI SDK or API call, model selection, API key, endpoint, persistence,
+migration, semantic compliance classifier, or AWS resource.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 
