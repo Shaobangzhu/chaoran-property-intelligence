@@ -849,6 +849,41 @@ considerations, and client message; saving; marking reviewed; copying; and
 downloading the current private artifact. Client email, client messaging, and
 automatic client sharing are deferred.
 
+### Block 18.6.1 Current Draft Persistence
+
+The application layer owns two strict runtime contracts. A replacement contains
+the generation UUID, administrator UUID, prompt version, bounded Block 18.1
+request snapshot, validated generated draft, bounded provider metadata, stable
+artifact key and ETag, and generation timestamp. A current record adds the
+lifecycle state, delivery state, nullable delivery timestamp, and update
+timestamp. The only accepted artifact key is
+`showing-lists/current.pdf`; dated and generation-specific keys fail validation.
+Unknown fields also fail validation so secrets and unrelated customer data
+cannot silently enter the current record.
+
+Migration `005_create_current_showing_list_draft` creates the singular
+`current_showing_list_draft` table. Its primary key accepts only `current`, so
+PostgreSQL can hold at most one row. Named checks enforce bounded prompt/model,
+provider response ID, token counts, duration, object-shaped JSON, the stable PDF
+key, artifact ETag, lifecycle and delivery enums, delivery timestamp
+consistency, and timestamp order. The creator references `users` with restricted
+deletion. There is no history table, date-based artifact key, append-only event
+row, or draft-history index.
+
+`PostgresCurrentShowingListDraftRepository` validates replacement input before
+querying and strictly validates every returned row. Its transaction inserts the
+first generation and overwrites the singleton for a different generation. If a
+retry supplies the same generation ID, the upsert performs no update; a second
+lookup returns the existing row only when its ETag also matches. This preserves
+review edits and delivery state after an ambiguous successful commit. Reusing a
+generation ID with a different ETag raises a stable conflict instead of changing
+the current record.
+
+Block 18.6.1 checked in the migration and adapter but did not connect to or
+modify a local or AWS database. It did not render a PDF, call S3, provision a
+bucket, compose a runtime, call OpenAI, create a presigned URL, or send Telegram.
+Those boundaries remain in Blocks 18.6.2 through 18.8.
+
 ### Latest-Only Retention
 
 Latest-only is an application invariant for the current single-administrator

@@ -376,6 +376,14 @@ Planned sub-block mapping:
 9. `18.9` Complete mocked adapter, validation, replacement, delivery, failure,
    and Fair Housing tests.
 
+Block 18.6 executes as four independently reviewed steps:
+
+1. `18.6.1` Define current-draft persistence contracts, the singleton migration,
+   and the PostgreSQL repository.
+2. `18.6.2` Render the complete PDF artifact before publication.
+3. `18.6.3` Add the stable-key S3 adapter and private unversioned bucket.
+4. `18.6.4` Orchestrate render, object replacement, and metadata reconciliation.
+
 Block 18.1 is complete. The application package now owns strict Zod contracts
 for one through ten unique listing UUIDs, three bounded nullable preferences,
 and a provider-neutral structured draft. Generated content contains title,
@@ -435,6 +443,19 @@ exercise the real SDK parser and request construction through mocked `fetch`;
 CI makes no OpenAI request. This block added no endpoint, `.env` variable,
 runtime composition, persistence, migration, real provider smoke test, GitHub
 configuration, secret write, or AWS resource.
+
+Block 18.6.1 is complete. The application package now owns strict replacement
+and current-record contracts, the fixed `showing-lists/current.pdf` key,
+bounded generation metadata, `draft`/`reviewed` lifecycle states, and
+`pending`/`sent`/`failed` delivery states. Migration
+`005_create_current_showing_list_draft` creates one singleton table whose only
+valid primary-key value is `current`; it stores one bounded generation request,
+validated draft, model metadata, artifact ETag, actor, and timestamps without a
+history table. The PostgreSQL repository replaces only a different generation,
+returns an existing row unchanged for the same generation ID and ETag, and
+rejects the same generation ID with a different ETag. This block added no PDF
+renderer, S3 bucket or call, endpoint, runtime composition, Telegram delivery,
+OpenAI call, secret, local database write, or AWS deployment.
 
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.

@@ -192,6 +192,11 @@ The web/API rollout order is:
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
+Block 18.6.1 has implemented the application persistence contracts, PostgreSQL
+adapter, and bundled singleton migration in source. Migration 005 has not been
+applied to Aurora or a local database. The private artifact bucket, S3 adapter,
+Showing List task, weekly schedule, and Telegram delivery remain unprovisioned.
+
 ```mermaid
 flowchart LR
     Weekly[EventBridge Scheduler: weekly] -->|RunTask| Task[ECS Fargate one-off Showing List task]

@@ -59,7 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(4);
+    expect(database.transactionCount).toBe(5);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -113,6 +113,24 @@ describe("runMigrations", () => {
     expect(database.queries[9]?.parameters).toEqual([
       "004_support_manual_listings",
     ]);
+    expect(database.queries[10]?.text).toContain(
+      "CREATE TABLE current_showing_list_draft",
+    );
+    expect(database.queries[10]?.text).toContain(
+      "CHECK (singleton_key = 'current')",
+    );
+    expect(database.queries[10]?.text).toContain(
+      "CHECK (artifact_key = 'showing-lists/current.pdf')",
+    );
+    expect(database.queries[10]?.text).toContain(
+      "CHECK (status IN ('draft', 'reviewed'))",
+    );
+    expect(database.queries[10]?.text).toContain(
+      "CHECK (delivery_status IN ('pending', 'sent', 'failed'))",
+    );
+    expect(database.queries[11]?.parameters).toEqual([
+      "005_create_current_showing_list_draft",
+    ]);
   });
 
   it("applies the remaining bundled migrations when the initial schema exists", async () => {
@@ -123,7 +141,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(3);
+    expect(database.transactionCount).toBe(4);
     expect(database.queries[2]?.text).toContain(
       "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
     );
@@ -137,6 +155,12 @@ describe("runMigrations", () => {
     );
     expect(database.queries[7]?.parameters).toEqual([
       "004_support_manual_listings",
+    ]);
+    expect(database.queries[8]?.text).toContain(
+      "CREATE TABLE current_showing_list_draft",
+    );
+    expect(database.queries[9]?.parameters).toEqual([
+      "005_create_current_showing_list_draft",
     ]);
   });
 });
