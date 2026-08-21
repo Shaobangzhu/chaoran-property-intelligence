@@ -11,10 +11,14 @@ export type {
   CreateAdminUserInput,
   CreateAdminUserOptions,
 } from "./createAdminUser.js";
-export { CreateManualListing } from "./createManualListing.js";
+export {
+  CreateManualListing,
+  InvalidManualListingError,
+} from "./createManualListing.js";
 export type {
   CreateManualListingInput,
   CreateManualListingOptions,
+  ManualListingDraftInput,
 } from "./createManualListing.js";
 export {
   AuthenticationRequiredError,

@@ -9,6 +9,9 @@ import type {
   ManualListingRepositoryPort,
 } from "./manualListingRepository.js";
 
+export { InvalidManualListingError } from "@chaoran-property-intelligence/domain";
+export type { ManualListingDraftInput } from "@chaoran-property-intelligence/domain";
+
 export interface CreateManualListingInput {
   actorUserId: string;
   draft: ManualListingDraftInput;

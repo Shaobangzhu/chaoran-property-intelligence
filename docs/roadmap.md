@@ -300,6 +300,17 @@ normalization, field bounds, server-controlled values, persistence parameters,
 and malformed rows without external services. No HTTP route was added and
 migration 004 remains unapplied.
 
+Block 17.3 is complete. `POST /api/listings/manual` now requires exact Origin,
+live session authentication, and admin authorization before its bounded JSON
+parser. A strict DTO accepts only editable draft fields, the authenticated user
+ID becomes the application actor, safe field-only domain errors map to bounded
+`400` responses, and successful creation returns `201` with the shared listing
+summary. Login and manual routes have separate 4 KiB and 8 KiB parsers. The API
+entrypoint composes the use case with PostgreSQL, server UUID, and server time;
+its existing migration-before-listen sequence will apply migration 004 on the
+next real startup. No API process, database connection, or AWS deployment was
+started during this block.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every

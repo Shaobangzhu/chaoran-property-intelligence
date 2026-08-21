@@ -102,12 +102,58 @@ server timestamps in one parameterized statement. It parses the returned row
 into `ManualListingRecord`. This block does not compose the adapter into an API
 process or apply migration 004.
 
+## HTTP Create Contract
+
+Block 17.3 adds the administrator-only endpoint:
+
+```text
+POST /api/listings/manual
+```
+
+The request pipeline is ordered as follows:
+
+```text
+origin verification
+-> exact unsafe-request Origin check
+-> session authentication
+-> admin authorization
+-> bounded JSON parsing
+-> strict DTO parsing
+-> CreateManualListing
+```
+
+Authentication and authorization therefore run before parsing a manual-listing
+body. An unauthenticated malformed request returns `401`, a non-admin request
+returns `403`, and neither consumes use-case or JSON parsing work. Login keeps
+its existing failed-attempt limiter before its own JSON parser.
+
+The manual DTO allows only editable draft fields. Unknown fields, including
+identity, source, owner, formatted address, and timestamp fields, produce the
+same bounded `400 INVALID_REQUEST` response as malformed or incorrectly typed
+JSON. The login body remains limited to 4 KiB. Manual listing JSON is limited to
+8 KiB so a valid 4,000-character note plus the other bounded fields fits.
+
+Domain validation errors produce `400 INVALID_MANUAL_LISTING` with only the
+invalid field name. An invalid authenticated actor ID is a server invariant
+failure and uses the generic credential-free `500` response. Successful writes
+return `201` with the existing `ListingSummaryDto`; owner, notes,
+deduplication/notification state, and persistence timestamps are not exposed.
+The API emits only a request-ID-bearing `api.listings.manual.created` event.
+
+The API entrypoint composes `CreateManualListing` with
+`PostgresManualListingRepository`, `randomUUID`, and a server clock. Its existing
+startup sequence runs bundled migrations before listening, so migration 004
+will be applied when this API version is next started against a database. Block
+17.3 tests and builds do not start the entrypoint or connect to PostgreSQL.
+
 ## Consequences
 
 - one read and map contract supports both listing sources
 - TypeScript preserves stronger RentCast guarantees for the worker
 - manual creation must derive ownership from the authenticated JWT subject
 - HTTP handlers cannot choose listing identity, source, owner, or timestamps
+- malformed unauthenticated writes do not receive body-parser precedence over
+  authentication
 - archive history can remain in the same table without overloading listing
   status
 - later writes must update `updated_at` explicitly until a trigger is justified

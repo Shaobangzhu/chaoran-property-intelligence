@@ -1,4 +1,5 @@
 import {
+  CreateManualListing,
   GetCurrentUser,
   ListListings,
   Login,
@@ -11,10 +12,12 @@ import {
 import {
   createPostgresDatabase,
   PostgresListingQuery,
+  PostgresManualListingRepository,
   PostgresUserRepository,
   runBundledMigrations,
   type SqlDatabase,
 } from "@chaoran-property-intelligence/postgres";
+import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import type { Server } from "node:http";
 
@@ -42,6 +45,11 @@ async function startApi(): Promise<void> {
     const listListings = new ListListings({
       query: new PostgresListingQuery(database),
     });
+    const createManualListing = new CreateManualListing({
+      repository: new PostgresManualListingRepository(database),
+      createId: randomUUID,
+      now: () => new Date(),
+    });
     const userRepository = new PostgresUserRepository(database);
     const tokenService = new JoseAccessTokenService(authConfig);
     const login = new Login({
@@ -55,6 +63,7 @@ async function startApi(): Promise<void> {
       tokenService,
     });
     const app = createApp({
+      createManualListing,
       listListings,
       login,
       getCurrentUser,

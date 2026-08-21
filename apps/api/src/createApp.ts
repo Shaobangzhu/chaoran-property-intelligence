@@ -1,11 +1,14 @@
 import {
   AuthenticationRequiredError,
+  type CreateManualListingInput,
   InvalidCredentialsError,
+  InvalidManualListingError,
   type AuthenticatedUser,
   type GetCurrentUserInput,
   type ListingRecord,
   type LoginInput,
   type LoginResult,
+  type ManualListingRecord,
 } from "@chaoran-property-intelligence/application";
 import { randomUUID } from "node:crypto";
 import express, {
@@ -21,6 +24,11 @@ import {
   type ListListingsResponse,
   toListingSummaryDto,
 } from "./listingDto.js";
+import {
+  InvalidManualListingRequestError,
+  parseManualListingDraftDto,
+  toCreateManualListingResponse,
+} from "./manualListingDto.js";
 import {
   createLoginRateLimiter,
   defaultLoginRateLimitConfig,
@@ -38,7 +46,8 @@ import {
   type SessionCookiePolicy,
 } from "./sessionCookie.js";
 
-const jsonBodyLimitBytes = 4_096;
+const loginJsonBodyLimitBytes = 4_096;
+const manualListingJsonBodyLimitBytes = 8_192;
 const requestIdHeaderName = "x-request-id";
 
 export type { ApiLogger } from "./apiLogger.js";
@@ -55,7 +64,12 @@ export interface GetCurrentUserUseCase {
   execute(input: GetCurrentUserInput): Promise<AuthenticatedUser>;
 }
 
+export interface CreateManualListingUseCase {
+  execute(input: CreateManualListingInput): Promise<ManualListingRecord>;
+}
+
 export interface CreateAppOptions {
+  createManualListing: CreateManualListingUseCase;
   listListings: ListListingsUseCase;
   login: LoginUseCase;
   getCurrentUser: GetCurrentUserUseCase;
@@ -124,13 +138,7 @@ export function createApp(options: CreateAppOptions): Express {
           readLogContext(response.locals),
         ),
     }),
-  );
-  app.use(
-    express.json({
-      limit: jsonBodyLimitBytes,
-      strict: true,
-      type: "application/json",
-    }),
+    createJsonBodyParser(loginJsonBodyLimitBytes),
   );
 
   app.get("/api/health", (_request, response) => {
@@ -187,6 +195,26 @@ export function createApp(options: CreateAppOptions): Express {
       };
 
       response.status(200).json(body);
+    },
+  );
+
+  app.post(
+    "/api/listings/manual",
+    authenticate,
+    requireAdmin,
+    createJsonBodyParser(manualListingJsonBodyLimitBytes),
+    async (request, response) => {
+      const actor = readAuthenticatedUser(response.locals);
+      const record = await options.createManualListing.execute({
+        actorUserId: actor.id,
+        draft: parseManualListingDraftDto(request.body),
+      });
+
+      options.logger.info(
+        "api.listings.manual.created",
+        readLogContext(response.locals),
+      );
+      response.status(201).json(toCreateManualListingResponse(record));
     },
   );
 
@@ -247,11 +275,29 @@ export function createApp(options: CreateAppOptions): Express {
       return;
     }
 
-    if (error instanceof InvalidRequestBodyError || isBodyParserError(error)) {
+    if (
+      error instanceof InvalidRequestBodyError ||
+      error instanceof InvalidManualListingRequestError ||
+      isBodyParserError(error)
+    ) {
       response.status(400).json({
         error: {
           code: "INVALID_REQUEST",
           message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    if (
+      error instanceof InvalidManualListingError &&
+      error.field !== "actorUserId"
+    ) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_MANUAL_LISTING",
+          field: error.field,
+          message: "Manual listing is invalid",
         },
       });
       return;
@@ -268,6 +314,14 @@ export function createApp(options: CreateAppOptions): Express {
   app.use(errorHandler);
 
   return app;
+}
+
+function createJsonBodyParser(limit: number): RequestHandler {
+  return express.json({
+    limit,
+    strict: true,
+    type: "application/json",
+  });
 }
 
 function createAdminAuthorizationMiddleware(): RequestHandler {

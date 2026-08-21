@@ -421,6 +421,27 @@ key and performs no address-based merge. Block 17.3 still owns the protected
 HTTP DTO/parser, verified JWT actor injection, API composition, and migration
 execution decision. Migration 004 has not been applied locally or in AWS.
 
+### Block 17.3 Implementation Baseline
+
+Block 17.3 implements `POST /api/listings/manual`. Origin verification, exact
+Origin enforcement, session authentication, and admin authorization all run
+before the route's 8 KiB JSON parser. The login route now uses its own 4 KiB
+parser after the failed-login limiter, preserving its existing security order.
+
+The manual request DTO is strict and accepts only editable draft fields. Extra
+protected fields, wrong primitive types, malformed JSON, arrays, and oversized
+bodies return bounded `400 INVALID_REQUEST` responses without executing the use
+case. Domain failures return `400 INVALID_MANUAL_LISTING` with a field name but
+no submitted value. Successful responses contain the shared listing summary
+only; owner, notes, internal deduplication/notification state, and persistence
+timestamps remain private.
+
+The API entrypoint now composes `CreateManualListing`, the PostgreSQL adapter,
+`randomUUID`, and a server clock. `runBundledMigrations` still completes before
+the listener starts, so migration 004 is required and will apply on the next
+actual API startup. No local API process, migration, database connection, or AWS
+operation was executed while implementing Block 17.3.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope

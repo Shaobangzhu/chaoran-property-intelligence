@@ -3,17 +3,21 @@ import type { Server } from "node:http";
 
 import {
   AuthenticationRequiredError,
+  type CreateManualListingInput,
   InvalidCredentialsError,
+  InvalidManualListingError,
   type AuthenticatedUser,
   type ListingRecord,
   type LoginInput,
   type LoginResult,
+  type ManualListingRecord,
 } from "@chaoran-property-intelligence/application";
 import { describe, expect, it } from "vitest";
 
 import {
   createApp,
   type ApiLogger,
+  type CreateManualListingUseCase,
   type CreateAppOptions,
   type GetCurrentUserUseCase,
   type ListListingsUseCase,
@@ -557,6 +561,251 @@ describe("createApp", () => {
     ]);
   });
 
+  it("authenticates manual writes before parsing their JSON body", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: jsonHeaders(localOrigin),
+        body: "{",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
+  it("requires admin authorization before parsing a manual listing body", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const nonAdminUser = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const response = await request(
+      createTestApp({
+        createManualListing,
+        getCurrentUser: new FakeGetCurrentUser(undefined, nonAdminUser),
+      }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: "{",
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
+  it("creates a manual listing with the authenticated actor and a bounded response", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ createManualListing, logger }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createManualListingBody()),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(createManualListing.inputs).toEqual([
+      {
+        actorUserId: authenticatedUser.id,
+        draft: createManualListingBody(),
+      },
+    ]);
+    await expect(response.json()).resolves.toEqual({
+      listing: {
+        id: "0198c7d2-7668-7775-b0fc-b789690a60c3",
+        source: "manual",
+        sourceListingId: null,
+        mlsName: null,
+        mlsNumber: null,
+        formattedAddress: "123 Main St, Eastvale, CA 92880",
+        addressLine1: "123 Main St",
+        addressLine2: null,
+        city: "Eastvale",
+        state: "CA",
+        zipCode: "92880",
+        latitude: 33.9525,
+        longitude: -117.5848,
+        propertyType: null,
+        bedrooms: null,
+        bathrooms: null,
+        price: null,
+        status: "Active",
+        listedDate: null,
+        lastSeenDate: "2026-08-20",
+        firstDiscoveredAt: "2026-08-20T20:00:00.000Z",
+      },
+    });
+    expect(logger.infos).toEqual([
+      {
+        context: { requestId },
+        event: "api.listings.manual.created",
+      },
+    ]);
+  });
+
+  it("accepts the maximum valid notes length within the manual body limit", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const notes = "n".repeat(4_000);
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify({ ...createManualListingBody(), notes }),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(createManualListing.inputs[0]?.draft.notes).toBe(notes);
+  });
+
+  it.each([
+    ["an extra protected field", { ...createManualListingBody(), source: "manual" }],
+    ["a wrong field type", { ...createManualListingBody(), price: "825000" }],
+    ["an array", []],
+  ])("rejects %s before executing manual creation", async (_label, body) => {
+    const createManualListing = new FakeCreateManualListing();
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Request body is invalid",
+      },
+    });
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
+  it("rejects an oversized manual-listing body before executing the use case", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify({
+          ...createManualListingBody(),
+          notes: "n".repeat(9_000),
+        }),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
+  it("rejects malformed manual-listing JSON after authentication", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: "{",
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "INVALID_REQUEST" },
+    });
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
+  it("maps safe manual-listing validation fields without exposing values", async () => {
+    const createManualListing = new FakeCreateManualListing(
+      new InvalidManualListingError("latitude"),
+    );
+    const response = await request(
+      createTestApp({ createManualListing }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createManualListingBody()),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "INVALID_MANUAL_LISTING",
+        field: "latitude",
+        message: "Manual listing is invalid",
+      },
+    });
+  });
+
+  it("treats an invalid authenticated actor as an internal failure", async () => {
+    const logger = new RecordingLogger();
+    const createManualListing = new FakeCreateManualListing(
+      new InvalidManualListingError("actorUserId"),
+    );
+    const response = await request(
+      createTestApp({ createManualListing, logger }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createManualListingBody()),
+      },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "INTERNAL_SERVER_ERROR" },
+    });
+    expect(logger.errors).toEqual([
+      {
+        context: { requestId },
+        event: "api.request.failed",
+      },
+    ]);
+  });
+
+  it("rejects the wrong Origin before authenticating a manual write", async () => {
+    const createManualListing = new FakeCreateManualListing();
+    const getCurrentUser = new FakeGetCurrentUser();
+    const response = await request(
+      createTestApp({ createManualListing, getCurrentUser }),
+      "/api/listings/manual",
+      {
+        method: "POST",
+        headers: {
+          ...manualListingHeaders(),
+          origin: "https://wrong.example.com",
+        },
+        body: JSON.stringify(createManualListingBody()),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(getCurrentUser.tokens).toEqual([]);
+    expect(createManualListing.inputs).toEqual([]);
+  });
+
   it("maps internal failures without logging the secret-bearing error", async () => {
     const logger = new RecordingLogger();
     const response = await request(
@@ -666,6 +915,22 @@ class FakeListListings implements ListListingsUseCase {
   }
 }
 
+class FakeCreateManualListing implements CreateManualListingUseCase {
+  readonly inputs: CreateManualListingInput[] = [];
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(
+    input: CreateManualListingInput,
+  ): Promise<ManualListingRecord> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return createManualListingRecord();
+  }
+}
+
 class FailingListListings implements ListListingsUseCase {
   async execute(): Promise<ListingRecord[]> {
     throw new Error("postgresql://user:password@private-host/database");
@@ -713,6 +978,7 @@ function createTestApp(
   overrides: Partial<CreateAppOptions> = {},
 ): ReturnType<typeof createApp> {
   return createApp({
+    createManualListing: new FakeCreateManualListing(),
     listListings: new FakeListListings([]),
     login: new FakeLogin(),
     getCurrentUser: new FakeGetCurrentUser(),
@@ -726,6 +992,13 @@ function createTestApp(
 
 function jsonHeaders(origin: string): Record<string, string> {
   return { "content-type": "application/json", origin };
+}
+
+function manualListingHeaders(): Record<string, string> {
+  return {
+    ...jsonHeaders(localOrigin),
+    ...sessionHeaders(),
+  };
 }
 
 function sessionHeaders(cookieName = "cpi_session"): Record<string, string> {
@@ -765,6 +1038,51 @@ function createListingRecord(): ListingRecord {
       lastSeenDate: "2026-08-19",
       firstDiscoveredAt: "2026-08-19T17:00:00.000Z",
     },
+  };
+}
+
+function createManualListingBody(): Record<string, unknown> {
+  return {
+    addressLine1: "123 Main St",
+    city: "Eastvale",
+    state: "CA",
+    zipCode: "92880",
+    latitude: 33.9525,
+    longitude: -117.5848,
+    status: "Active",
+  };
+}
+
+function createManualListingRecord(): ManualListingRecord {
+  return {
+    id: "0198c7d2-7668-7775-b0fc-b789690a60c3",
+    listing: {
+      source: "manual",
+      sourceListingId: null,
+      mlsName: null,
+      mlsNumber: null,
+      formattedAddress: "123 Main St, Eastvale, CA 92880",
+      addressLine1: "123 Main St",
+      addressLine2: null,
+      city: "Eastvale",
+      state: "CA",
+      zipCode: "92880",
+      latitude: 33.9525,
+      longitude: -117.5848,
+      propertyType: null,
+      bedrooms: null,
+      bathrooms: null,
+      price: null,
+      status: "Active",
+      listedDate: null,
+      lastSeenDate: "2026-08-20",
+      firstDiscoveredAt: "2026-08-20T20:00:00.000Z",
+    },
+    createdByUserId: authenticatedUser.id,
+    notes: "secret internal note",
+    archivedAt: null,
+    createdAt: "2026-08-20T20:00:00.000Z",
+    updatedAt: "2026-08-20T20:00:00.000Z",
   };
 }
 

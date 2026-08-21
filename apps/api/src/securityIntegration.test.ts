@@ -53,6 +53,11 @@ describe("authentication security integration", () => {
     });
     const logger = new SafeRecordingLogger();
     const app = createApp({
+      createManualListing: {
+        async execute() {
+          throw new Error("Not used by this integration test");
+        },
+      },
       getCurrentUser: new GetCurrentUser({ repository, tokenService }),
       httpSecurity: {
         deploymentMode: "local",
