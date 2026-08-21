@@ -634,9 +634,46 @@ Application code depends on an injected port:
 
 ```ts
 interface ShowingListGenerator {
-  generate(context: ShowingListContext): Promise<GeneratedShowingList>;
+  generate(
+    context: ShowingListContext,
+  ): Promise<ShowingListGenerationResult>;
 }
 ```
+
+### Block 18.2 Port and Fake
+
+The application-owned `ShowingListContext` contains the validated preferences
+and a minimal listing projection with ID, formatted address, coordinates,
+nullable property facts, status, listed date, and nullable MLS identity. It
+does not expose provider source IDs, ingestion timestamps, database metadata,
+private notes, customer contact details, credentials, or OpenAI SDK types.
+
+The port returns an envelope rather than only generated content:
+
+```ts
+interface ShowingListGenerationResult {
+  draft: GeneratedShowingList;
+  metadata: {
+    model: string;
+    responseId: string | null;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    totalTokens: number | null;
+    durationMs: number;
+  };
+}
+```
+
+Metadata is operational input for later current-draft persistence and cost
+visibility. It contains no prompt text, generated content, customer data, API
+key, request headers, or raw provider response.
+
+`FakeShowingListGenerator` is a reusable deterministic adapter for application
+and integration tests. It records each context and returns one configured result
+or throws one configured `Error`. It deliberately does not parse or validate
+the configured result: Block 18.3 must treat every adapter result as untrusted at
+runtime and apply the application schema and cross-listing invariants itself.
+Provider error classification remains deferred to the Block 18.5 adapter.
 
 At implementation time, consult current official OpenAI documentation and ask
 for an explicit model choice after explaining quality, latency, and cost. Use

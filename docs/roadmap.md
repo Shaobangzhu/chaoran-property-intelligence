@@ -387,6 +387,17 @@ downloadable artifact contract is `application/pdf` with filename
 `showing-list-draft.pdf`. This block added no endpoint, use case, OpenAI SDK or
 API call, PDF renderer, persistence, environment variable, or AWS resource.
 
+Block 18.2 is complete. The application package now owns the provider-neutral
+`ShowingListGenerator` port. Its context contains bounded preferences and a
+minimal authoritative listing projection without database timestamps, provider
+source IDs, private notes, contact details, credentials, or SDK types. The
+result envelope carries the validated draft plus bounded-purpose model,
+response, token, and duration metadata needed by later persistence. A reusable
+deterministic fake records every context and supports explicit success or
+failure outcomes without validating its configured result. This block added no
+use case, prompt, OpenAI SDK or API call, provider error mapping, endpoint,
+persistence, environment variable, or AWS resource.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 
