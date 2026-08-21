@@ -70,11 +70,44 @@ PostgreSQL. Applying migration 004 is a separately confirmed operational step.
 This block adds no write endpoint, repository command, form, geocoder, external
 API call, permanent deletion, or AWS resource.
 
+## Create Boundary
+
+Block 17.2 adds `CreateManualListing` and a dedicated
+`ManualListingRepositoryPort`. The use case receives an actor user ID separately
+from the editable draft. Block 17.3 must derive that actor from the verified JWT
+subject; it must never copy ownership from an HTTP body.
+
+The editable draft contains address components, confirmed coordinates, optional
+property facts, optional MLS references, `Active` or `Pending` status, optional
+listed date, and notes. The domain normalizer:
+
+- trims bounded strings and converts blank optional values to null
+- accepts only California records and valid five-digit or ZIP+4 codes
+- requires finite in-range coordinates
+- bounds bedrooms and bathrooms from zero through 100
+- accepts only nonnegative integer prices within PostgreSQL integer range
+- validates real `YYYY-MM-DD` listed dates and bounds notes at 4,000 characters
+- derives the formatted address, manual source, null provider ID, discovery
+  timestamp, and last-seen date
+
+The use case validates the actor UUID, obtains a UUID and one timestamp from
+injected server dependencies, and supplies identical create/update timestamps
+to persistence. Semantic input failures use `InvalidManualListingError`, which
+identifies only the invalid field and never includes submitted values.
+
+`PostgresManualListingRepository` is separate from the RentCast alert-worker
+repository. It inserts `manual:<UUID>` as the internal deduplication key,
+`not_applicable` notification state, null archive state, owner, notes, and
+server timestamps in one parameterized statement. It parses the returned row
+into `ManualListingRecord`. This block does not compose the adapter into an API
+process or apply migration 004.
+
 ## Consequences
 
 - one read and map contract supports both listing sources
 - TypeScript preserves stronger RentCast guarantees for the worker
 - manual creation must derive ownership from the authenticated JWT subject
+- HTTP handlers cannot choose listing identity, source, owner, or timestamps
 - archive history can remain in the same table without overloading listing
   status
 - later writes must update `updated_at` explicitly until a trigger is justified

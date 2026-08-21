@@ -290,6 +290,16 @@ accept manual records through the shared contract and present absent facts
 without inventing values. ADR 0005 records the accepted model. The migration
 was added to the bundle but was not applied to a local or AWS database.
 
+Block 17.2 is complete. A pure domain normalizer now validates and canonicalizes
+manual listing drafts, while `CreateManualListing` injects server UUID/time,
+keeps actor ownership separate from editable fields, and persists through a
+dedicated application port. The PostgreSQL adapter writes source-aware identity,
+`not_applicable` notification state, owner, notes, and timestamps with one
+parameterized statement and parses the returned manual record. Tests cover
+normalization, field bounds, server-controlled values, persistence parameters,
+and malformed rows without external services. No HTTP route was added and
+migration 004 remains unapplied.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every

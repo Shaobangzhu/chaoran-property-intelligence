@@ -11,6 +11,11 @@ export type {
   CreateAdminUserInput,
   CreateAdminUserOptions,
 } from "./createAdminUser.js";
+export { CreateManualListing } from "./createManualListing.js";
+export type {
+  CreateManualListingInput,
+  CreateManualListingOptions,
+} from "./createManualListing.js";
 export {
   AuthenticationRequiredError,
   InvalidCredentialsError,
@@ -30,6 +35,11 @@ export type {
 export { Login } from "./login.js";
 export type { LoginInput, LoginOptions, LoginResult } from "./login.js";
 export type { PasswordHasherPort } from "./passwordHasher.js";
+export type {
+  CreateManualListingPersistenceInput,
+  ManualListingRecord,
+  ManualListingRepositoryPort,
+} from "./manualListingRepository.js";
 export {
   InvalidAccessTokenError,
   type IssuedAccessToken,

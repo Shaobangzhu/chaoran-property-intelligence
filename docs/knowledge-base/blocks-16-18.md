@@ -400,6 +400,27 @@ bundled but has not been applied to local or AWS PostgreSQL. Creation, HTTP
 writes, forms, edit/archive commands, and active-query filtering remain owned
 by Blocks 17.2 through 17.5.
 
+### Block 17.2 Implementation Baseline
+
+Block 17.2 implements the pure manual draft normalizer,
+`CreateManualListing`, `ManualListingRepositoryPort`, and
+`PostgresManualListingRepository`. The command separates the authenticated
+actor ID from editable draft fields, injects server UUID/time, and returns a
+manual record with ownership and lifecycle metadata.
+
+The accepted first-release values are California, `Active` or `Pending` status,
+confirmed finite coordinates, optional nonnegative property facts, and an
+optional valid `YYYY-MM-DD` listed date. Price is an integer within PostgreSQL
+range; bedrooms and bathrooms are bounded at 100; notes are bounded at 4,000
+characters. Formatted address, source, source ID, discovery/last-seen values,
+database identity, ownership, notification state, and persistence timestamps
+are not editable.
+
+The PostgreSQL adapter uses `manual:<UUID>` only as an internal deduplication
+key and performs no address-based merge. Block 17.3 still owns the protected
+HTTP DTO/parser, verified JWT actor injection, API composition, and migration
+execution decision. Migration 004 has not been applied locally or in AWS.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope
