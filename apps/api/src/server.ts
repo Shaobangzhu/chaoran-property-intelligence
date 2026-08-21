@@ -64,8 +64,11 @@ async function startApi(): Promise<void> {
         originVerificationSecret: config.originVerificationSecret,
       },
       logger: {
-        error(message) {
-          process.stderr.write(`${message}\n`);
+        error(event, context) {
+          process.stderr.write(`${JSON.stringify({ event, ...context })}\n`);
+        },
+        info(event, context) {
+          process.stdout.write(`${JSON.stringify({ event, ...context })}\n`);
         },
       },
     });

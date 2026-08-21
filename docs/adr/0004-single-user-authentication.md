@@ -298,6 +298,14 @@ Vite-prefixed environment variable.
 8. `16.7` Complete application rate limiting, security headers, authorization,
    CSRF/origin, and end-to-end security tests.
 
+Blocks 16.0 through 16.7 are implemented. Block 16.7 uses a bounded global
+per-process login key rather than an unverified viewer address, applies Helmet
+to API responses, adds a static-document CSP for the selected map origin,
+requires explicit admin authorization for listings, and emits server-generated
+request IDs with credential-free security events. Distributed WAF enforcement,
+CloudFront response headers, and deployment remain governed by the separate
+production gate below.
+
 Every sub-block requires a fresh explanation and explicit confirmation. This
 ADR does not authorize a later sub-block.
 

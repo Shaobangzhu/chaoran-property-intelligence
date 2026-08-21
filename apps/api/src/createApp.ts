@@ -7,17 +7,25 @@ import {
   type LoginInput,
   type LoginResult,
 } from "@chaoran-property-intelligence/application";
+import { randomUUID } from "node:crypto";
 import express, {
   type ErrorRequestHandler,
   type Express,
   type RequestHandler,
 } from "express";
+import helmet from "helmet";
 
 import type { ApiHttpSecurityConfig } from "./apiConfig.js";
+import type { ApiLogContext, ApiLogger } from "./apiLogger.js";
 import {
   type ListListingsResponse,
   toListingSummaryDto,
 } from "./listingDto.js";
+import {
+  createLoginRateLimiter,
+  defaultLoginRateLimitConfig,
+  type LoginRateLimitConfig,
+} from "./loginRateLimit.js";
 import {
   createOriginVerificationGuard,
   createUnsafeRequestOriginGuard,
@@ -31,6 +39,9 @@ import {
 } from "./sessionCookie.js";
 
 const jsonBodyLimitBytes = 4_096;
+const requestIdHeaderName = "x-request-id";
+
+export type { ApiLogger } from "./apiLogger.js";
 
 export interface ListListingsUseCase {
   execute(): Promise<ListingRecord[]>;
@@ -44,22 +55,23 @@ export interface GetCurrentUserUseCase {
   execute(input: GetCurrentUserInput): Promise<AuthenticatedUser>;
 }
 
-export interface ApiLogger {
-  error(message: string): void;
-}
-
 export interface CreateAppOptions {
   listListings: ListListingsUseCase;
   login: LoginUseCase;
   getCurrentUser: GetCurrentUserUseCase;
   httpSecurity: ApiHttpSecurityConfig;
   logger: ApiLogger;
+  loginRateLimit?: LoginRateLimitConfig;
   now?: () => Date;
+  requestIdFactory?: () => string;
 }
+
+class AdminAuthorizationRequiredError extends Error {}
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
   const now = options.now ?? (() => new Date());
+  const requestIdFactory = options.requestIdFactory ?? randomUUID;
   const sessionCookiePolicy = createSessionCookiePolicy(
     options.httpSecurity.deploymentMode,
   );
@@ -67,12 +79,52 @@ export function createApp(options: CreateAppOptions): Express {
   app.disable("x-powered-by");
   app.set("trust proxy", false);
 
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      referrerPolicy: { policy: "no-referrer" },
+      strictTransportSecurity:
+        options.httpSecurity.deploymentMode === "production"
+          ? { includeSubDomains: true, maxAge: 31_536_000, preload: false }
+          : false,
+      xFrameOptions: { action: "deny" },
+    }),
+  );
   app.use((_request, response, next) => {
+    const requestId = requestIdFactory();
     response.set("Cache-Control", "no-store");
+    response.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    response.set(requestIdHeaderName, requestId);
+    response.locals.requestId = requestId;
     next();
   });
-  app.use(createOriginVerificationGuard(options.httpSecurity));
-  app.use(createUnsafeRequestOriginGuard(options.httpSecurity));
+  app.use(
+    createOriginVerificationGuard(options.httpSecurity, (_request, response) =>
+      options.logger.info(
+        "api.origin_verification.rejected",
+        readLogContext(response.locals),
+      ),
+    ),
+  );
+  app.use(
+    createUnsafeRequestOriginGuard(options.httpSecurity, (_request, response) =>
+      options.logger.info(
+        "api.request_origin.rejected",
+        readLogContext(response.locals),
+      ),
+    ),
+  );
+  app.post(
+    "/api/auth/login",
+    createLoginRateLimiter({
+      config: options.loginRateLimit ?? defaultLoginRateLimitConfig,
+      onRateLimited: (_request, response) =>
+        options.logger.info(
+          "api.auth.login.rate_limited",
+          readLogContext(response.locals),
+        ),
+    }),
+  );
   app.use(
     express.json({
       limit: jsonBodyLimitBytes,
@@ -97,6 +149,10 @@ export function createApp(options: CreateAppOptions): Express {
         now(),
       ),
     );
+    options.logger.info(
+      "api.auth.login.succeeded",
+      readLogContext(response.locals),
+    );
     response.status(200).json({ user: toAuthenticatedUserDto(result.user) });
   });
 
@@ -112,6 +168,7 @@ export function createApp(options: CreateAppOptions): Express {
     options.getCurrentUser,
     sessionCookiePolicy,
   );
+  const requireAdmin = createAdminAuthorizationMiddleware();
 
   app.get("/api/auth/me", authenticate, (_request, response) => {
     response.status(200).json({
@@ -119,14 +176,19 @@ export function createApp(options: CreateAppOptions): Express {
     });
   });
 
-  app.get("/api/listings", authenticate, async (_request, response) => {
-    const records = await options.listListings.execute();
-    const body: ListListingsResponse = {
-      listings: records.map(toListingSummaryDto),
-    };
+  app.get(
+    "/api/listings",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const records = await options.listListings.execute();
+      const body: ListListingsResponse = {
+        listings: records.map(toListingSummaryDto),
+      };
 
-    response.status(200).json(body);
-  });
+      response.status(200).json(body);
+    },
+  );
 
   app.use((_request, response) => {
     response.status(404).json({
@@ -144,6 +206,10 @@ export function createApp(options: CreateAppOptions): Express {
     _next,
   ) => {
     if (error instanceof InvalidCredentialsError) {
+      options.logger.info(
+        "api.auth.login.rejected",
+        readLogContext(response.locals),
+      );
       response.status(401).json({
         error: {
           code: "INVALID_CREDENTIALS",
@@ -154,10 +220,28 @@ export function createApp(options: CreateAppOptions): Express {
     }
 
     if (error instanceof AuthenticationRequiredError) {
+      options.logger.info(
+        "api.auth.session.rejected",
+        readLogContext(response.locals),
+      );
       response.status(401).json({
         error: {
           code: "AUTHENTICATION_REQUIRED",
           message: "Authentication is required",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof AdminAuthorizationRequiredError) {
+      options.logger.info(
+        "api.authorization.admin.rejected",
+        readLogContext(response.locals),
+      );
+      response.status(403).json({
+        error: {
+          code: "ADMIN_AUTHORIZATION_REQUIRED",
+          message: "Administrator authorization is required",
         },
       });
       return;
@@ -173,7 +257,7 @@ export function createApp(options: CreateAppOptions): Express {
       return;
     }
 
-    options.logger.error("api.request.failed");
+    options.logger.error("api.request.failed", readLogContext(response.locals));
     response.status(500).json({
       error: {
         code: "INTERNAL_SERVER_ERROR",
@@ -184,6 +268,16 @@ export function createApp(options: CreateAppOptions): Express {
   app.use(errorHandler);
 
   return app;
+}
+
+function createAdminAuthorizationMiddleware(): RequestHandler {
+  return (_request, response, next) => {
+    const user = readAuthenticatedUser(response.locals);
+    if (user.role !== "admin") {
+      throw new AdminAuthorizationRequiredError();
+    }
+    next();
+  };
 }
 
 function createAuthenticationMiddleware(
@@ -249,6 +343,14 @@ function readAuthenticatedUser(
     throw new Error("Authentication middleware did not provide a user");
   }
   return user as AuthenticatedUser;
+}
+
+function readLogContext(locals: Record<string, unknown>): ApiLogContext {
+  const requestId = locals.requestId;
+  if (typeof requestId !== "string") {
+    throw new Error("Request context did not provide a request ID");
+  }
+  return { requestId };
 }
 
 function isBodyParserError(error: unknown): boolean {

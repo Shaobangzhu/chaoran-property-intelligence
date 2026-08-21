@@ -35,8 +35,9 @@ GET http://127.0.0.1:3000/api/listings
 ```
 
 This endpoint is intentionally local-only. Do not bind it to a public interface
-or point it at the AWS production database. Public deployment remains blocked
-until the Block 16.7 security gate and a separate AWS deployment review pass.
+or point it at the AWS production database. The Block 16 security code gate is
+complete; public deployment still requires the separate AWS infrastructure,
+cost, secrets, WAF, response-header, rollback, and smoke-test review.
 
 Block 16.3 defines server-only JWT configuration in `.env.example`. Follow the
 [local authentication configuration runbook](docs/runbooks/local-auth-configuration.md)
@@ -81,6 +82,12 @@ API responses at runtime and never receives database, RentCast, Telegram, or AWS
 credentials. The browser never reads or stores the JWT. The web application
 remains local-only and is not deployed.
 
+The API limits failed login responses to ten per 15 minutes per process before
+password verification, emits only request-ID-based security events, and requires
+explicit admin authorization for listings. API responses use Helmet security
+headers. The web document CSP permits the selected OpenFreeMap tile service but
+does not permit inline scripts or eval.
+
 OpenFreeMap requires no browser API key, but its public service is an external
 development dependency without a project-specific availability guarantee. Map
 driver tests use fakes and never contact the style or tile service.
@@ -91,8 +98,8 @@ AWS-hosted Express application. Vercel is not part of the current production
 plan. App Runner is the selected Express compute target: it preserves the
 container and `node-postgres` runtime, reaches private Aurora through a VPC
 Connector, and receives traffic through a CloudFront-protected origin. The API
-and web application remain undeployed until Block 16.7 completes the remaining
-security controls and the origin controls pass review.
+and web application remain undeployed until the separately reviewed App Runner,
+CloudFront, WAF, response-header, secrets, and rollback plan is implemented.
 
 ## Production runtime
 

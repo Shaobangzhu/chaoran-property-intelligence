@@ -178,6 +178,7 @@ The web/API rollout order is:
 
 1. Complete the local map/list vertical slice and Block 15.5 review.
 2. Add and verify Block 16 server-side authentication and origin controls.
+   **Complete in local code and automated tests.**
 3. Implement the selected App Runner service and review the CDK diff,
    networking, cost, observability, rollback, and retained resources.
 4. Deploy without changing the worker scheduler state.

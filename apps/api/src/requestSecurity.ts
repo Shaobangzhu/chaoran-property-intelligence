@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler, Response } from "express";
 
 import type { ApiHttpSecurityConfig } from "./apiConfig.js";
 
@@ -8,8 +8,14 @@ export const originVerificationHeaderName = "x-cpi-origin-verification";
 
 const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+export type SecurityRejectionHandler = (
+  request: Request,
+  response: Response,
+) => void;
+
 export function createOriginVerificationGuard(
   config: ApiHttpSecurityConfig,
+  onRejected?: SecurityRejectionHandler,
 ): RequestHandler {
   return (request, response, next) => {
     if (
@@ -25,6 +31,7 @@ export function createOriginVerificationGuard(
       config.originVerificationSecret === null ||
       !secretsMatch(receivedSecret, config.originVerificationSecret)
     ) {
+      onRejected?.(request, response);
       response.status(403).json({
         error: {
           code: "ORIGIN_VERIFICATION_FAILED",
@@ -40,6 +47,7 @@ export function createOriginVerificationGuard(
 
 export function createUnsafeRequestOriginGuard(
   config: ApiHttpSecurityConfig,
+  onRejected?: SecurityRejectionHandler,
 ): RequestHandler {
   return (request, response, next) => {
     if (!unsafeMethods.has(request.method)) {
@@ -48,6 +56,7 @@ export function createUnsafeRequestOriginGuard(
     }
 
     if (request.get("Origin") !== config.publicOrigin) {
+      onRejected?.(request, response);
       response.status(403).json({
         error: {
           code: "REQUEST_ORIGIN_REJECTED",

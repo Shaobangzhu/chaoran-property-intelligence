@@ -77,6 +77,17 @@ exact `Origin: http://127.0.0.1:5173` header, and listings require the HttpOnly
 session cookie. The API ignores bearer tokens. Block 16.6 uses these endpoints
 through same-origin browser requests and never reads or stores the JWT in React.
 
+Block 16.7 limits failed login responses globally per API process to ten per 15
+minutes. Successful login responses do not consume the budget. A limited request
+returns `429`, `Retry-After`, and a standard `RateLimit` header; restarting the
+local API clears the in-memory defense-in-depth counter. Do not enable Express
+`trust proxy` or derive a viewer key from forwarding headers during local tests.
+
+Every API response includes a server-generated `X-Request-ID`. Security logs are
+JSON records containing only an event name and request ID. The API uses Helmet
+headers, while HSTS is intentionally absent in local HTTP mode and enabled only
+in explicit production mode.
+
 ## Rotation Boundary
 
 Changing `JWT_SIGNING_SECRET` invalidates every existing token. Rotation must be

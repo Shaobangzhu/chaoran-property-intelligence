@@ -179,7 +179,7 @@ Planned sub-block mapping:
 7. `16.6` Add React session bootstrap, login, logout, and the protected
    workspace. **Complete.**
 8. `16.7` Complete application rate limiting, security headers, CSRF,
-   authorization, and end-to-end security tests.
+   authorization, and end-to-end security tests. **Complete.**
 
 Each numbered item is separately gated and must not be implemented as one large
 change.
@@ -211,8 +211,8 @@ Block 16.3 added the application-level `TokenServicePort`, a strict
 `jose@6.2.9` HS256 adapter, and independently loadable API JWT configuration.
 The adapter accepts only the `cpi-access+jwt` profile with the seven required
 claims, exact issuer and scalar audience, UUID subject and token ID, a 60-minute
-lifetime, and five seconds of clock tolerance. The API does not yet load this
-configuration at startup or issue tokens; that composition remains gated.
+lifetime, and five seconds of clock tolerance. Block 16.5 later connected this
+configuration to the API composition root and session cookie flow.
 
 Block 16.4 added `Login` and `GetCurrentUser` application use cases plus bounded
 authentication errors and a minimum authenticated-user result. Login performs
@@ -249,6 +249,20 @@ login, while a failed logout keeps the authenticated workspace mounted and
 reports a safe retryable notice. Runtime DTO validation accepts only the minimum
 admin profile. Block 16.6 did not add the Block 16.7 limiter, security headers,
 WAF, AWS deployment, or production configuration.
+
+Block 16.7 completed the local authentication security gate. A global
+per-process fixed-window limiter now permits ten failed login requests per 15
+minutes before Argon2 work, ignores untrusted forwarding headers, does not count
+successful logins, and emits bounded `429` responses with standard rate-limit
+metadata. Helmet secures API responses, production mode adds HSTS, and the web
+document ships a CSP restricted to same-origin resources plus the selected
+OpenFreeMap tile origin. Every request receives a server-generated request ID;
+bounded security events contain that ID but no credentials, tokens, cookies, or
+email. Listings require explicit admin authorization after authentication.
+HTTP and cross-layer tests cover unsafe-method Origin rejection, `401`/`403`,
+rate limiting, real Argon2id and JOSE login, cookie authentication, logout, and
+post-logout denial. No WAF, CloudFront response policy, App Runner service,
+production secret, database user, or AWS resource was created.
 
 ### Block 17: Manual Listing Management
 

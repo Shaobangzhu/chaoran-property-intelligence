@@ -24,6 +24,7 @@ const localOrigin = "http://127.0.0.1:5173";
 const productionOrigin = "https://app.example.com";
 const originVerificationSecret = "o".repeat(32);
 const sessionToken = "valid-session-token";
+const requestId = "0198c7d2-7668-7775-b0fc-b789690a60d9";
 const now = new Date("2026-08-20T20:00:00.000Z");
 const expiresAtEpochSeconds = Math.floor(now.getTime() / 1000) + 3600;
 
@@ -34,14 +35,35 @@ describe("createApp", () => {
     const response = await request(
       createTestApp({ listListings, getCurrentUser }),
       "/api/health",
+      { headers: { "x-request-id": "viewer-supplied-request-id" } },
     );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-powered-by")).toBeNull();
+    expect(response.headers.get("x-request-id")).toBe(requestId);
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("permissions-policy")).toBe(
+      "camera=(), microphone=(), geolocation=()",
+    );
+    expect(response.headers.get("strict-transport-security")).toBeNull();
     await expect(response.json()).resolves.toEqual({ status: "ok" });
     expect(listListings.calls).toBe(0);
     expect(getCurrentUser.tokens).toEqual([]);
+  });
+
+  it("adds production transport security without changing the health boundary", async () => {
+    const response = await request(
+      createTestApp({ httpSecurity: productionHttpSecurity }),
+      "/api/health",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("strict-transport-security")).toBe(
+      "max-age=31536000; includeSubDomains",
+    );
   });
 
   it("logs in with a bounded DTO and sets the local HttpOnly cookie", async () => {
@@ -106,14 +128,19 @@ describe("createApp", () => {
 
   it("maps every credential failure to one public response", async () => {
     const login = new FakeLogin(new InvalidCredentialsError());
-    const response = await request(createTestApp({ login }), "/api/auth/login", {
-      method: "POST",
-      headers: jsonHeaders(localOrigin),
-      body: JSON.stringify({
-        email: "unknown@example.com",
-        password: "candidate password",
-      }),
-    });
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ login, logger }),
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: jsonHeaders(localOrigin),
+        body: JSON.stringify({
+          email: "unknown@example.com",
+          password: "candidate password",
+        }),
+      },
+    );
 
     expect(response.status).toBe(401);
     expect(response.headers.get("set-cookie")).toBeNull();
@@ -123,6 +150,150 @@ describe("createApp", () => {
         message: "Invalid email or password",
       },
     });
+    expect(logger.infos).toEqual([
+      {
+        context: { requestId },
+        event: "api.auth.login.rejected",
+      },
+    ]);
+  });
+
+  it("limits failed login work before body parsing without trusting viewer IP headers", async () => {
+    const login = new FakeLogin(new InvalidCredentialsError());
+    const logger = new RecordingLogger();
+    const app = createTestApp({
+      login,
+      logger,
+      loginRateLimit: { limit: 2, windowMs: 60_000 },
+    });
+    const input = {
+      method: "POST",
+      headers: {
+        ...jsonHeaders(localOrigin),
+        "x-forwarded-for": "203.0.113.10",
+      },
+      body: JSON.stringify({
+        email: "unknown@example.com",
+        password: "candidate password",
+      }),
+    };
+
+    expect((await request(app, "/api/auth/login", input)).status).toBe(401);
+    expect((await request(app, "/api/auth/login", input)).status).toBe(401);
+    const limited = await request(app, "/api/auth/login", {
+      ...input,
+      headers: {
+        ...input.headers,
+        "x-forwarded-for": "198.51.100.20",
+      },
+    });
+
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toMatch(/^\d+$/u);
+    expect(limited.headers.get("ratelimit")).not.toBeNull();
+    await expect(limited.json()).resolves.toEqual({
+      error: {
+        code: "LOGIN_RATE_LIMITED",
+        message: "Too many sign-in attempts",
+      },
+    });
+    expect(login.inputs).toHaveLength(2);
+    expect(logger.infos.at(-1)).toEqual({
+      context: { requestId },
+      event: "api.auth.login.rate_limited",
+    });
+  });
+
+  it("does not let rejected origins consume the login limit", async () => {
+    const login = new FakeLogin(new InvalidCredentialsError());
+    const app = createTestApp({
+      login,
+      loginRateLimit: { limit: 1, windowMs: 60_000 },
+    });
+    const body = JSON.stringify({
+      email: "unknown@example.com",
+      password: "candidate password",
+    });
+
+    expect(
+      (
+        await request(app, "/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders("https://wrong.example.com"),
+          body,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(app, "/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders(localOrigin),
+          body,
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(app, "/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders(localOrigin),
+          body,
+        })
+      ).status,
+    ).toBe(429);
+    expect(login.inputs).toHaveLength(1);
+  });
+
+  it("does not charge successful logins against the failed-attempt budget", async () => {
+    const login = new FakeLogin();
+    const app = createTestApp({
+      login,
+      loginRateLimit: { limit: 1, windowMs: 60_000 },
+    });
+    const input = {
+      method: "POST",
+      headers: jsonHeaders(localOrigin),
+      body: JSON.stringify({
+        email: "admin@example.com",
+        password: "candidate password",
+      }),
+    };
+
+    expect((await request(app, "/api/auth/login", input)).status).toBe(200);
+    expect((await request(app, "/api/auth/login", input)).status).toBe(200);
+    expect(login.inputs).toHaveLength(2);
+  });
+
+  it("counts malformed login attempts before parsing credential bodies", async () => {
+    const login = new FakeLogin();
+    const app = createTestApp({
+      login,
+      loginRateLimit: { limit: 1, windowMs: 60_000 },
+    });
+
+    expect(
+      (
+        await request(app, "/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders(localOrigin),
+          body: "{",
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(app, "/api/auth/login", {
+          method: "POST",
+          headers: jsonHeaders(localOrigin),
+          body: JSON.stringify({
+            email: "admin@example.com",
+            password: "candidate password",
+          }),
+        })
+      ).status,
+    ).toBe(429);
+    expect(login.inputs).toEqual([]);
   });
 
   it.each([
@@ -183,6 +354,7 @@ describe("createApp", () => {
     "rejects an unsafe request with Origin %s before body parsing",
     async (origin) => {
       const login = new FakeLogin();
+      const logger = new RecordingLogger();
       const headers: Record<string, string> = {
         "content-type": "application/json",
       };
@@ -191,7 +363,7 @@ describe("createApp", () => {
       }
 
       const response = await request(
-        createTestApp({ login }),
+        createTestApp({ login, logger }),
         "/api/auth/login",
         {
           method: "POST",
@@ -208,6 +380,31 @@ describe("createApp", () => {
         },
       });
       expect(login.inputs).toEqual([]);
+      expect(logger.infos).toEqual([
+        {
+          context: { requestId },
+          event: "api.request_origin.rejected",
+        },
+      ]);
+    },
+  );
+
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "requires an exact Origin for every unsafe %s request",
+    async (method) => {
+      const app = createTestApp();
+
+      const rejected = await request(app, "/api/missing", { method });
+      expect(rejected.status).toBe(403);
+      await expect(rejected.json()).resolves.toMatchObject({
+        error: { code: "REQUEST_ORIGIN_REJECTED" },
+      });
+
+      const accepted = await request(app, "/api/missing", {
+        method,
+        headers: { origin: localOrigin },
+      });
+      expect(accepted.status).toBe(404);
     },
   );
 
@@ -327,6 +524,39 @@ describe("createApp", () => {
     });
   });
 
+  it("returns 403 before querying when an authenticated identity is not admin", async () => {
+    const listListings = new FakeListListings([]);
+    const logger = new RecordingLogger();
+    const nonAdminUser = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const response = await request(
+      createTestApp({
+        getCurrentUser: new FakeGetCurrentUser(undefined, nonAdminUser),
+        listListings,
+        logger,
+      }),
+      "/api/listings",
+      { headers: sessionHeaders() },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "ADMIN_AUTHORIZATION_REQUIRED",
+        message: "Administrator authorization is required",
+      },
+    });
+    expect(listListings.calls).toBe(0);
+    expect(logger.infos).toEqual([
+      {
+        context: { requestId },
+        event: "api.authorization.admin.rejected",
+      },
+    ]);
+  });
+
   it("maps internal failures without logging the secret-bearing error", async () => {
     const logger = new RecordingLogger();
     const response = await request(
@@ -342,11 +572,20 @@ describe("createApp", () => {
         message: "Request could not be completed",
       },
     });
-    expect(logger.errors).toEqual(["api.request.failed"]);
+    expect(logger.errors).toEqual([
+      {
+        context: { requestId },
+        event: "api.request.failed",
+      },
+    ]);
   });
 
   it("rejects direct production access but keeps health available", async () => {
-    const app = createTestApp({ httpSecurity: productionHttpSecurity });
+    const logger = new RecordingLogger();
+    const app = createTestApp({
+      httpSecurity: productionHttpSecurity,
+      logger,
+    });
 
     const directResponse = await request(app, "/api/auth/me", {
       headers: sessionHeaders("__Host-cpi_session"),
@@ -358,6 +597,12 @@ describe("createApp", () => {
 
     const healthResponse = await request(app, "/api/health");
     expect(healthResponse.status).toBe(200);
+    expect(logger.infos).toEqual([
+      {
+        context: { requestId },
+        event: "api.origin_verification.rejected",
+      },
+    ]);
   });
 
   it("returns JSON for unknown API routes", async () => {
@@ -396,14 +641,17 @@ class FakeLogin implements LoginUseCase {
 class FakeGetCurrentUser implements GetCurrentUserUseCase {
   readonly tokens: string[] = [];
 
-  constructor(private readonly failure?: Error) {}
+  constructor(
+    private readonly failure?: Error,
+    private readonly user: AuthenticatedUser = authenticatedUser,
+  ) {}
 
   async execute(input: { accessToken: string }): Promise<AuthenticatedUser> {
     this.tokens.push(input.accessToken);
     if (this.failure !== undefined) {
       throw this.failure;
     }
-    return authenticatedUser;
+    return this.user;
   }
 }
 
@@ -425,11 +673,21 @@ class FailingListListings implements ListListingsUseCase {
 }
 
 class RecordingLogger implements ApiLogger {
-  readonly errors: string[] = [];
+  readonly errors: RecordedLog[] = [];
+  readonly infos: RecordedLog[] = [];
 
-  error(message: string): void {
-    this.errors.push(message);
+  error(event: string, context?: { requestId: string }): void {
+    this.errors.push({ context, event });
   }
+
+  info(event: string, context?: { requestId: string }): void {
+    this.infos.push({ context, event });
+  }
+}
+
+interface RecordedLog {
+  event: string;
+  context: { requestId: string } | undefined;
 }
 
 const authenticatedUser: AuthenticatedUser = {
@@ -461,6 +719,7 @@ function createTestApp(
     httpSecurity: localHttpSecurity,
     logger: new RecordingLogger(),
     now: () => now,
+    requestIdFactory: () => requestId,
     ...overrides,
   });
 }

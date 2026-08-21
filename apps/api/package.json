@@ -9,7 +9,9 @@
     "@chaoran-property-intelligence/auth": "workspace:*",
     "@chaoran-property-intelligence/postgres": "workspace:*",
     "cookie": "2.0.1",
-    "express": "5.2.1"
+    "express": "5.2.1",
+    "express-rate-limit": "8.6.2",
+    "helmet": "8.3.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

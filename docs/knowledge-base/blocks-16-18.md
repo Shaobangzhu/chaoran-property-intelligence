@@ -83,7 +83,9 @@ checks.
   protected listings are implemented.
 - `16.6` complete: React session bootstrap, login, logout, and the protected
   workspace are implemented.
-- `16.7` remains separately gated and unimplemented.
+- `16.7` complete: login rate limiting, security headers, explicit admin
+  authorization, structured security events, CSP, and cross-layer tests are
+  implemented.
 
 ### Product Scope
 
@@ -269,6 +271,29 @@ authorization boundary on every protected request.
 - log security outcomes without password, token, or cookie values
 - return only the minimum profile from `/auth/me`
 
+Block 16.7 implements the application layer of this profile. The in-process
+limiter uses one bounded global fixed window because the deployed CloudFront and
+App Runner proxy chain has not yet been verified as a trustworthy viewer-IP
+source. It permits ten failed login responses per 15 minutes per API instance,
+does not count successful responses, runs before JSON parsing and Argon2, and
+returns bounded `429` JSON plus `Retry-After` and a standard `RateLimit` header.
+Its clock and thresholds are injected in tests; tests never wait for a real
+window. The counter is defense in depth and is not a distributed production
+control.
+
+Helmet adds API response hardening, with HSTS enabled only in explicit
+production mode. The static web document has a CSP that permits same-origin
+scripts, styles, workers, images, and API calls plus connections to the selected
+`tiles.openfreemap.org` map service. Inline scripts and eval remain forbidden.
+CloudFront must apply the reviewed production response-headers policy when the
+static origin is deployed because S3 metadata does not replace an edge policy.
+
+All requests receive a server-generated `X-Request-ID`; viewer-provided request
+IDs are ignored. Security events contain only a bounded event name and request
+ID. The listings route applies authentication before reusable admin
+authorization, preserving `401` for missing or invalid sessions and reserving
+`403` for an authenticated identity that lacks the required role.
+
 A future cross-origin client requires a separate review and exact credentialed
 allowlist. Wildcard credentialed CORS is never allowed.
 
@@ -285,6 +310,9 @@ allowlist. Wildcard credentialed CORS is never allowed.
 - admin-only route returns 403 for insufficient authorization
 - logout clears the cookie
 - login rate limiting and CSRF/origin behavior
+- server-generated request IDs and credential-free security events
+- CSP and environment-specific security headers
+- real Argon2id and JOSE cookie flow through login, listings, logout, and denial
 
 The complete accepted threat model, route contracts, residual risks, and
 sub-block ownership are recorded in
