@@ -13,8 +13,8 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1, Blocks 15.0-15.5, and Block 16.0 are complete. The repository
-currently contains:
+Blocks 0-14.1, Blocks 15.0-15.5, and Blocks 16.0-16.4 are complete. The
+repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -23,6 +23,8 @@ currently contains:
 - a safe in-memory dry-run CLI
 - local integration verification
 - PostgreSQL migrations and a production worker composition root
+- user persistence, Argon2id password hashing, strict JWT, and authentication
+  application use cases
 - CI for install, typecheck, tests, and build
 
 Local PostgreSQL and local secrets are developer-machine concerns and are not
@@ -167,9 +169,10 @@ Planned sub-block mapping:
    **Complete.**
 4. `16.3` Add JWT configuration, the token service, and required claims.
    **Complete.**
-5. `16.4` Add login, logout, and current-user use cases.
-6. `16.5` Add Express routes, cookies, origin checks, auth middleware, protected
-   listings, and database-independent health.
+5. `16.4` Add login and current-user application use cases and record logout as
+   an HTTP-owned cookie operation. **Complete.**
+6. `16.5` Add Express auth routes, login/logout cookies, origin checks, auth
+   middleware, protected listings, and database-independent health.
 7. `16.6` Add React session bootstrap, login, logout, and the protected
    workspace.
 8. `16.7` Complete application rate limiting, security headers, CSRF,
@@ -207,6 +210,18 @@ The adapter accepts only the `cpi-access+jwt` profile with the seven required
 claims, exact issuer and scalar audience, UUID subject and token ID, a 60-minute
 lifetime, and five seconds of clock tolerance. The API does not yet load this
 configuration at startup or issue tokens; that composition remains gated.
+
+Block 16.4 added `Login` and `GetCurrentUser` application use cases plus bounded
+authentication errors and a minimum authenticated-user result. Login performs
+one Argon2 verification for every well-formed password, using a fixed valid
+dummy hash when the normalized email does not identify a user. Unknown users,
+wrong passwords, and disabled users share one credential failure. Current-user
+authentication verifies the JWT candidate, reloads the user, requires an active
+account, and rejects token/database role drift. Internal repository, hashing,
+and unexpected token-service failures remain operational errors rather than
+being mislabeled as authentication failures. Logout has no application state to
+mutate because the accepted design has no refresh token or revocation list; the
+idempotent cookie-clearing command remains owned by the Block 16.5 HTTP layer.
 
 ### Block 17: Manual Listing Management
 

@@ -149,6 +149,25 @@ Unknown-email authentication performs one verification against a fixed valid
 dummy hash. Unknown email, wrong password, and disabled user return the same
 public status and error shape.
 
+Block 16.4 implements this boundary in `packages/application`. `Login`
+normalizes an existing password without applying the evolving new-password
+blocklist, performs exactly one verification for every password inside the
+accepted input bounds, and issues a token only for an active matching user. A
+malformed email uses the same fixed dummy-hash path as an unknown email. Inputs
+outside the password bounds fail generically before Argon2 work so an attacker
+cannot force unbounded password processing.
+
+`GetCurrentUser` treats the verified JWT as a candidate identity, reloads the
+user by subject, requires an active account, and rejects role drift. Its result
+contains only ID, normalized email, and current database role. Known token
+validation failures become one bounded authentication error; repository and
+unexpected infrastructure failures remain operational failures.
+
+There is intentionally no no-op application `Logout` use case. With no refresh
+token or server-side revocation state, logout is the idempotent HTTP operation
+that clears the exact session cookie in Block 16.5. It does not invalidate a
+copied access token for an otherwise active user.
+
 ### JWT and Cookie Contract
 
 The JWT contains only the minimum claims:

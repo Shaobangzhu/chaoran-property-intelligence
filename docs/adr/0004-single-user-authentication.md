@@ -288,9 +288,10 @@ Vite-prefixed environment variable.
    adapter.
 3. `16.2` Add password policy, the Argon2id adapter, and hidden-input admin CLI.
 4. `16.3` Add JWT configuration and the token service.
-5. `16.4` Add login, logout, and current-user application use cases.
-6. `16.5` Add Express auth routes, cookies, origin checks, middleware, protected
-   listings, and database-independent health.
+5. `16.4` Add login and current-user application use cases; logout has no
+   application state under the accepted no-revocation design.
+6. `16.5` Add Express auth routes, login/logout cookies, origin checks,
+   middleware, protected listings, and database-independent health.
 7. `16.6` Add React session bootstrap, login, logout, and protected workspace.
 8. `16.7` Complete application rate limiting, security headers, authorization,
    CSRF/origin, and end-to-end security tests.
