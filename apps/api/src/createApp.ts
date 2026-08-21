@@ -1,16 +1,47 @@
-import type { ListingRecord } from "@chaoran-property-intelligence/application";
+import {
+  AuthenticationRequiredError,
+  InvalidCredentialsError,
+  type AuthenticatedUser,
+  type GetCurrentUserInput,
+  type ListingRecord,
+  type LoginInput,
+  type LoginResult,
+} from "@chaoran-property-intelligence/application";
 import express, {
   type ErrorRequestHandler,
   type Express,
+  type RequestHandler,
 } from "express";
 
+import type { ApiHttpSecurityConfig } from "./apiConfig.js";
 import {
   type ListListingsResponse,
   toListingSummaryDto,
 } from "./listingDto.js";
+import {
+  createOriginVerificationGuard,
+  createUnsafeRequestOriginGuard,
+} from "./requestSecurity.js";
+import {
+  createSessionClearCookie,
+  createSessionCookiePolicy,
+  createSessionSetCookie,
+  readSessionToken,
+  type SessionCookiePolicy,
+} from "./sessionCookie.js";
+
+const jsonBodyLimitBytes = 4_096;
 
 export interface ListListingsUseCase {
   execute(): Promise<ListingRecord[]>;
+}
+
+export interface LoginUseCase {
+  execute(input: LoginInput): Promise<LoginResult>;
+}
+
+export interface GetCurrentUserUseCase {
+  execute(input: GetCurrentUserInput): Promise<AuthenticatedUser>;
 }
 
 export interface ApiLogger {
@@ -19,19 +50,76 @@ export interface ApiLogger {
 
 export interface CreateAppOptions {
   listListings: ListListingsUseCase;
+  login: LoginUseCase;
+  getCurrentUser: GetCurrentUserUseCase;
+  httpSecurity: ApiHttpSecurityConfig;
   logger: ApiLogger;
+  now?: () => Date;
 }
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
+  const now = options.now ?? (() => new Date());
+  const sessionCookiePolicy = createSessionCookiePolicy(
+    options.httpSecurity.deploymentMode,
+  );
+
   app.disable("x-powered-by");
+  app.set("trust proxy", false);
 
   app.use((_request, response, next) => {
     response.set("Cache-Control", "no-store");
     next();
   });
+  app.use(createOriginVerificationGuard(options.httpSecurity));
+  app.use(createUnsafeRequestOriginGuard(options.httpSecurity));
+  app.use(
+    express.json({
+      limit: jsonBodyLimitBytes,
+      strict: true,
+      type: "application/json",
+    }),
+  );
 
-  app.get("/api/listings", async (_request, response) => {
+  app.get("/api/health", (_request, response) => {
+    response.status(200).json({ status: "ok" });
+  });
+
+  app.post("/api/auth/login", async (request, response) => {
+    const input = parseLoginInput(request.body);
+    const result = await options.login.execute(input);
+    response.setHeader(
+      "Set-Cookie",
+      createSessionSetCookie(
+        sessionCookiePolicy,
+        result.accessToken.token,
+        result.accessToken.expiresAtEpochSeconds,
+        now(),
+      ),
+    );
+    response.status(200).json({ user: toAuthenticatedUserDto(result.user) });
+  });
+
+  app.post("/api/auth/logout", (_request, response) => {
+    response.setHeader(
+      "Set-Cookie",
+      createSessionClearCookie(sessionCookiePolicy),
+    );
+    response.status(204).end();
+  });
+
+  const authenticate = createAuthenticationMiddleware(
+    options.getCurrentUser,
+    sessionCookiePolicy,
+  );
+
+  app.get("/api/auth/me", authenticate, (_request, response) => {
+    response.status(200).json({
+      user: toAuthenticatedUserDto(readAuthenticatedUser(response.locals)),
+    });
+  });
+
+  app.get("/api/listings", authenticate, async (_request, response) => {
     const records = await options.listListings.execute();
     const body: ListListingsResponse = {
       listings: records.map(toListingSummaryDto),
@@ -50,20 +138,131 @@ export function createApp(options: CreateAppOptions): Express {
   });
 
   const errorHandler: ErrorRequestHandler = (
-    _error,
+    error,
     _request,
     response,
     _next,
   ) => {
-    options.logger.error("GET /api/listings failed");
+    if (error instanceof InvalidCredentialsError) {
+      response.status(401).json({
+        error: {
+          code: "INVALID_CREDENTIALS",
+          message: "Invalid email or password",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof AuthenticationRequiredError) {
+      response.status(401).json({
+        error: {
+          code: "AUTHENTICATION_REQUIRED",
+          message: "Authentication is required",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof InvalidRequestBodyError || isBodyParserError(error)) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    options.logger.error("api.request.failed");
     response.status(500).json({
       error: {
         code: "INTERNAL_SERVER_ERROR",
-        message: "Unable to list listings",
+        message: "Request could not be completed",
       },
     });
   };
   app.use(errorHandler);
 
   return app;
+}
+
+function createAuthenticationMiddleware(
+  getCurrentUser: GetCurrentUserUseCase,
+  sessionCookiePolicy: SessionCookiePolicy,
+): RequestHandler {
+  return async (request, response, next) => {
+    const accessToken = readSessionToken(
+      request.headers.cookie,
+      sessionCookiePolicy,
+    );
+    if (accessToken === null) {
+      throw new AuthenticationRequiredError();
+    }
+
+    response.locals.authenticatedUser = await getCurrentUser.execute({
+      accessToken,
+    });
+    next();
+  };
+}
+
+function parseLoginInput(value: unknown): LoginInput {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new InvalidRequestBodyError();
+  }
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (
+    keys.length !== 2 ||
+    !keys.includes("email") ||
+    !keys.includes("password") ||
+    typeof record.email !== "string" ||
+    typeof record.password !== "string"
+  ) {
+    throw new InvalidRequestBodyError();
+  }
+
+  return {
+    email: record.email,
+    password: record.password,
+  };
+}
+
+function toAuthenticatedUserDto(user: AuthenticatedUser): {
+  id: string;
+  email: string;
+  role: AuthenticatedUser["role"];
+} {
+  return {
+    id: user.id,
+    email: user.normalizedEmail,
+    role: user.role,
+  };
+}
+
+function readAuthenticatedUser(
+  locals: Record<string, unknown>,
+): AuthenticatedUser {
+  const user = locals.authenticatedUser;
+  if (user === undefined) {
+    throw new Error("Authentication middleware did not provide a user");
+  }
+  return user as AuthenticatedUser;
+}
+
+function isBodyParserError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("type" in error)) {
+    return false;
+  }
+  return (
+    error.type === "entity.parse.failed" || error.type === "entity.too.large"
+  );
+}
+
+class InvalidRequestBodyError extends Error {
+  constructor() {
+    super("Request body is invalid");
+    this.name = "InvalidRequestBodyError";
+  }
 }

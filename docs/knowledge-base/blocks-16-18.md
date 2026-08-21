@@ -195,8 +195,9 @@ seconds. All verification failures cross the application boundary as the same
 `InvalidAccessTokenError`.
 
 `apps/api` exposes an independent `loadAuthConfig` for `JWT_SIGNING_SECRET`,
-`JWT_ISSUER`, and `JWT_AUDIENCE`, but the current server does not call it yet.
-No token, cookie, login route, or production secret was created in Block 16.3.
+`JWT_ISSUER`, and `JWT_AUDIENCE`. Block 16.5 loads it in the API composition
+root and passes it only to the server-side token service. No production secret
+was created or synchronized by either block.
 
 The API returns the JWT in a cookie with:
 
@@ -209,6 +210,23 @@ The API returns the JWT in a cookie with:
 Local development may use `Secure=false` only through explicit environment-aware
 configuration. Logout clears the exact cookie contract used by login. Do not
 store the token in `localStorage` or `sessionStorage`.
+
+Block 16.5 implements the HTTP boundary in `apps/api`. `POST /api/auth/login`
+accepts only bounded JSON with the exact `email` and `password` fields, sets the
+session cookie, and returns ID, normalized email, and role. Logout clears the
+same host-only cookie and returns `204`. `/api/auth/me` and `/api/listings` read
+only that cookie and never accept a bearer token. The authentication middleware
+calls `GetCurrentUser` on every request, so a missing, disabled, or role-drifted
+user is denied before listing data is queried.
+
+Local mode binds only to `127.0.0.1`, uses `cpi_session`, and defaults to the
+Vite origin `http://127.0.0.1:5173`. Explicit production mode binds to
+`0.0.0.0`, reads App Runner's `PORT`, requires an HTTPS public origin, and uses
+`__Host-cpi_session`. The production origin-verification secret is compared in
+constant time before body parsing and authentication. `GET /api/health` is the
+only origin-header exception so App Runner can probe a non-sensitive route; it
+does not query application use cases or the database. This code boundary does
+not provision App Runner, CloudFront, WAF, or production secrets.
 
 ### HTTP Security
 

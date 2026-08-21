@@ -13,8 +13,11 @@ describe("loadApiConfig", () => {
         kind: "connection-string",
         connectionString: "postgresql://cpi:secret@localhost:5432/cpi",
       },
+      deploymentMode: "local",
       host: "127.0.0.1",
       port: 3000,
+      publicOrigin: "http://127.0.0.1:5173",
+      originVerificationSecret: null,
     });
   });
 
@@ -47,4 +50,83 @@ describe("loadApiConfig", () => {
       ).toThrow("Invalid API port: API_PORT");
     },
   );
+
+  it("loads an explicit production listener and origin boundary", () => {
+    expect(
+      loadApiConfig({
+        DATABASE_URL: "postgresql://private-host/cpi",
+        API_DEPLOYMENT_MODE: "production",
+        PORT: "8080",
+        API_PUBLIC_ORIGIN: "https://app.example.com",
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+      }),
+    ).toEqual({
+      databaseConnection: {
+        kind: "connection-string",
+        connectionString: "postgresql://private-host/cpi",
+      },
+      deploymentMode: "production",
+      host: "0.0.0.0",
+      port: 8080,
+      publicOrigin: "https://app.example.com",
+      originVerificationSecret: "o".repeat(32),
+    });
+  });
+
+  it.each(["development", "prod", "LOCAL"])(
+    "rejects an unknown deployment mode %s",
+    (deploymentMode) => {
+      expect(() =>
+        loadApiConfig({
+          DATABASE_URL: "postgresql://localhost/cpi",
+          API_DEPLOYMENT_MODE: deploymentMode,
+        }),
+      ).toThrow("Invalid API deployment mode: API_DEPLOYMENT_MODE");
+    },
+  );
+
+  it.each([
+    "http://app.example.com",
+    "https://app.example.com/path",
+    "https://app.example.com/",
+    "not-an-origin",
+  ])("rejects invalid production public origin %s", (publicOrigin) => {
+    expect(() =>
+      loadApiConfig({
+        DATABASE_URL: "postgresql://private-host/cpi",
+        API_DEPLOYMENT_MODE: "production",
+        PORT: "8080",
+        API_PUBLIC_ORIGIN: publicOrigin,
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+      }),
+    ).toThrow("Invalid API public origin: API_PUBLIC_ORIGIN");
+  });
+
+  it.each(["", "too-short", "s".repeat(257)])(
+    "rejects an invalid production origin secret",
+    (secret) => {
+      expect(() =>
+        loadApiConfig({
+          DATABASE_URL: "postgresql://private-host/cpi",
+          API_DEPLOYMENT_MODE: "production",
+          PORT: "8080",
+          API_PUBLIC_ORIGIN: "https://app.example.com",
+          API_ORIGIN_VERIFICATION_SECRET: secret,
+        }),
+      ).toThrow(
+        "Invalid API origin verification secret: API_ORIGIN_VERIFICATION_SECRET",
+      );
+    },
+  );
+
+  it("requires App Runner PORT in production", () => {
+    expect(() =>
+      loadApiConfig({
+        DATABASE_URL: "postgresql://private-host/cpi",
+        API_DEPLOYMENT_MODE: "production",
+        API_PUBLIC_ORIGIN: "https://app.example.com",
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+      }),
+    ).toThrow("Missing required environment variable: PORT");
+  });
 });

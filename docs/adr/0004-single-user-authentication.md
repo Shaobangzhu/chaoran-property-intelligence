@@ -212,6 +212,8 @@ parsing, rate limiting, and authentication. CloudFront overwrites the configured
 header value, and App Runner rejects a missing or mismatched value. Local mode
 can disable this check only through explicit validated configuration. The
 origin secret never appears in React, source control, CDK synth output, or logs.
+The sole exception is `GET /api/health`, which returns no application data and
+does not query the database, so App Runner can perform its direct health probe.
 
 ### Login Abuse and Security Logging
 

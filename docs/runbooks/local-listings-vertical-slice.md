@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Verify the local read path end to end:
+Verify the local read path and its authentication boundary:
 
 ```text
 React -> Vite /api proxy -> Express -> PostgreSQL
@@ -43,25 +43,33 @@ AWS remains a separately approved production operation.
 ## Read Contract
 
 ```bash
-curl --fail-with-body --include http://127.0.0.1:3000/api/listings
-curl --fail-with-body --include http://127.0.0.1:5173/api/listings
+curl --fail-with-body --include http://127.0.0.1:3000/api/health
+curl --include http://127.0.0.1:3000/api/listings
+curl --include http://127.0.0.1:5173/api/listings
 curl --include http://127.0.0.1:3000/api/not-a-route
 ```
 
 Require:
 
-- both listing requests return `200` and `Cache-Control: no-store`
-- direct and proxied responses have the same listing count
-- every content row has a UUID plus finite latitude and longitude
-- no response contains `deduplication_key`, `notification_status`, or secrets
+- health returns `200` without querying PostgreSQL application data
+- both unauthenticated listing requests return bounded `401` JSON
+- no response contains secrets
 - the unknown route returns bounded `404` JSON with code `NOT_FOUND`
 
-An empty listing array is a valid empty-state result. For a content-state check,
-insert only disposable local fixtures through the local database tooling, then
-open `http://127.0.0.1:5173` and verify:
+Authenticated browser verification resumes after Block 16.6 supplies the login
+and session bootstrap UI. Automated Block 16.5 API tests cover successful
+cookie-authenticated listing reads without writing credentials to shell history.
+
+### Authenticated Content Check After Block 16.6
+
+An empty listing array is a valid authenticated empty state. For a content-state
+check, insert only disposable local fixtures through the local database tooling,
+then log in at `http://127.0.0.1:5173` and verify:
 
 - desktop list and map are visible together
 - mobile List and Map modes remain usable
+- every content row has a UUID plus finite latitude and longitude
+- no response contains `deduplication_key` or `notification_status`
 - every valid coordinate produces a marker
 - selecting a row focuses its marker
 - selecting a marker selects the corresponding row

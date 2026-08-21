@@ -2,10 +2,9 @@
 
 ## Scope
 
-Block 16.3 defines and validates the JWT signing configuration. The current API
-does not consume these values until the authentication composition is connected
-in Block 16.5. This runbook prepares local values without creating users,
-issuing tokens, changing a database, or contacting AWS.
+Block 16.5 connects the JWT signing configuration to the Express API. The API
+will not start without valid JWT values. This runbook prepares local values
+without creating users, issuing tokens, changing a database, or contacting AWS.
 
 ## Generate the Signing Secret
 
@@ -25,6 +24,20 @@ Add the non-secret identifiers:
 JWT_ISSUER=urn:chaoran-property-intelligence:auth
 JWT_AUDIENCE=urn:chaoran-property-intelligence:api
 ```
+
+Keep the local HTTP boundary explicit:
+
+```text
+API_DEPLOYMENT_MODE=local
+API_PORT=3000
+API_PUBLIC_ORIGIN=http://127.0.0.1:5173
+```
+
+Local mode binds only to `127.0.0.1`, uses the `cpi_session` cookie without the
+`Secure` attribute, and does not consume `PORT` or
+`API_ORIGIN_VERIFICATION_SECRET`. Production mode must never be used as a local
+shortcut because it binds to all interfaces and requires the CloudFront origin
+guard contract.
 
 The signing secret must decode to 32-64 bytes. The adapter rejects padded,
 non-canonical, malformed, short, and oversized base64url values without
@@ -48,9 +61,21 @@ algorithm or type, nonstandard lifetime, and invalid issuer or audience. Every
 failure is translated to the bounded application error `Access token is
 invalid`.
 
-JWT verification establishes only a candidate identity. Block 16.5 must reload
-the database user and enforce current role and status before authorizing a
-protected request.
+JWT verification establishes only a candidate identity. The Block 16.5
+authentication middleware reloads the database user and enforces current role
+and status before authorizing `/api/auth/me` or `/api/listings`.
+
+## Local API Preflight
+
+Before `pnpm api:start`, require a loopback `DATABASE_URL`, the three JWT values,
+and the local HTTP settings above. The API runs bundled migrations before
+listening. Creating an administrator remains a separate explicit operation
+through `pnpm user:create-admin`; starting the API does not create one.
+
+`GET http://127.0.0.1:3000/api/health` is public. Login and logout require the
+exact `Origin: http://127.0.0.1:5173` header, and listings require the HttpOnly
+session cookie. The API ignores bearer tokens. The React session workflow is
+implemented separately in Block 16.6.
 
 ## Rotation Boundary
 

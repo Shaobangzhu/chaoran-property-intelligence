@@ -1,40 +1,130 @@
 import type { PostgresConnectionConfig } from "@chaoran-property-intelligence/postgres";
 
 const defaultApiPort = 3000;
+const defaultLocalOrigin = "http://127.0.0.1:5173";
+const minimumOriginSecretLength = 32;
+const maximumOriginSecretLength = 256;
+const originSecretPattern = /^[A-Za-z0-9_-]+$/u;
 
-export interface ApiConfig {
+export type ApiDeploymentMode = "local" | "production";
+
+export interface ApiHttpSecurityConfig {
+  deploymentMode: ApiDeploymentMode;
+  publicOrigin: string;
+  originVerificationSecret: string | null;
+}
+
+export interface ApiConfig extends ApiHttpSecurityConfig {
   databaseConnection: PostgresConnectionConfig;
-  host: "127.0.0.1";
+  host: "127.0.0.1" | "0.0.0.0";
   port: number;
 }
 
 export function loadApiConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): ApiConfig {
+  const deploymentMode = readDeploymentMode(environment);
+
   return {
     databaseConnection: {
       kind: "connection-string",
       connectionString: readRequiredVariable(environment, "DATABASE_URL"),
     },
-    host: "127.0.0.1",
-    port: readApiPort(environment),
+    deploymentMode,
+    host: deploymentMode === "production" ? "0.0.0.0" : "127.0.0.1",
+    port:
+      deploymentMode === "production"
+        ? readPort(readRequiredVariable(environment, "PORT"), "PORT")
+        : readLocalApiPort(environment),
+    publicOrigin: readPublicOrigin(environment, deploymentMode),
+    originVerificationSecret:
+      deploymentMode === "production"
+        ? readOriginVerificationSecret(environment)
+        : null,
   };
 }
 
-function readApiPort(
+function readDeploymentMode(
+  environment: Readonly<Record<string, string | undefined>>,
+): ApiDeploymentMode {
+  const value = environment.API_DEPLOYMENT_MODE;
+  if (value === undefined || value.length === 0 || value === "local") {
+    return "local";
+  }
+  if (value === "production") {
+    return value;
+  }
+  throw new Error("Invalid API deployment mode: API_DEPLOYMENT_MODE");
+}
+
+function readLocalApiPort(
   environment: Readonly<Record<string, string | undefined>>,
 ): number {
   const value = environment.API_PORT;
   if (value === undefined || value.trim().length === 0) {
     return defaultApiPort;
   }
+  return readPort(value, "API_PORT");
+}
 
+function readPort(value: string, variableName: string): number {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error("Invalid API port: API_PORT");
+    throw new Error(`Invalid API port: ${variableName}`);
   }
-
   return port;
+}
+
+function readPublicOrigin(
+  environment: Readonly<Record<string, string | undefined>>,
+  deploymentMode: ApiDeploymentMode,
+): string {
+  const configuredOrigin = environment.API_PUBLIC_ORIGIN;
+  const value =
+    configuredOrigin === undefined || configuredOrigin.length === 0
+      ? deploymentMode === "local"
+        ? defaultLocalOrigin
+        : null
+      : configuredOrigin;
+
+  if (value === null || !isExactOrigin(value, deploymentMode)) {
+    throw new Error("Invalid API public origin: API_PUBLIC_ORIGIN");
+  }
+  return value;
+}
+
+function isExactOrigin(
+  value: string,
+  deploymentMode: ApiDeploymentMode,
+): boolean {
+  try {
+    const url = new URL(value);
+    const acceptedProtocol =
+      deploymentMode === "production"
+        ? url.protocol === "https:"
+        : url.protocol === "http:" || url.protocol === "https:";
+
+    return acceptedProtocol && url.origin === value;
+  } catch {
+    return false;
+  }
+}
+
+function readOriginVerificationSecret(
+  environment: Readonly<Record<string, string | undefined>>,
+): string {
+  const value = environment.API_ORIGIN_VERIFICATION_SECRET;
+  if (
+    value === undefined ||
+    value.length < minimumOriginSecretLength ||
+    value.length > maximumOriginSecretLength ||
+    !originSecretPattern.test(value)
+  ) {
+    throw new Error(
+      "Invalid API origin verification secret: API_ORIGIN_VERIFICATION_SECRET",
+    );
+  }
+  return value;
 }
 
 function readRequiredVariable(
@@ -45,6 +135,5 @@ function readRequiredVariable(
   if (value === undefined || value.trim().length === 0) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
-
   return value;
 }

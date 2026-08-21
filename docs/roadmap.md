@@ -13,7 +13,7 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1, Blocks 15.0-15.5, and Blocks 16.0-16.4 are complete. The
+Blocks 0-14.1, Blocks 15.0-15.5, and Blocks 16.0-16.5 are complete. The
 repository currently contains:
 
 - a TypeScript and pnpm workspace
@@ -25,6 +25,8 @@ repository currently contains:
 - PostgreSQL migrations and a production worker composition root
 - user persistence, Argon2id password hashing, strict JWT, and authentication
   application use cases
+- authenticated Express routes with host-only session cookies and protected
+  listing reads
 - CI for install, typecheck, tests, and build
 
 Local PostgreSQL and local secrets are developer-machine concerns and are not
@@ -173,6 +175,7 @@ Planned sub-block mapping:
    an HTTP-owned cookie operation. **Complete.**
 6. `16.5` Add Express auth routes, login/logout cookies, origin checks, auth
    middleware, protected listings, and database-independent health.
+   **Complete.**
 7. `16.6` Add React session bootstrap, login, logout, and the protected
    workspace.
 8. `16.7` Complete application rate limiting, security headers, CSRF,
@@ -222,6 +225,19 @@ and unexpected token-service failures remain operational errors rather than
 being mislabeled as authentication failures. Logout has no application state to
 mutate because the accepted design has no refresh token or revocation list; the
 idempotent cookie-clearing command remains owned by the Block 16.5 HTTP layer.
+
+Block 16.5 connected the PostgreSQL user repository, Argon2id adapter, JWT
+service, and authentication use cases in the Express runtime. The API now
+provides login, logout, current-user, protected listings, and a public
+database-independent health route. Authentication is cookie-only; local and
+production cookie names and `Secure` behavior are explicit, and every protected
+request reloads the live user. Unsafe requests require an exact configured
+`Origin`. Explicit production mode binds to `0.0.0.0`, reads App Runner's
+`PORT`, and rejects requests that lack the constant-time checked CloudFront
+origin header, except for the non-sensitive health check. JSON bodies, Cookie
+headers, token length, and cookie lifetime are bounded. No AWS resources,
+production secrets, database users, rate limiter, WAF, or deployment were
+created in this block.
 
 ### Block 17: Manual Listing Management
 

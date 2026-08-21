@@ -134,7 +134,9 @@ flowchart LR
 - App Runner service ingress remains on its managed public hostname. CloudFront
   overwrites a dedicated origin verification header, and Express rejects a
   missing or mismatched value before authentication. The value is generated and
-  rotated through CDK and is never exposed to browser code.
+  rotated through CDK and is never exposed to browser code. The only bypass is
+  `GET /api/health`, which returns no application data and performs no database
+  query so App Runner can probe the container directly.
 - The App Runner instance role can read only the production database secret and
   the separate API-auth secret. It does not receive RentCast or Telegram
   credentials because the API does not call either service.
@@ -445,6 +447,10 @@ configuration required before publishing the workflow is:
 | `JWT_SIGNING_SECRET` | `.env.local`; API-auth Secret | Yes | Express API only |
 | `JWT_ISSUER` | `.env.local`; API-auth Secret | No | Express API only |
 | `JWT_AUDIENCE` | `.env.local`; API-auth Secret | No | Express API only |
+| `API_DEPLOYMENT_MODE` | `.env.local`; App Runner environment | No | Express listener and cookie policy |
+| `API_PUBLIC_ORIGIN` | `.env.local`; App Runner environment | No | Exact unsafe-request Origin check |
+| `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
+| `PORT` | App Runner environment | No | Production Express listener |
 | Database username/password | Generated AWS Secret | Yes | Aurora and worker container |
 | `scheduleEnabled` | CDK context | Operationally sensitive | EventBridge Scheduler state |
 

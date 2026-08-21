@@ -1,7 +1,17 @@
-import { ListListings } from "@chaoran-property-intelligence/application";
+import {
+  GetCurrentUser,
+  ListListings,
+  Login,
+} from "@chaoran-property-intelligence/application";
+import {
+  Argon2idPasswordHasher,
+  DUMMY_PASSWORD_HASH,
+  JoseAccessTokenService,
+} from "@chaoran-property-intelligence/auth";
 import {
   createPostgresDatabase,
   PostgresListingQuery,
+  PostgresUserRepository,
   runBundledMigrations,
   type SqlDatabase,
 } from "@chaoran-property-intelligence/postgres";
@@ -9,6 +19,7 @@ import { once } from "node:events";
 import type { Server } from "node:http";
 
 import { loadApiConfig } from "./apiConfig.js";
+import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
 
 try {
@@ -20,6 +31,7 @@ try {
 
 async function startApi(): Promise<void> {
   const config = loadApiConfig(process.env);
+  const authConfig = loadAuthConfig(process.env);
   const database = createPostgresDatabase(config.databaseConnection, {
     applicationName: "chaoran-property-api",
   });
@@ -30,8 +42,27 @@ async function startApi(): Promise<void> {
     const listListings = new ListListings({
       query: new PostgresListingQuery(database),
     });
+    const userRepository = new PostgresUserRepository(database);
+    const tokenService = new JoseAccessTokenService(authConfig);
+    const login = new Login({
+      repository: userRepository,
+      passwordHasher: new Argon2idPasswordHasher(),
+      tokenService,
+      dummyPasswordHash: DUMMY_PASSWORD_HASH,
+    });
+    const getCurrentUser = new GetCurrentUser({
+      repository: userRepository,
+      tokenService,
+    });
     const app = createApp({
       listListings,
+      login,
+      getCurrentUser,
+      httpSecurity: {
+        deploymentMode: config.deploymentMode,
+        publicOrigin: config.publicOrigin,
+        originVerificationSecret: config.originVerificationSecret,
+      },
       logger: {
         error(message) {
           process.stderr.write(`${message}\n`);
