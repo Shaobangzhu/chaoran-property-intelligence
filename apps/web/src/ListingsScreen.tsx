@@ -9,18 +9,31 @@ import {
   List,
   Map,
   MapPin,
+  Plus,
   RefreshCw,
 } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 
-import { ListingsMap, type ListingsMapProps } from "./ListingsMap.js";
-import type { ListingSummary } from "./listingsApi.js";
+import {
+  ListingsMap,
+  type ListingCoordinates,
+  type ListingsMapProps,
+} from "./ListingsMap.js";
+import {
+  ManualListingForm,
+  type ManualListingCreator,
+} from "./ManualListingForm.js";
+import {
+  createManualListing,
+  type ListingSummary,
+} from "./listingsApi.js";
 
 export type ListingsLoader = (
   signal: AbortSignal,
 ) => Promise<ListingSummary[]>;
 
 export interface ListingsScreenProps {
+  createListing?: ManualListingCreator;
   loadListings: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
 }
@@ -33,6 +46,7 @@ type ListingsState =
   | { status: "error" };
 
 export function ListingsScreen({
+  createListing = createManualListing,
   loadListings,
   mapView: MapView = ListingsMap,
 }: ListingsScreenProps): React.JSX.Element {
@@ -42,6 +56,11 @@ export function ListingsScreen({
     null,
   );
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  const [isCreating, setIsCreating] = useState(false);
+  const [draftCoordinates, setDraftCoordinates] =
+    useState<ListingCoordinates | null>(null);
+  const [markerConfirmed, setMarkerConfirmed] = useState(false);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +84,42 @@ export function ListingsScreen({
     };
   }, [loadListings, requestNumber]);
 
+  const startCreation = (): void => {
+    setDraftCoordinates(null);
+    setMarkerConfirmed(false);
+    setWorkspaceNotice(null);
+    setSelectedListingId(null);
+    setMobileView("list");
+    setIsCreating(true);
+  };
+
+  const cancelCreation = (): void => {
+    setDraftCoordinates(null);
+    setMarkerConfirmed(false);
+    setMobileView("list");
+    setIsCreating(false);
+  };
+
+  const handleCreated = (listing: ListingSummary): void => {
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            listings: [
+              listing,
+              ...current.listings.filter((item) => item.id !== listing.id),
+            ],
+            status: "ready",
+          }
+        : current,
+    );
+    setSelectedListingId(listing.id);
+    setDraftCoordinates(null);
+    setMarkerConfirmed(false);
+    setMobileView("list");
+    setIsCreating(false);
+    setWorkspaceNotice("Listing created.");
+  };
+
   return (
     <main className="workspace">
       <section className="workspace-heading" aria-labelledby="listings-title">
@@ -75,22 +130,108 @@ export function ListingsScreen({
             Stored snapshots from the property alert workflow.
           </p>
         </div>
-        {state.status === "ready" && state.listings.length > 0 ? (
-          <div className="listing-count" aria-live="polite">
-            <Database aria-hidden="true" size={17} strokeWidth={1.8} />
-            {formatListingCount(state.listings.length)}
+        {state.status === "ready" ? (
+          <div className="workspace-heading-actions">
+            {state.listings.length > 0 ? (
+              <div className="listing-count" aria-live="polite">
+                <Database aria-hidden="true" size={17} strokeWidth={1.8} />
+                {formatListingCount(state.listings.length)}
+              </div>
+            ) : null}
+            {!isCreating ? (
+              <button
+                className="primary-button add-listing-button"
+                type="button"
+                onClick={startCreation}
+              >
+                <Plus aria-hidden="true" size={17} />
+                Add listing
+              </button>
+            ) : null}
           </div>
         ) : null}
       </section>
+
+      {workspaceNotice === null ? null : (
+        <p className="workspace-notice" role="status">
+          {workspaceNotice}
+        </p>
+      )}
 
       {state.status === "loading" ? <LoadingState /> : null}
       {state.status === "error" ? (
         <ErrorState onRetry={() => setRequestNumber((value) => value + 1)} />
       ) : null}
-      {state.status === "ready" && state.listings.length === 0 ? (
+      {state.status === "ready" &&
+      state.listings.length === 0 &&
+      !isCreating ? (
         <EmptyState />
       ) : null}
-      {state.status === "ready" && state.listings.length > 0 ? (
+      {state.status === "ready" && isCreating ? (
+        <>
+          <div
+            className="mobile-view-control"
+            role="group"
+            aria-label="Creation view"
+          >
+            <button
+              type="button"
+              aria-label="Details"
+              aria-pressed={mobileView === "list"}
+              onClick={() => setMobileView("list")}
+            >
+              <List aria-hidden="true" size={16} strokeWidth={2} />
+              Details
+            </button>
+            <button
+              type="button"
+              aria-label="Map"
+              aria-pressed={mobileView === "map"}
+              onClick={() => setMobileView("map")}
+            >
+              <Map aria-hidden="true" size={16} strokeWidth={2} />
+              Map
+            </button>
+          </div>
+          <div
+            className={`list-map-workspace create-listing-workspace mobile-mode-${mobileView}`}
+          >
+            <div className="list-panel manual-listing-scroll">
+              <ManualListingForm
+                coordinates={draftCoordinates}
+                createListing={createListing}
+                markerConfirmed={markerConfirmed}
+                onCancel={cancelCreation}
+                onCreated={handleCreated}
+                onShowMap={() => setMobileView("map")}
+              />
+            </div>
+            <div className="map-panel">
+              <MapView
+                draftMarker={{
+                  confirmed: markerConfirmed,
+                  coordinates: draftCoordinates,
+                  onConfirm: () => {
+                    if (draftCoordinates !== null) {
+                      setMarkerConfirmed(true);
+                    }
+                  },
+                  onCoordinatesChange: (coordinates) => {
+                    setDraftCoordinates(coordinates);
+                    setMarkerConfirmed(false);
+                  },
+                }}
+                listings={state.listings}
+                selectedListingId={null}
+                onSelect={() => undefined}
+              />
+            </div>
+          </div>
+        </>
+      ) : null}
+      {state.status === "ready" &&
+      state.listings.length > 0 &&
+      !isCreating ? (
         <>
           <div
             className="mobile-view-control"

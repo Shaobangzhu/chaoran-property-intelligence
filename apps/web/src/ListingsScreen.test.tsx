@@ -11,7 +11,10 @@ import {
   type ListingsMapViewProps,
 } from "./ListingsScreen.js";
 import { coronaListing, eastvaleListing } from "./listingFixtures.js";
-import type { ListingSummary } from "./listingsApi.js";
+import {
+  ManualListingValidationError,
+  type ListingSummary,
+} from "./listingsApi.js";
 
 afterEach(cleanup);
 
@@ -37,6 +40,101 @@ describe("ListingsScreen", () => {
     expect(
       await screen.findByRole("heading", { name: "No stored listings" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add listing" })).toBeEnabled();
+  });
+
+  it("requires a confirmed map marker before creating a manual listing", async () => {
+    const user = userEvent.setup();
+    const createListing = vi.fn(async () => manualListing);
+    render(
+      <ListingsScreen
+        createListing={createListing}
+        loadListings={async () => []}
+        mapView={DraftMap}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Add listing" }));
+    expect(
+      screen.getByRole("heading", { name: "Create manual listing" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save listing" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Address line 1"), "456 Client Way");
+    await user.type(screen.getByLabelText("City"), "Corona");
+    await user.type(screen.getByLabelText("ZIP code"), "92879");
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Place marker" }));
+    expect(screen.getByRole("button", { name: "Save listing" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Confirm draft marker" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    await user.click(screen.getByRole("button", { name: "Save listing" }));
+
+    expect(createListing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        addressLine1: "456 Client Way",
+        city: "Corona",
+        latitude: 33.8753,
+        longitude: -117.5664,
+        state: "CA",
+        status: "Active",
+        zipCode: "92879",
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: manualListing.addressLine1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Listing created.")).toBeInTheDocument();
+  });
+
+  it("resets marker confirmation when coordinates move", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsScreen
+        createListing={async () => manualListing}
+        loadListings={async () => [eastvaleListing]}
+        mapView={DraftMap}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Add listing" }));
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Place marker" }));
+    await user.click(screen.getByRole("button", { name: "Confirm draft marker" }));
+    expect(screen.getByTestId("draft-confirmed")).toHaveTextContent("confirmed");
+
+    await user.click(screen.getByRole("button", { name: "Move marker" }));
+    expect(screen.getByTestId("draft-confirmed")).toHaveTextContent("unconfirmed");
+  });
+
+  it("maps a bounded API field error back to its form control", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsScreen
+        createListing={async () => {
+          throw new ManualListingValidationError("zipCode");
+        }}
+        loadListings={async () => []}
+        mapView={DraftMap}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Add listing" }));
+    await user.type(screen.getByLabelText("Address line 1"), "456 Client Way");
+    await user.type(screen.getByLabelText("City"), "Corona");
+    await user.type(screen.getByLabelText("ZIP code"), "92879");
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Place marker" }));
+    await user.click(screen.getByRole("button", { name: "Confirm draft marker" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    await user.click(screen.getByRole("button", { name: "Save listing" }));
+
+    expect(await screen.findByText("Check the ZIP code field.")).toBeInTheDocument();
+    expect(screen.getByLabelText("ZIP code")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
   });
 
   it("shows a safe error and retries the request", async () => {
@@ -177,3 +275,52 @@ function FakeMap({
 function PassiveMap(): React.JSX.Element {
   return <div aria-label="Listings map" />;
 }
+
+function DraftMap({ draftMarker }: ListingsMapViewProps): React.JSX.Element {
+  if (draftMarker === undefined) {
+    return <div aria-label="Listings map" />;
+  }
+
+  return (
+    <div aria-label="Listings map">
+      <span data-testid="draft-confirmed">
+        {draftMarker.confirmed ? "confirmed" : "unconfirmed"}
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          draftMarker.onCoordinatesChange({
+            latitude: 33.8753,
+            longitude: -117.5664,
+          })
+        }
+      >
+        Place marker
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          draftMarker.onCoordinatesChange({ latitude: 33.9, longitude: -117.6 })
+        }
+      >
+        Move marker
+      </button>
+      <button type="button" onClick={draftMarker.onConfirm}>
+        Confirm draft marker
+      </button>
+    </div>
+  );
+}
+
+const manualListing: ListingSummary = {
+  ...eastvaleListing,
+  id: "0198c7d2-7668-7775-b0fc-b789690a60d2",
+  source: "manual",
+  sourceListingId: null,
+  formattedAddress: "456 Client Way, Corona, CA 92879",
+  addressLine1: "456 Client Way",
+  city: "Corona",
+  zipCode: "92879",
+  latitude: 33.8753,
+  longitude: -117.5664,
+};

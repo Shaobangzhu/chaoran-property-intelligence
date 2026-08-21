@@ -442,6 +442,34 @@ the listener starts, so migration 004 is required and will apply on the next
 actual API startup. No local API process, migration, database connection, or AWS
 operation was executed while implementing Block 17.3.
 
+### Block 17.4 Implementation Baseline
+
+Block 17.4 implements the authenticated browser creation workflow. The listings
+workspace exposes `Add listing` even when no records exist and swaps its list
+panel for an accessible, bounded form while preserving the map. Required and
+optional controls match the Block 17.3 editable DTO; coordinates are never typed
+into the request independently of the map state.
+
+MapLibre owns one draggable draft marker in addition to the stored-listing
+GeoJSON layer. A map click places the marker, a drag updates its coordinates, and
+either action clears prior confirmation. Submission remains disabled until the
+current coordinates are explicitly confirmed. No address lookup, geocoder, tile
+credential, or additional external API is introduced.
+
+The browser client posts same-origin JSON to `POST /api/listings/manual`, parses
+the returned shared summary at runtime, and reduces bounded server validation to
+form-level or field-level feedback without displaying response internals. A
+create-time `401` enters the same signed-out state as an expired listing read.
+Successful creation inserts and selects the authoritative returned summary, so
+manual and RentCast records continue through one list and map contract.
+
+Desktop creation keeps the scrolling form and map visible side by side. Mobile
+creation uses Details and Map modes without unmounting the shared workflow state.
+Tests cover marker confirmation and invalidation, request serialization,
+malformed responses, field feedback, successful list refresh, and session
+expiry. No API process, PostgreSQL connection, migration, or AWS operation ran
+while implementing this block.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope

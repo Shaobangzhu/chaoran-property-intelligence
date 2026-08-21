@@ -146,6 +146,27 @@ startup sequence runs bundled migrations before listening, so migration 004
 will be applied when this API version is next started against a database. Block
 17.3 tests and builds do not start the entrypoint or connect to PostgreSQL.
 
+## Browser Create Workflow
+
+Block 17.4 adds one creation mode to the existing authenticated listings
+workspace. The browser form sends only the HTTP create contract's editable
+fields. It does not accept identity, ownership, source, formatted address,
+notification state, archive metadata, or server timestamps.
+
+The map driver maintains a draggable draft marker separately from the stored
+listing GeoJSON source. Clicking an unoccupied map location or completing a drag
+reports finite MapLibre coordinates to React. Every coordinate change clears the
+confirmation flag, and the save action remains disabled until the current marker
+position is explicitly confirmed. MapLibre/OpenFreeMap remains a display and
+coordinate-selection dependency, not a geocoder.
+
+The typed client uses same-origin credentials and validates the returned
+`ListingSummaryDto` before adding it to local workspace state. Bounded
+`INVALID_MANUAL_LISTING` fields mark the matching control; malformed requests use
+form-level feedback; `401` enters the existing signed-out state. The returned
+listing is the authoritative browser value after creation and immediately shares
+the existing list, selection, and map behavior.
+
 ## Consequences
 
 - one read and map contract supports both listing sources

@@ -22,6 +22,27 @@ export interface ListingSummary {
   firstDiscoveredAt: string;
 }
 
+export interface ManualListingDraft {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: "CA";
+  zipCode: string;
+  latitude: number;
+  longitude: number;
+  propertyType?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  price?: number;
+  status: "Active" | "Pending";
+  listedDate?: string;
+  mlsName?: string;
+  mlsNumber?: string;
+  notes?: string;
+}
+
+export type ManualListingField = keyof ManualListingDraft;
+
 type FetchImplementation = (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -32,10 +53,22 @@ export interface FetchListingsOptions {
   signal?: AbortSignal;
 }
 
+export interface CreateManualListingOptions {
+  fetchImplementation?: FetchImplementation;
+  signal?: AbortSignal;
+}
+
 export class SessionAuthenticationRequiredError extends Error {
   constructor() {
     super("Session authentication required");
     this.name = "SessionAuthenticationRequiredError";
+  }
+}
+
+export class ManualListingValidationError extends Error {
+  constructor(readonly field: ManualListingField | null) {
+    super("Manual listing input was invalid");
+    this.name = "ManualListingValidationError";
   }
 }
 
@@ -70,6 +103,71 @@ export async function fetchListings(
   }
 
   return parseListListingsResponse(body);
+}
+
+export async function createManualListing(
+  draft: ManualListingDraft,
+  options: CreateManualListingOptions = {},
+): Promise<ListingSummary> {
+  const request: RequestInit = {
+    body: JSON.stringify(draft),
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  };
+  if (options.signal !== undefined) {
+    request.signal = options.signal;
+  }
+
+  const response = await (options.fetchImplementation ?? fetch)(
+    "/api/listings/manual",
+    request,
+  );
+  if (response.status === 401) {
+    throw new SessionAuthenticationRequiredError();
+  }
+  if (response.status === 400) {
+    throw await parseManualListingValidationError(response);
+  }
+  if (!response.ok) {
+    throw new Error(`Unable to create manual listing (${response.status})`);
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw invalidResponse();
+  }
+  if (!isRecord(body) || !("listing" in body)) {
+    throw invalidResponse();
+  }
+
+  return parseListingSummary(body.listing);
+}
+
+async function parseManualListingValidationError(
+  response: Response,
+): Promise<ManualListingValidationError> {
+  try {
+    const body: unknown = await response.json();
+    if (!isRecord(body)) {
+      return new ManualListingValidationError(null);
+    }
+    if (
+      body.code === "INVALID_MANUAL_LISTING" &&
+      isManualListingField(body.field)
+    ) {
+      return new ManualListingValidationError(body.field);
+    }
+  } catch {
+    // A malformed error response is intentionally reduced to a form-level error.
+  }
+
+  return new ManualListingValidationError(null);
 }
 
 function parseListListingsResponse(value: unknown): ListingSummary[] {
@@ -161,6 +259,32 @@ function readSource(value: unknown): ListingSummary["source"] {
 
   return value;
 }
+
+function isManualListingField(value: unknown): value is ManualListingField {
+  return (
+    typeof value === "string" &&
+    manualListingFields.has(value as ManualListingField)
+  );
+}
+
+const manualListingFields = new Set<ManualListingField>([
+  "addressLine1",
+  "addressLine2",
+  "city",
+  "state",
+  "zipCode",
+  "latitude",
+  "longitude",
+  "propertyType",
+  "bedrooms",
+  "bathrooms",
+  "price",
+  "status",
+  "listedDate",
+  "mlsName",
+  "mlsNumber",
+  "notes",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

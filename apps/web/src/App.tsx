@@ -18,8 +18,10 @@ import {
   type ListingsLoader,
   type ListingsMapViewProps,
 } from "./ListingsScreen.js";
+import type { ManualListingCreator } from "./ManualListingForm.js";
 import {
   SessionAuthenticationRequiredError,
+  createManualListing,
   fetchListings,
 } from "./listingsApi.js";
 import {
@@ -32,6 +34,8 @@ import {
 
 const defaultLoadListings: ListingsLoader = (signal) =>
   fetchListings({ signal });
+const defaultCreateListing: ManualListingCreator = (draft) =>
+  createManualListing(draft);
 
 type AppState =
   | { status: "checking" }
@@ -40,12 +44,14 @@ type AppState =
   | { status: "error" };
 
 interface AppProps {
+  createListing?: ManualListingCreator;
   sessionClient?: SessionClient;
   loadListings?: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
 }
 
 export function App({
+  createListing = defaultCreateListing,
   sessionClient = defaultSessionClient,
   loadListings = defaultLoadListings,
   mapView,
@@ -90,6 +96,20 @@ export function App({
       }
     },
     [loadListings],
+  );
+
+  const protectedListingCreator = useCallback<ManualListingCreator>(
+    async (draft) => {
+      try {
+        return await createListing(draft);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [createListing],
   );
 
   const handleLogout = async (): Promise<void> => {
@@ -166,6 +186,7 @@ export function App({
             </div>
           ) : null}
           <ListingsScreen
+            createListing={protectedListingCreator}
             loadListings={protectedListingsLoader}
             {...(mapView === undefined ? {} : { mapView })}
           />

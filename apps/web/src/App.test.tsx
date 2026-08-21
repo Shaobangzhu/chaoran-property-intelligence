@@ -261,6 +261,34 @@ describe("App authentication boundary", () => {
       screen.queryByRole("heading", { name: "Listings unavailable" }),
     ).not.toBeInTheDocument();
   });
+
+  it("returns to login when the manual-create session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        createListing={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        loadListings={async () => []}
+        mapView={DraftMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Add listing" }));
+    await user.type(screen.getByLabelText("Address line 1"), "456 Client Way");
+    await user.type(screen.getByLabelText("City"), "Corona");
+    await user.type(screen.getByLabelText("ZIP code"), "92879");
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Place marker" }));
+    await user.click(screen.getByRole("button", { name: "Confirm marker" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    await user.click(screen.getByRole("button", { name: "Save listing" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
 });
 
 const authenticatedUser: AuthenticatedUser = {
@@ -280,4 +308,25 @@ function sessionClient(overrides: Partial<SessionClient> = {}): SessionClient {
 
 function PassiveMap(_props: ListingsMapViewProps): React.JSX.Element {
   return <div aria-label="Listings map" />;
+}
+
+function DraftMap({ draftMarker }: ListingsMapViewProps): React.JSX.Element {
+  return (
+    <div aria-label="Listings map">
+      <button
+        type="button"
+        onClick={() =>
+          draftMarker?.onCoordinatesChange({
+            latitude: 33.8753,
+            longitude: -117.5664,
+          })
+        }
+      >
+        Place marker
+      </button>
+      <button type="button" onClick={draftMarker?.onConfirm}>
+        Confirm marker
+      </button>
+    </div>
+  );
 }

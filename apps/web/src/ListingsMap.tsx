@@ -1,8 +1,9 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Check, MapPin, RefreshCw } from "lucide-react";
 import {
   GeoJSONSource,
   LngLatBounds,
   Map as MapLibreMap,
+  Marker,
   NavigationControl,
   setWorkerUrl,
 } from "maplibre-gl";
@@ -19,10 +20,26 @@ const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(mapLibreWorkerUrl);
 
 export interface ListingsMapProps {
+  draftMarker?: DraftMarkerController;
   listings: ListingSummary[];
   selectedListingId: string | null;
   onSelect: (listingId: string) => void;
   createMap?: CreateListingsMap;
+}
+
+export interface ListingCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface DraftMarkerController extends DraftMarkerPresentation {
+  onConfirm: () => void;
+  onCoordinatesChange: (coordinates: ListingCoordinates) => void;
+}
+
+export interface DraftMarkerPresentation {
+  confirmed: boolean;
+  coordinates: ListingCoordinates | null;
 }
 
 export interface ListingsMapDriver {
@@ -32,6 +49,7 @@ export interface ListingsMapDriver {
   ) => void;
   fitToListings: (listings: ListingSummary[]) => void;
   focusListing: (listing: ListingSummary) => void;
+  updateDraftMarker: (draftMarker: DraftMarkerPresentation | null) => void;
   resize: () => void;
   destroy: () => void;
 }
@@ -39,6 +57,7 @@ export interface ListingsMapDriver {
 interface CreateListingsMapOptions {
   container: HTMLElement;
   onSelect: (listingId: string) => void;
+  onDraftCoordinatesChange: (coordinates: ListingCoordinates) => void;
   onReady: () => void;
   onError: (error: unknown) => void;
 }
@@ -48,6 +67,7 @@ export type CreateListingsMap = (
 ) => ListingsMapDriver;
 
 export function ListingsMap({
+  draftMarker,
   listings,
   selectedListingId,
   onSelect,
@@ -58,6 +78,7 @@ export function ListingsMap({
   const listingsRef = useRef(listings);
   const selectedListingIdRef = useRef(selectedListingId);
   const onSelectRef = useRef(onSelect);
+  const draftMarkerRef = useRef(draftMarker);
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -66,6 +87,7 @@ export function ListingsMap({
   listingsRef.current = listings;
   selectedListingIdRef.current = selectedListingId;
   onSelectRef.current = onSelect;
+  draftMarkerRef.current = draftMarker;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -80,6 +102,8 @@ export function ListingsMap({
     try {
       driver = createMap({
         container,
+        onDraftCoordinatesChange: (coordinates) =>
+          draftMarkerRef.current?.onCoordinatesChange(coordinates),
         onSelect: (listingId) => onSelectRef.current(listingId),
         onReady: () => {
           if (active) {
@@ -98,6 +122,7 @@ export function ListingsMap({
         listingsRef.current,
         selectedListingIdRef.current,
       );
+      driver.updateDraftMarker(toDraftMarkerPresentation(draftMarkerRef.current));
     } catch {
       setStatus("error");
     }
@@ -124,6 +149,12 @@ export function ListingsMap({
   useEffect(() => {
     driverRef.current?.updateListings(listings, selectedListingId);
   }, [listings, selectedListingId]);
+
+  useEffect(() => {
+    driverRef.current?.updateDraftMarker(
+      toDraftMarkerPresentation(draftMarker),
+    );
+  }, [draftMarker]);
 
   useEffect(() => {
     if (selectedListingId === null) {
@@ -160,18 +191,42 @@ export function ListingsMap({
           </button>
         </div>
       ) : null}
+      {status === "ready" && draftMarker !== undefined ? (
+        <div className="draft-marker-controls" aria-live="polite">
+          <div className="draft-marker-status">
+            <MapPin aria-hidden="true" size={18} />
+            <span>
+              {draftMarker.coordinates === null
+                ? "Click map to place marker"
+                : formatCoordinates(draftMarker.coordinates)}
+            </span>
+          </div>
+          <button
+            className="map-confirm-button"
+            type="button"
+            disabled={draftMarker.coordinates === null || draftMarker.confirmed}
+            onClick={draftMarker.onConfirm}
+          >
+            <Check aria-hidden="true" size={16} />
+            {draftMarker.confirmed ? "Marker confirmed" : "Confirm marker"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
 
 export const createMapLibreListingsMap: CreateListingsMap = ({
   container,
+  onDraftCoordinatesChange,
   onSelect,
   onReady,
   onError,
 }) => {
   let ready = false;
   let collection = listingsToFeatureCollection([], null);
+  let draftMarkerState: DraftMarkerPresentation | null = null;
+  let draftMarker: Marker | null = null;
   const map = new MapLibreMap({
     center: [-117.58, 33.94],
     container,
@@ -218,10 +273,28 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
       map.getCanvas().style.cursor = "pointer";
     });
     map.on("mouseleave", LISTINGS_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "";
+      updateCanvasCursor();
+    });
+
+    map.on("click", (event) => {
+      if (draftMarkerState === null) {
+        return;
+      }
+      const listingFeatures = map.queryRenderedFeatures(event.point, {
+        layers: [LISTINGS_LAYER_ID],
+      });
+      if (listingFeatures.length > 0) {
+        return;
+      }
+      onDraftCoordinatesChange({
+        latitude: event.lngLat.lat,
+        longitude: event.lngLat.lng,
+      });
     });
 
     ready = true;
+    renderDraftMarker();
+    updateCanvasCursor();
     onReady();
   });
 
@@ -270,7 +343,66 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
         zoom: Math.max(map.getZoom(), 12.5),
       });
     },
+    updateDraftMarker: (nextDraftMarker) => {
+      draftMarkerState = nextDraftMarker;
+      if (ready) {
+        renderDraftMarker();
+        updateCanvasCursor();
+      }
+    },
     resize: () => map.resize(),
-    destroy: () => map.remove(),
+    destroy: () => {
+      draftMarker?.remove();
+      map.remove();
+    },
   };
+
+  function renderDraftMarker(): void {
+    const coordinates = draftMarkerState?.coordinates;
+    if (coordinates === undefined || coordinates === null) {
+      draftMarker?.remove();
+      draftMarker = null;
+      return;
+    }
+
+    if (draftMarker === null) {
+      draftMarker = new Marker({ color: "#a24f2a", draggable: true })
+        .setLngLat([coordinates.longitude, coordinates.latitude])
+        .addTo(map);
+      draftMarker.on("dragend", () => {
+        const position = draftMarker?.getLngLat();
+        if (position !== undefined) {
+          onDraftCoordinatesChange({
+            latitude: position.lat,
+            longitude: position.lng,
+          });
+        }
+      });
+    } else {
+      draftMarker.setLngLat([coordinates.longitude, coordinates.latitude]);
+    }
+    draftMarker
+      .getElement()
+      .classList.toggle("is-confirmed", draftMarkerState?.confirmed === true);
+  }
+
+  function updateCanvasCursor(): void {
+    map.getCanvas().style.cursor =
+      draftMarkerState === null ? "" : "crosshair";
+  }
 };
+
+function toDraftMarkerPresentation(
+  draftMarker: DraftMarkerController | undefined,
+): DraftMarkerPresentation | null {
+  return draftMarker === undefined
+    ? null
+    : {
+        confirmed: draftMarker.confirmed,
+        coordinates: draftMarker.coordinates,
+      };
+}
+
+function formatCoordinates(coordinates: ListingCoordinates): string {
+  return `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`;
+}

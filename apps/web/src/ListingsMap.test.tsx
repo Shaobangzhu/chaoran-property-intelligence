@@ -38,6 +38,7 @@ describe("ListingsMap", () => {
       [eastvaleListing],
       null,
     );
+    expect(harness.driver.updateDraftMarker).toHaveBeenLastCalledWith(null);
 
     act(() => harness.options?.onReady());
     expect(screen.queryByText("Loading map")).not.toBeInTheDocument();
@@ -68,6 +69,48 @@ describe("ListingsMap", () => {
 
     view.unmount();
     expect(harness.driver.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("coordinates draft placement and explicit marker confirmation", async () => {
+    const user = userEvent.setup();
+    const harness = createDriverHarness();
+    const onCoordinatesChange = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ListingsMap
+        createMap={harness.createMap}
+        draftMarker={{
+          confirmed: false,
+          coordinates: { latitude: 33.8753, longitude: -117.5664 },
+          onConfirm,
+          onCoordinatesChange,
+        }}
+        listings={[]}
+        onSelect={() => undefined}
+        selectedListingId={null}
+      />,
+    );
+
+    expect(harness.driver.updateDraftMarker).toHaveBeenLastCalledWith({
+      confirmed: false,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+
+    act(() => harness.options?.onReady());
+    act(() =>
+      harness.options?.onDraftCoordinatesChange({
+        latitude: 33.9,
+        longitude: -117.6,
+      }),
+    );
+    expect(onCoordinatesChange).toHaveBeenCalledWith({
+      latitude: 33.9,
+      longitude: -117.6,
+    });
+
+    expect(screen.getByText("33.875300, -117.566400")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirm marker" }));
+    expect(onConfirm).toHaveBeenCalledOnce();
   });
 
   it("shows a bounded map error and can retry initialization", async () => {
@@ -109,6 +152,7 @@ function createDriverHarness(): {
     fitToListings: vi.fn(),
     focusListing: vi.fn(),
     resize: vi.fn(),
+    updateDraftMarker: vi.fn(),
     updateListings: vi.fn(),
   };
   const harness: {

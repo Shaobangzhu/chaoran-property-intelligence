@@ -311,6 +311,19 @@ its existing migration-before-listen sequence will apply migration 004 on the
 next real startup. No API process, database connection, or AWS deployment was
 started during this block.
 
+Block 17.4 is complete. The authenticated React workspace now exposes a manual
+creation mode in both populated and empty-list states. Its form mirrors the
+server allowlist and bounds, while MapLibre supports clicking to place and
+dragging to adjust a dedicated draft marker. Coordinates must be explicitly
+confirmed before submission, and every marker movement clears that confirmation.
+The typed browser client maps bounded API field failures to the corresponding
+control, treats malformed success payloads as invalid, and reuses the existing
+session-expiry sign-out boundary. A successful `201` adds the returned normalized
+listing to the shared list and map and selects it. The desktop layout keeps form
+and map together; mobile uses stable Details and Map modes. No geocoder, API
+process, database connection, migration execution, or AWS operation was added or
+run.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every
