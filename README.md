@@ -34,6 +34,8 @@ pnpm api:start
 The command builds the API, loads `.env.local` with Node's built-in env-file
 support, runs bundled PostgreSQL migrations, and listens on
 `http://127.0.0.1:3000` by default. Set `API_PORT` to use another local port.
+The local script disables the AWS Showing List artifact reader even when
+unrelated AWS deployment values are present in `.env.local`.
 
 The first endpoint is:
 

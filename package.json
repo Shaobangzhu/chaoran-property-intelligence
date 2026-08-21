@@ -9,7 +9,7 @@
   },
   "scripts": {
     "alert-worker:dry-run": "pnpm build:alert-worker && node apps/alert-worker/dist/index.js --dry-run",
-    "api:start": "pnpm build:api && node --env-file-if-exists=.env.local apps/api/dist/server.js",
+    "api:start": "pnpm build:api && AWS_ACCOUNT_ID= SHOWING_LIST_ARTIFACT_BUCKET= node --env-file-if-exists=.env.local apps/api/dist/server.js",
     "aws:synth": "pnpm --dir infra/aws synth",
     "build": "pnpm build:runtime && pnpm --dir infra/aws build",
     "build:admin-cli": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p packages/auth/tsconfig.build.json && tsc -p apps/admin-cli/tsconfig.build.json",

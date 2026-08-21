@@ -35,10 +35,23 @@ import { loadApiConfig } from "./apiConfig.js";
 import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
 
+class UnconfiguredShowingListArtifactReader
+  implements ShowingListArtifactReaderPort
+{
+  async readCurrentArtifact(): Promise<never> {
+    throw new ShowingListArtifactReaderUnavailableError();
+  }
+}
+
 try {
   await startApi();
-} catch {
+} catch (error) {
   process.stderr.write("CPI API failed to start\n");
+  if (process.env.API_DEPLOYMENT_MODE !== "production") {
+    process.stderr.write(
+      `Local startup error: ${error instanceof Error ? error.message : "Unknown error"}\n`,
+    );
+  }
   process.exitCode = 1;
 }
 
@@ -141,14 +154,6 @@ async function startApi(): Promise<void> {
   } catch (error) {
     await database.close();
     throw error;
-  }
-}
-
-class UnconfiguredShowingListArtifactReader
-  implements ShowingListArtifactReaderPort
-{
-  async readCurrentArtifact(): Promise<never> {
-    throw new ShowingListArtifactReaderUnavailableError();
   }
 }
 
