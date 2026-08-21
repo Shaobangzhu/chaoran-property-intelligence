@@ -559,6 +559,20 @@ stable-key signing, Telegram content, IAM, and schedule isolation. No AWS,
 OpenAI, Telegram, S3, or database operation was performed; the task and
 schedule have not been deployed or enabled.
 
+Block 18.9 is complete in source and closes Block 18. A stateful integration
+test now enters through the weekly production composition root and composes the
+real OpenAI, PDF, PostgreSQL, S3, and Telegram adapters over deterministic
+in-memory provider boundaries. It verifies first publication, later latest-only
+replacement, same-week idempotency, ordered delivery, safe metadata, stable-key
+presigning, ambiguous metadata reconciliation, bounded Telegram recovery, and
+configuration fail-fast behavior. Separate failure cases prove that generation,
+exact-listing validation, and upload failures preserve the prior row and PDF and
+send no Telegram message. Focused API and OpenAI tests add an explicit non-admin
+Showing List `403` and lock prohibited steering text below the fixed Fair
+Housing instruction boundary. CI performs no real provider, database, or AWS
+operation, and the schedule remains disabled pending a separately approved
+production runbook execution.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

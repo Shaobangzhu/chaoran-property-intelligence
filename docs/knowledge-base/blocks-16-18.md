@@ -1236,6 +1236,47 @@ and a mocked SDK or HTTP boundary for adapter tests.
 - missing or invalid scheduled-generation configuration preserves the current
   draft and sends no Telegram message
 
+### Block 18.9 Verification Baseline
+
+Block 18.9 closes the source implementation of Block 18 with a stateful
+cross-adapter integration gate. The test enters through the production weekly
+composition root and uses the real OpenAI Responses adapter, PDF renderer,
+PostgreSQL repositories, S3 artifact/link adapters, and Telegram client. Their
+external boundaries are replaced with deterministic in-memory SQL, S3 command,
+presigner, and HTTP harnesses, so CI uses no network service, durable database,
+production credential, or AWS resource.
+
+The integration gate proves that the first successful week creates one current
+row and object, a later successful week replaces both at the same stable key,
+and a completed same-week retry does not regenerate, upload, sign, or notify.
+It also proves ordered metadata-before-Telegram delivery; prompt version, model,
+and bounded usage persistence; absence of presigned URLs from current metadata
+and operational events; idempotent recovery after an ambiguous metadata
+commit; bounded Telegram failure state and recovery; and rejection of invalid
+scheduled configuration before database creation.
+
+Generation-provider failure, exact-listing validation failure, and S3 upload
+failure are each exercised after a usable current draft exists. Every case
+leaves that row and PDF byte-for-byte unchanged and sends no new Telegram
+message. Telegram failure deliberately differs: the new row and object remain
+current with `failed` delivery state, a same-generation retry resumes only
+delivery, and a later confirmed send suppresses another ordinary retry.
+
+Focused tests retain the rest of the inventory: strict request and Structured
+Output schemas, authoritative reload, provider error mapping, stable-key S3
+commands, API `401` and explicit non-admin `403`, review concurrency, private
+download behavior, and disabled EventBridge Scheduler synthesis. A prohibited
+steering preference is asserted to remain inside the untrusted JSON input while
+the fixed Fair Housing developer instructions remain unchanged. This preserves
+the accepted defense-in-depth boundary; it does not claim that a phrase list or
+the schema is a comprehensive semantic Fair Housing classifier. Licensed-agent
+review remains mandatory.
+
+No real OpenAI, Telegram, PostgreSQL, S3, EventBridge, ECS, or other AWS
+operation is part of this gate. Production migration, Secret synchronization,
+deployment, smoke testing, and schedule enablement remain separately approved
+runbook actions.
+
 ## Cross-Feature Rules
 
 - all write APIs require server-side authentication and authorization

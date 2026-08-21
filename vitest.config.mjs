@@ -15,6 +15,10 @@ export default defineConfig({
         "./packages/domain/src/index.ts",
         import.meta.url,
       ).pathname,
+      "@chaoran-property-intelligence/openai": new URL(
+        "./packages/openai/src/index.ts",
+        import.meta.url,
+      ).pathname,
       "@chaoran-property-intelligence/pdf": new URL(
         "./packages/pdf/src/index.ts",
         import.meta.url,

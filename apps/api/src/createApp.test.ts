@@ -578,6 +578,31 @@ describe("createApp", () => {
     expect(JSON.stringify(body)).not.toContain("agentInstructions");
   });
 
+  it("rejects a non-admin Showing List read before querying the draft", async () => {
+    const getCurrentShowingListDraft = new FakeGetCurrentShowingListDraft();
+    const nonAdminUser = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const app = createTestApp({
+      getCurrentShowingListDraft,
+      getCurrentUser: new FakeGetCurrentUser(undefined, nonAdminUser),
+    });
+
+    const response = await request(app, "/api/showing-list/current", {
+      headers: sessionHeaders(),
+    });
+
+    expect(response.status).toBe(403);
+    expect(getCurrentShowingListDraft.calls).toBe(0);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "ADMIN_AUTHORIZATION_REQUIRED",
+        message: "Administrator authorization is required",
+      },
+    });
+  });
+
   it("saves and reviews a current Showing List with concurrency identity", async () => {
     const save = new FakeSaveCurrentShowingListDraft();
     const mark = new FakeMarkCurrentShowingListDraftReviewed();
