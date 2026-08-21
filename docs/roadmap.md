@@ -376,6 +376,17 @@ Planned sub-block mapping:
 9. `18.9` Complete mocked adapter, validation, replacement, delivery, failure,
    and Fair Housing tests.
 
+Block 18.1 is complete. The application package now owns strict Zod contracts
+for one through ten unique listing UUIDs, three bounded nullable preferences,
+and a provider-neutral structured draft. Generated content contains title,
+summary, ordered listing references, reasons, highlights, considerations,
+client message, and review warnings, but cannot restate authoritative address,
+price, or MLS fields. Runtime validation rejects unknown keys, blank or
+oversized content, duplicate listing IDs, and non-continuous order values. The
+downloadable artifact contract is `application/pdf` with filename
+`showing-list-draft.pdf`. This block added no endpoint, use case, OpenAI SDK or
+API call, PDF renderer, persistence, environment variable, or AWS resource.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

@@ -12,7 +12,8 @@
     }
   },
   "dependencies": {
-    "@chaoran-property-intelligence/domain": "workspace:*"
+    "@chaoran-property-intelligence/domain": "workspace:*",
+    "zod": "^4.4.3"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

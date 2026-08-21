@@ -574,6 +574,60 @@ Minimize customer data sent to the model:
 The endpoint is `POST /api/showing-lists/generate` and requires authenticated
 admin authorization.
 
+### Block 18.1 Contract
+
+Block 18.1 places provider-neutral runtime schemas in the application package.
+The current generation configuration is a strict object:
+
+```ts
+interface ShowingListGenerationInput {
+  listingIds: string[];
+  preferences: {
+    clientDisplayName: string | null;
+    showingDate: string | null;
+    agentInstructions: string | null;
+  };
+}
+```
+
+The selection contains one through ten unique UUIDs. A non-null display name is
+trimmed and limited to 80 characters, the date must be a real `YYYY-MM-DD`, and
+agent instructions are trimmed and limited to 2,000 characters. All preference
+keys are required so omitted and intentionally absent values cannot be confused;
+the absent value is explicit `null`. Unknown root or preference keys are
+rejected, including a client-provided system prompt or contact field.
+
+The structured generator output is also a strict object:
+
+```ts
+interface GeneratedShowingList {
+  title: string;
+  summary: string;
+  stops: Array<{
+    listingId: string;
+    proposedOrder: number;
+    orderReason: string;
+    highlights: string[];
+    considerations: string[];
+  }>;
+  clientMessage: string;
+  reviewWarnings: string[];
+}
+```
+
+Every field is required for Structured Outputs. Arrays may be empty only where
+the contract permits it. Strings, arrays, and integer order values have explicit
+application limits. Stops contain only a listing UUID and generated commentary;
+they do not contain address, price, status, coordinates, MLS data, or other
+authoritative facts. Block 18.3 joins stops to freshly loaded database listings
+and verifies that every selected ID appears exactly once. The current output
+schema already rejects duplicate IDs and requires order values to be the unique,
+continuous sequence from one through the stop count.
+
+The production download artifact is a PDF with media type `application/pdf` and
+filename `showing-list-draft.pdf`. Block 18.1 defines that stable artifact
+contract but does not render or store a PDF.
+
 ### Generator Boundary
 
 Application code depends on an injected port:
@@ -650,8 +704,8 @@ product:
 - CloudWatch retains only bounded, non-content operational metadata under the
   project retention policy
 
-The exact downloadable format is selected when the Block 18.1 output contract
-is implemented. The one-current-object rule does not depend on that choice.
+Block 18.1 selected PDF as the downloadable format. The one-current-object rule
+does not depend on that format choice.
 
 Generate and validate the complete replacement before touching the current
 artifact. S3 publication of one key is atomic, so readers observe the old or the
@@ -713,7 +767,8 @@ and a mocked SDK or HTTP boundary for adapter tests.
 - authoritative database reload
 - successful structured response
 - timeout, rate limit, authentication failure, refusal, and incomplete response
-- invalid schema, hallucinated ID, duplicate ID, modified address, and bad order
+- invalid schema, hallucinated ID, duplicate ID, attempted authoritative fact
+  field, and bad order
 - first successful publication creates one current row and one current object
 - second successful publication replaces both without a history row, dated key,
   or S3 object version
