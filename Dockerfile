@@ -21,8 +21,11 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/alert-worker/package.json apps/alert-worker/package.json
 COPY packages/application/package.json packages/application/package.json
 COPY packages/domain/package.json packages/domain/package.json
+COPY packages/openai/package.json packages/openai/package.json
+COPY packages/pdf/package.json packages/pdf/package.json
 COPY packages/postgres/package.json packages/postgres/package.json
 COPY packages/rentcast/package.json packages/rentcast/package.json
+COPY packages/s3/package.json packages/s3/package.json
 COPY packages/telegram/package.json packages/telegram/package.json
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \

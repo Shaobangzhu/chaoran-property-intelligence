@@ -37,6 +37,13 @@ describe("production deployment workflow", () => {
     expect(workflow).toContain("run: pnpm build");
     expect(workflow).toContain("cdk deploy --all");
     expect(workflow).toContain("-c scheduleEnabled=false");
+    expect(workflow).toContain("-c showingListScheduleEnabled=false");
+    expect(workflow).toContain("-c showingListScheduleWeekday=MON");
+    expect(workflow).toContain("-c showingListScheduleHour=8");
+    expect(workflow).toContain("-c showingListScheduleMinute=0");
+    expect(workflow).toContain(
+      "-c showingListScheduleTimeZone=America/Los_Angeles",
+    );
     expect(workflow).toContain("--require-approval never");
   });
 });

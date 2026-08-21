@@ -25,5 +25,14 @@ describe("production runtime image", () => {
     expect(dockerfile).not.toContain("RUN pnpm build:runtime");
     expect(dockerfile).not.toContain("COPY apps/api");
     expect(dockerfile).not.toContain("COPY apps/web");
+    expect(dockerfile).toContain(
+      "COPY packages/openai/package.json packages/openai/package.json",
+    );
+    expect(dockerfile).toContain(
+      "COPY packages/pdf/package.json packages/pdf/package.json",
+    );
+    expect(dockerfile).toContain(
+      "COPY packages/s3/package.json packages/s3/package.json",
+    );
   });
 });

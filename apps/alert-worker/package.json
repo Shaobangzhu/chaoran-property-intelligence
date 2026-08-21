@@ -6,8 +6,14 @@
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
     "@chaoran-property-intelligence/domain": "workspace:*",
+    "@chaoran-property-intelligence/openai": "workspace:*",
+    "@chaoran-property-intelligence/pdf": "workspace:*",
     "@chaoran-property-intelligence/postgres": "workspace:*",
     "@chaoran-property-intelligence/rentcast": "workspace:*",
+    "@chaoran-property-intelligence/s3": "workspace:*",
     "@chaoran-property-intelligence/telegram": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
   }
 }

@@ -531,8 +531,33 @@ private agent instructions, bucket identity, object key, and ETag. Authenticated
 downloads read the stable private object with S3 `If-Match` against the current
 database ETag. PostgreSQL, application, S3, API, API-client, component, and
 session-boundary tests cover the workflow without calling AWS or modifying a
-database. The production API still needs the Block 18.8 IAM grant and injected
-artifact-bucket configuration before private S3 downloads work in AWS.
+database. The production API still needs its future App Runner task role and
+injected artifact-bucket configuration before private S3 downloads work in AWS.
+
+Block 18.8 is complete in source. The worker image now exposes a separate
+`--run-showing-list` composition root that validates one strict server-side
+generation configuration before opening PostgreSQL or calling a provider. It
+composes authoritative listing reload, OpenAI generation, PDF rendering,
+latest-only S3 replacement, singleton metadata commit, a short-lived stable-key
+presigned URL, and an administrator Telegram message that labels the file as an
+unreviewed draft. Delivery state uses optimistic `pending`/`failed`/`sent`
+updates; a successful send is suppressed on ordinary retry, while two bounded
+delivery attempts retain the documented unknown-timeout duplicate risk. A
+deterministic UUID derived from the configured local calendar week and current
+generation configuration makes same-week recovery reuse the published
+generation without another model call.
+
+CDK now defines a dedicated one-off Fargate task, seven-day log group, DLQ,
+stable-object read/write policy, and `cpi-weekly-showing-list` Scheduler. It does
+not reuse or mutate `cpi-daily-property-alert`. Weekday, hour, minute, time zone,
+and enabled state are explicit deployment contexts, and GitHub deployment
+passes both schedules as disabled. The application Secret shape now includes
+`OPENAI_API_KEY` and `SHOWING_LIST_GENERATION_CONFIG` alongside RentCast and
+Telegram values. Focused tests cover configuration rejection, weekly identity,
+ordered publication and delivery, duplicate suppression, failure persistence,
+stable-key signing, Telegram content, IAM, and schedule isolation. No AWS,
+OpenAI, Telegram, S3, or database operation was performed; the task and
+schedule have not been deployed or enabled.
 
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.

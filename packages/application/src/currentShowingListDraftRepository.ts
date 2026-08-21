@@ -57,6 +57,11 @@ const reviewMutationIdentityShape = {
   updatedAt: timestampSchema,
 };
 
+const deliveryMutationIdentityShape = {
+  generationId: uuidSchema,
+  expectedUpdatedAt: timestampSchema,
+};
+
 export const replaceCurrentShowingListDraftInputSchema = z.strictObject({
   generationId: uuidSchema,
   createdByUserId: uuidSchema,
@@ -114,6 +119,18 @@ export const markCurrentShowingListDraftReviewedInputSchema = z.strictObject({
   ...reviewMutationIdentityShape,
 });
 
+export const markCurrentShowingListDraftDeliveryFailedInputSchema =
+  z.strictObject({
+    ...deliveryMutationIdentityShape,
+    updatedAt: timestampSchema,
+  });
+
+export const markCurrentShowingListDraftDeliverySentInputSchema =
+  z.strictObject({
+    ...deliveryMutationIdentityShape,
+    deliveredAt: timestampSchema,
+  });
+
 export type ShowingListStatus = z.infer<typeof showingListStatusSchema>;
 export type ShowingListDeliveryStatus = z.infer<
   typeof showingListDeliveryStatusSchema
@@ -129,6 +146,12 @@ export type SaveCurrentShowingListDraftPersistenceInput = z.infer<
 >;
 export type MarkCurrentShowingListDraftReviewedPersistenceInput = z.infer<
   typeof markCurrentShowingListDraftReviewedInputSchema
+>;
+export type MarkCurrentShowingListDraftDeliveryFailedPersistenceInput = z.infer<
+  typeof markCurrentShowingListDraftDeliveryFailedInputSchema
+>;
+export type MarkCurrentShowingListDraftDeliverySentPersistenceInput = z.infer<
+  typeof markCurrentShowingListDraftDeliverySentInputSchema
 >;
 
 type PersistedGenerationMetadata = z.infer<typeof generationMetadataSchema>;
@@ -163,6 +186,16 @@ export interface CurrentShowingListDraftReviewRepositoryPort
   ): Promise<CurrentShowingListDraft | null>;
 }
 
+export interface CurrentShowingListDraftDeliveryRepositoryPort
+  extends CurrentShowingListDraftQueryPort {
+  markCurrentDraftDeliveryFailed(
+    input: MarkCurrentShowingListDraftDeliveryFailedPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null>;
+  markCurrentDraftDeliverySent(
+    input: MarkCurrentShowingListDraftDeliverySentPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null>;
+}
+
 export class CurrentShowingListGenerationConflictError extends Error {
   constructor() {
     super("Showing List generation identity conflicted with current metadata");
@@ -186,6 +219,18 @@ export function safeParseMarkCurrentShowingListDraftReviewedInput(
   value: unknown,
 ) {
   return markCurrentShowingListDraftReviewedInputSchema.safeParse(value);
+}
+
+export function safeParseMarkCurrentShowingListDraftDeliveryFailedInput(
+  value: unknown,
+) {
+  return markCurrentShowingListDraftDeliveryFailedInputSchema.safeParse(value);
+}
+
+export function safeParseMarkCurrentShowingListDraftDeliverySentInput(
+  value: unknown,
+) {
+  return markCurrentShowingListDraftDeliverySentInputSchema.safeParse(value);
 }
 
 function boundedString(maximumLength: number) {

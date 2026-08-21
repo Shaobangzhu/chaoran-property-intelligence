@@ -1091,6 +1091,51 @@ No AWS request, deployment, database migration execution, OpenAI call,
 Telegram delivery, task, schedule, or production IAM mutation occurred in
 Block 18.7.
 
+### Block 18.8 Weekly Production Job and Telegram Delivery
+
+Block 18.8 adds a dedicated `--run-showing-list` production composition root to
+the existing worker image. It reads one strict server-side JSON configuration
+with an administrator UUID, one through ten listing UUIDs, and the bounded
+Block 18.1 preferences. Missing, blank, malformed, oversized, or unknown
+configuration fails before database creation, model generation, artifact
+replacement, or Telegram delivery. Browser selection state is never consulted.
+
+Each execution derives a deterministic version-5-shaped UUID from the
+configured time zone's Monday-based calendar week plus the complete parsed
+generation configuration. A same-week retry with unchanged configuration
+checks the singleton record first. If that generation already exists, it skips
+authoritative reload, OpenAI, rendering, S3 replacement, and metadata
+replacement and resumes only pending or failed Telegram delivery. A confirmed
+`sent` row returns without creating a URL or sending another message. Changed
+configuration deliberately creates a new identity even in the same week.
+
+The delivery use case creates an HTTPS S3 presigned `GetObject` URL for only
+`showing-lists/current.pdf`, requests the fixed attachment name and PDF content
+type, and limits configured expiry to 60 through 900 seconds. The URL exists
+only in memory. Telegram receives a fixed operational message containing the
+URL, expiry timestamp, and an explicit unreviewed-draft/licensed-agent review
+warning. At most two in-process delivery attempts are made. Final failure marks
+the current generation `failed` without reverting the row or object; success
+atomically marks it `sent` with `delivered_at`. A provider timeout can have an
+unknown outcome, so the retry can still produce a duplicate Telegram message.
+Errors and logs do not include the URL.
+
+CDK defines a separate 0.5-vCPU/1-GiB Fargate task, seven-day log group, 14-day
+Scheduler DLQ, and `cpi-weekly-showing-list` EventBridge Scheduler. Its task role
+can read and replace only the stable Showing List object. It uses the existing
+Aurora connection and public-subnet egress pattern, but has a distinct command
+and no RentCast secret. Scheduler weekday, hour, minute, IANA time zone, and
+enabled state are deployment contexts. The GitHub workflow supplies all five
+explicitly and forces both daily and weekly schedules disabled.
+
+The production application Secret now contains `RENTCAST_API_KEY`,
+`OPENAI_API_KEY`, `SHOWING_LIST_GENERATION_CONFIG`, `TELEGRAM_BOT_TOKEN`, and
+`TELEGRAM_CHAT_ID`. Block 18.8 is source-complete and locally tested. It did not
+synchronize that expanded Secret, deploy a stack, run migration 005, invoke
+OpenAI, write S3 or PostgreSQL, send Telegram, run a Fargate task, or enable a
+schedule. Those operations require the production runbook gate and explicit
+approval.
+
 ### Latest-Only Retention
 
 Latest-only is an application invariant for the current single-administrator

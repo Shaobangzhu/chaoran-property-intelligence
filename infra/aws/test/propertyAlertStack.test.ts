@@ -105,9 +105,10 @@ describe("PropertyAlertStack", () => {
   it("runs every day at 8 AM Los Angeles time with retries and a DLQ", () => {
     const template = createTemplate();
 
-    template.resourceCountIs("AWS::SQS::Queue", 1);
+    template.resourceCountIs("AWS::SQS::Queue", 2);
     template.hasResourceProperties("AWS::Scheduler::Schedule", {
       FlexibleTimeWindow: { Mode: "OFF" },
+      Name: "cpi-daily-property-alert",
       ScheduleExpression: "cron(0 8 * * ? *)",
       ScheduleExpressionTimezone: "America/Los_Angeles",
       State: "DISABLED",
@@ -121,6 +122,82 @@ describe("PropertyAlertStack", () => {
         },
       }),
     });
+  });
+
+  it("adds a separate disabled weekly Showing List task and schedule", () => {
+    const template = createTemplate();
+
+    template.resourceCountIs("AWS::ECS::TaskDefinition", 2);
+    template.resourceCountIs("AWS::Scheduler::Schedule", 2);
+    template.resourceCountIs("AWS::Logs::LogGroup", 2);
+    template.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      Cpu: "512",
+      Memory: "1024",
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Command: [
+            "timeout",
+            "--signal=TERM",
+            "15m",
+            "node",
+            "apps/alert-worker/dist/index.js",
+            "--run-showing-list",
+          ],
+          Environment: Match.arrayWith([
+            { Name: "AWS_ACCOUNT_ID", Value: "111111111111" },
+            {
+              Name: "SHOWING_LIST_DOWNLOAD_URL_TTL_SECONDS",
+              Value: "900",
+            },
+            {
+              Name: "SHOWING_LIST_TIME_ZONE",
+              Value: "America/Los_Angeles",
+            },
+          ]),
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: "OPENAI_API_KEY" }),
+            Match.objectLike({ Name: "SHOWING_LIST_GENERATION_CONFIG" }),
+            Match.objectLike({ Name: "TELEGRAM_BOT_TOKEN" }),
+            Match.objectLike({ Name: "TELEGRAM_CHAT_ID" }),
+          ]),
+        }),
+      ]),
+    });
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      FlexibleTimeWindow: { Mode: "OFF" },
+      Name: "cpi-weekly-showing-list",
+      ScheduleExpression: "cron(0 8 ? * MON *)",
+      ScheduleExpressionTimezone: "America/Los_Angeles",
+      State: "DISABLED",
+      Target: Match.objectLike({
+        DeadLetterConfig: Match.objectLike({
+          Arn: Match.anyValue(),
+        }),
+        RetryPolicy: {
+          MaximumEventAgeInSeconds: 3_600,
+          MaximumRetryAttempts: 2,
+        },
+      }),
+    });
+
+    const policies = JSON.stringify(
+      template.findResources("AWS::IAM::Policy"),
+    );
+    expect(policies).toContain("showing-lists/current.pdf");
+    expect(policies).toContain("s3:GetObject");
+    expect(policies).toContain("s3:PutObject");
+  });
+
+  it("keeps the deployed bootstrap Secret template stable", () => {
+    const template = createTemplate();
+    const secrets = JSON.stringify(
+      template.findResources("AWS::SecretsManager::Secret"),
+    );
+
+    expect(secrets).toContain("RENTCAST_API_KEY");
+    expect(secrets).toContain("TELEGRAM_BOT_TOKEN");
+    expect(secrets).not.toContain("OPENAI_API_KEY");
+    expect(secrets).not.toContain("SHOWING_LIST_GENERATION_CONFIG");
   });
 
   it("retains worker logs for seven days", () => {

@@ -8,3 +8,7 @@ export {
   type S3GetObjectClient,
   type S3ShowingListArtifactReaderOptions,
 } from "./s3ShowingListArtifactReader.js";
+export {
+  S3ShowingListDownloadLinks,
+  type S3ShowingListDownloadLinksOptions,
+} from "./s3ShowingListDownloadLinks.js";

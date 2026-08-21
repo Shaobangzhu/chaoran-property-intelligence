@@ -1,5 +1,6 @@
 import { runAlertWorker } from "./runAlertWorker.js";
 import { runProduction } from "./runProduction.js";
+import { runShowingListProduction } from "./runShowingListProduction.js";
 import { runTelegramSmokeTest } from "./runTelegramSmokeTest.js";
 import { verifyProductionBaseline } from "./verifyProductionBaseline.js";
 
@@ -22,6 +23,12 @@ process.exitCode = await runAlertWorker(
   {
     runProduction: () =>
       runProduction({
+        environment: process.env,
+        fetch: globalThis.fetch,
+        now: () => new Date(),
+      }),
+    runShowingListProduction: () =>
+      runShowingListProduction({
         environment: process.env,
         fetch: globalThis.fetch,
         now: () => new Date(),

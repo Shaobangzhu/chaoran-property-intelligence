@@ -74,7 +74,7 @@ function readPostgresPort(
   return port;
 }
 
-function readOptionalVariable(
+export function readOptionalVariable(
   environment: Readonly<Record<string, string | undefined>>,
   key: string,
 ): string | undefined {
@@ -86,7 +86,7 @@ function readOptionalVariable(
   return value;
 }
 
-function readRequiredVariable(
+export function readRequiredVariable(
   environment: Readonly<Record<string, string | undefined>>,
   key: string,
 ): string {

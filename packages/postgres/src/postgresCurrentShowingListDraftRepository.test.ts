@@ -157,6 +157,80 @@ describe("PostgresCurrentShowingListDraftRepository", () => {
     ]);
   });
 
+  it("records a failed delivery without removing the current draft", async () => {
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createCurrentDraftRow({
+            delivery_status: "failed",
+            updated_at: new Date("2026-08-20T20:15:00.000Z"),
+          }),
+        ],
+      },
+    ]);
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.markCurrentDraftDeliveryFailed({
+        generationId,
+        expectedUpdatedAt: "2026-08-20T20:10:00.000Z",
+        updatedAt: "2026-08-20T20:15:00.000Z",
+      }),
+    ).resolves.toMatchObject({
+      generationId,
+      deliveryStatus: "failed",
+      deliveredAt: null,
+    });
+    expect(database.queries[0]?.text).toContain("delivery_status = 'failed'");
+    expect(database.queries[0]?.text).toContain(
+      "delivery_status <> 'sent'",
+    );
+    expect(database.queries[0]?.text).not.toMatch(/DELETE\s+FROM/iu);
+    expect(database.queries[0]?.parameters).toEqual([
+      generationId,
+      "2026-08-20T20:10:00.000Z",
+      "2026-08-20T20:15:00.000Z",
+    ]);
+  });
+
+  it("records a confirmed delivery with its sent timestamp", async () => {
+    const deliveredAt = "2026-08-20T20:15:00.000Z";
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createCurrentDraftRow({
+            delivery_status: "sent",
+            delivered_at: new Date(deliveredAt),
+            updated_at: new Date(deliveredAt),
+          }),
+        ],
+      },
+    ]);
+    const repository = new PostgresCurrentShowingListDraftRepository(database);
+
+    await expect(
+      repository.markCurrentDraftDeliverySent({
+        generationId,
+        expectedUpdatedAt: "2026-08-20T20:10:00.000Z",
+        deliveredAt,
+      }),
+    ).resolves.toMatchObject({
+      deliveryStatus: "sent",
+      deliveredAt,
+      updatedAt: deliveredAt,
+    });
+    expect(database.queries[0]?.text).toContain("delivery_status = 'sent'");
+    expect(database.queries[0]?.text).toContain("delivered_at = $3");
+    expect(database.queries[0]?.text).toContain(
+      "delivery_status <> 'sent'",
+    );
+    expect(database.queries[0]?.parameters).toEqual([
+      generationId,
+      "2026-08-20T20:10:00.000Z",
+      deliveredAt,
+    ]);
+  });
+
   it("returns null when a review mutation loses its concurrency race", async () => {
     const database = new RecordingSqlDatabase([{ rows: [] }, { rows: [] }]);
     const repository = new PostgresCurrentShowingListDraftRepository(database);

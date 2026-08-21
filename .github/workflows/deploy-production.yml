@@ -68,6 +68,11 @@ jobs:
         run: >-
           pnpm --dir infra/aws exec cdk deploy --all
           -c scheduleEnabled=false
+          -c showingListScheduleEnabled=false
+          -c showingListScheduleWeekday=MON
+          -c showingListScheduleHour=8
+          -c showingListScheduleMinute=0
+          -c showingListScheduleTimeZone=America/Los_Angeles
           --require-approval never
           --parameters ChaoranPropertyIntelligenceGuardrails:AlertEmail="$CPI_ALERT_EMAIL"
           --parameters ChaoranPropertyIntelligenceGuardrails:MonthlyBudgetUsd="$CPI_MONTHLY_BUDGET_USD"

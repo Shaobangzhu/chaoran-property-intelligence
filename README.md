@@ -228,4 +228,5 @@ planned React/Express production boundary.
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)
+- [Weekly Showing List production runbook](docs/runbooks/showing-list-production.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)

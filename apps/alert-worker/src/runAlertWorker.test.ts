@@ -37,14 +37,42 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toContain(
-      "This worker supports only --dry-run, --run, --verify-baseline, or --telegram-smoke-test.",
+      "This worker supports only --dry-run, --run, --run-showing-list, --verify-baseline, or --telegram-smoke-test.",
     );
+  });
+
+  it("runs only the weekly Showing List production action", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const runProduction = vi.fn(async () => {});
+    const runShowingListProduction = vi.fn(async () => {});
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--run-showing-list"],
+        stdout,
+        stderr,
+      },
+      {
+        runProduction,
+        runShowingListProduction,
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline: async () => createBaselineState(),
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(runShowingListProduction).toHaveBeenCalledOnce();
+    expect(runProduction).not.toHaveBeenCalled();
+    expect(stdout.output).toBe("Weekly Showing List run completed.\n");
+    expect(stderr.output).toBe("");
   });
 
   it("runs only the Telegram production smoke-test action", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
     const runProduction = vi.fn(async () => {});
+    const runShowingListProduction = vi.fn(async () => {});
     const verifyProductionBaseline = vi.fn(async () => createBaselineState());
     const runTelegramSmokeTest = vi.fn(async () => {});
 
@@ -56,6 +84,7 @@ describe("runAlertWorker", () => {
       },
       {
         runProduction,
+        runShowingListProduction,
         runTelegramSmokeTest,
         verifyProductionBaseline,
       },
@@ -64,6 +93,7 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(0);
     expect(runTelegramSmokeTest).toHaveBeenCalledOnce();
     expect(runProduction).not.toHaveBeenCalled();
+    expect(runShowingListProduction).not.toHaveBeenCalled();
     expect(verifyProductionBaseline).not.toHaveBeenCalled();
     expect(stdout.output).toBe("Telegram production smoke test completed.\n");
     expect(stderr.output).toBe("");
@@ -73,6 +103,7 @@ describe("runAlertWorker", () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
     const runProduction = vi.fn(async () => {});
+    const runShowingListProduction = vi.fn(async () => {});
 
     const exitCode = await runAlertWorker(
       {
@@ -82,6 +113,7 @@ describe("runAlertWorker", () => {
       },
       {
         runProduction,
+        runShowingListProduction,
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
       },
@@ -89,6 +121,7 @@ describe("runAlertWorker", () => {
 
     expect(exitCode).toBe(0);
     expect(runProduction).toHaveBeenCalledOnce();
+    expect(runShowingListProduction).not.toHaveBeenCalled();
     expect(stdout.output).toBe("Production run completed.\n");
     expect(stderr.output).toBe("");
   });
@@ -97,6 +130,7 @@ describe("runAlertWorker", () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
     const runProduction = vi.fn(async () => {});
+    const runShowingListProduction = vi.fn(async () => {});
     const verifyProductionBaseline = vi.fn(async () => createBaselineState());
 
     const exitCode = await runAlertWorker(
@@ -107,6 +141,7 @@ describe("runAlertWorker", () => {
       },
       {
         runProduction,
+        runShowingListProduction,
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline,
       },
@@ -114,6 +149,7 @@ describe("runAlertWorker", () => {
 
     expect(exitCode).toBe(0);
     expect(runProduction).not.toHaveBeenCalled();
+    expect(runShowingListProduction).not.toHaveBeenCalled();
     expect(verifyProductionBaseline).toHaveBeenCalledOnce();
     expect(stdout.output).toBe(
       [
@@ -144,6 +180,7 @@ describe("runAlertWorker", () => {
         runProduction: async () => {
           throw new Error("Database unavailable");
         },
+        runShowingListProduction: async () => {},
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
       },
@@ -166,6 +203,7 @@ describe("runAlertWorker", () => {
       },
       {
         runProduction: async () => {},
+        runShowingListProduction: async () => {},
         runTelegramSmokeTest: async () => {
           throw new Error("Telegram unavailable");
         },

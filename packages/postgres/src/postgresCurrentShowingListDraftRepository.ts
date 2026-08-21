@@ -1,13 +1,18 @@
 import {
   CurrentShowingListGenerationConflictError,
   safeParseCurrentShowingListDraft,
+  safeParseMarkCurrentShowingListDraftDeliveryFailedInput,
+  safeParseMarkCurrentShowingListDraftDeliverySentInput,
   safeParseMarkCurrentShowingListDraftReviewedInput,
   safeParseReplaceCurrentShowingListDraftInput,
   safeParseSaveCurrentShowingListDraftInput,
   type CurrentShowingListDraft,
+  type CurrentShowingListDraftDeliveryRepositoryPort,
   type CurrentShowingListDraftRepositoryPort,
   type CurrentShowingListDraftReviewRepositoryPort,
   type MarkCurrentShowingListDraftReviewedPersistenceInput,
+  type MarkCurrentShowingListDraftDeliveryFailedPersistenceInput,
+  type MarkCurrentShowingListDraftDeliverySentPersistenceInput,
   type ReplaceCurrentShowingListDraftInput,
   type SaveCurrentShowingListDraftPersistenceInput,
 } from "@chaoran-property-intelligence/application";
@@ -102,10 +107,37 @@ const markCurrentDraftReviewedSql = `
   RETURNING ${currentDraftColumns}
 `;
 
+const markCurrentDraftDeliveryFailedSql = `
+  UPDATE current_showing_list_draft
+  SET
+    delivery_status = 'failed',
+    delivered_at = NULL,
+    updated_at = $3
+  WHERE singleton_key = 'current'
+    AND generation_id = $1
+    AND updated_at = $2
+    AND delivery_status <> 'sent'
+  RETURNING ${currentDraftColumns}
+`;
+
+const markCurrentDraftDeliverySentSql = `
+  UPDATE current_showing_list_draft
+  SET
+    delivery_status = 'sent',
+    delivered_at = $3,
+    updated_at = $3
+  WHERE singleton_key = 'current'
+    AND generation_id = $1
+    AND updated_at = $2
+    AND delivery_status <> 'sent'
+  RETURNING ${currentDraftColumns}
+`;
+
 export class PostgresCurrentShowingListDraftRepository
   implements
     CurrentShowingListDraftRepositoryPort,
-    CurrentShowingListDraftReviewRepositoryPort
+    CurrentShowingListDraftReviewRepositoryPort,
+    CurrentShowingListDraftDeliveryRepositoryPort
 {
   constructor(private readonly database: SqlDatabase) {}
 
@@ -189,6 +221,48 @@ export class PostgresCurrentShowingListDraftRepository
       parsedInput.data.generationId,
       parsedInput.data.expectedUpdatedAt,
       parsedInput.data.updatedAt,
+    ]);
+    return parseOptionalCurrentDraft(result);
+  }
+
+  async markCurrentDraftDeliveryFailed(
+    input: MarkCurrentShowingListDraftDeliveryFailedPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null> {
+    const parsedInput =
+      safeParseMarkCurrentShowingListDraftDeliveryFailedInput(input);
+    if (!parsedInput.success) {
+      throw new Error(
+        "Current Showing List delivery failure input was invalid",
+      );
+    }
+
+    const result = await this.database.query(
+      markCurrentDraftDeliveryFailedSql,
+      [
+        parsedInput.data.generationId,
+        parsedInput.data.expectedUpdatedAt,
+        parsedInput.data.updatedAt,
+      ],
+    );
+    return parseOptionalCurrentDraft(result);
+  }
+
+  async markCurrentDraftDeliverySent(
+    input: MarkCurrentShowingListDraftDeliverySentPersistenceInput,
+  ): Promise<CurrentShowingListDraft | null> {
+    const parsedInput = safeParseMarkCurrentShowingListDraftDeliverySentInput(
+      input,
+    );
+    if (!parsedInput.success) {
+      throw new Error(
+        "Current Showing List delivery success input was invalid",
+      );
+    }
+
+    const result = await this.database.query(markCurrentDraftDeliverySentSql, [
+      parsedInput.data.generationId,
+      parsedInput.data.expectedUpdatedAt,
+      parsedInput.data.deliveredAt,
     ]);
     return parseOptionalCurrentDraft(result);
   }

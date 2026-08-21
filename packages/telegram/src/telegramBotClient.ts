@@ -10,6 +10,11 @@ export interface TelegramNotificationPort {
   sendListingAddresses(addresses: string[]): Promise<void>;
 }
 
+export interface ShowingListDraftNotification {
+  downloadUrl: string;
+  expiresAt: string;
+}
+
 export interface TelegramBotClientOptions {
   botToken: string;
   chatId: string;
@@ -40,6 +45,23 @@ export class TelegramBotClient implements TelegramNotificationPort {
 
   async sendProductionSmokeTest(): Promise<void> {
     await this.sendMessage(productionSmokeTestText);
+  }
+
+  async sendCurrentShowingListDraft(
+    notification: ShowingListDraftNotification,
+  ): Promise<void> {
+    if (!isValidShowingListDraftNotification(notification)) {
+      throw new Error("Showing List Telegram notification was invalid");
+    }
+
+    await this.sendMessage(
+      [
+        "CPI weekly Showing List draft is ready.",
+        "UNREVIEWED DRAFT - licensed-agent review is required before use.",
+        `Download PDF: ${notification.downloadUrl}`,
+        `This private link expires at ${notification.expiresAt}.`,
+      ].join("\n"),
+    );
   }
 
   private async sendMessage(text: string): Promise<void> {
@@ -103,4 +125,26 @@ function isTelegramOkResponse(value: unknown): boolean {
     "ok" in value &&
     value.ok === true
   );
+}
+
+function isValidShowingListDraftNotification(
+  value: ShowingListDraftNotification,
+): boolean {
+  if (
+    typeof value.downloadUrl !== "string" ||
+    value.downloadUrl.length > 8_192
+  ) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.downloadUrl);
+    return (
+      url.protocol === "https:" &&
+      url.hash.length === 0 &&
+      Number.isFinite(Date.parse(value.expiresAt))
+    );
+  } catch {
+    return false;
+  }
 }

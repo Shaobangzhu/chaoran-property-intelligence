@@ -14,12 +14,13 @@ export interface AlertWorkerRuntime {
 
 export interface AlertWorkerActions {
   runProduction(): Promise<void>;
+  runShowingListProduction(): Promise<void>;
   runTelegramSmokeTest(): Promise<void>;
   verifyProductionBaseline(): Promise<BaselineState>;
 }
 
 const supportedModesMessage =
-  "This worker supports only --dry-run, --run, --verify-baseline, or --telegram-smoke-test.\n";
+  "This worker supports only --dry-run, --run, --run-showing-list, --verify-baseline, or --telegram-smoke-test.\n";
 
 export async function runAlertWorker(
   runtime: AlertWorkerRuntime,
@@ -56,6 +57,19 @@ export async function runAlertWorker(
       return 0;
     } catch (error) {
       runtime.stderr.write(`Worker failed: ${getErrorMessage(error)}\n`);
+      return 1;
+    }
+  }
+
+  if (runtime.args[0] === "--run-showing-list" && actions !== undefined) {
+    try {
+      await actions.runShowingListProduction();
+      runtime.stdout.write("Weekly Showing List run completed.\n");
+      return 0;
+    } catch (error) {
+      runtime.stderr.write(
+        `Weekly Showing List worker failed: ${getErrorMessage(error)}\n`,
+      );
       return 1;
     }
   }

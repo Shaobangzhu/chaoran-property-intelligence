@@ -188,23 +188,25 @@ The web/API rollout order is:
 
 ## Planned Weekly Showing List Publication Boundary
 
-**Status: partially implemented in source; not deployed or enabled by Block
-18.7.**
+**Status: weekly publisher implemented in source through Block 18.8; not
+deployed or enabled.**
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
-Blocks 18.6.1 through 18.7 have implemented the application persistence
+Blocks 18.6.1 through 18.8 have implemented the application persistence
 contracts, PostgreSQL adapter, bundled singleton migration, bounded PDFKit
 renderer, current-artifact store port, stable-key AWS SDK v3 S3 adapter, and
 dedicated private unversioned bucket definition in source. The application also
 owns the ordered publication use case, optimistic review mutations, bounded
 review DTOs, authenticated Express routes, React review workspace, and an S3
-reader that guards downloads with the current database ETag. Migration 005 has
-not been applied to Aurora or a local database, and no real renderer, S3,
-database, or model call was made while implementing these source changes.
-Least-privilege API and weekly-task access, deployed runtime configuration, the
-Showing List task, weekly schedule, presigned URL creation, and Telegram
-delivery remain unimplemented or unprovisioned.
+reader that guards downloads with the current database ETag. The worker image
+also owns real-provider composition, deterministic weekly identity, stable-key
+presigning, bounded Telegram delivery, and a distinct weekly Fargate task and
+Scheduler definition. Migration 005 has not been applied to Aurora or a local
+database, and no real renderer, S3, database, model, or Telegram call was made.
+Least-privilege weekly-task S3 access is defined in CDK. The production API IAM
+role, deployed runtime configuration, expanded application Secret, task,
+schedule, and API service remain unprovisioned.
 
 ```mermaid
 flowchart LR
@@ -278,6 +280,11 @@ retrieve a retained old draft; while its link remains valid, it resolves to the
 current object. Telegram delivery failure does not roll back the current draft.
 The singleton record retains a bounded `pending`, `sent`, or `failed` delivery
 state, generation ID, and sent timestamp for retry and duplicate suppression.
+The task makes at most two in-process delivery attempts. Its generation ID is
+derived from the local calendar week and parsed generation configuration, so a
+same-week recovery skips OpenAI and publication when that generation already
+exists. A Telegram timeout still has an unknown delivery outcome and can create
+one duplicate message during the bounded retry.
 
 ### Schedule and cost boundary
 
@@ -463,18 +470,18 @@ does not use the local developer `DATABASE_URL` in AWS.
 | Secret | Required content | Lifecycle |
 | --- | --- | --- |
 | `cpi/production/database` | Generated `username` and `password` | Retained with production data |
-| `cpi/production/application` | `RENTCAST_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Destroyed with the production stack |
+| `cpi/production/application` | `RENTCAST_API_KEY`, `OPENAI_API_KEY`, `SHOWING_LIST_GENERATION_CONFIG`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Destroyed with the production stack |
 | `cpi/production/api-auth` | `JWT_SIGNING_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `ALLOWED_ORIGIN`, `ORIGIN_HEADER_SECRET` | Retained and rotated with coordinated API deployment |
 
 Application values originate in the ignored local `.env.local` file. The sync
-command validates all three values, writes the AWS CLI payload to a random
+command validates all five values, writes the AWS CLI payload to a random
 owner-only (`0600`) temporary file, invokes Secrets Manager, and removes the
 temporary directory in a `finally` block. Values are never placed in command
 arguments or printed.
 
 Secret values must not be stored in Git, GitHub repository variables, issues,
-logs, documentation, or chat. GitHub Actions does not need the RentCast or
-Telegram values because infrastructure deployment preserves the existing
+logs, documentation, or chat. GitHub Actions does not need provider, Telegram,
+or generation values because infrastructure deployment preserves the existing
 application Secret value.
 
 ## Observability and Failure Handling
@@ -521,6 +528,8 @@ Local mutation requires all of the following:
 - immutable commit SHA pins for every action
 - a 45-minute job timeout
 - `scheduleEnabled=false` on every deployment
+- `showingListScheduleEnabled=false` and explicit weekly weekday, hour, minute,
+  and time zone on every deployment
 - temporary AWS credentials obtained through OIDC
 
 The OIDC trust conditions are exact:
@@ -549,6 +558,8 @@ configuration required before publishing the workflow is:
 | `CPI_ALERT_EMAIL` | `.env.local`; GitHub secret | Personal data | Both CloudFormation stacks |
 | `CPI_MONTHLY_BUDGET_USD` | `.env.local`; GitHub variable | No | Guardrails stack |
 | `RENTCAST_API_KEY` | `.env.local`; AWS Secret | Yes | Worker container |
+| `OPENAI_API_KEY` | `.env.local`; AWS Secret | Yes | Weekly Showing List task |
+| `SHOWING_LIST_GENERATION_CONFIG` | `.env.local`; AWS Secret | Client/listing configuration | Weekly Showing List task |
 | `TELEGRAM_BOT_TOKEN` | `.env.local`; AWS Secret | Yes | Worker container |
 | `TELEGRAM_CHAT_ID` | `.env.local`; AWS Secret | Yes | Worker container |
 | `JWT_SIGNING_SECRET` | `.env.local`; API-auth Secret | Yes | Express API only |
@@ -558,8 +569,17 @@ configuration required before publishing the workflow is:
 | `API_PUBLIC_ORIGIN` | `.env.local`; App Runner environment | No | Exact unsafe-request Origin check |
 | `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
 | `PORT` | App Runner environment | No | Production Express listener |
+| `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |
+| `SHOWING_LIST_ARTIFACT_BUCKET` | Generated task environment | No | Weekly task and future API |
+| `SHOWING_LIST_TIME_ZONE` | Generated from CDK context | No | Weekly identity |
+| `SHOWING_LIST_DOWNLOAD_URL_TTL_SECONDS` | Task environment; 60-900 | No | S3 presigner |
 | Database username/password | Generated AWS Secret | Yes | Aurora and worker container |
 | `scheduleEnabled` | CDK context | Operationally sensitive | EventBridge Scheduler state |
+| `showingListScheduleEnabled` | CDK context | Operationally sensitive | Weekly Scheduler state |
+| `showingListScheduleWeekday` | CDK context | No | Weekly Scheduler cron |
+| `showingListScheduleHour` | CDK context | No | Weekly Scheduler cron |
+| `showingListScheduleMinute` | CDK context | No | Weekly Scheduler cron |
+| `showingListScheduleTimeZone` | CDK context | No | Weekly Scheduler and task identity |
 
 `.env.example` documents names and safe defaults only. `.env.local`, CDK output,
 and CDK context files are ignored by Git.
@@ -592,7 +612,7 @@ The following are release gates, not suggestions:
   access keys.
 - The existing property-alert scheduler remains disabled until a separate
   recurring-execution decision is approved.
-- The planned weekly Showing List scheduler remains a distinct resource and is
+- The weekly Showing List scheduler remains a distinct resource and is
   enabled only after the Block 18 deployment review and smoke test.
 - Aurora remains private and accepts TCP 5432 only from the worker security
   group.

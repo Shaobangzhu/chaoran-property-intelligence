@@ -57,6 +57,13 @@ export interface PropertyAlertStackProps extends StackProps {
   failureAlertEmail?: string;
   repositoryRoot?: string;
   scheduleEnabled?: boolean;
+  showingListSchedule?: {
+    enabled: boolean;
+    weekDay: string;
+    hour: string;
+    minute: string;
+    timeZone: string;
+  };
 }
 
 export class PropertyAlertStack extends Stack {
@@ -166,7 +173,7 @@ export class PropertyAlertStack extends Stack {
     });
 
     const applicationSecret = new Secret(this, "ApplicationSecret", {
-      description: "RentCast and Telegram credentials for the property worker",
+      description: "Provider credentials and scheduled generation configuration",
       generateSecretString: {
         excludePunctuation: true,
         generateStringKey: "bootstrapNonce",
@@ -206,6 +213,12 @@ export class PropertyAlertStack extends Stack {
     const cluster = new Cluster(this, "Cluster", {
       vpc,
     });
+    const containerImage =
+      props.containerImage ??
+      ContainerImage.fromAsset(
+        props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
+        { platform: Platform.LINUX_AMD64 },
+      );
     const failureAlertEmail =
       props.failureAlertEmail ??
       new CfnParameter(this, "AlertEmail", {
@@ -279,12 +292,7 @@ export class PropertyAlertStack extends Stack {
         PGPORT: database.clusterEndpoint.port.toString(),
         PGSSLMODE: "verify-full",
       },
-      image:
-        props.containerImage ??
-        ContainerImage.fromAsset(
-          props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
-          { platform: Platform.LINUX_AMD64 },
-        ),
+      image: containerImage,
       logging: LogDrivers.awsLogs({
         logGroup,
         streamPrefix: "worker",
@@ -318,6 +326,101 @@ export class PropertyAlertStack extends Stack {
       softLimit: 1_024,
     });
 
+    const showingListSchedule = props.showingListSchedule ?? {
+      enabled: false,
+      weekDay: "MON",
+      hour: "8",
+      minute: "0",
+      timeZone: "America/Los_Angeles",
+    };
+    const showingListTaskDefinition = new FargateTaskDefinition(
+      this,
+      "ShowingListTaskDefinition",
+      {
+        cpu: 512,
+        memoryLimitMiB: 1_024,
+        runtimePlatform: {
+          cpuArchitecture: CpuArchitecture.X86_64,
+          operatingSystemFamily: OperatingSystemFamily.LINUX,
+        },
+      },
+    );
+    const showingListLogGroup = new LogGroup(this, "ShowingListWorkerLogGroup", {
+      logGroupName: "/cpi/production/showing-list-worker",
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: RetentionDays.ONE_WEEK,
+    });
+    const showingListContainer = showingListTaskDefinition.addContainer(
+      "ShowingListWorker",
+      {
+        command: [
+          "timeout",
+          "--signal=TERM",
+          "15m",
+          "node",
+          "apps/alert-worker/dist/index.js",
+          "--run-showing-list",
+        ],
+        environment: {
+          AWS_ACCOUNT_ID: this.account,
+          NODE_ENV: "production",
+          NODE_EXTRA_CA_CERTS: "/app/certs/global-bundle.pem",
+          PGDATABASE: databaseName,
+          PGHOST: database.clusterEndpoint.hostname,
+          PGPORT: database.clusterEndpoint.port.toString(),
+          PGSSLMODE: "verify-full",
+          SHOWING_LIST_ARTIFACT_BUCKET:
+            this.showingListArtifactBucket.bucketName,
+          SHOWING_LIST_DOWNLOAD_URL_TTL_SECONDS: "900",
+          SHOWING_LIST_TIME_ZONE: showingListSchedule.timeZone,
+        },
+        image: containerImage,
+        logging: LogDrivers.awsLogs({
+          logGroup: showingListLogGroup,
+          streamPrefix: "worker",
+        }),
+        secrets: {
+          OPENAI_API_KEY: EcsSecret.fromSecretsManager(
+            applicationSecret,
+            "OPENAI_API_KEY",
+          ),
+          PGPASSWORD: EcsSecret.fromSecretsManager(
+            databaseCredentialsSecret,
+            "password",
+          ),
+          PGUSER: EcsSecret.fromSecretsManager(
+            databaseCredentialsSecret,
+            "username",
+          ),
+          SHOWING_LIST_GENERATION_CONFIG: EcsSecret.fromSecretsManager(
+            applicationSecret,
+            "SHOWING_LIST_GENERATION_CONFIG",
+          ),
+          TELEGRAM_BOT_TOKEN: EcsSecret.fromSecretsManager(
+            applicationSecret,
+            "TELEGRAM_BOT_TOKEN",
+          ),
+          TELEGRAM_CHAT_ID: EcsSecret.fromSecretsManager(
+            applicationSecret,
+            "TELEGRAM_CHAT_ID",
+          ),
+        },
+      },
+    );
+    showingListContainer.addUlimits({
+      hardLimit: 1_024,
+      name: UlimitName.NOFILE,
+      softLimit: 1_024,
+    });
+    this.showingListArtifactBucket.grantPut(
+      showingListTaskDefinition.taskRole,
+      "showing-lists/current.pdf",
+    );
+    this.showingListArtifactBucket.grantRead(
+      showingListTaskDefinition.taskRole,
+      "showing-lists/current.pdf",
+    );
+
     const deadLetterQueue = new Queue(this, "SchedulerDeadLetterQueue", {
       encryption: QueueEncryption.SQS_MANAGED,
       retentionPeriod: Duration.days(14),
@@ -344,6 +447,40 @@ export class PropertyAlertStack extends Stack {
       }),
       scheduleName: "cpi-daily-property-alert",
       target,
+      timeWindow: TimeWindow.off(),
+    });
+
+    const showingListDeadLetterQueue = new Queue(
+      this,
+      "ShowingListSchedulerDeadLetterQueue",
+      {
+        encryption: QueueEncryption.SQS_MANAGED,
+        retentionPeriod: Duration.days(14),
+      },
+    );
+    const showingListTarget = new EcsRunFargateTask(cluster, {
+      assignPublicIp: true,
+      deadLetterQueue: showingListDeadLetterQueue,
+      maxEventAge: Duration.hours(1),
+      platformVersion: FargatePlatformVersion.LATEST,
+      retryAttempts: 2,
+      securityGroups: [workerSecurityGroup],
+      taskDefinition: showingListTaskDefinition,
+      vpcSubnets: {
+        subnetType: SubnetType.PUBLIC,
+      },
+    });
+    new Schedule(this, "WeeklyShowingListSchedule", {
+      description: "Generate and deliver the current Showing List draft",
+      enabled: showingListSchedule.enabled,
+      schedule: ScheduleExpression.cron({
+        hour: showingListSchedule.hour,
+        minute: showingListSchedule.minute,
+        timeZone: TimeZone.of(showingListSchedule.timeZone),
+        weekDay: showingListSchedule.weekDay,
+      }),
+      scheduleName: "cpi-weekly-showing-list",
+      target: showingListTarget,
       timeWindow: TimeWindow.off(),
     });
   }

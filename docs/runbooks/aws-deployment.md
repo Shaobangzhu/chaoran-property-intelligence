@@ -20,6 +20,8 @@ the `cpi-admin` profile.
 
 ```text
 RENTCAST_API_KEY
+OPENAI_API_KEY
+SHOWING_LIST_GENERATION_CONFIG
 TELEGRAM_BOT_TOKEN
 TELEGRAM_CHAT_ID
 CPI_ALERT_EMAIL
@@ -27,8 +29,9 @@ CPI_MONTHLY_BUDGET_USD
 ```
 
 The deployment email and budget amount become CloudFormation parameters. The
-application credentials are copied to `cpi/production/application` only after
-the production stack exists, without printing their values.
+provider credentials and generation configuration are copied to
+`cpi/production/application` only after the production stack exists, without
+printing their values.
 
 ## Preflight
 
@@ -84,8 +87,8 @@ Deployment requires a separate explicit approval after `cdk diff` review.
    deploying application resources.
 4. Deploy `ChaoranPropertyIntelligenceProduction` with its `AlertEmail`
    parameter and `scheduleEnabled=false`.
-5. Replace the placeholder application secret with the three application
-   credentials from `.env.local` without displaying their values.
+5. Replace the placeholder application secret with the five application values
+   from `.env.local` without displaying their values.
 6. Verify the Budget email subscriber and confirm the separate SNS subscription
    email. Only the SNS failure subscription requires its confirmation link.
 
@@ -153,6 +156,8 @@ The `Deploy production` workflow:
 - runs tests, typecheck, and build before deployment
 - pins every action to an immutable commit SHA
 - forces `scheduleEnabled=false`
+- forces `showingListScheduleEnabled=false` and supplies its weekday, hour,
+  minute, and IANA time zone explicitly
 
 ## Post-Deployment Verification
 
@@ -163,12 +168,12 @@ Verify without running the worker:
 - the OIDC provider audience is `sts.amazonaws.com`
 - the role subject is exactly
   `repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main`
-- the EventBridge Scheduler state is `DISABLED`
+- both EventBridge Scheduler resources are `DISABLED`
 - Aurora is encrypted, private, and configured for 0 to 1 ACU
 - the database security group accepts port 5432 only from the worker group
 - both failure EventBridge rules are enabled
 - the SNS email subscription is confirmed
-- the application secret contains all three required JSON keys without reading
+- the application secret contains all five required JSON keys without reading
   or logging their values
 
 Do not run the ECS task during Block 13.
