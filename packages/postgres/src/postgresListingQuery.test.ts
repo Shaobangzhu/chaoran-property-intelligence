@@ -100,6 +100,38 @@ describe("PostgresListingQuery", () => {
     ]);
   });
 
+  it("finds only requested active listings with one UUID-array parameter", async () => {
+    const firstId = "0198c7d2-7668-7775-b0fc-b789690a60c1";
+    const secondId = "0198c7d2-7668-7775-b0fc-b789690a60c2";
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [createListingRow({ id: secondId })],
+      },
+    ]);
+    const query = new PostgresListingQuery(database);
+
+    await expect(
+      query.findActiveListingsByIds([firstId, secondId]),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: secondId }),
+    ]);
+
+    expect(database.queries).toHaveLength(1);
+    expect(database.queries[0]?.parameters).toEqual([[firstId, secondId]]);
+    expect(database.queries[0]?.text).toContain("archived_at IS NULL");
+    expect(database.queries[0]?.text).toContain("id = ANY($1::uuid[])");
+    expect(database.queries[0]?.text).not.toContain(firstId);
+    expect(database.queries[0]?.text).not.toContain(secondId);
+  });
+
+  it("does not query PostgreSQL for an empty showing-list selection", async () => {
+    const database = new RecordingSqlDatabase();
+    const query = new PostgresListingQuery(database);
+
+    await expect(query.findActiveListingsByIds([])).resolves.toEqual([]);
+    expect(database.queries).toEqual([]);
+  });
+
   it("rejects RentCast rows that omit their source identity", async () => {
     const database = new RecordingSqlDatabase([
       {

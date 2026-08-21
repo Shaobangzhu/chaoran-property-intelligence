@@ -398,6 +398,18 @@ failure outcomes without validating its configured result. This block added no
 use case, prompt, OpenAI SDK or API call, provider error mapping, endpoint,
 persistence, environment variable, or AWS resource.
 
+Block 18.3 is complete. `GenerateShowingListDraft` validates the server-supplied
+actor and Block 18.1 request before reading data, reloads every selected active
+listing through a narrow query port, rejects missing, archived, duplicate, or
+unexpected records, and restores the original selection order before building
+the minimal generator context. The existing PostgreSQL listing query now
+implements the active-by-ID port with one parameterized UUID-array query. The
+use case treats generator output as untrusted, revalidates draft and bounded
+metadata, and requires the generated listing-ID set to match the selection
+exactly. This block added no endpoint, prompt, OpenAI SDK or API call, provider
+error mapping, migration, draft persistence, environment variable, or AWS
+resource.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

@@ -675,6 +675,51 @@ the configured result: Block 18.3 must treat every adapter result as untrusted a
 runtime and apply the application schema and cross-listing invariants itself.
 Provider error classification remains deferred to the Block 18.5 adapter.
 
+### Block 18.3 Authoritative Generation Use Case
+
+`GenerateShowingListDraft` accepts the verified actor separately from the
+Block 18.1 request. The future HTTP layer must derive `actorUserId` from the
+authenticated session; it never reads actor identity from a request body. The
+use case validates both actor UUID and request before reading listings.
+
+The application-owned `ShowingListListingQueryPort` exposes one operation:
+
+```ts
+interface ShowingListListingQueryPort {
+  findActiveListingsByIds(
+    listingIds: readonly string[],
+  ): Promise<ListingRecord[]>;
+}
+```
+
+`PostgresListingQuery` implements this boundary with an active-only,
+parameterized query:
+
+```sql
+WHERE archived_at IS NULL
+  AND id = ANY($1::uuid[])
+```
+
+The UUID array is one query parameter and is never interpolated into SQL. An
+empty selection does not contact PostgreSQL. The adapter's row order is not a
+business contract: the use case rejects missing, duplicate, and unexpected
+records, then restores the original validated selection order before projecting
+the minimal `ShowingListContext`. Archived and nonexistent IDs are intentionally
+indistinguishable through `ShowingListSelectionUnavailableError`.
+
+After generation, the use case parses the complete result again. It enforces
+the Block 18.1 draft schema, exact selected listing-ID set, bounded model and
+response identifiers, nullable nonnegative integer token counts, and a maximum
+15-minute duration. Invalid input, unavailable selection, and invalid generator
+result use separate bounded application errors without embedding Zod issues,
+addresses, preferences, provider output, or metadata values. Operational errors
+from the generator are not relabeled; provider-specific mapping remains a Block
+18.5 responsibility.
+
+Block 18.3 does not expose an HTTP endpoint or persist a draft. Authentication
+middleware, persistence, lifecycle updates, prompt construction, provider calls,
+and publication remain owned by later sub-blocks.
+
 At implementation time, consult current official OpenAI documentation and ask
 for an explicit model choice after explaining quality, latency, and cost. Use
 the Responses API and Structured Outputs rather than parsing arbitrary Markdown.

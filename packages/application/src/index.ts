@@ -28,6 +28,15 @@ export {
   FakeShowingListGenerator,
   type FakeShowingListGeneratorOutcome,
 } from "./fakeShowingListGenerator.js";
+export {
+  GenerateShowingListDraft,
+  InvalidShowingListGenerationInputError,
+  InvalidShowingListGenerationResultError,
+  ShowingListSelectionUnavailableError,
+  type GenerateShowingListDraftInput,
+  type GenerateShowingListDraftOptions,
+  type ShowingListListingQueryPort,
+} from "./generateShowingListDraft.js";
 export type {
   ListingCriteriaPort,
   ListingNotificationPort,
