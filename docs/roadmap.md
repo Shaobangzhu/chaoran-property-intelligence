@@ -336,6 +336,17 @@ chooses replace or clear, and removes successfully archived records from active
 state after inline confirmation. No API process, migration, database connection,
 or AWS operation ran during implementation.
 
+Block 17.6 is complete, closing Block 17. Three stateful integration tests now
+exercise the manual listing lifecycle across its principal boundaries. The
+PostgreSQL test composes real application commands with the real repository and
+query adapters through an in-memory SQL harness. The API test sends loopback
+HTTP requests through real middleware, strict DTOs, and real listing use cases.
+The React test drives create, edit, and archive through the real session and
+listing HTTP clients. Together they verify server ownership, private-note
+preservation, RentCast write protection, active-query filtering, UI state, and
+request serialization without contacting PostgreSQL, OpenFreeMap, RentCast,
+Telegram, or AWS.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every

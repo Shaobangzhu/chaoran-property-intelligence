@@ -4,7 +4,14 @@ A TypeScript-powered real estate intelligence platform for listing alerts, showi
 
 ## Local verification
 
-Run the complete local integration scenario without external services:
+Run the complete test suite, including the manual-listing PostgreSQL adapter,
+authenticated API, and browser workflow integration harnesses:
+
+```bash
+pnpm test
+```
+
+Run the alert-worker local integration scenario without external services:
 
 ```bash
 pnpm verify:local

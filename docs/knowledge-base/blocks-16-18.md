@@ -501,6 +501,31 @@ and map state. Mutation-time `401` responses reuse the existing signed-out
 boundary. No local API, PostgreSQL, migration, external API, or AWS operation ran
 while implementing this block.
 
+### Block 17.6 Integration Test Baseline
+
+Block 17.6 closes the manual listing feature with three stateful, external-free
+integration tests:
+
+- `manualListingLifecycle.integration.test.ts` in the PostgreSQL package runs
+  `CreateManualListing`, `UpdateManualListing`, `ArchiveManualListing`, and
+  `ListListings` against the real PostgreSQL adapters through an in-memory SQL
+  harness. It checks normalization, parameter mapping, metadata preservation,
+  soft archive, active filtering, and the absence of `DELETE`.
+- `manualListingLifecycle.integration.test.ts` in the API runs loopback HTTP
+  through real security middleware, DTO parsing, response mapping, and listing
+  use cases backed by one stateful in-memory repository. It checks actor-derived
+  ownership, private-note preservation, RentCast write protection, bounded
+  `404`, audit events, archive, and the final active listing response.
+- `manualListingWorkflow.integration.test.tsx` renders the authenticated React
+  application with real session and listing HTTP clients backed by a stateful
+  fetch harness. It drives map-confirmed creation, partial edit, inline archive,
+  request serialization, and the resulting empty state.
+
+Focused tests, the full suite, type checking, production builds, and diff checks
+form the Block 17 completion gate. These integration harnesses start no durable
+service and use no real database, migration, map tiles, provider API, secret, or
+AWS resource.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope

@@ -197,6 +197,21 @@ replaced or cleared through an explicit choice. Archive requires inline
 confirmation and removes the successful record from active list and map state.
 Mutation-time session expiry enters the existing signed-out state.
 
+## Integration Verification
+
+Block 17.6 verifies the lifecycle at three boundaries without external services.
+A stateful SQL harness composes the application commands with the real
+PostgreSQL repository and listing query adapters. A loopback HTTP harness runs
+the real API middleware, DTOs, response mapping, and listing commands against a
+shared in-memory repository. A stateful fetch harness drives the React
+application through the real session and listing clients.
+
+The combined gate covers create, normalized read, partial edit, protected
+RentCast rejection, private-note preservation, soft archive, default active
+filtering, audit events, browser request serialization, and final UI state. It
+does not claim compatibility with a live PostgreSQL engine; migration execution
+and deployed smoke tests remain explicit operational steps.
+
 ## Consequences
 
 - one read and map contract supports both listing sources
