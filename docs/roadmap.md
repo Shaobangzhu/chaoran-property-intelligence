@@ -457,6 +457,24 @@ rejects the same generation ID with a different ETag. This block added no PDF
 renderer, S3 bucket or call, endpoint, runtime composition, Telegram delivery,
 OpenAI call, secret, local database write, or AWS deployment.
 
+Block 18.6.2 is complete. The application package now owns a provider-neutral
+artifact-renderer port with a fixed 5 MiB in-memory output limit, and the
+dedicated `packages/pdf` adapter renders the complete `application/pdf`
+artifact with PDFKit before publication. The adapter revalidates the generation
+ID, timestamp, preferences, authoritative listing projection, structured draft,
+and exact listing-ID set; joins generated commentary to authoritative address,
+price, status, date, and MLS facts; sorts by proposed order; and deliberately
+omits private agent instructions. The PDF includes an unreviewed-draft banner,
+review warnings, explicit licensed-agent review boundaries, automatic wrapping,
+multi-page output, and page-number footers. Rendering is deterministic for the
+same validated input and remains entirely in memory. Focused tests cover the
+artifact contract, authoritative/generated content boundary, ordering,
+determinism, maximum bounded pagination, unsupported glyph handling, invalid
+input, and output-size failure. A rendered two-page sample passed local visual
+QA. This block added no S3 call or bucket, persistence orchestration, endpoint,
+runtime composition, OpenAI call, Telegram delivery, secret, database write, or
+AWS deployment.
+
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 

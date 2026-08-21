@@ -192,10 +192,13 @@ The web/API rollout order is:
 This workflow is separate from the existing disabled daily property-alert
 schedule.
 
-Block 18.6.1 has implemented the application persistence contracts, PostgreSQL
-adapter, and bundled singleton migration in source. Migration 005 has not been
-applied to Aurora or a local database. The private artifact bucket, S3 adapter,
-Showing List task, weekly schedule, and Telegram delivery remain unprovisioned.
+Blocks 18.6.1 and 18.6.2 have implemented the application persistence contracts,
+PostgreSQL adapter, bundled singleton migration, provider-neutral artifact port,
+and bounded in-memory PDFKit renderer in source. The renderer produces the
+complete review-marked PDF before any future publication call. Migration 005
+has not been applied to Aurora or a local database. The private artifact bucket,
+S3 adapter, publication orchestration, Showing List task, weekly schedule, and
+Telegram delivery remain unprovisioned.
 
 ```mermaid
 flowchart LR

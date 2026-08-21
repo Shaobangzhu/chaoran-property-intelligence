@@ -15,6 +15,10 @@ export default defineConfig({
         "./packages/domain/src/index.ts",
         import.meta.url,
       ).pathname,
+      "@chaoran-property-intelligence/pdf": new URL(
+        "./packages/pdf/src/index.ts",
+        import.meta.url,
+      ).pathname,
       "@chaoran-property-intelligence/postgres": new URL(
         "./packages/postgres/src/index.ts",
         import.meta.url,

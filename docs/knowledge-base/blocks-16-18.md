@@ -626,7 +626,8 @@ continuous sequence from one through the stop count.
 
 The production download artifact is a PDF with media type `application/pdf` and
 filename `showing-list-draft.pdf`. Block 18.1 defines that stable artifact
-contract but does not render or store a PDF.
+contract, and Block 18.6.2 implements its in-memory renderer. Storage and
+publication remain separate boundaries.
 
 ### Generator Boundary
 
@@ -880,9 +881,55 @@ generation ID with a different ETag raises a stable conflict instead of changing
 the current record.
 
 Block 18.6.1 checked in the migration and adapter but did not connect to or
-modify a local or AWS database. It did not render a PDF, call S3, provision a
-bucket, compose a runtime, call OpenAI, create a presigned URL, or send Telegram.
-Those boundaries remain in Blocks 18.6.2 through 18.8.
+modify a local or AWS database. It did not call S3, provision a bucket, compose
+a runtime, call OpenAI, create a presigned URL, or send Telegram. Those
+boundaries remain in Blocks 18.6.3 through 18.8.
+
+### Block 18.6.2 PDF Artifact Rendering
+
+The application layer owns `ShowingListArtifactRendererPort`. Its input contains
+only the generation identity and time, the validated preferences, the minimal
+authoritative listing projection, and the validated structured draft. Its fixed
+result contract is an in-memory byte array with media type `application/pdf`
+and filename `showing-list-draft.pdf`. The application-level maximum is 5 MiB;
+the renderer fails closed when output is empty or exceeds that bound.
+
+`packages/pdf` implements the port with `pdfkit@0.19.1`. It revalidates all
+input at the adapter boundary, requires one through ten unique authoritative
+listings and an exact generated listing-ID set, and sorts stops by their
+continuous proposed order. Generated content supplies only the title, summary,
+order rationale, highlights, considerations, client message, and review
+warnings. Address, price, beds, baths, property type, status, listed date, and
+MLS identity always come from the authoritative listing projection. Private
+`agentInstructions` are accepted as part of the validated preferences contract
+but are never written into the artifact.
+
+The Letter-size PDF contains:
+
+- fixed project branding and an unreviewed-draft banner
+- generation, showing-date, client, property-count, and draft-reference metadata
+- a plan overview and one ordered section per selected property
+- a clearly labeled draft client message and review warnings
+- a final review boundary covering availability, MLS, price, showing
+  instructions, route, legal, valuation, school-boundary, safety, wildfire, and
+  Fair Housing review
+- automatic wrapping, multi-page flow, and `Page X of Y` footers
+
+The adapter uses PDFKit's built-in fonts, normalizes supported punctuation to a
+safe WinAnsi-compatible form, and substitutes unsupported glyphs rather than
+allowing an untrusted generated string to break the stream. Creation and
+modification metadata derive from the supplied generation time, so identical
+validated input produces identical bytes. Rendering buffers the complete PDF in
+memory and performs no filesystem, network, database, S3, OpenAI, or Telegram
+operation.
+
+Focused tests cover the fixed artifact contract, authoritative/generated
+content composition, private-instruction omission, proposed ordering,
+deterministic bytes, maximum bounded multi-page output, page footers, unsupported
+glyphs, malformed input, mismatched IDs, and byte-limit failure. A representative
+four-property PDF was rendered to PNG page images and visually checked for
+wrapping, hierarchy, page breaks, overlap, clipping, and footer placement. S3
+publication and stable-key replacement begin in Block 18.6.3.
 
 ### Latest-Only Retention
 

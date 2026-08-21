@@ -44,6 +44,14 @@ export {
   type ShowingListListingQueryPort,
 } from "./generateShowingListDraft.js";
 export {
+  InvalidShowingListArtifactInputError,
+  SHOWING_LIST_ARTIFACT_LIMITS,
+  ShowingListArtifactRenderingError,
+  type RenderedShowingListArtifact,
+  type ShowingListArtifactRendererPort,
+  type ShowingListArtifactRenderInput,
+} from "./showingListArtifactRenderer.js";
+export {
   CurrentShowingListGenerationConflictError,
   SHOWING_LIST_CURRENT_ARTIFACT_KEY,
   SHOWING_LIST_PERSISTENCE_LIMITS,
