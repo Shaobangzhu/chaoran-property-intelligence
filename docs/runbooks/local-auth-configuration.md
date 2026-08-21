@@ -74,8 +74,8 @@ through `pnpm user:create-admin`; starting the API does not create one.
 
 `GET http://127.0.0.1:3000/api/health` is public. Login and logout require the
 exact `Origin: http://127.0.0.1:5173` header, and listings require the HttpOnly
-session cookie. The API ignores bearer tokens. The React session workflow is
-implemented separately in Block 16.6.
+session cookie. The API ignores bearer tokens. Block 16.6 uses these endpoints
+through same-origin browser requests and never reads or stores the JWT in React.
 
 ## Rotation Boundary
 

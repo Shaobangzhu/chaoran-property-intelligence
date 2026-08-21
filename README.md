@@ -34,14 +34,14 @@ The first endpoint is:
 GET http://127.0.0.1:3000/api/listings
 ```
 
-This endpoint is intentionally local-only and unauthenticated. Do not bind it to
-a public interface or point it at the AWS production database. Public deployment
-is blocked until Block 16 adds server-enforced authentication.
+This endpoint is intentionally local-only. Do not bind it to a public interface
+or point it at the AWS production database. Public deployment remains blocked
+until the Block 16.7 security gate and a separate AWS deployment review pass.
 
 Block 16.3 defines server-only JWT configuration in `.env.example`. Follow the
 [local authentication configuration runbook](docs/runbooks/local-auth-configuration.md)
-to generate a base64url signing secret for ignored `.env.local`. The current API
-does not consume or issue JWTs until the later authentication composition block.
+to generate a base64url signing secret for ignored `.env.local`. The API loads
+these values at startup and issues the session JWT only in an HttpOnly cookie.
 
 ## Local administrator
 
@@ -71,12 +71,15 @@ pnpm web:dev
 Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the loopback API at
 `http://127.0.0.1:3000`, so no development CORS policy is required.
 
-The React application renders loading, empty, error, retry, and listing content
-states alongside a MapLibre map using the OpenFreeMap Liberty style. Listings
-are converted to a minimal client-side GeoJSON point source, and selecting a
-listing or marker keeps the two views synchronized. It validates API responses
-at runtime and never receives database, RentCast, Telegram, or AWS credentials.
-The web application remains local-only and is not deployed.
+The React application checks the current session before mounting protected
+content and provides login, logout, bounded recovery, and automatic sign-out on
+an expired listings session. It renders loading, empty, error, retry, and
+listing content states alongside a MapLibre map using the OpenFreeMap Liberty
+style. Listings are converted to a minimal client-side GeoJSON point source,
+and selecting a listing or marker keeps the two views synchronized. It validates
+API responses at runtime and never receives database, RentCast, Telegram, or AWS
+credentials. The browser never reads or stores the JWT. The web application
+remains local-only and is not deployed.
 
 OpenFreeMap requires no browser API key, but its public service is an external
 development dependency without a project-specific availability guarantee. Map
@@ -88,8 +91,8 @@ AWS-hosted Express application. Vercel is not part of the current production
 plan. App Runner is the selected Express compute target: it preserves the
 container and `node-postgres` runtime, reaches private Aurora through a VPC
 Connector, and receives traffic through a CloudFront-protected origin. The API
-and web application remain undeployed until Block 16 adds server-enforced
-authentication and the origin controls pass review.
+and web application remain undeployed until Block 16.7 completes the remaining
+security controls and the origin controls pass review.
 
 ## Production runtime
 

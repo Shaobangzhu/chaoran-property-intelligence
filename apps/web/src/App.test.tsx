@@ -1,0 +1,283 @@
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { App } from "./App.js";
+import type { ListingsMapViewProps } from "./ListingsScreen.js";
+import { eastvaleListing } from "./listingFixtures.js";
+import { SessionAuthenticationRequiredError } from "./listingsApi.js";
+import {
+  InvalidCredentialsError,
+  LoginRateLimitedError,
+  type AuthenticatedUser,
+  type SessionClient,
+} from "./sessionApi.js";
+
+afterEach(cleanup);
+
+describe("App authentication boundary", () => {
+  it("checks the session before mounting protected content", () => {
+    const loadListings = vi.fn(async () => [eastvaleListing]);
+    render(
+      <App
+        loadListings={loadListings}
+        mapView={PassiveMap}
+        sessionClient={sessionClient({
+          getCurrentUser: () => new Promise(() => {}),
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", { name: "Checking session" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(loadListings).not.toHaveBeenCalled();
+  });
+
+  it("renders a password-manager-compatible login when signed out", async () => {
+    render(
+      <App
+        mapView={PassiveMap}
+        sessionClient={sessionClient({ getCurrentUser: async () => null })}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toHaveAttribute(
+      "autocomplete",
+      "email",
+    );
+    expect(screen.getByLabelText("Password")).toHaveAttribute(
+      "autocomplete",
+      "current-password",
+    );
+  });
+
+  it("mounts listings only after a successful session bootstrap", async () => {
+    const loadListings = vi.fn(async () => [eastvaleListing]);
+    render(
+      <App
+        loadListings={loadListings}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: eastvaleListing.addressLine1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(authenticatedUser.email)).toBeInTheDocument();
+    expect(loadListings).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers when the initial session check fails", async () => {
+    const user = userEvent.setup();
+    const getCurrentUser = vi
+      .fn<SessionClient["getCurrentUser"]>()
+      .mockRejectedValueOnce(new Error("private upstream detail"))
+      .mockResolvedValueOnce(null);
+    render(
+      <App
+        mapView={PassiveMap}
+        sessionClient={sessionClient({ getCurrentUser })}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Session unavailable" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/private upstream detail/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+    expect(getCurrentUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("submits login and shows a generic credential failure", async () => {
+    const user = userEvent.setup();
+    const login = vi
+      .fn<SessionClient["login"]>()
+      .mockRejectedValue(new InvalidCredentialsError());
+    render(
+      <App
+        mapView={PassiveMap}
+        sessionClient={sessionClient({ getCurrentUser: async () => null, login })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password"), "not-the-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      await screen.findByText("Email or password is incorrect."),
+    ).toBeInTheDocument();
+    expect(login).toHaveBeenCalledWith({
+      email: "admin@example.com",
+      password: "not-the-password",
+    });
+  });
+
+  it("keeps the login form stable while credentials are submitting", async () => {
+    const user = userEvent.setup();
+    let resolveLogin: ((user: AuthenticatedUser) => void) | undefined;
+    const login = vi.fn(
+      () =>
+        new Promise<AuthenticatedUser>((resolve) => {
+          resolveLogin = resolve;
+        }),
+    );
+    render(
+      <App
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient({ getCurrentUser: async () => null, login })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct horse");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(screen.getByRole("button", { name: "Signing in" })).toBeDisabled();
+    expect(screen.getByLabelText("Email")).toBeDisabled();
+    expect(screen.getByLabelText("Password")).toBeDisabled();
+
+    resolveLogin?.(authenticatedUser);
+    expect(
+      await screen.findByRole("heading", { name: "No stored listings" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a bounded rate-limit state", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        mapView={PassiveMap}
+        sessionClient={sessionClient({
+          getCurrentUser: async () => null,
+          login: async () => {
+            throw new LoginRateLimitedError();
+          },
+        })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password"), "not-the-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      await screen.findByText("Too many sign-in attempts. Try again shortly."),
+    ).toBeInTheDocument();
+  });
+
+  it("signs in and signs out through the session client", async () => {
+    const user = userEvent.setup();
+    const login = vi.fn(async () => authenticatedUser);
+    const logout = vi.fn(async () => undefined);
+    render(
+      <App
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient({
+          getCurrentUser: async () => null,
+          login,
+          logout,
+        })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct horse");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(
+      await screen.findByRole("heading", { name: "No stored listings" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the workspace mounted when logout fails", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient({
+          logout: async () => {
+            throw new Error("private upstream detail");
+          },
+        })}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(
+      await screen.findByText("Sign out failed. Your workspace remains open."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No stored listings" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/private upstream detail/)).not.toBeInTheDocument();
+  });
+
+  it("returns to login when the listings session expires", async () => {
+    render(
+      <App
+        loadListings={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Listings unavailable" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+const authenticatedUser: AuthenticatedUser = {
+  id: "0198c7d2-7668-7775-b0fc-b789690a60c1",
+  email: "admin@example.com",
+  role: "admin",
+};
+
+function sessionClient(overrides: Partial<SessionClient> = {}): SessionClient {
+  return {
+    getCurrentUser: async () => authenticatedUser,
+    login: async () => authenticatedUser,
+    logout: async () => undefined,
+    ...overrides,
+  };
+}
+
+function PassiveMap(_props: ListingsMapViewProps): React.JSX.Element {
+  return <div aria-label="Listings map" />;
+}

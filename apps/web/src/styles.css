@@ -75,6 +75,215 @@ a:focus-visible {
   font-size: 0.82rem;
 }
 
+.session-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.session-email {
+  max-width: 280px;
+  overflow: hidden;
+  color: #4d5a67;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-button,
+.login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.session-button {
+  min-width: 104px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #b7c0c8;
+  background: #ffffff;
+  color: #27333e;
+  font-size: 0.82rem;
+}
+
+.session-button:hover:not(:disabled) {
+  border-color: #0d6e6e;
+  color: #0d6e6e;
+}
+
+.session-button:disabled,
+.login-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: calc(100vh - 65px);
+  place-items: center;
+  padding: 48px 20px;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  padding: 30px;
+  border: 1px solid #cfd6dc;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(23, 33, 43, 0.07);
+}
+
+.login-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.login-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 6px;
+  background: #e5f0ef;
+  color: #0d6e6e;
+}
+
+.login-heading .section-label {
+  margin-bottom: 5px;
+}
+
+.login-heading h1,
+.session-state h1 {
+  margin: 0;
+  color: #202c37;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.login-form {
+  display: grid;
+  padding-top: 24px;
+}
+
+.login-form label {
+  margin-bottom: 7px;
+  color: #34414d;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.login-form input {
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 18px;
+  padding: 8px 11px;
+  border: 1px solid #b7c0c8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17212b;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.login-form input:focus {
+  border-color: #0d6e6e;
+  outline: 3px solid rgba(13, 110, 110, 0.16);
+  outline-offset: 0;
+}
+
+.login-form input:disabled {
+  background: #f1f3f4;
+  color: #63707d;
+}
+
+.login-feedback {
+  min-height: 42px;
+}
+
+.login-feedback p {
+  margin: 0;
+  color: #923a34;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.login-button {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #0d6e6e;
+  background: #0d6e6e;
+  color: #ffffff;
+  font-size: 0.86rem;
+}
+
+.login-button:hover:not(:disabled) {
+  border-color: #095c5c;
+  background: #095c5c;
+}
+
+.session-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #596774;
+  font-size: 0.86rem;
+  font-weight: 680;
+  text-align: center;
+}
+
+.session-error > svg {
+  color: #a33a32;
+}
+
+.session-error p {
+  margin: -2px 0 0;
+  color: #63707d;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.session-notice {
+  display: flex;
+  width: min(1320px, calc(100% - 64px));
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  margin: 24px auto 0;
+  padding: 9px 12px;
+  border: 1px solid #d8b4ad;
+  border-radius: 6px;
+  background: #fff7f5;
+  color: #7d332e;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.session-notice + .workspace {
+  padding-top: 28px;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .workspace {
   width: min(1320px, calc(100% - 64px));
   margin: 0 auto;
@@ -566,6 +775,37 @@ a:focus-visible {
 
   .snapshot-indicator {
     display: none;
+  }
+
+  .session-controls {
+    gap: 8px;
+  }
+
+  .session-email {
+    display: none;
+  }
+
+  .session-button {
+    min-width: 42px;
+    padding: 0 10px;
+  }
+
+  .session-button-label {
+    display: none;
+  }
+
+  .auth-shell {
+    min-height: calc(100vh - 59px);
+    align-items: start;
+    padding: 42px 16px;
+  }
+
+  .login-panel {
+    padding: 24px 20px;
+  }
+
+  .session-notice {
+    width: calc(100% - 32px);
   }
 
   .workspace {

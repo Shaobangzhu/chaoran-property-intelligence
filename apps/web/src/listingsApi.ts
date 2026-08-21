@@ -32,10 +32,18 @@ export interface FetchListingsOptions {
   signal?: AbortSignal;
 }
 
+export class SessionAuthenticationRequiredError extends Error {
+  constructor() {
+    super("Session authentication required");
+    this.name = "SessionAuthenticationRequiredError";
+  }
+}
+
 export async function fetchListings(
   options: FetchListingsOptions = {},
 ): Promise<ListingSummary[]> {
   const request: RequestInit = {
+    credentials: "same-origin",
     headers: { Accept: "application/json" },
     method: "GET",
   };
@@ -47,6 +55,9 @@ export async function fetchListings(
     "/api/listings",
     request,
   );
+  if (response.status === 401) {
+    throw new SessionAuthenticationRequiredError();
+  }
   if (!response.ok) {
     throw new Error(`Unable to load listings (${response.status})`);
   }

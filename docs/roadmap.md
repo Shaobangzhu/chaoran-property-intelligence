@@ -177,7 +177,7 @@ Planned sub-block mapping:
    middleware, protected listings, and database-independent health.
    **Complete.**
 7. `16.6` Add React session bootstrap, login, logout, and the protected
-   workspace.
+   workspace. **Complete.**
 8. `16.7` Complete application rate limiting, security headers, CSRF,
    authorization, and end-to-end security tests.
 
@@ -238,6 +238,17 @@ origin header, except for the non-sensitive health check. JSON bodies, Cookie
 headers, token length, and cookie lifetime are bounded. No AWS resources,
 production secrets, database users, rate limiter, WAF, or deployment were
 created in this block.
+
+Block 16.6 added the React session boundary without introducing a router or
+client token storage. The application checks `GET /api/auth/me` before mounting
+the listings workspace, renders bounded signed-out and recoverable-error states,
+and supports password-manager-compatible login plus cookie-clearing logout.
+Credential failures, rate limiting, and operational failures have separate
+bounded presentation states. A listings `401` immediately returns the UI to
+login, while a failed logout keeps the authenticated workspace mounted and
+reports a safe retryable notice. Runtime DTO validation accepts only the minimum
+admin profile. Block 16.6 did not add the Block 16.7 limiter, security headers,
+WAF, AWS deployment, or production configuration.
 
 ### Block 17: Manual Listing Management
 

@@ -56,16 +56,21 @@ Require:
 - no response contains secrets
 - the unknown route returns bounded `404` JSON with code `NOT_FOUND`
 
-Authenticated browser verification resumes after Block 16.6 supplies the login
-and session bootstrap UI. Automated Block 16.5 API tests cover successful
-cookie-authenticated listing reads without writing credentials to shell history.
+Block 16.6 supplies the login and session bootstrap UI. Automated API and React
+tests cover successful cookie-authenticated listing reads without writing
+credentials to shell history or exposing the JWT to browser code.
 
 ### Authenticated Content Check After Block 16.6
 
 An empty listing array is a valid authenticated empty state. For a content-state
 check, insert only disposable local fixtures through the local database tooling,
-then log in at `http://127.0.0.1:5173` and verify:
+then open `http://127.0.0.1:5173`. Require the session check to resolve to the
+login form, sign in with the local administrator created through the masked CLI,
+and verify:
 
+- browser reload restores the session without displaying protected content first
+- sign out returns to login and a direct unauthenticated listings request is `401`
+- no token appears in browser-managed local or session storage
 - desktop list and map are visible together
 - mobile List and Map modes remain usable
 - every content row has a UUID plus finite latitude and longitude

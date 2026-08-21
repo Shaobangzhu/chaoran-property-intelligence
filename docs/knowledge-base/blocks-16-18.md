@@ -78,7 +78,12 @@ checks.
 - `16.3` complete: JWT configuration, the application token port, and the
   strict JOSE access-token adapter are implemented and covered by isolated
   tests.
-- `16.4` through `16.7` remain separately gated and unimplemented.
+- `16.4` complete: login and current-user application use cases are implemented.
+- `16.5` complete: Express auth routes, cookies, origin checks, middleware, and
+  protected listings are implemented.
+- `16.6` complete: React session bootstrap, login, logout, and the protected
+  workspace are implemented.
+- `16.7` remains separately gated and unimplemented.
 
 ### Product Scope
 
@@ -227,6 +232,28 @@ constant time before body parsing and authentication. `GET /api/health` is the
 only origin-header exception so App Runner can probe a non-sensitive route; it
 does not query application use cases or the database. This code boundary does
 not provision App Runner, CloudFront, WAF, or production secrets.
+
+### React Session Boundary
+
+Block 16.6 implements the four-state React boundary from ADR 0004:
+
+```text
+checking session | signed out | authenticated | recoverable error
+```
+
+The browser calls only same-origin `/api` endpoints with the HttpOnly session
+cookie. It never reads a JWT and never writes authentication data to
+`localStorage` or `sessionStorage`. The application validates the minimum
+`id`, `email`, and `admin` role DTO before treating a session as authenticated.
+It does not mount the listings workspace until bootstrap or login succeeds.
+
+The login form supports password-manager autofill and bounded submitting,
+invalid-credential, rate-limited, and unavailable states. A `401` from the
+listings client signs the UI out instead of showing a generic data error.
+Logout remains a POST command; success unmounts protected content, while a
+network or server failure preserves the workspace and shows a bounded notice.
+These client guards are presentation behavior only. Express remains the
+authorization boundary on every protected request.
 
 ### HTTP Security
 

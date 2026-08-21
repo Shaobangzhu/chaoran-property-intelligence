@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchListings } from "./listingsApi.js";
+import {
+  SessionAuthenticationRequiredError,
+  fetchListings,
+} from "./listingsApi.js";
 
 describe("fetchListings", () => {
   it("requests and parses listing DTOs", async () => {
@@ -15,9 +18,20 @@ describe("fetchListings", () => {
       "/api/listings",
       expect.objectContaining({
         headers: { Accept: "application/json" },
+        credentials: "same-origin",
         method: "GET",
       }),
     );
+  });
+
+  it("reports an expired browser session with a typed error", async () => {
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse({ error: "unauthorized" }, 401),
+    );
+
+    await expect(
+      fetchListings({ fetchImplementation }),
+    ).rejects.toBeInstanceOf(SessionAuthenticationRequiredError);
   });
 
   it("rejects unsuccessful responses without exposing their body", async () => {
