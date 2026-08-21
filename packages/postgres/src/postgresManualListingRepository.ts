@@ -1,7 +1,10 @@
 import type {
+  ArchiveManualListingPersistenceInput,
   CreateManualListingPersistenceInput,
   ManualListingRecord,
+  ManualListingMutationRepositoryPort,
   ManualListingRepositoryPort,
+  UpdateManualListingPersistenceInput,
 } from "@chaoran-property-intelligence/application";
 
 import {
@@ -41,8 +44,60 @@ const insertManualListingSql = `
     updated_at
 `;
 
+const selectActiveManualListingSql = `
+  SELECT
+    id,
+    ${normalizedListingColumns},
+    created_by_user_id,
+    notes,
+    archived_at,
+    created_at,
+    updated_at
+  FROM listings
+  WHERE id = $1 AND source = 'manual' AND archived_at IS NULL
+`;
+
+const updateManualListingSql = `
+  UPDATE listings
+  SET
+    mls_name = $2,
+    mls_number = $3,
+    formatted_address = $4,
+    address_line_1 = $5,
+    address_line_2 = $6,
+    city = $7,
+    state = $8,
+    zip_code = $9,
+    latitude = $10,
+    longitude = $11,
+    property_type = $12,
+    bedrooms = $13,
+    bathrooms = $14,
+    price = $15,
+    status = $16,
+    listed_date = $17,
+    notes = $18,
+    updated_at = $19
+  WHERE id = $1 AND source = 'manual' AND archived_at IS NULL
+  RETURNING
+    id,
+    ${normalizedListingColumns},
+    created_by_user_id,
+    notes,
+    archived_at,
+    created_at,
+    updated_at
+`;
+
+const archiveManualListingSql = `
+  UPDATE listings
+  SET archived_at = $2, updated_at = $3
+  WHERE id = $1 AND source = 'manual' AND archived_at IS NULL
+  RETURNING id
+`;
+
 export class PostgresManualListingRepository
-  implements ManualListingRepositoryPort
+  implements ManualListingRepositoryPort, ManualListingMutationRepositoryPort
 {
   constructor(private readonly database: SqlDatabase) {}
 
@@ -82,6 +137,61 @@ export class PostgresManualListingRepository
     ]);
 
     return parseManualListingRecord(result);
+  }
+
+  async findActiveManualListing(
+    id: string,
+  ): Promise<ManualListingRecord | null> {
+    const result = await this.database.query(selectActiveManualListingSql, [id]);
+    return result.rows.length === 0 ? null : parseManualListingRecord(result);
+  }
+
+  async updateManualListing(
+    input: UpdateManualListingPersistenceInput,
+  ): Promise<ManualListingRecord | null> {
+    const listing = input.listing;
+    const result = await this.database.query(updateManualListingSql, [
+      input.id,
+      listing.mlsName,
+      listing.mlsNumber,
+      listing.formattedAddress,
+      listing.addressLine1,
+      listing.addressLine2,
+      listing.city,
+      listing.state,
+      listing.zipCode,
+      listing.latitude,
+      listing.longitude,
+      listing.propertyType,
+      listing.bedrooms,
+      listing.bathrooms,
+      listing.price,
+      listing.status,
+      listing.listedDate,
+      input.notes,
+      input.updatedAt,
+    ]);
+    return result.rows.length === 0 ? null : parseManualListingRecord(result);
+  }
+
+  async archiveManualListing(
+    input: ArchiveManualListingPersistenceInput,
+  ): Promise<boolean> {
+    const result = await this.database.query(archiveManualListingSql, [
+      input.id,
+      input.archivedAt,
+      input.updatedAt,
+    ]);
+    if (result.rows.length === 0) {
+      return false;
+    }
+    if (
+      result.rows.length !== 1 ||
+      readString(readRecord(result.rows[0]), "id") !== input.id
+    ) {
+      throwInvalidManualListingRowError();
+    }
+    return true;
   }
 }
 

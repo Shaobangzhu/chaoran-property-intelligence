@@ -1,5 +1,6 @@
 import type {
   ManualListingDraftInput,
+  ManualListingPatchInput,
   ManualListingRecord,
 } from "@chaoran-property-intelligence/application";
 
@@ -43,6 +44,8 @@ export interface CreateManualListingResponse {
   listing: ListingSummaryDto;
 }
 
+export type UpdateManualListingResponse = CreateManualListingResponse;
+
 export class InvalidManualListingRequestError extends Error {
   constructor() {
     super("Manual listing request body was invalid");
@@ -85,6 +88,38 @@ export function parseManualListingDraftDto(
   return draft;
 }
 
+export function parseManualListingPatchDto(
+  value: unknown,
+): ManualListingPatchInput {
+  if (!isRecord(value)) {
+    throw new InvalidManualListingRequestError();
+  }
+
+  const keys = Object.keys(value);
+  if (keys.length === 0 || keys.some((key) => !allowedFields.has(key))) {
+    throw new InvalidManualListingRequestError();
+  }
+
+  const patch: ManualListingPatchInput = {};
+  for (const field of requiredFields) {
+    if (!Object.hasOwn(value, field)) {
+      continue;
+    }
+    (patch as Record<string, unknown>)[field] =
+      field === "latitude" || field === "longitude"
+        ? readNumber(value, field)
+        : readString(value, field);
+  }
+  for (const field of optionalStringFields) {
+    copyOptionalValue(patch, value, field, "string");
+  }
+  for (const field of optionalNumberFields) {
+    copyOptionalValue(patch, value, field, "number");
+  }
+
+  return patch;
+}
+
 export function toCreateManualListingResponse(
   record: ManualListingRecord,
 ): CreateManualListingResponse {
@@ -96,8 +131,10 @@ export function toCreateManualListingResponse(
   };
 }
 
+export const toUpdateManualListingResponse = toCreateManualListingResponse;
+
 function copyOptionalValue(
-  output: ManualListingDraftInput,
+  output: ManualListingDraftInput | ManualListingPatchInput,
   input: Record<string, unknown>,
   field:
     | (typeof optionalStringFields)[number]

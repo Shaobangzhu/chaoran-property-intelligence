@@ -470,6 +470,37 @@ malformed responses, field feedback, successful list refresh, and session
 expiry. No API process, PostgreSQL connection, migration, or AWS operation ran
 while implementing this block.
 
+### Block 17.5 Implementation Baseline
+
+Block 17.5 implements administrator-only manual listing edits and soft archive.
+The application layer accepts a non-empty partial draft, reloads an active
+manual record, merges omitted values, preserves notes unless `notes` is present,
+normalizes the complete result, and supplies one server timestamp to persistence.
+Archive sets `archived_at` and `updated_at` to one server timestamp. Invalid,
+missing, archived, and RentCast IDs share `ManualListingNotFoundError` so callers
+cannot infer protected record state.
+
+`PATCH /api/listings/:id` accepts only the existing editable allowlist and uses
+the manual 8 KiB JSON limit. `POST /api/listings/:id/archive` has no request
+body. Both routes require exact unsafe-method Origin, a live session, and admin
+authorization. Patch success returns the shared listing summary with `200`;
+archive success returns `204`. Protected fields produce bounded `400` responses,
+and unavailable editable records produce bounded `404` responses.
+
+The PostgreSQL adapter selects and mutates only active `source = 'manual'` rows.
+Update statements do not write identity, source, owner, creation time, discovery
+time, or notification state. Archive uses `UPDATE`, never `DELETE`, and the
+default listing query filters `archived_at IS NULL`.
+
+In React, actions appear only for a selected manual listing. Edit mode preloads
+the public summary and treats its current coordinates as confirmed; moving the
+draft marker clears confirmation. Because notes are not part of the public read
+contract, the editor offers explicit keep, replace, and clear choices. Archive
+uses an inline confirmation and removes the successful record from active list
+and map state. Mutation-time `401` responses reuse the existing signed-out
+boundary. No local API, PostgreSQL, migration, external API, or AWS operation ran
+while implementing this block.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope

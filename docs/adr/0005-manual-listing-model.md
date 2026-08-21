@@ -167,6 +167,36 @@ form-level feedback; `401` enters the existing signed-out state. The returned
 listing is the authoritative browser value after creation and immediately shares
 the existing list, selection, and map behavior.
 
+## Update And Archive Boundary
+
+Block 17.5 adds the administrator-only commands:
+
+```text
+PATCH /api/listings/:id
+POST /api/listings/:id/archive
+```
+
+Both commands run behind exact Origin verification, session authentication, and
+admin authorization. Patch parsing uses the existing 8 KiB manual-listing limit,
+requires a non-empty body, and accepts only editable draft fields. Identity,
+source, ownership, formatted address, discovery timestamps, notification state,
+and lifecycle metadata remain server-controlled. Omitted fields preserve their
+current values; explicit null clears nullable fields. Missing, archived, and
+RentCast IDs intentionally share one bounded `404` result.
+
+The application reloads the active manual record before update, normalizes the
+merged draft, and passes one server timestamp to persistence. PostgreSQL updates
+only editable columns plus `updated_at`. Archive sets `archived_at` and
+`updated_at` in one `UPDATE`; it never deletes history. The default listing query
+uses `archived_at IS NULL`.
+
+The browser exposes edit and archive actions only for a selected manual record.
+Edit reuses the creation form and marker confirmation behavior. Notes remain
+private in the read contract, so they are preserved by default and can only be
+replaced or cleared through an explicit choice. Archive requires inline
+confirmation and removes the successful record from active list and map state.
+Mutation-time session expiry enters the existing signed-out state.
+
 ## Consequences
 
 - one read and map contract supports both listing sources

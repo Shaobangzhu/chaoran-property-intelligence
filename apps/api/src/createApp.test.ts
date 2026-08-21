@@ -3,25 +3,30 @@ import type { Server } from "node:http";
 
 import {
   AuthenticationRequiredError,
+  type ArchiveManualListingInput,
   type CreateManualListingInput,
   InvalidCredentialsError,
   InvalidManualListingError,
+  ManualListingNotFoundError,
   type AuthenticatedUser,
   type ListingRecord,
   type LoginInput,
   type LoginResult,
   type ManualListingRecord,
+  type UpdateManualListingInput,
 } from "@chaoran-property-intelligence/application";
 import { describe, expect, it } from "vitest";
 
 import {
   createApp,
   type ApiLogger,
+  type ArchiveManualListingUseCase,
   type CreateManualListingUseCase,
   type CreateAppOptions,
   type GetCurrentUserUseCase,
   type ListListingsUseCase,
   type LoginUseCase,
+  type UpdateManualListingUseCase,
 } from "./createApp.js";
 
 const localOrigin = "http://127.0.0.1:5173";
@@ -806,6 +811,130 @@ describe("createApp", () => {
     expect(createManualListing.inputs).toEqual([]);
   });
 
+  it("updates an active manual listing with a strict partial patch", async () => {
+    const updateManualListing = new FakeUpdateManualListing();
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ logger, updateManualListing }),
+      "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c3",
+      {
+        method: "PATCH",
+        headers: manualListingHeaders(),
+        body: JSON.stringify({ city: "Corona", notes: null }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateManualListing.inputs).toEqual([
+      {
+        listingId: "0198c7d2-7668-7775-b0fc-b789690a60c3",
+        patch: { city: "Corona", notes: null },
+      },
+    ]);
+    await expect(response.json()).resolves.toMatchObject({
+      listing: { id: "0198c7d2-7668-7775-b0fc-b789690a60c3", source: "manual" },
+    });
+    expect(logger.infos).toContainEqual({
+      context: { requestId },
+      event: "api.listings.manual.updated",
+    });
+  });
+
+  it("authenticates and authorizes before parsing manual updates", async () => {
+    const updateManualListing = new FakeUpdateManualListing();
+    const unauthenticated = await request(
+      createTestApp({ updateManualListing }),
+      "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c3",
+      {
+        method: "PATCH",
+        headers: jsonHeaders(localOrigin),
+        body: "{",
+      },
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(updateManualListing.inputs).toEqual([]);
+
+    const nonAdminUser = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const forbidden = await request(
+      createTestApp({
+        getCurrentUser: new FakeGetCurrentUser(undefined, nonAdminUser),
+        updateManualListing,
+      }),
+      "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c3",
+      {
+        method: "PATCH",
+        headers: manualListingHeaders(),
+        body: "{",
+      },
+    );
+    expect(forbidden.status).toBe(403);
+    expect(updateManualListing.inputs).toEqual([]);
+  });
+
+  it("rejects empty and protected manual updates before the use case", async () => {
+    const updateManualListing = new FakeUpdateManualListing();
+    for (const body of [{}, { source: "manual" }]) {
+      const response = await request(
+        createTestApp({ updateManualListing }),
+        "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c3",
+        {
+          method: "PATCH",
+          headers: manualListingHeaders(),
+          body: JSON.stringify(body),
+        },
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(updateManualListing.inputs).toEqual([]);
+  });
+
+  it("returns one bounded 404 for a non-editable listing ID", async () => {
+    const response = await request(
+      createTestApp({
+        updateManualListing: new FakeUpdateManualListing(
+          new ManualListingNotFoundError(),
+        ),
+      }),
+      "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c1",
+      {
+        method: "PATCH",
+        headers: manualListingHeaders(),
+        body: JSON.stringify({ city: "Corona" }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "MANUAL_LISTING_NOT_FOUND",
+        message: "Manual listing was not found",
+      },
+    });
+  });
+
+  it("archives an active manual listing without a response body", async () => {
+    const archiveManualListing = new FakeArchiveManualListing();
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ archiveManualListing, logger }),
+      "/api/listings/0198c7d2-7668-7775-b0fc-b789690a60c3/archive",
+      { method: "POST", headers: { origin: localOrigin, ...sessionHeaders() } },
+    );
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe("");
+    expect(archiveManualListing.inputs).toEqual([
+      { listingId: "0198c7d2-7668-7775-b0fc-b789690a60c3" },
+    ]);
+    expect(logger.infos).toContainEqual({
+      context: { requestId },
+      event: "api.listings.manual.archived",
+    });
+  });
+
   it("maps internal failures without logging the secret-bearing error", async () => {
     const logger = new RecordingLogger();
     const response = await request(
@@ -931,6 +1060,33 @@ class FakeCreateManualListing implements CreateManualListingUseCase {
   }
 }
 
+class FakeUpdateManualListing implements UpdateManualListingUseCase {
+  readonly inputs: UpdateManualListingInput[] = [];
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(input: UpdateManualListingInput): Promise<ManualListingRecord> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return createManualListingRecord();
+  }
+}
+
+class FakeArchiveManualListing implements ArchiveManualListingUseCase {
+  readonly inputs: ArchiveManualListingInput[] = [];
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(input: ArchiveManualListingInput): Promise<void> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+  }
+}
+
 class FailingListListings implements ListListingsUseCase {
   async execute(): Promise<ListingRecord[]> {
     throw new Error("postgresql://user:password@private-host/database");
@@ -978,6 +1134,7 @@ function createTestApp(
   overrides: Partial<CreateAppOptions> = {},
 ): ReturnType<typeof createApp> {
   return createApp({
+    archiveManualListing: new FakeArchiveManualListing(),
     createManualListing: new FakeCreateManualListing(),
     listListings: new FakeListListings([]),
     login: new FakeLogin(),
@@ -986,6 +1143,7 @@ function createTestApp(
     logger: new RecordingLogger(),
     now: () => now,
     requestIdFactory: () => requestId,
+    updateManualListing: new FakeUpdateManualListing(),
     ...overrides,
   });
 }

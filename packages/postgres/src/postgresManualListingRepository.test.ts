@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { CreateManualListingPersistenceInput } from "@chaoran-property-intelligence/application";
+import type {
+  CreateManualListingPersistenceInput,
+  UpdateManualListingPersistenceInput,
+} from "@chaoran-property-intelligence/application";
 
 import { PostgresManualListingRepository } from "./postgresManualListingRepository.js";
 import type {
@@ -72,6 +75,91 @@ describe("PostgresManualListingRepository", () => {
     ).rejects.toThrow(
       "PostgreSQL manual listing row did not match the expected schema",
     );
+  });
+
+  it("loads only an active manual record", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [createManualListingRow()] },
+    ]);
+    const repository = new PostgresManualListingRepository(database);
+
+    await expect(repository.findActiveManualListing(listingId)).resolves.toEqual({
+      ...createInput(),
+      archivedAt: null,
+    });
+    expect(database.queries[0]?.text).toContain(
+      "source = 'manual' AND archived_at IS NULL",
+    );
+    expect(database.queries[0]?.parameters).toEqual([listingId]);
+  });
+
+  it("updates only editable manual columns and preserves record metadata", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [createManualListingRow({ city: "Corona", notes: null })] },
+    ]);
+    const repository = new PostgresManualListingRepository(database);
+    const input: UpdateManualListingPersistenceInput = {
+      id: listingId,
+      listing: {
+        ...createInput().listing,
+        city: "Corona",
+        formattedAddress: "123 Main St, Corona, CA 92880",
+      },
+      notes: null,
+      updatedAt: "2026-08-21T01:30:00.000Z",
+    };
+
+    await expect(repository.updateManualListing(input)).resolves.toMatchObject({
+      id: listingId,
+      notes: null,
+      listing: { city: "Corona" },
+    });
+    expect(database.queries[0]?.text).toContain("UPDATE listings");
+    expect(database.queries[0]?.text).toContain(
+      "source = 'manual' AND archived_at IS NULL",
+    );
+    expect(database.queries[0]?.text).not.toContain("created_by_user_id =");
+    expect(database.queries[0]?.parameters).toEqual([
+      listingId,
+      null,
+      null,
+      "123 Main St, Corona, CA 92880",
+      "123 Main St",
+      null,
+      "Corona",
+      "CA",
+      "92880",
+      33.9525,
+      -117.5848,
+      null,
+      null,
+      null,
+      null,
+      "Active",
+      null,
+      null,
+      "2026-08-21T01:30:00.000Z",
+    ]);
+  });
+
+  it("archives an active manual record without deleting it", async () => {
+    const database = new RecordingSqlDatabase([{ rows: [{ id: listingId }] }]);
+    const repository = new PostgresManualListingRepository(database);
+
+    await expect(
+      repository.archiveManualListing({
+        id: listingId,
+        archivedAt: "2026-08-21T02:00:00.000Z",
+        updatedAt: "2026-08-21T02:00:00.000Z",
+      }),
+    ).resolves.toBe(true);
+    expect(database.queries[0]?.text).toContain("SET archived_at = $2");
+    expect(database.queries[0]?.text).not.toContain("DELETE");
+    expect(database.queries[0]?.parameters).toEqual([
+      listingId,
+      "2026-08-21T02:00:00.000Z",
+      "2026-08-21T02:00:00.000Z",
+    ]);
   });
 });
 

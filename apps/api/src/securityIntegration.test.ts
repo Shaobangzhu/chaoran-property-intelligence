@@ -53,6 +53,11 @@ describe("authentication security integration", () => {
     });
     const logger = new SafeRecordingLogger();
     const app = createApp({
+      archiveManualListing: {
+        async execute() {
+          throw new Error("Not used by this integration test");
+        },
+      },
       createManualListing: {
         async execute() {
           throw new Error("Not used by this integration test");
@@ -74,6 +79,11 @@ describe("authentication security integration", () => {
       }),
       now: () => now,
       requestIdFactory: () => requestId,
+      updateManualListing: {
+        async execute() {
+          throw new Error("Not used by this integration test");
+        },
+      },
     });
 
     await withServer(app, async (baseUrl) => {

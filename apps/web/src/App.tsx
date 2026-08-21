@@ -17,12 +17,18 @@ import {
   ListingsScreen,
   type ListingsLoader,
   type ListingsMapViewProps,
+  type ManualListingArchiver,
 } from "./ListingsScreen.js";
-import type { ManualListingCreator } from "./ManualListingForm.js";
+import type {
+  ManualListingCreator,
+  ManualListingUpdater,
+} from "./ManualListingForm.js";
 import {
   SessionAuthenticationRequiredError,
+  archiveManualListing,
   createManualListing,
   fetchListings,
+  updateManualListing,
 } from "./listingsApi.js";
 import {
   InvalidCredentialsError,
@@ -36,6 +42,10 @@ const defaultLoadListings: ListingsLoader = (signal) =>
   fetchListings({ signal });
 const defaultCreateListing: ManualListingCreator = (draft) =>
   createManualListing(draft);
+const defaultUpdateListing: ManualListingUpdater = (listingId, patch) =>
+  updateManualListing(listingId, patch);
+const defaultArchiveListing: ManualListingArchiver = (listingId) =>
+  archiveManualListing(listingId);
 
 type AppState =
   | { status: "checking" }
@@ -44,17 +54,21 @@ type AppState =
   | { status: "error" };
 
 interface AppProps {
+  archiveListing?: ManualListingArchiver;
   createListing?: ManualListingCreator;
   sessionClient?: SessionClient;
   loadListings?: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
+  updateListing?: ManualListingUpdater;
 }
 
 export function App({
+  archiveListing = defaultArchiveListing,
   createListing = defaultCreateListing,
   sessionClient = defaultSessionClient,
   loadListings = defaultLoadListings,
   mapView,
+  updateListing = defaultUpdateListing,
 }: AppProps = {}): React.JSX.Element {
   const [state, setState] = useState<AppState>({ status: "checking" });
   const [sessionRequest, setSessionRequest] = useState(0);
@@ -110,6 +124,34 @@ export function App({
       }
     },
     [createListing],
+  );
+
+  const protectedListingUpdater = useCallback<ManualListingUpdater>(
+    async (listingId, patch) => {
+      try {
+        return await updateListing(listingId, patch);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [updateListing],
+  );
+
+  const protectedListingArchiver = useCallback<ManualListingArchiver>(
+    async (listingId) => {
+      try {
+        await archiveListing(listingId);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [archiveListing],
   );
 
   const handleLogout = async (): Promise<void> => {
@@ -186,9 +228,11 @@ export function App({
             </div>
           ) : null}
           <ListingsScreen
+            archiveListing={protectedListingArchiver}
             createListing={protectedListingCreator}
             loadListings={protectedListingsLoader}
             {...(mapView === undefined ? {} : { mapView })}
+            updateListing={protectedListingUpdater}
           />
         </>
       ) : null}

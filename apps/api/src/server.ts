@@ -1,8 +1,10 @@
 import {
+  ArchiveManualListing,
   CreateManualListing,
   GetCurrentUser,
   ListListings,
   Login,
+  UpdateManualListing,
 } from "@chaoran-property-intelligence/application";
 import {
   Argon2idPasswordHasher,
@@ -45,9 +47,18 @@ async function startApi(): Promise<void> {
     const listListings = new ListListings({
       query: new PostgresListingQuery(database),
     });
+    const manualListingRepository = new PostgresManualListingRepository(database);
     const createManualListing = new CreateManualListing({
-      repository: new PostgresManualListingRepository(database),
+      repository: manualListingRepository,
       createId: randomUUID,
+      now: () => new Date(),
+    });
+    const updateManualListing = new UpdateManualListing({
+      repository: manualListingRepository,
+      now: () => new Date(),
+    });
+    const archiveManualListing = new ArchiveManualListing({
+      repository: manualListingRepository,
       now: () => new Date(),
     });
     const userRepository = new PostgresUserRepository(database);
@@ -63,6 +74,7 @@ async function startApi(): Promise<void> {
       tokenService,
     });
     const app = createApp({
+      archiveManualListing,
       createManualListing,
       listListings,
       login,
@@ -80,6 +92,7 @@ async function startApi(): Promise<void> {
           process.stdout.write(`${JSON.stringify({ event, ...context })}\n`);
         },
       },
+      updateManualListing,
     });
     const server = app.listen(config.port, config.host);
     await once(server, "listening");

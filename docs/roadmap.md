@@ -324,6 +324,18 @@ and map together; mobile uses stable Details and Map modes. No geocoder, API
 process, database connection, migration execution, or AWS operation was added or
 run.
 
+Block 17.5 is complete. Active manual listings now support strict partial edits
+and soft archive commands; RentCast and archived records return the same bounded
+not-found result. `PATCH /api/listings/:id` and
+`POST /api/listings/:id/archive` preserve the established Origin, session,
+admin, request-size, and safe-error boundaries. PostgreSQL updates only editable
+manual fields and explicit lifecycle timestamps, never ownership or source, and
+the default listing query excludes archived rows. The React editor reuses the
+confirmed-marker workflow, preserves private notes unless the administrator
+chooses replace or clear, and removes successfully archived records from active
+state after inline confirmation. No API process, migration, database connection,
+or AWS operation ran during implementation.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every

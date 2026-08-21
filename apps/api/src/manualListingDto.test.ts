@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   InvalidManualListingRequestError,
   parseManualListingDraftDto,
+  parseManualListingPatchDto,
 } from "./manualListingDto.js";
 
 describe("parseManualListingDraftDto", () => {
@@ -65,6 +66,25 @@ describe("parseManualListingDraftDto", () => {
     ["a wrong optional number", createBody({ bedrooms: "4" })],
   ])("rejects %s", (_label, value) => {
     expect(() => parseManualListingDraftDto(value)).toThrow(
+      InvalidManualListingRequestError,
+    );
+  });
+});
+
+describe("parseManualListingPatchDto", () => {
+  it("parses a nonempty partial update and preserves explicit null", () => {
+    expect(
+      parseManualListingPatchDto({ city: "Corona", notes: null, price: null }),
+    ).toEqual({ city: "Corona", notes: null, price: null });
+  });
+
+  it.each([
+    ["an empty patch", {}],
+    ["a protected field", { source: "manual" }],
+    ["a null required field", { city: null }],
+    ["a wrong numeric field", { latitude: "33.9" }],
+  ])("rejects %s", (_label, value) => {
+    expect(() => parseManualListingPatchDto(value)).toThrow(
       InvalidManualListingRequestError,
     );
   });

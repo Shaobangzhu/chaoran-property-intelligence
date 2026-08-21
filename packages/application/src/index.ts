@@ -1,4 +1,9 @@
 export { CheckNewListings } from "./checkNewListings.js";
+export { ArchiveManualListing } from "./archiveManualListing.js";
+export type {
+  ArchiveManualListingInput,
+  ArchiveManualListingOptions,
+} from "./archiveManualListing.js";
 export type {
   ListingCriteriaPort,
   ListingNotificationPort,
@@ -40,10 +45,23 @@ export { Login } from "./login.js";
 export type { LoginInput, LoginOptions, LoginResult } from "./login.js";
 export type { PasswordHasherPort } from "./passwordHasher.js";
 export type {
+  ArchiveManualListingPersistenceInput,
   CreateManualListingPersistenceInput,
   ManualListingRecord,
+  ManualListingMutationRepositoryPort,
   ManualListingRepositoryPort,
+  UpdateManualListingPersistenceInput,
 } from "./manualListingRepository.js";
+export { ManualListingNotFoundError } from "./manualListingRepository.js";
+export {
+  InvalidManualListingPatchError,
+  UpdateManualListing,
+} from "./updateManualListing.js";
+export type {
+  ManualListingPatchInput,
+  UpdateManualListingInput,
+  UpdateManualListingOptions,
+} from "./updateManualListing.js";
 export {
   InvalidAccessTokenError,
   type IssuedAccessToken,

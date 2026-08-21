@@ -289,12 +289,73 @@ describe("App authentication boundary", () => {
       await screen.findByRole("heading", { name: "Sign in" }),
     ).toBeInTheDocument();
   });
+
+  it("returns to login when the manual-update session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        loadListings={async () => [manualListing]}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+        updateListing={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: new RegExp(manualListing.addressLine1),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit listing" }));
+    await user.clear(screen.getByLabelText("City"));
+    await user.type(screen.getByLabelText("City"), "Norco");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to login when the manual-archive session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        archiveListing={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        loadListings={async () => [manualListing]}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: new RegExp(manualListing.addressLine1),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Archive listing" }));
+    await user.click(screen.getByRole("button", { name: "Confirm archive" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
 });
 
 const authenticatedUser: AuthenticatedUser = {
   id: "0198c7d2-7668-7775-b0fc-b789690a60c1",
   email: "admin@example.com",
   role: "admin",
+};
+
+const manualListing = {
+  ...eastvaleListing,
+  id: "0198c7d2-7668-7775-b0fc-b789690a60d2",
+  source: "manual" as const,
+  sourceListingId: null,
 };
 
 function sessionClient(overrides: Partial<SessionClient> = {}): SessionClient {

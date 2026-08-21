@@ -10,6 +10,7 @@ import {
   ListingsScreen,
   type ListingsMapViewProps,
 } from "./ListingsScreen.js";
+import type { ManualListingUpdater } from "./ManualListingForm.js";
 import { coronaListing, eastvaleListing } from "./listingFixtures.js";
 import {
   ManualListingValidationError,
@@ -206,6 +207,117 @@ describe("ListingsScreen", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Property type not provided")).toBeInTheDocument();
     expect(screen.getAllByText("Not provided")).toHaveLength(3);
+  });
+
+  it("offers edit and archive actions only for the selected manual listing", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsScreen
+        loadListings={async () => [manualListing, eastvaleListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: new RegExp(eastvaleListing.addressLine1),
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Edit listing" })).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: new RegExp(manualListing.addressLine1),
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Edit listing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Archive listing" })).toBeEnabled();
+  });
+
+  it("edits a manual listing with prefilled fields and reconfirms moved coordinates", async () => {
+    const user = userEvent.setup();
+    const updatedListing = {
+      ...manualListing,
+      city: "Norco",
+      latitude: 33.9,
+      longitude: -117.6,
+    };
+    const updateListing = vi.fn<ManualListingUpdater>(async () => updatedListing);
+    render(
+      <ListingsScreen
+        loadListings={async () => [manualListing]}
+        mapView={DraftMap}
+        updateListing={updateListing}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: new RegExp(manualListing.addressLine1),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit listing" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Edit manual listing" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Address line 1")).toHaveValue(
+      manualListing.addressLine1,
+    );
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+
+    await user.clear(screen.getByLabelText("City"));
+    await user.type(screen.getByLabelText("City"), "Norco");
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Move marker" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Map" }));
+    await user.click(screen.getByRole("button", { name: "Confirm draft marker" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(updateListing).toHaveBeenCalledWith(
+      manualListing.id,
+      expect.objectContaining({
+        city: "Norco",
+        latitude: 33.9,
+        longitude: -117.6,
+      }),
+    );
+    expect(updateListing.mock.calls[0]?.[1]).not.toHaveProperty("notes");
+    expect(await screen.findByText("Listing updated.")).toBeInTheDocument();
+    expect(screen.getByText(/Norco, CA/)).toBeInTheDocument();
+  });
+
+  it("requires confirmation before archiving and removes the listing on success", async () => {
+    const user = userEvent.setup();
+    const archiveListing = vi.fn(async () => undefined);
+    render(
+      <ListingsScreen
+        archiveListing={archiveListing}
+        loadListings={async () => [manualListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: new RegExp(manualListing.addressLine1),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Archive listing" }));
+    expect(screen.getByRole("alertdialog", { name: "Archive manual listing" })).toBeInTheDocument();
+    expect(archiveListing).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Confirm archive" }));
+
+    expect(archiveListing).toHaveBeenCalledWith(manualListing.id);
+    expect(await screen.findByText("Listing archived.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: manualListing.addressLine1 }),
+    ).not.toBeInTheDocument();
   });
 
   it("coordinates selection from the listing into the map", async () => {

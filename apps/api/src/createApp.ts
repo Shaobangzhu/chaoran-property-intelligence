@@ -1,8 +1,12 @@
 import {
   AuthenticationRequiredError,
+  type ArchiveManualListingInput,
   type CreateManualListingInput,
+  InvalidManualListingPatchError,
   InvalidCredentialsError,
   InvalidManualListingError,
+  ManualListingNotFoundError,
+  type UpdateManualListingInput,
   type AuthenticatedUser,
   type GetCurrentUserInput,
   type ListingRecord,
@@ -27,7 +31,9 @@ import {
 import {
   InvalidManualListingRequestError,
   parseManualListingDraftDto,
+  parseManualListingPatchDto,
   toCreateManualListingResponse,
+  toUpdateManualListingResponse,
 } from "./manualListingDto.js";
 import {
   createLoginRateLimiter,
@@ -68,7 +74,16 @@ export interface CreateManualListingUseCase {
   execute(input: CreateManualListingInput): Promise<ManualListingRecord>;
 }
 
+export interface UpdateManualListingUseCase {
+  execute(input: UpdateManualListingInput): Promise<ManualListingRecord>;
+}
+
+export interface ArchiveManualListingUseCase {
+  execute(input: ArchiveManualListingInput): Promise<void>;
+}
+
 export interface CreateAppOptions {
+  archiveManualListing: ArchiveManualListingUseCase;
   createManualListing: CreateManualListingUseCase;
   listListings: ListListingsUseCase;
   login: LoginUseCase;
@@ -78,6 +93,7 @@ export interface CreateAppOptions {
   loginRateLimit?: LoginRateLimitConfig;
   now?: () => Date;
   requestIdFactory?: () => string;
+  updateManualListing: UpdateManualListingUseCase;
 }
 
 class AdminAuthorizationRequiredError extends Error {}
@@ -218,6 +234,41 @@ export function createApp(options: CreateAppOptions): Express {
     },
   );
 
+  app.patch(
+    "/api/listings/:id",
+    authenticate,
+    requireAdmin,
+    createJsonBodyParser(manualListingJsonBodyLimitBytes),
+    async (request, response) => {
+      const record = await options.updateManualListing.execute({
+        listingId: readRouteParameter(request.params.id),
+        patch: parseManualListingPatchDto(request.body),
+      });
+
+      options.logger.info(
+        "api.listings.manual.updated",
+        readLogContext(response.locals),
+      );
+      response.status(200).json(toUpdateManualListingResponse(record));
+    },
+  );
+
+  app.post(
+    "/api/listings/:id/archive",
+    authenticate,
+    requireAdmin,
+    async (request, response) => {
+      await options.archiveManualListing.execute({
+        listingId: readRouteParameter(request.params.id),
+      });
+      options.logger.info(
+        "api.listings.manual.archived",
+        readLogContext(response.locals),
+      );
+      response.status(204).end();
+    },
+  );
+
   app.use((_request, response) => {
     response.status(404).json({
       error: {
@@ -278,12 +329,23 @@ export function createApp(options: CreateAppOptions): Express {
     if (
       error instanceof InvalidRequestBodyError ||
       error instanceof InvalidManualListingRequestError ||
+      error instanceof InvalidManualListingPatchError ||
       isBodyParserError(error)
     ) {
       response.status(400).json({
         error: {
           code: "INVALID_REQUEST",
           message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof ManualListingNotFoundError) {
+      response.status(404).json({
+        error: {
+          code: "MANUAL_LISTING_NOT_FOUND",
+          message: "Manual listing was not found",
         },
       });
       return;
@@ -314,6 +376,10 @@ export function createApp(options: CreateAppOptions): Express {
   app.use(errorHandler);
 
   return app;
+}
+
+function readRouteParameter(value: string | string[] | undefined): string {
+  return typeof value === "string" ? value : "";
 }
 
 function createJsonBodyParser(limit: number): RequestHandler {

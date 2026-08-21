@@ -14,35 +14,54 @@ import {
   type ListingSummary,
   type ManualListingDraft,
   type ManualListingField,
+  type ManualListingPatch,
 } from "./listingsApi.js";
 
 export type ManualListingCreator = (
   draft: ManualListingDraft,
 ) => Promise<ListingSummary>;
 
+export type ManualListingUpdater = (
+  listingId: string,
+  patch: ManualListingPatch,
+) => Promise<ListingSummary>;
+
 interface ManualListingFormProps {
   coordinates: ListingCoordinates | null;
   createListing: ManualListingCreator;
+  initialListing?: ListingSummary;
   markerConfirmed: boolean;
   onCancel: () => void;
-  onCreated: (listing: ListingSummary) => void;
+  onSaved: (listing: ListingSummary) => void;
   onShowMap: () => void;
+  updateListing: ManualListingUpdater;
 }
 
-type SubmissionState = "idle" | "submitting" | "invalid" | "unavailable";
+type SubmissionState =
+  | "idle"
+  | "submitting"
+  | "invalid"
+  | "unchanged"
+  | "unavailable";
 
 export function ManualListingForm({
   coordinates,
   createListing,
+  initialListing,
   markerConfirmed,
   onCancel,
-  onCreated,
+  onSaved,
   onShowMap,
+  updateListing,
 }: ManualListingFormProps): React.JSX.Element {
   const [submissionState, setSubmissionState] =
     useState<SubmissionState>("idle");
   const [invalidField, setInvalidField] =
     useState<ManualListingField | null>(null);
+  const [notesAction, setNotesAction] = useState<"keep" | "replace" | "clear">(
+    "keep",
+  );
+  const isEditing = initialListing !== undefined;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,10 +76,24 @@ export function ManualListingForm({
     setSubmissionState("submitting");
     setInvalidField(null);
     try {
-      const listing = await createListing(
-        readDraft(new FormData(event.currentTarget), coordinates),
-      );
-      onCreated(listing);
+      const formData = new FormData(event.currentTarget);
+      let listing: ListingSummary;
+      if (initialListing === undefined) {
+        listing = await createListing(readDraft(formData, coordinates));
+      } else {
+        const patch = readPatch(
+          formData,
+          coordinates,
+          initialListing,
+          notesAction,
+        );
+        if (Object.keys(patch).length === 0) {
+          setSubmissionState("unchanged");
+          return;
+        }
+        listing = await updateListing(initialListing.id, patch);
+      }
+      onSaved(listing);
     } catch (error) {
       if (error instanceof ManualListingValidationError) {
         setInvalidField(error.field);
@@ -81,12 +114,14 @@ export function ManualListingForm({
       <div className="manual-form-heading">
         <div>
           <p className="section-label">Manual source</p>
-          <h2 id="manual-form-title">Create manual listing</h2>
+          <h2 id="manual-form-title">
+            {isEditing ? "Edit manual listing" : "Create manual listing"}
+          </h2>
         </div>
         <button
           className="icon-button"
           type="button"
-          aria-label="Cancel creation"
+          aria-label={isEditing ? "Cancel editing" : "Cancel creation"}
           disabled={submissionState === "submitting"}
           onClick={onCancel}
         >
@@ -110,6 +145,7 @@ export function ManualListingForm({
               name="addressLine1"
               type="text"
               autoComplete="address-line1"
+              defaultValue={initialListing?.addressLine1 ?? ""}
               maxLength={200}
               required
             />
@@ -124,6 +160,7 @@ export function ManualListingForm({
               name="addressLine2"
               type="text"
               autoComplete="address-line2"
+              defaultValue={initialListing?.addressLine2 ?? ""}
               maxLength={100}
             />
           </FormField>
@@ -138,6 +175,7 @@ export function ManualListingForm({
                 name="city"
                 type="text"
                 autoComplete="address-level2"
+                defaultValue={initialListing?.city ?? ""}
                 maxLength={100}
                 required
               />
@@ -166,6 +204,7 @@ export function ManualListingForm({
                 name="zipCode"
                 type="text"
                 autoComplete="postal-code"
+                defaultValue={initialListing?.zipCode ?? ""}
                 inputMode="numeric"
                 maxLength={10}
                 pattern="[0-9]{5}(-[0-9]{4})?"
@@ -187,6 +226,7 @@ export function ManualListingForm({
                 id="manual-propertyType"
                 name="propertyType"
                 type="text"
+                defaultValue={initialListing?.propertyType ?? ""}
                 maxLength={100}
               />
             </FormField>
@@ -195,7 +235,13 @@ export function ManualListingForm({
               invalid={invalidField === "status"}
               label="Status"
             >
-              <select id="manual-status" name="status" defaultValue="Active">
+              <select
+                id="manual-status"
+                name="status"
+                defaultValue={
+                  initialListing?.status === "Pending" ? "Pending" : "Active"
+                }
+              >
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
               </select>
@@ -215,6 +261,7 @@ export function ManualListingForm({
                 min="0"
                 max="100"
                 step="0.5"
+                defaultValue={initialListing?.bedrooms ?? ""}
               />
             </FormField>
             <FormField
@@ -230,6 +277,7 @@ export function ManualListingForm({
                 min="0"
                 max="100"
                 step="0.5"
+                defaultValue={initialListing?.bathrooms ?? ""}
               />
             </FormField>
             <FormField
@@ -245,6 +293,7 @@ export function ManualListingForm({
                 min="0"
                 max="2147483647"
                 step="1"
+                defaultValue={initialListing?.price ?? ""}
               />
             </FormField>
           </div>
@@ -253,7 +302,12 @@ export function ManualListingForm({
             invalid={invalidField === "listedDate"}
             label="Listed date"
           >
-            <input id="manual-listedDate" name="listedDate" type="date" />
+            <input
+              id="manual-listedDate"
+              name="listedDate"
+              type="date"
+              defaultValue={initialListing?.listedDate ?? ""}
+            />
           </FormField>
         </fieldset>
 
@@ -269,6 +323,7 @@ export function ManualListingForm({
                 id="manual-mlsName"
                 name="mlsName"
                 type="text"
+                defaultValue={initialListing?.mlsName ?? ""}
                 maxLength={100}
               />
             </FormField>
@@ -281,17 +336,62 @@ export function ManualListingForm({
                 id="manual-mlsNumber"
                 name="mlsNumber"
                 type="text"
+                defaultValue={initialListing?.mlsNumber ?? ""}
                 maxLength={100}
               />
             </FormField>
           </div>
-          <FormField
-            id="manual-notes"
-            invalid={invalidField === "notes"}
-            label="Notes"
-          >
-            <textarea id="manual-notes" name="notes" maxLength={4000} rows={4} />
-          </FormField>
+          {isEditing ? (
+            <>
+              <FormField
+                id="manual-notesAction"
+                invalid={false}
+                label="Notes"
+              >
+                <select
+                  id="manual-notesAction"
+                  name="notesAction"
+                  value={notesAction}
+                  onChange={(event) =>
+                    setNotesAction(
+                      event.target.value as "keep" | "replace" | "clear",
+                    )
+                  }
+                >
+                  <option value="keep">Keep existing notes</option>
+                  <option value="replace">Replace notes</option>
+                  <option value="clear">Clear notes</option>
+                </select>
+              </FormField>
+              {notesAction === "replace" ? (
+                <FormField
+                  id="manual-notes"
+                  invalid={invalidField === "notes"}
+                  label="Replacement notes"
+                >
+                  <textarea
+                    id="manual-notes"
+                    name="notes"
+                    maxLength={4000}
+                    rows={4}
+                  />
+                </FormField>
+              ) : null}
+            </>
+          ) : (
+            <FormField
+              id="manual-notes"
+              invalid={invalidField === "notes"}
+              label="Notes"
+            >
+              <textarea
+                id="manual-notes"
+                name="notes"
+                maxLength={4000}
+                rows={4}
+              />
+            </FormField>
+          )}
         </fieldset>
 
         <section
@@ -351,7 +451,11 @@ export function ManualListingForm({
             ) : (
               <CheckCircle2 aria-hidden="true" size={17} />
             )}
-            {submissionState === "submitting" ? "Saving" : "Save listing"}
+            {submissionState === "submitting"
+              ? "Saving"
+              : isEditing
+                ? "Save changes"
+                : "Save listing"}
           </button>
         </div>
       </form>
@@ -405,6 +509,85 @@ function readDraft(
   };
 }
 
+function readPatch(
+  formData: FormData,
+  coordinates: ListingCoordinates,
+  initial: ListingSummary,
+  notesAction: "keep" | "replace" | "clear",
+): ManualListingPatch {
+  const patch: ManualListingPatch = {};
+  const addressLine1 = readRequiredString(formData, "addressLine1");
+  const city = readRequiredString(formData, "city");
+  const zipCode = readRequiredString(formData, "zipCode");
+  const status =
+    readRequiredString(formData, "status") === "Pending"
+      ? "Pending"
+      : "Active";
+
+  if (addressLine1 !== initial.addressLine1) patch.addressLine1 = addressLine1;
+  if (city !== initial.city) patch.city = city;
+  if (zipCode !== initial.zipCode) patch.zipCode = zipCode;
+  if (status !== initial.status) patch.status = status;
+  if (coordinates.latitude !== initial.latitude) {
+    patch.latitude = coordinates.latitude;
+  }
+  if (coordinates.longitude !== initial.longitude) {
+    patch.longitude = coordinates.longitude;
+  }
+
+  addOptionalStringPatch(patch, formData, "addressLine2", initial.addressLine2);
+  addOptionalStringPatch(patch, formData, "propertyType", initial.propertyType);
+  addOptionalNumberPatch(patch, formData, "bedrooms", initial.bedrooms);
+  addOptionalNumberPatch(patch, formData, "bathrooms", initial.bathrooms);
+  addOptionalNumberPatch(patch, formData, "price", initial.price);
+  addOptionalStringPatch(patch, formData, "listedDate", initial.listedDate);
+  addOptionalStringPatch(patch, formData, "mlsName", initial.mlsName);
+  addOptionalStringPatch(patch, formData, "mlsNumber", initial.mlsNumber);
+
+  if (notesAction === "clear") {
+    patch.notes = null;
+  } else if (notesAction === "replace") {
+    const notes = readRequiredString(formData, "notes").trim();
+    patch.notes = notes.length === 0 ? null : notes;
+  }
+
+  return patch;
+}
+
+type OptionalStringPatchField =
+  | "addressLine2"
+  | "propertyType"
+  | "listedDate"
+  | "mlsName"
+  | "mlsNumber";
+
+function addOptionalStringPatch(
+  patch: ManualListingPatch,
+  formData: FormData,
+  field: OptionalStringPatchField,
+  initialValue: string | null,
+): void {
+  const value = readRequiredString(formData, field).trim() || null;
+  if (value !== initialValue) {
+    patch[field] = value;
+  }
+}
+
+type OptionalNumberPatchField = "bedrooms" | "bathrooms" | "price";
+
+function addOptionalNumberPatch(
+  patch: ManualListingPatch,
+  formData: FormData,
+  field: OptionalNumberPatchField,
+  initialValue: number | null,
+): void {
+  const rawValue = readRequiredString(formData, field);
+  const value = rawValue.length === 0 ? null : Number(rawValue);
+  if (value !== initialValue) {
+    patch[field] = value;
+  }
+}
+
 function readRequiredString(formData: FormData, field: string): string {
   const value = formData.get(field);
   return typeof value === "string" ? value : "";
@@ -447,6 +630,9 @@ function getSubmissionFeedback(
   }
   if (state === "unavailable") {
     return "The listing could not be saved. Try again.";
+  }
+  if (state === "unchanged") {
+    return "No changes to save.";
   }
   return null;
 }

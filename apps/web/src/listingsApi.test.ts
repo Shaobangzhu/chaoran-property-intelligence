@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ManualListingNotFoundError,
   ManualListingValidationError,
   SessionAuthenticationRequiredError,
+  archiveManualListing,
   createManualListing,
   fetchListings,
+  updateManualListing,
 } from "./listingsApi.js";
 
 describe("fetchListings", () => {
@@ -121,7 +124,9 @@ describe("createManualListing", () => {
   it("returns a bounded field error for rejected manual input", async () => {
     const fetchImplementation = vi.fn(async () =>
       jsonResponse(
-        { code: "INVALID_MANUAL_LISTING", field: "zipCode" },
+        {
+          error: { code: "INVALID_MANUAL_LISTING", field: "zipCode" },
+        },
         400,
       ),
     );
@@ -134,7 +139,7 @@ describe("createManualListing", () => {
 
   it("uses a form-level validation error for a malformed request", async () => {
     const fetchImplementation = vi.fn(async () =>
-      jsonResponse({ code: "INVALID_REQUEST" }, 400),
+      jsonResponse({ error: { code: "INVALID_REQUEST" } }, 400),
     );
 
     await expect(
@@ -160,6 +165,93 @@ describe("createManualListing", () => {
     await expect(
       createManualListing(manualDraft, { fetchImplementation }),
     ).rejects.toThrow("Listings response was invalid");
+  });
+});
+
+describe("updateManualListing", () => {
+  it("patches only supplied editable fields and parses the updated listing", async () => {
+    const patch = { city: "Norco", notes: null } as const;
+    const updatedListing = {
+      ...manualListingDto,
+      city: "Norco",
+      formattedAddress: "456 Client Way, Norco, CA 92879",
+    };
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse({ listing: updatedListing }),
+    );
+
+    await expect(
+      updateManualListing(manualListingDto.id, patch, { fetchImplementation }),
+    ).resolves.toEqual(updatedListing);
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      `/api/listings/${manualListingDto.id}`,
+      expect.objectContaining({
+        body: JSON.stringify(patch),
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      }),
+    );
+  });
+
+  it("maps update validation, missing listing, and expired session errors", async () => {
+    await expect(
+      updateManualListing(manualListingDto.id, { city: "" }, {
+        fetchImplementation: async () =>
+          jsonResponse(
+            { error: { code: "INVALID_MANUAL_LISTING", field: "city" } },
+            400,
+          ),
+      }),
+    ).rejects.toMatchObject({ field: "city" });
+
+    await expect(
+      updateManualListing(manualListingDto.id, { city: "Norco" }, {
+        fetchImplementation: async () =>
+          jsonResponse({ error: { code: "MANUAL_LISTING_NOT_FOUND" } }, 404),
+      }),
+    ).rejects.toBeInstanceOf(ManualListingNotFoundError);
+
+    await expect(
+      updateManualListing(manualListingDto.id, { city: "Norco" }, {
+        fetchImplementation: async () => jsonResponse({}, 401),
+      }),
+    ).rejects.toBeInstanceOf(SessionAuthenticationRequiredError);
+  });
+});
+
+describe("archiveManualListing", () => {
+  it("posts to the archive command and accepts an empty success response", async () => {
+    const fetchImplementation = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(
+      archiveManualListing(manualListingDto.id, { fetchImplementation }),
+    ).resolves.toBeUndefined();
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      `/api/listings/${manualListingDto.id}/archive`,
+      expect.objectContaining({
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        method: "POST",
+      }),
+    );
+  });
+
+  it("maps missing listings and expired sessions to shared typed errors", async () => {
+    await expect(
+      archiveManualListing(manualListingDto.id, {
+        fetchImplementation: async () => jsonResponse({}, 404),
+      }),
+    ).rejects.toBeInstanceOf(ManualListingNotFoundError);
+
+    await expect(
+      archiveManualListing(manualListingDto.id, {
+        fetchImplementation: async () => jsonResponse({}, 401),
+      }),
+    ).rejects.toBeInstanceOf(SessionAuthenticationRequiredError);
   });
 });
 

@@ -81,10 +81,13 @@ and selecting a listing or marker keeps the two views synchronized. An
 authenticated administrator can also enter a manual listing, place or drag its
 draft marker, explicitly confirm the coordinates, and submit it through the
 protected API. Moving the marker clears confirmation, and successful creation
-adds the returned normalized listing to the shared list and map. The client
+adds the returned normalized listing to the shared list and map. A selected
+manual listing can be edited through the same confirmed-marker workflow or
+archived after an inline confirmation; RentCast records remain read-only and
+archived rows leave the default active query without being deleted. The client
 validates API responses at runtime and never receives database, RentCast,
-Telegram, or AWS credentials. The browser never reads or stores the JWT. The web
-application remains local-only and is not deployed.
+Telegram, or AWS credentials. The browser never reads or stores the JWT. The
+web application remains local-only and is not deployed.
 
 The API limits failed login responses to ten per 15 minutes per process before
 password verification, emits only request-ID-based security events, and requires

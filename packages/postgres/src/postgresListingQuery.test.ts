@@ -48,6 +48,7 @@ describe("PostgresListingQuery", () => {
     expect(database.queries[0]?.text).toContain(
       "ORDER BY listed_date DESC NULLS LAST, id ASC",
     );
+    expect(database.queries[0]?.text).toContain("WHERE archived_at IS NULL");
   });
 
   it("rejects rows without a string listing id", async () => {

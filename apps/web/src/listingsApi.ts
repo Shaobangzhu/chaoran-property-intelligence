@@ -43,6 +43,25 @@ export interface ManualListingDraft {
 
 export type ManualListingField = keyof ManualListingDraft;
 
+export type ManualListingPatch = Partial<{
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: "CA";
+  zipCode: string;
+  latitude: number;
+  longitude: number;
+  propertyType: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  price: number | null;
+  status: "Active" | "Pending";
+  listedDate: string | null;
+  mlsName: string | null;
+  mlsNumber: string | null;
+  notes: string | null;
+}>;
+
 type FetchImplementation = (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -58,6 +77,8 @@ export interface CreateManualListingOptions {
   signal?: AbortSignal;
 }
 
+export type MutateManualListingOptions = CreateManualListingOptions;
+
 export class SessionAuthenticationRequiredError extends Error {
   constructor() {
     super("Session authentication required");
@@ -69,6 +90,13 @@ export class ManualListingValidationError extends Error {
   constructor(readonly field: ManualListingField | null) {
     super("Manual listing input was invalid");
     this.name = "ManualListingValidationError";
+  }
+}
+
+export class ManualListingNotFoundError extends Error {
+  constructor() {
+    super("Manual listing was not found");
+    this.name = "ManualListingNotFoundError";
   }
 }
 
@@ -149,19 +177,100 @@ export async function createManualListing(
   return parseListingSummary(body.listing);
 }
 
+export async function updateManualListing(
+  listingId: string,
+  patch: ManualListingPatch,
+  options: MutateManualListingOptions = {},
+): Promise<ListingSummary> {
+  const request: RequestInit = {
+    body: JSON.stringify(patch),
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "PATCH",
+  };
+  if (options.signal !== undefined) {
+    request.signal = options.signal;
+  }
+
+  const response = await (options.fetchImplementation ?? fetch)(
+    `/api/listings/${encodeURIComponent(listingId)}`,
+    request,
+  );
+  if (response.status === 400) {
+    throw await parseManualListingValidationError(response);
+  }
+  throwForManualListingMutation(response, "update");
+  if (response.status !== 200) {
+    throw new Error(`Unable to update manual listing (${response.status})`);
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw invalidResponse();
+  }
+  if (!isRecord(body) || !("listing" in body)) {
+    throw invalidResponse();
+  }
+
+  return parseListingSummary(body.listing);
+}
+
+export async function archiveManualListing(
+  listingId: string,
+  options: MutateManualListingOptions = {},
+): Promise<void> {
+  const request: RequestInit = {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    method: "POST",
+  };
+  if (options.signal !== undefined) {
+    request.signal = options.signal;
+  }
+
+  const response = await (options.fetchImplementation ?? fetch)(
+    `/api/listings/${encodeURIComponent(listingId)}/archive`,
+    request,
+  );
+  throwForManualListingMutation(response, "archive");
+  if (response.status !== 204) {
+    throw new Error(`Unable to archive manual listing (${response.status})`);
+  }
+}
+
+function throwForManualListingMutation(
+  response: Response,
+  operation: "update" | "archive",
+): void {
+  if (response.status === 401) {
+    throw new SessionAuthenticationRequiredError();
+  }
+  if (response.status === 404) {
+    throw new ManualListingNotFoundError();
+  }
+  if (!response.ok) {
+    throw new Error(`Unable to ${operation} manual listing (${response.status})`);
+  }
+}
+
 async function parseManualListingValidationError(
   response: Response,
 ): Promise<ManualListingValidationError> {
   try {
     const body: unknown = await response.json();
-    if (!isRecord(body)) {
+    if (!isRecord(body) || !isRecord(body.error)) {
       return new ManualListingValidationError(null);
     }
     if (
-      body.code === "INVALID_MANUAL_LISTING" &&
-      isManualListingField(body.field)
+      body.error.code === "INVALID_MANUAL_LISTING" &&
+      isManualListingField(body.error.field)
     ) {
-      return new ManualListingValidationError(body.field);
+      return new ManualListingValidationError(body.error.field);
     }
   } catch {
     // A malformed error response is intentionally reduced to a form-level error.

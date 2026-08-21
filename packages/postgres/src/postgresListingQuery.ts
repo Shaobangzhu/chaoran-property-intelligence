@@ -23,6 +23,7 @@ export class PostgresListingQuery implements ListingQueryPort {
     const result = await this.database.query(
       `SELECT ${listingQueryColumns}
        FROM listings
+       WHERE archived_at IS NULL
        ORDER BY listed_date DESC NULLS LAST, id ASC`,
     );
 

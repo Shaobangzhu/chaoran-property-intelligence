@@ -7,10 +7,13 @@ import {
   Database,
   Inbox,
   List,
+  LoaderCircle,
   Map,
   MapPin,
+  Pencil,
   Plus,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 
@@ -22,20 +25,27 @@ import {
 import {
   ManualListingForm,
   type ManualListingCreator,
+  type ManualListingUpdater,
 } from "./ManualListingForm.js";
 import {
+  archiveManualListing,
   createManualListing,
   type ListingSummary,
+  updateManualListing,
 } from "./listingsApi.js";
 
 export type ListingsLoader = (
   signal: AbortSignal,
 ) => Promise<ListingSummary[]>;
 
+export type ManualListingArchiver = (listingId: string) => Promise<void>;
+
 export interface ListingsScreenProps {
+  archiveListing?: ManualListingArchiver;
   createListing?: ManualListingCreator;
   loadListings: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
+  updateListing?: ManualListingUpdater;
 }
 
 export type ListingsMapViewProps = Omit<ListingsMapProps, "createMap">;
@@ -46,9 +56,11 @@ type ListingsState =
   | { status: "error" };
 
 export function ListingsScreen({
+  archiveListing = archiveManualListing,
   createListing = createManualListing,
   loadListings,
   mapView: MapView = ListingsMap,
+  updateListing = updateManualListing,
 }: ListingsScreenProps): React.JSX.Element {
   const [requestNumber, setRequestNumber] = useState(0);
   const [state, setState] = useState<ListingsState>({ status: "loading" });
@@ -57,10 +69,24 @@ export function ListingsScreen({
   );
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [isCreating, setIsCreating] = useState(false);
+  const [editingListing, setEditingListing] = useState<ListingSummary | null>(
+    null,
+  );
+  const [archiveCandidate, setArchiveCandidate] =
+    useState<ListingSummary | null>(null);
+  const [archiveState, setArchiveState] = useState<
+    "idle" | "submitting" | "unavailable"
+  >("idle");
   const [draftCoordinates, setDraftCoordinates] =
     useState<ListingCoordinates | null>(null);
   const [markerConfirmed, setMarkerConfirmed] = useState(false);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
+  const isFormOpen = isCreating || editingListing !== null;
+  const selectedListing =
+    state.status === "ready"
+      ? (state.listings.find((listing) => listing.id === selectedListingId) ??
+        null)
+      : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,14 +116,16 @@ export function ListingsScreen({
     setWorkspaceNotice(null);
     setSelectedListingId(null);
     setMobileView("list");
+    setEditingListing(null);
     setIsCreating(true);
   };
 
-  const cancelCreation = (): void => {
+  const cancelForm = (): void => {
     setDraftCoordinates(null);
     setMarkerConfirmed(false);
     setMobileView("list");
     setIsCreating(false);
+    setEditingListing(null);
   };
 
   const handleCreated = (listing: ListingSummary): void => {
@@ -117,7 +145,47 @@ export function ListingsScreen({
     setMarkerConfirmed(false);
     setMobileView("list");
     setIsCreating(false);
-    setWorkspaceNotice("Listing created.");
+    setEditingListing(null);
+    setWorkspaceNotice(
+      editingListing === null ? "Listing created." : "Listing updated.",
+    );
+  };
+
+  const startEditing = (listing: ListingSummary): void => {
+    setDraftCoordinates({
+      latitude: listing.latitude,
+      longitude: listing.longitude,
+    });
+    setMarkerConfirmed(true);
+    setWorkspaceNotice(null);
+    setMobileView("list");
+    setIsCreating(false);
+    setEditingListing(listing);
+  };
+
+  const handleArchive = async (): Promise<void> => {
+    if (archiveCandidate === null || archiveState === "submitting") return;
+
+    setArchiveState("submitting");
+    try {
+      await archiveListing(archiveCandidate.id);
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              listings: current.listings.filter(
+                (listing) => listing.id !== archiveCandidate.id,
+              ),
+              status: "ready",
+            }
+          : current,
+      );
+      setSelectedListingId(null);
+      setArchiveCandidate(null);
+      setArchiveState("idle");
+      setWorkspaceNotice("Listing archived.");
+    } catch {
+      setArchiveState("unavailable");
+    }
   };
 
   return (
@@ -138,7 +206,7 @@ export function ListingsScreen({
                 {formatListingCount(state.listings.length)}
               </div>
             ) : null}
-            {!isCreating ? (
+            {!isFormOpen ? (
               <button
                 className="primary-button add-listing-button"
                 type="button"
@@ -164,15 +232,15 @@ export function ListingsScreen({
       ) : null}
       {state.status === "ready" &&
       state.listings.length === 0 &&
-      !isCreating ? (
+      !isFormOpen ? (
         <EmptyState />
       ) : null}
-      {state.status === "ready" && isCreating ? (
+      {state.status === "ready" && isFormOpen ? (
         <>
           <div
             className="mobile-view-control"
             role="group"
-            aria-label="Creation view"
+            aria-label="Listing editor view"
           >
             <button
               type="button"
@@ -200,10 +268,14 @@ export function ListingsScreen({
               <ManualListingForm
                 coordinates={draftCoordinates}
                 createListing={createListing}
+                {...(editingListing === null
+                  ? {}
+                  : { initialListing: editingListing })}
                 markerConfirmed={markerConfirmed}
-                onCancel={cancelCreation}
-                onCreated={handleCreated}
+                onCancel={cancelForm}
+                onSaved={handleCreated}
                 onShowMap={() => setMobileView("map")}
+                updateListing={updateListing}
               />
             </div>
             <div className="map-panel">
@@ -231,7 +303,7 @@ export function ListingsScreen({
       ) : null}
       {state.status === "ready" &&
       state.listings.length > 0 &&
-      !isCreating ? (
+      !isFormOpen ? (
         <>
           <div
             className="mobile-view-control"
@@ -259,6 +331,23 @@ export function ListingsScreen({
           </div>
           <div className={`list-map-workspace mobile-mode-${mobileView}`}>
             <div className="list-panel">
+              {selectedListing?.source === "manual" ? (
+                <ManualListingActions
+                  archiveCandidate={archiveCandidate}
+                  archiveState={archiveState}
+                  listing={selectedListing}
+                  onArchive={() => {
+                    setArchiveCandidate(selectedListing);
+                    setArchiveState("idle");
+                  }}
+                  onCancelArchive={() => {
+                    setArchiveCandidate(null);
+                    setArchiveState("idle");
+                  }}
+                  onConfirmArchive={() => void handleArchive()}
+                  onEdit={() => startEditing(selectedListing)}
+                />
+              ) : null}
               <ListingList
                 listings={state.listings}
                 onSelect={setSelectedListingId}
@@ -279,6 +368,96 @@ export function ListingsScreen({
         </>
       ) : null}
     </main>
+  );
+}
+
+function ManualListingActions({
+  archiveCandidate,
+  archiveState,
+  listing,
+  onArchive,
+  onCancelArchive,
+  onConfirmArchive,
+  onEdit,
+}: {
+  archiveCandidate: ListingSummary | null;
+  archiveState: "idle" | "submitting" | "unavailable";
+  listing: ListingSummary;
+  onArchive: () => void;
+  onCancelArchive: () => void;
+  onConfirmArchive: () => void;
+  onEdit: () => void;
+}): React.JSX.Element {
+  const confirmingArchive = archiveCandidate?.id === listing.id;
+
+  return (
+    <section className="manual-listing-actions" aria-label="Manual listing actions">
+      {confirmingArchive ? (
+        <div
+          className="archive-confirmation"
+          role="alertdialog"
+          aria-labelledby="archive-confirmation-title"
+        >
+          <div>
+            <strong id="archive-confirmation-title">Archive manual listing</strong>
+            <span>{listing.addressLine1} will leave the active workspace.</span>
+          </div>
+          {archiveState === "unavailable" ? (
+            <p role="alert">The listing could not be archived. Try again.</p>
+          ) : null}
+          <div className="archive-confirmation-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={archiveState === "submitting"}
+              onClick={onCancelArchive}
+            >
+              Cancel
+            </button>
+            <button
+              className="danger-button"
+              type="button"
+              disabled={archiveState === "submitting"}
+              onClick={onConfirmArchive}
+            >
+              {archiveState === "submitting" ? (
+                <LoaderCircle className="spin" aria-hidden="true" size={16} />
+              ) : (
+                <Trash2 aria-hidden="true" size={16} />
+              )}
+              {archiveState === "submitting" ? "Archiving" : "Confirm archive"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div>
+            <strong>Manual listing</strong>
+            <span>{listing.formattedAddress}</span>
+          </div>
+          <div className="manual-listing-action-buttons">
+            <button
+              className="secondary-button"
+              type="button"
+              aria-label="Edit listing"
+              onClick={onEdit}
+            >
+              <Pencil aria-hidden="true" size={16} />
+              Edit
+            </button>
+            <button
+              className="secondary-button archive-button"
+              type="button"
+              aria-label="Archive listing"
+              onClick={onArchive}
+            >
+              <Trash2 aria-hidden="true" size={16} />
+              Archive
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
