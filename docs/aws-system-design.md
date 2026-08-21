@@ -10,8 +10,9 @@ Future resources are included only in sections explicitly labeled as planned.
 
 The TypeScript CDK code under `infra/aws` remains the infrastructure source of
 truth. This document explains that code; the deployment runbook owns commands
-and operator procedures. ADR 0002 owns the deployed worker foundation, while
-ADR 0003 owns the planned React and Express production boundary.
+and operator procedures. ADR 0002 owns the deployed worker foundation, ADR 0003
+owns the planned React and Express production boundary, and ADR 0006 owns the
+planned latest-only Showing List publication boundary.
 
 ## Deployment Status
 
@@ -34,9 +35,9 @@ Last verified: 2026-08-20.
 The AWS account ID, IAM Identity Center portal URL, alert email, and all secret
 values are intentionally excluded from the repository.
 
-The React web application and Express API are not deployed. Their approved AWS
-target boundary is documented below as planned architecture and must not be read
-as current stack inventory.
+The React web application, Express API, and weekly Showing List publisher are
+not deployed. Their approved AWS target boundaries are documented below as
+planned architecture and must not be read as current stack inventory.
 
 ## Architecture
 
@@ -184,6 +185,83 @@ The web/API rollout order is:
 4. Deploy without changing the worker scheduler state.
 5. Verify HTTPS, static caching, `/api/*` no-cache behavior, direct-origin
    restrictions, authentication, logout, and budget alerts.
+
+## Planned Weekly Showing List Publication Boundary
+
+**Status: accepted Block 18 target architecture; not provisioned or enabled.**
+This workflow is separate from the existing disabled daily property-alert
+schedule.
+
+```mermaid
+flowchart LR
+    Weekly[EventBridge Scheduler: weekly] -->|RunTask| Task[ECS Fargate one-off Showing List task]
+    Task -->|authoritative listing reads| Aurora[Aurora PostgreSQL]
+    Task -->|structured generation| OpenAI[OpenAI API]
+    Task -->|overwrite stable key| Drafts[Private unversioned S3 draft bucket]
+    Task -->|upsert singleton metadata| Aurora
+    Task -->|short-lived presigned URL| Telegram[Administrator Telegram chat]
+    Browser[Authenticated React UI] -->|current draft API| Express[Express API]
+    Express --> Aurora
+    Express -->|authorized current download| Drafts
+```
+
+### Retention and publication contract
+
+- Application-visible primary storage contains at most one current structured
+  draft row and one current artifact object.
+- The weekly task reads an explicit current server-side generation
+  configuration. It never infers selected listings from browser memory; a
+  missing or invalid configuration leaves current storage unchanged.
+- The artifact uses one stable key such as
+  `showing-lists/current.<format>`. Successful publication overwrites that key;
+  it never writes a date-based or generation-based history key.
+- The dedicated artifact bucket is separate from the React static-asset bucket,
+  blocks all public access, keeps versioning disabled, and does not enable S3
+  Object Lock. Enabling versioning would retain and bill overwritten object
+  versions, which violates the latest-only cost boundary.
+- The bucket applies server-side encryption and aborts incomplete multipart
+  uploads after a short bounded period. It has no noncurrent-version lifecycle
+  because noncurrent versions must never be created.
+- The task role receives only the S3 actions needed for the stable object key,
+  the current database record, its model and Telegram secrets, and bounded log
+  publication.
+- Generate, validate, and render the complete artifact before replacing the
+  current key. A failure before or during publication keeps the old current
+  draft available and sends no Telegram message.
+- After S3 publication, the task upserts singleton metadata with the generation
+  ID and object ETag. Retries reconcile those values idempotently and do not
+  create another object.
+
+Latest-only applies to application-visible primary storage. Aurora automated
+backups retain database changes for their configured seven-day window, and
+CloudWatch retains bounded non-content operational events for seven days. The
+artifact body and presigned URL must not enter logs.
+
+### Telegram delivery contract
+
+Only after successful publication and metadata commit does the task generate a
+short-lived S3 presigned URL and send it to the configured administrator chat.
+The bucket remains private. The URL expires at the earlier of its configured
+expiry or the ECS task's temporary IAM credential expiry, is never persisted or
+logged, and requests download content disposition.
+
+Every URL targets the stable current key. An old message therefore cannot
+retrieve a retained old draft; while its link remains valid, it resolves to the
+current object. Telegram delivery failure does not roll back the current draft.
+The singleton record retains a bounded `pending`, `sent`, or `failed` delivery
+state, generation ID, and sent timestamp for retry and duplicate suppression.
+
+### Schedule and cost boundary
+
+- The production cadence is once per week, with weekday, time, time zone, and
+  enabled state supplied explicitly at deployment.
+- The weekly schedule is a separate EventBridge Scheduler resource and cannot
+  enable or mutate `cpi-daily-property-alert`.
+- Initial enablement requires a reviewed CDK diff, explicit deployment
+  approval, secret-shape validation, and a manual non-recurring smoke test.
+- Storage growth is bounded to one active artifact and one current database
+  row. Requests, data transfer, model use, Fargate execution, database backups,
+  logs, and Telegram delivery can still incur usage-based cost.
 
 ## Account and Identity Configuration
 
@@ -465,6 +543,7 @@ and CDK context files are ignored by Git.
 | Aurora cluster and writer | Retained; deletion protection enabled | Can continue to incur storage, I/O, backup, and compute cost |
 | Database credentials secret | Retained | Continues Secrets Manager monthly cost |
 | Application secret | Destroyed | Cost stops after deletion |
+| Showing List artifact bucket (planned) | Defined during Block 18 infrastructure implementation | One unversioned current object; no draft-history growth |
 | CloudWatch log group | Destroyed | Existing retained logs are removed |
 | VPC, ECS, Scheduler, SQS, SNS | Destroyed | Service-specific ongoing cost stops |
 | Project budget | Retained if the guardrails stack is deleted | Monitoring remains active |
@@ -483,8 +562,10 @@ The following are release gates, not suggestions:
   reviewed.
 - AWS operations use federated temporary credentials, never root or long-lived
   access keys.
-- The scheduler remains disabled until a separate recurring-execution decision
-  is approved after the Block 14 and 14.1 production checks.
+- The existing property-alert scheduler remains disabled until a separate
+  recurring-execution decision is approved.
+- The planned weekly Showing List scheduler remains a distinct resource and is
+  enabled only after the Block 18 deployment review and smoke test.
 - Aurora remains private and accepts TCP 5432 only from the worker security
   group.
 - The worker has no inbound security-group rules.
@@ -514,6 +595,7 @@ The following are release gates, not suggestions:
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)
 - [ADR 0004: Single-User Authentication](adr/0004-single-user-authentication.md)
+- [ADR 0006: Latest-Only Showing List Publication](adr/0006-latest-only-showing-list-publication.md)
 - [AWS: secure static website with CloudFront and S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/getting-started-secure-static-website-cloudformation-template.html)
 - [AWS: CloudFront cache behavior settings](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html)
 - [AWS: App Runner VPC access](https://docs.aws.amazon.com/apprunner/latest/dg/network-vpc.html)
@@ -522,6 +604,10 @@ The following are release gates, not suggestions:
 - [AWS: CloudFront custom origin headers](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/add-origin-custom-headers.html)
 - [AWS: Aurora Serverless v2 auto-pause](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html)
 - [AWS: rate-limit requests to a login page](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rate-based-example-limit-login-page.html)
+- [AWS: S3 Versioning](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html)
+- [AWS: S3 data consistency and atomic updates](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html#ConsistencyModel)
+- [AWS: S3 presigned URLs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)
+- [AWS: abort incomplete multipart uploads](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpu-abort-incomplete-mpu-lifecycle-config.html)
 - [Project roadmap](roadmap.md)
 - [CDK application](../infra/aws/bin/app.ts)
 - [Production stack](../infra/aws/lib/propertyAlertStack.ts)

@@ -350,9 +350,18 @@ Telegram, or AWS.
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every
-result is editable and requires agent review; the system does not automatically
-send drafts, schedule showings, alter listing facts, or claim route, school,
-wildfire, MLS, legal, or valuation conclusions.
+result is editable and requires agent review. In production, a weekly AWS job
+replaces the single current draft and sends the administrator a temporary
+Telegram download link. The system does not send drafts to clients, schedule
+showings, alter listing facts, or claim route, school, wildfire, MLS, legal, or
+valuation conclusions.
+
+The production retention invariant is latest-only: application-visible primary
+storage contains one logical current Showing List draft, represented by at most
+one current structured record and one private downloadable artifact. A
+successful generation replaces the prior draft; failed generation or
+publication leaves the prior draft intact. No dated artifact keys, append-only
+generation snapshots, or S3 object versions are retained.
 
 Planned sub-block mapping:
 
@@ -361,12 +370,17 @@ Planned sub-block mapping:
 3. `18.3` Add the use case with authoritative database reload.
 4. `18.4` Add the fixed, versioned prompt and guardrails.
 5. `18.5` Add the OpenAI Responses API adapter with Structured Outputs.
-6. `18.6` Persist generation snapshots and draft lifecycle state.
-7. `18.7` Add the review, edit, reorder, and copy UI.
-8. `18.8` Complete mocked adapter, validation, failure, and Fair Housing tests.
+6. `18.6` Add latest-only draft persistence and private artifact publication.
+7. `18.7` Add the review, edit, reorder, copy, and download UI.
+8. `18.8` Add the weekly AWS job and administrator Telegram download delivery.
+9. `18.9` Complete mocked adapter, validation, replacement, delivery, failure,
+   and Fair Housing tests.
 
 Block 18 depends on authentication, database-backed listing reads, and the
 selection/review UI established by Blocks 15-17.
 
 See [Blocks 16-18 Feature Knowledge Base](knowledge-base/blocks-16-18.md) for
-the detailed product, architecture, security, and testing constraints.
+the detailed product, architecture, security, retention, delivery, and testing
+constraints. See
+[ADR 0006: Latest-Only Showing List Publication](adr/0006-latest-only-showing-list-publication.md)
+for the accepted production publication decision.

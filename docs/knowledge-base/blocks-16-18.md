@@ -533,17 +533,29 @@ AWS resource.
 The feature generates an agent-review draft from selected properties:
 
 ```text
-select listings on map
+weekly AWS trigger or authorized manual request
+-> reload the selected authoritative listings
 -> generate structured draft
+-> validate and replace the single current draft
+-> send the administrator a temporary Telegram download link
 -> review and edit
 -> mark reviewed
 -> copy or export
 ```
 
-The first release does not email or message clients, schedule showings, alter
-listing facts, make final property choices, or claim accurate routes, commute
-times, MLS status, school boundaries, wildfire classifications, valuations, or
-legal conclusions.
+The production schedule generates one draft per week. The exact weekday, time,
+time zone, and initial enabled state remain explicit Block 18.8 deployment
+parameters. Manual generation may use the same application use case but cannot
+create a second retained draft. The scheduled job reads listing IDs and bounded
+preferences from an explicit current server-side generation configuration
+defined in Block 18.1; it never depends on transient browser state. A missing or
+invalid configuration preserves the prior draft and sends no Telegram message.
+
+The first release sends an operational download link only to the configured
+administrator Telegram chat. It does not email or message clients, schedule
+showings, alter listing facts, make final property choices, or claim accurate
+routes, commute times, MLS status, school boundaries, wildfire
+classifications, valuations, or legal conclusions.
 
 ### Trusted Input Boundary
 
@@ -600,21 +612,83 @@ explain an order but does not calculate a guaranteed shortest route.
 
 ### Persistence and Review
 
-Persist the creator, prompt version, model, bounded input snapshot, validated
-result, lifecycle status, and server timestamps. Also consider the provider
-response ID, token usage, duration, and a non-sensitive failure category.
+Persist one application-visible current draft rather than an append-only series
+of generation snapshots. The current database record stores the creator,
+generation ID, prompt version, model, bounded input snapshot, validated result,
+artifact key and ETag, lifecycle and delivery states, and server timestamps.
+Provider response ID, bounded token usage, duration, and a non-sensitive failure
+category may be retained only on that current record or in bounded operational
+logs.
 
 Never persist API keys, JWTs, passwords, or unnecessary customer data.
 
 Initial lifecycle:
 
 ```ts
-type ShowingListStatus = "draft" | "reviewed" | "shared";
+type ShowingListStatus = "draft" | "reviewed";
+type ShowingListDeliveryStatus = "pending" | "sent" | "failed";
 ```
 
 The first review UI supports editing title, summary, order, highlights,
-considerations, and client message; saving; marking reviewed; and copying. PDF,
-email, Telegram delivery, and automatic sharing are deferred.
+considerations, and client message; saving; marking reviewed; copying; and
+downloading the current private artifact. Client email, client messaging, and
+automatic client sharing are deferred.
+
+### Latest-Only Retention
+
+Latest-only is an application invariant for the current single-administrator
+product:
+
+- the database contains at most one application-visible current draft row
+- private S3 storage contains one stable artifact key, such as
+  `showing-lists/current.<format>`
+- the artifact bucket remains unversioned and does not use Object Lock
+- publication overwrites the stable key; it does not create dated keys or
+  noncurrent object versions
+- a lifecycle rule aborts incomplete multipart uploads so abandoned parts do
+  not accumulate storage cost
+- CloudWatch retains only bounded, non-content operational metadata under the
+  project retention policy
+
+The exact downloadable format is selected when the Block 18.1 output contract
+is implemented. The one-current-object rule does not depend on that choice.
+
+Generate and validate the complete replacement before touching the current
+artifact. S3 publication of one key is atomic, so readers observe the old or the
+new complete artifact, never a partial object. If generation, validation, or
+upload fails, the current database record and artifact remain unchanged and no
+Telegram message is sent.
+
+After a successful upload, upsert the singleton database record with the new
+generation ID and S3 ETag. If that metadata write fails, the job fails and an
+idempotent retry reconciles the same generation and ETag; it must not create a
+history object. Application-visible primary storage remains latest-only, while
+AWS-managed database backups may retain prior bytes for their separate bounded
+backup window.
+
+### Telegram Download Delivery
+
+After the replacement is published and its current metadata is committed, the
+job creates a short-lived S3 presigned download URL and sends it to the
+configured administrator Telegram chat. The message identifies the content as
+an unreviewed draft and states that the link expires.
+
+- the artifact bucket blocks public access; Telegram receives a temporary URL,
+  not a public object
+- URL lifetime is the shorter of the configured expiry and the task's temporary
+  AWS credential lifetime
+- the URL is generated at delivery time and is never persisted or logged
+- download responses request an attachment filename
+- because every URL targets the stable current key, an older unexpired message
+  can expose only the current artifact, never a retained historical draft
+- a Telegram failure does not roll back or delete the successfully published
+  current draft; delivery remains `failed` or `pending` for bounded retry
+- the generation ID and sent timestamp prevent ordinary retries from sending
+  the same successful delivery twice
+
+Telegram retains the message independently, but the embedded URL loses access
+when it expires. A later on-demand link refresh can reuse the same current
+artifact without creating another stored draft.
 
 ### Fair Housing Guardrails
 
@@ -640,11 +714,24 @@ and a mocked SDK or HTTP boundary for adapter tests.
 - successful structured response
 - timeout, rate limit, authentication failure, refusal, and incomplete response
 - invalid schema, hallucinated ID, duplicate ID, modified address, and bad order
-- draft persistence only after successful validation
-- prompt version, model, and safe usage metadata persistence
+- first successful publication creates one current row and one current object
+- second successful publication replaces both without a history row, dated key,
+  or S3 object version
+- generation, validation, or upload failure preserves the previous current
+  draft and sends no Telegram message
+- database metadata failure is idempotently reconciled by generation ID and ETag
+- Telegram runs only after publication and metadata commit
+- Telegram failure preserves the current draft and records bounded retry state
+- retry after a successful Telegram send does not intentionally duplicate it
+- presigned URLs are short-lived, absent from persistence and logs, and target
+  only the stable current key
+- prompt version, model, and safe usage metadata persistence on the current row
 - no secrets in logs
 - arbitrary client system prompt rejected
 - prohibited Fair Housing instruction cannot override system rules
+- weekly schedule configuration, single-run idempotency, and disabled-state gate
+- missing or invalid scheduled-generation configuration preserves the current
+  draft and sends no Telegram message
 
 ## Cross-Feature Rules
 
