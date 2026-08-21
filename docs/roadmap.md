@@ -13,8 +13,9 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1, Blocks 15.0-15.5, and Blocks 16.0-16.5 are complete. The
-repository currently contains:
+Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
+Blocks 18.1-18.9 are complete. Block 19.0 planning is complete. The repository
+currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -581,3 +582,47 @@ the detailed product, architecture, security, retention, delivery, and testing
 constraints. See
 [ADR 0006: Latest-Only Showing List Publication](adr/0006-latest-only-showing-list-publication.md)
 for the accepted production publication decision.
+
+### Block 19: Wildfire Hazard Zone Overlay
+
+Add an optional Fire Hazard Severity Zone overlay to the MapLibre listings map.
+The control is a binary `Wildfire hazard zones` toggle, not a listing filter.
+When enabled, official polygons render below listing markers with transparent
+red fills whose depth increases from `Moderate` to `High` to `Very High`.
+
+The feature must use the official CAL FIRE / Office of the State Fire Marshal
+term `Fire Hazard Severity Zone` and must not relabel hazard as wildfire risk.
+It does not show active fires, evacuation orders, parcel-level safety,
+insurability, or expected property loss. The UI must identify source version,
+jurisdictional status, and update date and link to the official source.
+
+Planned sub-block mapping:
+
+1. `19.0` Record feasibility, source constraints, architecture, visual
+   hierarchy, legal boundaries, performance budgets, and test plan.
+   **Complete in documentation only.**
+2. `19.1` Audit the current official SRA and LRA datasets, verify the five
+   target jurisdictions, measure clipped geometry, and select GeoJSON or a
+   tiled artifact using the documented performance gate.
+3. `19.2` Add a reproducible normalization and clipping pipeline plus a
+   provenance manifest and deterministic test fixture. Do not add a runtime
+   ArcGIS dependency.
+4. `19.3` Extend the injected MapLibre driver with lazy source loading,
+   severity fill and boundary layers, stable layer ordering, and bounded
+   overlay-only failure behavior.
+5. `19.4` Add the responsive toggle, loading/error states, labeled legend,
+   attribution, and accessible keyboard behavior. The overlay remains off by
+   default.
+6. `19.5` Complete fixture-based tests, browser visual verification,
+   performance checks, known-location comparison against official maps, and
+   production-build verification. Do not deploy AWS resources.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 19 does not enable PostGIS or assign a hazard level to a
+listing. A future server-side point-in-polygon feature needs a separate data,
+freshness, API, and disclosure decision.
+
+See the
+[Block 19 Wildfire Hazard Overlay Knowledge Base](knowledge-base/block-19-wildfire-hazard-overlay.md)
+and
+[ADR 0007: Wildfire Hazard Overlay](adr/0007-wildfire-hazard-overlay.md).

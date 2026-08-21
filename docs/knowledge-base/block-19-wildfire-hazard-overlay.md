@@ -1,0 +1,283 @@
+# Block 19 Wildfire Hazard Overlay Knowledge Base
+
+## Purpose
+
+Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
+existing listings map. This file is the implementation planning record. Block
+19.0 changes documentation only and does not authorize executable sub-blocks.
+
+## Feasibility
+
+The feature is feasible with the existing `maplibre-gl` driver:
+
+- hazard data is polygon or multipolygon geometry that MapLibre can render
+- a categorical expression can map the three official severities to red fills
+- layer insertion can keep polygons below the existing listing circle layer
+- `fill-opacity` preserves basemap labels and streets
+- the current white listing-marker stroke maintains point contrast
+- visibility can be toggled without recreating the map
+
+The hard part is not drawing polygons. It is maintaining authoritative source
+provenance, controlling payload size, representing SRA/LRA status honestly, and
+keeping an overlay failure isolated from the listings workflow.
+
+## Terminology and disclosure
+
+Use:
+
+- `Fire Hazard Severity Zone`
+- `Moderate`
+- `High`
+- `Very High`
+- `Wildfire hazard zones` for the control label
+
+Do not use:
+
+- `wildfire risk score`
+- `fireline level`
+- `safe`, `unsafe`, or `no risk`
+- `insurance zone`
+- real-time fire, evacuation, or incident language
+
+The overlay describes mapped hazard conditions. It does not account for home
+hardening, defensible space, recent mitigation, current weather, active fire,
+individual property construction, loss probability, insurance availability,
+or local emergency instructions.
+
+## Official data baseline
+
+Block 19.1 begins from the official CAL FIRE / OSFM page and rechecks it on the
+day of acquisition. The documentation review on 2026-08-21 found:
+
+- SRA dataset `FHSZSRA_23_3`, effective April 1, 2024
+- LRA combined dataset `FHSZLRA25_1`, released as 2025 recommendations across
+  phases 1 through 4
+- official severity classes `Moderate`, `High`, and `Very High`
+- official guidance that FHSZ evaluates hazard rather than risk
+
+Target coverage includes Chino, Chino Hills, Eastvale, Corona, and Jurupa
+Valley. Block 19.1 must verify the responsibility-area and adoption status for
+each target jurisdiction. An OSFM recommendation may be displayed only when
+the UI and provenance manifest say `recommended`; it must not be presented as
+a locally adopted designation without a verified local source.
+
+## Data artifact strategy
+
+The preferred runtime is a same-origin static artifact produced from the
+official downloads. The source archives themselves are not web assets and are
+not committed merely to begin implementation.
+
+The deterministic preparation pipeline must:
+
+1. Record canonical URLs, metadata, acquisition timestamp, and source hashes.
+2. Extract only the required polygon layers.
+3. Normalize severity and responsibility-area fields through an allowlist.
+4. Reproject to EPSG:4326 with longitude first.
+5. Repair only transformations explicitly supported by the selected GIS tool;
+   do not silently discard invalid features.
+6. Clip to a documented Southern California product envelope that covers the
+   five target cities and the map's expected nearby context.
+7. Simplify topology conservatively for screen display while preserving holes
+   and category boundaries.
+8. Emit deterministic feature order, minimal properties, provenance manifest,
+   and output checksum.
+9. Compare feature counts and area summaries before and after transformation.
+
+### Format gate
+
+Block 19.1 measures the real clipped output before dependencies are selected.
+
+Use GeoJSON only when all are true:
+
+- the entire state is not included
+- gzip transfer size is at most 2 MiB
+- uncompressed data is at most 10 MiB
+- parsing and source installation do not produce a visibly stalled UI on the
+  supported desktop and mobile test profiles
+- boundary simplification remains visually faithful at supported zooms
+
+If any condition fails, use a maintained MapLibre-compatible tiled artifact
+instead of increasing the budgets. The final choice and measured evidence are
+recorded in the ADR before Block 19.2.
+
+CI uses a small deterministic fixture and never downloads the official source.
+A source refresh is an explicit maintainer operation with reviewable hashes and
+derived-output diff statistics.
+
+## Browser contract
+
+The web artifact contains only:
+
+```ts
+type WildfireHazardSeverity = "moderate" | "high" | "very-high";
+type ResponsibilityArea = "sra" | "lra";
+type DesignationStatus = "effective" | "recommended" | "locally-adopted";
+```
+
+Every feature contains `severity`, `responsibilityArea`,
+`designationStatus`, and `sourceVersion`. The renderer rejects unknown values
+and unsupported geometry. Source metadata for attribution is loaded with the
+artifact or a paired manifest; listing DTOs remain unchanged.
+
+No browser call reaches RentCast, PostgreSQL, CAL FIRE ArcGIS services, or AWS
+credentials. The overlay uses the same application origin as the React build.
+
+## Map driver design
+
+Extend the injected map driver rather than letting React manipulate MapLibre
+objects directly. The planned responsibilities are:
+
+- install the hazard source once after successful lazy loading
+- create one fill layer and bounded boundary layers
+- place all hazard layers below `cpi-listings`
+- set visibility without rebuilding the map
+- preserve listing selection, fit, draft-marker, and map-error behavior
+- dispose listeners and requests when the component unmounts
+
+Proposed stable IDs:
+
+```text
+cpi-wildfire-hazard-source
+cpi-wildfire-hazard-fill
+cpi-wildfire-hazard-outline-moderate
+cpi-wildfire-hazard-outline-high
+cpi-wildfire-hazard-outline-very-high
+```
+
+The fill expression uses red depth plus bounded opacity. Boundary tone and
+weight may also increase with severity so the distinction is not encoded only
+by fill color. Listing points and the draggable draft marker remain above the
+overlay and interactive.
+
+## User interface
+
+Place a compact binary toggle in the map tool surface:
+
+```text
+[toggle] Wildfire hazard zones
+```
+
+Expected behavior:
+
+- default off
+- first enable starts lazy loading
+- loading state is visible without blocking the map
+- success displays the overlay, legend, source, version, and designation status
+- disable hides layers and legend but keeps loaded data for the current page
+- failure displays `Hazard layer unavailable` with retry and leaves listing
+  map interactions intact
+- keyboard, focus, screen-reader name, and mobile layout are tested
+
+The legend lists `Moderate`, `High`, and `Very High` with matching swatches.
+It also states that blank map areas are not proof of no hazard. On narrow
+screens it must not cover the map's navigation control, draft-marker control,
+listing markers, or the mobile list/map switch.
+
+## Color and layer acceptance criteria
+
+Initial values:
+
+| Severity | Fill | Opacity |
+| --- | --- | --- |
+| Moderate | `#f8b4ad` | `0.16` |
+| High | `#e85d55` | `0.22` |
+| Very High | `#a61b1b` | `0.28` |
+
+Acceptance requires:
+
+- red depth increases monotonically with severity
+- no fill opacity exceeds `0.30`
+- basemap roads, labels, and boundaries remain legible
+- normal and selected listing circles remain visually dominant
+- white listing strokes remain visible over `Very High`
+- controls and legend do not overlap on supported viewports
+- disabled state leaves the map visually identical to the current product
+
+Block 19.5 may tune the exact colors within these constraints after screenshot
+review. It may not increase opacity to solve weak color contrast.
+
+## Failure and freshness behavior
+
+Overlay failures are independent from map failures. A bad artifact, failed
+fetch, unsupported severity, or source-installation problem:
+
+- hides all hazard layers
+- reports one bounded overlay error
+- does not remove listing points
+- does not reset selected listing or draft-marker state
+- does not show partial severity categories
+
+The attribution surface shows the artifact version and effective or
+recommendation date. The application does not claim live updates. Source
+refresh cadence is explicit and does not occur automatically during browser
+startup or CI.
+
+## Test plan
+
+### Data pipeline
+
+- source checksum and provenance manifest
+- exact severity allowlist
+- polygon and multipolygon support
+- finite coordinate and longitude/latitude order checks
+- deterministic feature ordering and output checksum
+- invalid geometry and unknown-field rejection
+- before/after feature-count and area-summary reconciliation
+- format-budget enforcement
+
+### Map driver
+
+- source installed once
+- hazard layers inserted before `cpi-listings`
+- severity expression and opacity values
+- default hidden visibility
+- repeated toggle does not duplicate source or layers
+- listing selection and draft marker continue to work
+- overlay error does not invoke the global map-error callback
+- cleanup aborts pending load and removes listeners
+
+### React UI
+
+- toggle, loading, ready, off, error, and retry states
+- legend labels and source attribution
+- keyboard and screen-reader behavior
+- mobile list/map mode and control placement
+- no fetch before first enable
+- no refetch after successful disable/enable in the same mount
+
+### Verification
+
+- CI uses fixtures and makes no official-provider or AWS call
+- production build contains no credentials or absolute local paths
+- desktop and mobile screenshots verify transparency, layer order, legend, and
+  non-overlap
+- known sample locations in each available severity class are compared with the
+  official viewer
+- target-jurisdiction source status is reviewed before completion
+
+## Out of scope
+
+- active wildfire perimeters or incidents
+- evacuation zones or alerts
+- parcel-level hazard certification
+- insurance, appraisal, lending, legal, or disclosure advice
+- listing filtering or ranking by hazard
+- storing a hazard value on a listing
+- PostGIS and server-side point-in-polygon
+- Showing List generation changes
+- AWS deployment or scheduler changes
+
+## Sub-block readiness
+
+Block 19.0 is complete when this knowledge base, the roadmap, and ADR 0007 are
+reviewed. Block 19.1 is the first executable block and still requires explicit
+confirmation. Its output is a source audit and measured artifact prototype,
+not a user-visible map feature.
+
+## References
+
+- [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
+- [California Open Data Fire Hazard Severity Zone Viewer](https://lab.data.ca.gov/dataset/fire-hazard-severity-zone-viewer)
+- [ADR 0001: Persistence Direction](../adr/0001-persistence-direction.md)
+- [ADR 0003: API, Web, and Map Foundation](../adr/0003-api-web-map-foundation.md)
+- [ADR 0007: Wildfire Hazard Overlay](../adr/0007-wildfire-hazard-overlay.md)

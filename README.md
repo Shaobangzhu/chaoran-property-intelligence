@@ -1,6 +1,8 @@
 # chaoran-property-intelligence
 
-A TypeScript-powered real estate intelligence platform for listing alerts, showing-list visualization, school proximity, and wildfire risk analysis across five Southern California cities.
+A TypeScript-powered real estate intelligence platform for listing alerts,
+showing-list visualization, school proximity, and wildfire hazard visualization
+across five Southern California cities.
 
 ## Local verification
 
@@ -227,8 +229,10 @@ planned React/Express production boundary.
 - [API, web, and map foundation decision](docs/adr/0003-api-web-map-foundation.md)
 - [Manual listing model decision](docs/adr/0005-manual-listing-model.md)
 - [Latest-only Showing List publication decision](docs/adr/0006-latest-only-showing-list-publication.md)
+- [Proposed wildfire hazard overlay decision](docs/adr/0007-wildfire-hazard-overlay.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)
 - [Weekly Showing List production runbook](docs/runbooks/showing-list-production.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
+- [Block 19 wildfire hazard overlay knowledge base](docs/knowledge-base/block-19-wildfire-hazard-overlay.md)
