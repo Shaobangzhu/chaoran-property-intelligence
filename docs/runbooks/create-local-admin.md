@@ -27,7 +27,7 @@ Stop if the host is not `localhost`, `127.0.0.1`, or `::1`.
 Run the command with the administrator email:
 
 ```bash
-pnpm user:create-admin -- --email admin@example.com
+pnpm user:create-admin --email admin@example.com
 ```
 
 The CLI asks for the password twice with masked terminal input. The password:

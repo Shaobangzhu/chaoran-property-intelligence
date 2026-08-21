@@ -29,7 +29,7 @@ export interface CreateAdminCliDependencies {
 }
 
 const usageMessage =
-  "Usage: pnpm user:create-admin -- --email <email>\n";
+  "Usage: pnpm user:create-admin --email <email>\n";
 
 export async function runCreateAdminCli(
   runtime: CreateAdminCliRuntime,

@@ -57,7 +57,7 @@ After confirming `DATABASE_URL` points to the local Docker PostgreSQL database,
 create the initial administrator with:
 
 ```bash
-pnpm user:create-admin -- --email admin@example.com
+pnpm user:create-admin --email admin@example.com
 ```
 
 The command builds the dedicated admin CLI, loads `.env.local`, runs bundled

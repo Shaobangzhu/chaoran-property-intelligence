@@ -138,7 +138,7 @@ describe("runCreateAdminCli", () => {
     expect(exitCode).toBe(1);
     expect(promptPassword).not.toHaveBeenCalled();
     expect(stderr.output).toBe(
-      "Usage: pnpm user:create-admin -- --email <email>\n",
+      "Usage: pnpm user:create-admin --email <email>\n",
     );
   });
 });
