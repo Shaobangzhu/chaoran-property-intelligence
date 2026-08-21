@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
+import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 
 import {
   CheckNewListings,
@@ -260,8 +260,8 @@ describe("CheckNewListings", () => {
 });
 
 function createListing(
-  overrides: Partial<NormalizedListing> = {},
-): NormalizedListing {
+  overrides: Partial<RentCastNormalizedListing> = {},
+): RentCastNormalizedListing {
   return {
     source: "rentcast",
     sourceListingId: "rentcast-listing-id",
@@ -288,15 +288,15 @@ function createListing(
 }
 
 class FakeListingSource implements ListingSourcePort {
-  constructor(private readonly listings: NormalizedListing[]) {}
+  constructor(private readonly listings: RentCastNormalizedListing[]) {}
 
-  async getActiveSaleListings(): Promise<NormalizedListing[]> {
+  async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
     return this.listings;
   }
 }
 
 class FakeListingCriteria implements ListingCriteriaPort {
-  matchesSearchCriteria(listing: NormalizedListing): boolean {
+  matchesSearchCriteria(listing: RentCastNormalizedListing): boolean {
     return listing.city !== "Brea";
   }
 }

@@ -5,7 +5,7 @@ import {
 } from "@chaoran-property-intelligence/application";
 import {
   matchesMvpSearchCriteria,
-  type NormalizedListing,
+  type RentCastNormalizedListing,
 } from "@chaoran-property-intelligence/domain";
 
 import { InMemoryListingRepository } from "./inMemoryListingRepository.js";
@@ -38,9 +38,9 @@ export async function runDryRun(): Promise<DryRunSummary> {
 }
 
 class StaticListingSource implements ListingSourcePort {
-  constructor(private readonly listings: NormalizedListing[]) {}
+  constructor(private readonly listings: RentCastNormalizedListing[]) {}
 
-  async getActiveSaleListings(): Promise<NormalizedListing[]> {
+  async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
     return this.listings;
   }
 }
@@ -53,7 +53,7 @@ class RecordingListingNotifications implements ListingNotificationPort {
   }
 }
 
-function createDryRunListings(): NormalizedListing[] {
+function createDryRunListings(): RentCastNormalizedListing[] {
   return [
     createListing({
       sourceListingId: "dry-run-target",
@@ -82,7 +82,7 @@ function createDryRunListings(): NormalizedListing[] {
 
 function createListing(
   overrides: Pick<
-    NormalizedListing,
+    RentCastNormalizedListing,
     | "sourceListingId"
     | "formattedAddress"
     | "addressLine1"
@@ -93,7 +93,7 @@ function createListing(
     | "mlsName"
     | "mlsNumber"
   >,
-): NormalizedListing {
+): RentCastNormalizedListing {
   return {
     source: "rentcast",
     addressLine2: null,

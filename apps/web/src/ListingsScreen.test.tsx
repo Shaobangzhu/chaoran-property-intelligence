@@ -82,6 +82,34 @@ describe("ListingsScreen", () => {
     expect(screen.getByText("1 stored listing")).toBeInTheDocument();
   });
 
+  it("renders manual listings without inventing missing property facts", async () => {
+    const manualListing: ListingSummary = {
+      ...eastvaleListing,
+      source: "manual",
+      sourceListingId: null,
+      mlsName: null,
+      mlsNumber: null,
+      propertyType: null,
+      bedrooms: null,
+      bathrooms: null,
+      price: null,
+      listedDate: null,
+    };
+
+    render(
+      <ListingsScreen
+        loadListings={async () => [manualListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: manualListing.addressLine1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Property type not provided")).toBeInTheDocument();
+    expect(screen.getAllByText("Not provided")).toHaveLength(3);
+  });
+
   it("coordinates selection from the listing into the map", async () => {
     const user = userEvent.setup();
     render(

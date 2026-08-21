@@ -385,6 +385,21 @@ enter address data, place or drag a marker, confirm coordinates, and then save.
 - RentCast and manual listings can be read through one normalized contract
 - repository and application tests use no external API
 
+### Block 17.1 Implementation Baseline
+
+Block 17.1 implements the shared model and persistence foundation in
+[ADR 0005](../adr/0005-manual-listing-model.md). RentCast records retain their
+required provider identity and complete search facts. Manual records have no
+provider source ID and may omit property type, bedrooms, bathrooms, price, and
+listed date, while address fields, coordinates, status, and server timestamps
+remain required.
+
+Migration 004 adds ownership, bounded notes, archive metadata, persistence
+timestamps, source-aware checks, and `not_applicable` notification state. It is
+bundled but has not been applied to local or AWS PostgreSQL. Creation, HTTP
+writes, forms, edit/archive commands, and active-query filtering remain owned
+by Blocks 17.2 through 17.5.
+
 ## Block 18: OpenAI Showing List Drafts
 
 ### Product Scope

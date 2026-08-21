@@ -1,5 +1,5 @@
 import type { ListingSourcePort } from "@chaoran-property-intelligence/application";
-import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
+import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 import type {
   RentCastListingsPort,
   RentCastSaleListing,
@@ -19,7 +19,7 @@ export class RentCastListingSource implements ListingSourcePort {
     this.now = options.now;
   }
 
-  async getActiveSaleListings(): Promise<NormalizedListing[]> {
+  async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
     const listings = await this.client.searchSaleListings();
     const firstDiscoveredAt = this.now().toISOString();
 
@@ -32,7 +32,7 @@ export class RentCastListingSource implements ListingSourcePort {
 function normalizeRentCastListing(
   listing: RentCastSaleListing,
   firstDiscoveredAt: string,
-): NormalizedListing {
+): RentCastNormalizedListing {
   return {
     source: "rentcast",
     sourceListingId: listing.id,

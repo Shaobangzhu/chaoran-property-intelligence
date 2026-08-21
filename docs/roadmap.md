@@ -281,6 +281,15 @@ Planned sub-block mapping:
 
 Block 17 depends on Block 16 authorization and the map foundation from Block 15.
 
+Block 17.1 is complete. The normalized listing is now a discriminated RentCast
+or manual union, while alert-worker ports remain RentCast-only. Migration 004
+adds manual ownership, notes, archive and persistence timestamps, source-aware
+identity and notification constraints, nullable manual property facts, bounded
+coordinates, and an active-row index. PostgreSQL, API, and browser readers now
+accept manual records through the shared contract and present absent facts
+without inventing values. ADR 0005 records the accepted model. The migration
+was added to the bundle but was not applied to a local or AWS database.
+
 ### Block 18: OpenAI Showing List Drafts
 
 Generate structured Showing List drafts from authoritative listing data. Every

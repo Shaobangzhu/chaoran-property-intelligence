@@ -27,13 +27,7 @@ export function parseNormalizedListing(
   row: Record<string, unknown>,
 ): NormalizedListing {
   const source = readString(row, "source");
-  if (source !== "rentcast") {
-    throwInvalidListingRowError();
-  }
-
-  return {
-    source,
-    sourceListingId: readString(row, "source_listing_id"),
+  const sharedFields = {
     mlsName: readNullableString(row, "mls_name"),
     mlsNumber: readNullableString(row, "mls_number"),
     formattedAddress: readString(row, "formatted_address"),
@@ -44,15 +38,40 @@ export function parseNormalizedListing(
     zipCode: readString(row, "zip_code"),
     latitude: readNumber(row, "latitude"),
     longitude: readNumber(row, "longitude"),
-    propertyType: readString(row, "property_type"),
-    bedrooms: readNumber(row, "bedrooms"),
-    bathrooms: readNumber(row, "bathrooms"),
-    price: readNumber(row, "price"),
     status: readString(row, "status"),
-    listedDate: readString(row, "listed_date"),
     lastSeenDate: readString(row, "last_seen_date"),
     firstDiscoveredAt: readString(row, "first_discovered_at"),
   };
+
+  if (source === "rentcast") {
+    return {
+      ...sharedFields,
+      source,
+      sourceListingId: readString(row, "source_listing_id"),
+      propertyType: readString(row, "property_type"),
+      bedrooms: readNumber(row, "bedrooms"),
+      bathrooms: readNumber(row, "bathrooms"),
+      price: readNumber(row, "price"),
+      listedDate: readString(row, "listed_date"),
+    };
+  }
+
+  if (source === "manual") {
+    readNull(row, "source_listing_id");
+
+    return {
+      ...sharedFields,
+      source,
+      sourceListingId: null,
+      propertyType: readNullableString(row, "property_type"),
+      bedrooms: readNullableNumber(row, "bedrooms"),
+      bathrooms: readNullableNumber(row, "bathrooms"),
+      price: readNullableNumber(row, "price"),
+      listedDate: readNullableString(row, "listed_date"),
+    };
+  }
+
+  throwInvalidListingRowError();
 }
 
 export function readRecord(value: unknown): Record<string, unknown> {
@@ -98,4 +117,22 @@ function readNumber(record: Record<string, unknown>, key: string): number {
   }
 
   return value;
+}
+
+function readNullableNumber(
+  record: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = record[key];
+  if (value === null) {
+    return null;
+  }
+
+  return readNumber(record, key);
+}
+
+function readNull(record: Record<string, unknown>, key: string): void {
+  if (record[key] !== null) {
+    throwInvalidListingRowError();
+  }
 }

@@ -18,12 +18,12 @@ export interface ListingSummaryDto {
   zipCode: string;
   latitude: number;
   longitude: number;
-  propertyType: string;
-  bedrooms: number;
-  bathrooms: number;
-  price: number;
+  propertyType: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  price: number | null;
   status: string;
-  listedDate: string;
+  listedDate: string | null;
   lastSeenDate: string;
   firstDiscoveredAt: string;
 }

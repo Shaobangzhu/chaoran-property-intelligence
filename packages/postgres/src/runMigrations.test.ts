@@ -59,7 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(3);
+    expect(database.transactionCount).toBe(4);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -92,9 +92,30 @@ describe("runMigrations", () => {
       "CHECK (status IN ('active', 'disabled'))",
     );
     expect(database.queries[7]?.parameters).toEqual(["003_create_users"]);
+    expect(database.queries[8]?.text).toContain(
+      "CHECK (source IN ('rentcast', 'manual'))",
+    );
+    expect(database.queries[8]?.text).toContain(
+      "ADD COLUMN created_by_user_id uuid",
+    );
+    expect(database.queries[8]?.text).toContain(
+      "notification_status IN ('baseline', 'pending', 'sent', 'not_applicable')",
+    );
+    expect(database.queries[8]?.text).toContain(
+      "CONSTRAINT listings_source_identity_check",
+    );
+    expect(database.queries[8]?.text).toContain(
+      "CONSTRAINT listings_source_facts_check",
+    );
+    expect(database.queries[8]?.text).toContain(
+      "CONSTRAINT listings_coordinates_check",
+    );
+    expect(database.queries[9]?.parameters).toEqual([
+      "004_support_manual_listings",
+    ]);
   });
 
-  it("applies only the identity migration when the initial schema exists", async () => {
+  it("applies the remaining bundled migrations when the initial schema exists", async () => {
     const database = new RecordingSqlDatabase([
       { rows: [] },
       { rows: [{ version: "001_initial_alert_schema" }] },
@@ -102,7 +123,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(2);
+    expect(database.transactionCount).toBe(3);
     expect(database.queries[2]?.text).toContain(
       "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
     );
@@ -111,6 +132,12 @@ describe("runMigrations", () => {
     ]);
     expect(database.queries[4]?.text).toContain("CREATE TABLE users");
     expect(database.queries[5]?.parameters).toEqual(["003_create_users"]);
+    expect(database.queries[6]?.text).toContain(
+      "CHECK (source IN ('rentcast', 'manual'))",
+    );
+    expect(database.queries[7]?.parameters).toEqual([
+      "004_support_manual_listings",
+    ]);
   });
 });
 

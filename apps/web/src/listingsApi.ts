@@ -12,12 +12,12 @@ export interface ListingSummary {
   zipCode: string;
   latitude: number;
   longitude: number;
-  propertyType: string;
-  bedrooms: number;
-  bathrooms: number;
-  price: number;
+  propertyType: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  price: number | null;
   status: string;
-  listedDate: string;
+  listedDate: string | null;
   lastSeenDate: string;
   firstDiscoveredAt: string;
 }
@@ -99,12 +99,12 @@ function parseListingSummary(value: unknown): ListingSummary {
     zipCode: readString(value, "zipCode"),
     latitude: readFiniteNumber(value, "latitude"),
     longitude: readFiniteNumber(value, "longitude"),
-    propertyType: readString(value, "propertyType"),
-    bedrooms: readFiniteNumber(value, "bedrooms"),
-    bathrooms: readFiniteNumber(value, "bathrooms"),
-    price: readFiniteNumber(value, "price"),
+    propertyType: readNullableString(value, "propertyType"),
+    bedrooms: readNullableFiniteNumber(value, "bedrooms"),
+    bathrooms: readNullableFiniteNumber(value, "bathrooms"),
+    price: readNullableFiniteNumber(value, "price"),
     status: readString(value, "status"),
-    listedDate: readString(value, "listedDate"),
+    listedDate: readNullableString(value, "listedDate"),
     lastSeenDate: readString(value, "lastSeenDate"),
     firstDiscoveredAt: readString(value, "firstDiscoveredAt"),
   };
@@ -141,6 +141,17 @@ function readFiniteNumber(
   }
 
   return field;
+}
+
+function readNullableFiniteNumber(
+  value: Record<string, unknown>,
+  key: string,
+): number | null {
+  if (value[key] === null) {
+    return null;
+  }
+
+  return readFiniteNumber(value, key);
 }
 
 function readSource(value: unknown): ListingSummary["source"] {

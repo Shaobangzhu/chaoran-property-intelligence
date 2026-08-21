@@ -46,7 +46,7 @@ describe("PostgresListingQuery", () => {
       },
     ]);
     expect(database.queries[0]?.text).toContain(
-      "ORDER BY listed_date DESC, id ASC",
+      "ORDER BY listed_date DESC NULLS LAST, id ASC",
     );
   });
 
@@ -54,6 +54,55 @@ describe("PostgresListingQuery", () => {
     const database = new RecordingSqlDatabase([
       {
         rows: [createListingRow({ id: null })],
+      },
+    ]);
+    const query = new PostgresListingQuery(database);
+
+    await expect(query.listListings()).rejects.toThrow(
+      "PostgreSQL listing row did not match the expected schema",
+    );
+  });
+
+  it("returns manual records through the shared normalized model", async () => {
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createListingRow({
+            source: "manual",
+            source_listing_id: null,
+            mls_name: null,
+            mls_number: null,
+            property_type: null,
+            bedrooms: null,
+            bathrooms: null,
+            price: null,
+            listed_date: null,
+          }),
+        ],
+      },
+    ]);
+    const query = new PostgresListingQuery(database);
+
+    await expect(query.listListings()).resolves.toEqual([
+      {
+        id: "0198c7d2-7668-7775-b0fc-b789690a60c1",
+        listing: expect.objectContaining({
+          source: "manual",
+          sourceListingId: null,
+          propertyType: null,
+          bedrooms: null,
+          bathrooms: null,
+          price: null,
+          listedDate: null,
+        }),
+      },
+    ]);
+  });
+
+  it("rejects RentCast rows that omit their source identity", async () => {
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [createListingRow({ source_listing_id: null })],
       },
     ]);
     const query = new PostgresListingQuery(database);

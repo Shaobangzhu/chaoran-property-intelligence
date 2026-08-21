@@ -253,8 +253,7 @@ function ListingRow({
             {listing.city}, {listing.state} {listing.zipCode}
           </p>
           <p className="property-reference">
-            {listing.propertyType}
-            {mlsReference === null ? null : ` · ${mlsReference}`}
+            {formatPropertyReference(listing, mlsReference)}
           </p>
         </div>
       </div>
@@ -262,26 +261,40 @@ function ListingRow({
       <div className="listing-facts">
         <div className="fact price-fact">
           <span className="fact-label">Price</span>
-          <strong>{formatPrice(listing.price)}</strong>
+          <strong>
+            {listing.price === null
+              ? "Not provided"
+              : formatPrice(listing.price)}
+          </strong>
         </div>
         <div className="fact">
           <span className="fact-label">Details</span>
-          <span className="inline-facts">
-            <span>
-              <BedDouble aria-hidden="true" size={16} strokeWidth={1.8} />
-              {listing.bedrooms} bd
+          {listing.bedrooms === null && listing.bathrooms === null ? (
+            <span>Not provided</span>
+          ) : (
+            <span className="inline-facts">
+              {listing.bedrooms === null ? null : (
+                <span>
+                  <BedDouble aria-hidden="true" size={16} strokeWidth={1.8} />
+                  {listing.bedrooms} bd
+                </span>
+              )}
+              {listing.bathrooms === null ? null : (
+                <span>
+                  <Bath aria-hidden="true" size={16} strokeWidth={1.8} />
+                  {listing.bathrooms} ba
+                </span>
+              )}
             </span>
-            <span>
-              <Bath aria-hidden="true" size={16} strokeWidth={1.8} />
-              {listing.bathrooms} ba
-            </span>
-          </span>
+          )}
         </div>
         <div className="fact date-fact">
           <span className="fact-label">Listed</span>
           <span>
             <CalendarDays aria-hidden="true" size={15} strokeWidth={1.8} />
-            {formatDate(listing.listedDate)}
+            {listing.listedDate === null
+              ? "Not provided"
+              : formatDate(listing.listedDate)}
           </span>
         </div>
       </div>
@@ -339,4 +352,14 @@ function formatMlsReference(listing: ListingSummary): string | null {
   }
 
   return `${listing.mlsName} #${listing.mlsNumber}`;
+}
+
+function formatPropertyReference(
+  listing: ListingSummary,
+  mlsReference: string | null,
+): string {
+  const propertyType = listing.propertyType ?? "Property type not provided";
+  return mlsReference === null
+    ? propertyType
+    : `${propertyType} · ${mlsReference}`;
 }

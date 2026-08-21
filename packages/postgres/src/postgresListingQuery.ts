@@ -23,7 +23,7 @@ export class PostgresListingQuery implements ListingQueryPort {
     const result = await this.database.query(
       `SELECT ${listingQueryColumns}
        FROM listings
-       ORDER BY listed_date DESC, id ASC`,
+       ORDER BY listed_date DESC NULLS LAST, id ASC`,
     );
 
     return mapListingRecords(result);

@@ -1,15 +1,15 @@
-import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
+import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 
 export type NotificationStatus = "baseline" | "pending" | "sent";
 
 export interface StoredListing {
   deduplicationKey: string;
-  listing: NormalizedListing;
+  listing: RentCastNormalizedListing;
   notificationStatus: NotificationStatus;
 }
 
 export interface ListingSourcePort {
-  getActiveSaleListings(): Promise<NormalizedListing[]>;
+  getActiveSaleListings(): Promise<RentCastNormalizedListing[]>;
 }
 
 export interface ListingRepositoryPort {
@@ -26,7 +26,7 @@ export interface ListingNotificationPort {
 }
 
 export interface ListingCriteriaPort {
-  matchesSearchCriteria(listing: NormalizedListing): boolean;
+  matchesSearchCriteria(listing: RentCastNormalizedListing): boolean;
 }
 
 export interface CheckNewListingsOptions {
@@ -87,7 +87,7 @@ export class CheckNewListings {
   }
 
   private async createPendingRecordsForNewListings(
-    listings: NormalizedListing[],
+    listings: RentCastNormalizedListing[],
   ): Promise<StoredListing[]> {
     const candidateRecords = listings.map((listing) => ({
       deduplicationKey: createDeduplicationKey(listing),
@@ -107,7 +107,7 @@ export class CheckNewListings {
   }
 }
 
-function createDeduplicationKey(listing: NormalizedListing): string {
+function createDeduplicationKey(listing: RentCastNormalizedListing): string {
   if (listing.mlsName !== null && listing.mlsNumber !== null) {
     return `mls:${listing.mlsName}:${listing.mlsNumber}:${listing.listedDate}`;
   }

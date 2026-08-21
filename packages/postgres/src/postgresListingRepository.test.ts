@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NormalizedListing } from "@chaoran-property-intelligence/domain";
+import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 
 import { PostgresListingRepository } from "./postgresListingRepository.js";
 import type {
@@ -75,6 +75,30 @@ describe("PostgresListingRepository", () => {
       },
     ]);
   });
+
+  it("rejects manual rows at the alert-worker repository boundary", async () => {
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createListingRow({
+            source: "manual",
+            source_listing_id: null,
+            property_type: null,
+            bedrooms: null,
+            bathrooms: null,
+            price: null,
+            listed_date: null,
+            notification_status: "not_applicable",
+          }),
+        ],
+      },
+    ]);
+    const repository = new PostgresListingRepository(database);
+
+    await expect(repository.findPendingListings()).rejects.toThrow(
+      "PostgreSQL listing row did not match the expected schema",
+    );
+  });
 });
 
 interface RecordedQuery {
@@ -107,8 +131,8 @@ class RecordingSqlDatabase implements SqlDatabase {
 }
 
 function createListing(
-  overrides: Partial<NormalizedListing> = {},
-): NormalizedListing {
+  overrides: Partial<RentCastNormalizedListing> = {},
+): RentCastNormalizedListing {
   return {
     source: "rentcast",
     sourceListingId: "rentcast-baseline",
@@ -134,7 +158,9 @@ function createListing(
   };
 }
 
-function createListingRow(): Record<string, unknown> {
+function createListingRow(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     deduplication_key: "rentcast:rentcast-new:2026-08-19",
     source: "rentcast",
@@ -158,5 +184,6 @@ function createListingRow(): Record<string, unknown> {
     last_seen_date: "2026-08-19",
     first_discovered_at: "2026-08-19T17:00:00.000Z",
     notification_status: "pending",
+    ...overrides,
   };
 }

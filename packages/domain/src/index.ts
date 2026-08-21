@@ -5,7 +5,12 @@ export {
   matchesMvpSearchCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
-export type { NormalizedListing } from "./normalizedListing.js";
+export type {
+  ListingSource,
+  ManualNormalizedListing,
+  NormalizedListing,
+  RentCastNormalizedListing,
+} from "./normalizedListing.js";
 export {
   PasswordPolicyError,
   normalizePassword,

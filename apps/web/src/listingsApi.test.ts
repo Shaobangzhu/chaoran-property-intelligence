@@ -59,6 +59,26 @@ describe("fetchListings", () => {
     ).rejects.toThrow("Listings response was invalid");
   });
 
+  it("accepts manual listings with optional property facts", async () => {
+    const manualListing = {
+      ...listingDto,
+      source: "manual",
+      sourceListingId: null,
+      propertyType: null,
+      bedrooms: null,
+      bathrooms: null,
+      price: null,
+      listedDate: null,
+    };
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse({ listings: [manualListing] }),
+    );
+
+    await expect(
+      fetchListings({ fetchImplementation }),
+    ).resolves.toEqual([manualListing]);
+  });
+
   it("rejects invalid JSON", async () => {
     const fetchImplementation = vi.fn(async () =>
       new Response("not-json", {

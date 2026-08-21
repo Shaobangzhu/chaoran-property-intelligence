@@ -132,19 +132,20 @@ interface ListingSummaryDto {
   zipCode: string;
   latitude: number;
   longitude: number;
-  propertyType: string;
-  bedrooms: number;
-  bathrooms: number;
-  price: number;
+  propertyType: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  price: number | null;
   status: string;
-  listedDate: string;
+  listedDate: string | null;
   lastSeenDate: string;
   firstDiscoveredAt: string;
 }
 ```
 
 Block 15 emits only `rentcast`; the reserved `manual` value and nullable source
-ID allow Block 17 to extend the same response shape. This contract intentionally
+ID allow Block 17 to extend the same response shape. ADR 0005 finalizes the
+nullable manual property facts shown above. This contract intentionally
 omits `deduplicationKey` and `notificationStatus` because they are internal
 worker state.
 

@@ -157,10 +157,14 @@ function mapStoredListings(result: SqlQueryResult): StoredListing[] {
 
 function parseStoredListing(value: unknown): StoredListing {
   const row = readRecord(value);
+  const listing = parseNormalizedListing(row);
+  if (listing.source !== "rentcast") {
+    throwInvalidListingRowError();
+  }
 
   return {
     deduplicationKey: readString(row, "deduplication_key"),
-    listing: parseNormalizedListing(row),
+    listing,
     notificationStatus: readNotificationStatus(row, "notification_status"),
   };
 }
