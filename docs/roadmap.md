@@ -625,7 +625,13 @@ Planned sub-block mapping:
    attribution, and bounded retry/disclosure states.**
 6. `19.5` Complete fixture-based tests, browser visual verification,
    performance checks, known-location comparison against official maps, and
-   production-build verification. Do not deploy AWS resources.
+   production-build verification. Do not deploy AWS resources. **Complete:
+   fixture and full regression tests, type checking, production build, artifact
+   audit, local performance measurements, three-severity official point checks,
+   and five-jurisdiction freshness review pass. User-verified desktop and mobile
+   browser acceptance also passed transparency, layer order, visual hierarchy,
+   non-overlap, pan/zoom, first-enable, and same-mount request-lifecycle checks.
+   Block 19 is complete.**
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 19 does not enable PostGIS or assign a hazard level to a

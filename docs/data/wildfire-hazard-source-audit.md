@@ -159,11 +159,11 @@ GeoJSON passes the Block 19 format gate with margin:
   while the final artifact will be clipped
 
 Block 19.2 emits one versioned GeoJSON artifact and a paired provenance
-manifest. Block 19.5 must still measure fetch, parse, source
-installation, pan, and zoom behavior in supported desktop and mobile browsers.
-If a visible stall occurs or the reproducible output crosses either hard size
-limit, the decision returns to a maintained MapLibre-compatible tiled format;
-the limits are not raised.
+manifest. Block 19.5 subsequently passed fetch, parse, source-installation,
+desktop/mobile pan, zoom, and visible-stall acceptance. If a future refreshed
+artifact crosses either hard size limit or introduces a visible stall, the
+decision returns to a maintained MapLibre-compatible tiled format; the limits
+are not raised.
 
 ## Block 19.2 Result
 
@@ -200,4 +200,5 @@ assumption that an open viewer implies an unrestricted redistribution license.
 - The audit did not install GDAL or another local GIS dependency.
 - Local adoption records can change and must be rechecked during a refresh.
 - Eastvale's local adoption remains unresolved by the official records found.
-- Browser visual smoothness remains a Block 19.5 acceptance test.
+- A future source refresh must repeat the Block 19.5 size, performance, and
+  browser visual checks.

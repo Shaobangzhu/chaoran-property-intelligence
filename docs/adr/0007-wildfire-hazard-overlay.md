@@ -6,8 +6,10 @@ Accepted. Block 19.0 established the product and architecture constraints,
 Block 19.1 completed the official-source audit, and Block 19.2 implemented the
 reproducible GeoJSON build and provenance manifest. Block 19.3 implemented the
 lazy MapLibre overlay controller, and Block 19.4 implemented its accessible
-switch, manifest-backed attribution, and responsive legend. No database object
-or AWS resource has been added.
+switch, manifest-backed attribution, and responsive legend. Block 19.5 accepted
+the GeoJSON performance, official-source samples, desktop/mobile rendering,
+interaction, and request lifecycle. No database object or AWS resource has
+been added.
 
 ## Context
 
@@ -95,9 +97,9 @@ The first reproducible output contains 85 features and 35,512 positions. It is
 933,093 bytes raw and 234,976 bytes at gzip level 9, with SHA-256
 `d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`.
 Two consecutive builds from the controlled inputs produced the same checksum.
-A maintained MapLibre-compatible tiled artifact remains the fallback if Block
-19.5 finds a visible browser stall. Never ship the whole-state source dataset
-to the browser.
+Block 19.5 found no visible browser stall. A maintained MapLibre-compatible
+tiled artifact remains the fallback if a future refresh fails the same gate.
+Never ship the whole-state source dataset to the browser.
 
 The derived artifact must preserve source attribution and license notices. It
 must not silently merge polygons with conflicting jurisdictional status.
@@ -159,9 +161,9 @@ The proposed light-basemap palette is:
 | Very High | `#a61b1b` | `0.28` | `#7f1d1d` |
 
 No fill opacity may exceed `0.30` in the initial design. Listing circles remain
-above every polygon and retain their white stroke. Block 19.5 must verify the
-actual palette against the OpenFreeMap Liberty style on desktop and mobile;
-the values are constraints to test, not permission to skip visual review.
+above every polygon and retain their white stroke. Block 19.5 verified the
+actual palette against the OpenFreeMap Liberty style on desktop and mobile
+without increasing opacity.
 
 Show a compact labeled legend only while the overlay is enabled. Areas without
 a polygon must not be labeled `safe` or `no hazard`; they may be outside the

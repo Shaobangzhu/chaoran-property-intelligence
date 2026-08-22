@@ -4,8 +4,9 @@
 
 Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
 existing listings map. This file is the implementation planning record. Blocks
-19.0 through 19.4 are complete; later executable sub-blocks still require
-explicit confirmation.
+19.0 through 19.5 are complete. Block 19.5 combined automated, build,
+performance, and official-source checks with user-verified desktop and mobile
+browser acceptance.
 
 ## Feasibility
 
@@ -239,8 +240,7 @@ Implemented behavior:
 - failure displays `Hazard layer unavailable` with retry and leaves listing
   map interactions intact
 - keyboard, focus, and screen-reader behavior are covered by automated tests
-- responsive desktop/mobile CSS is implemented; screenshot acceptance remains
-  in Block 19.5
+- responsive desktop/mobile CSS and screenshot acceptance passed in Block 19.5
 
 The control uses a native checkbox with `role="switch"` and remains absent
 until the base map is ready. The collapsed surface is 42 pixels high. Its
@@ -280,8 +280,7 @@ Acceptance requires:
 - controls and legend do not overlap on supported viewports
 - disabled state leaves the map visually identical to the current product
 
-Block 19.5 may tune the exact colors within these constraints after screenshot
-review. It may not increase opacity to solve weak color contrast.
+Block 19.5 accepted these exact colors without increasing opacity.
 
 ## Failure and freshness behavior
 
@@ -342,6 +341,99 @@ startup or CI.
   official viewer
 - target-jurisdiction source status is reviewed before completion
 
+## Block 19.5 verification record
+
+Block 19.5 was executed on 2026-08-21 without AWS deployment, production
+credentials, RentCast calls, or database access.
+
+### Automated and production-build checks
+
+- `pnpm wildfire:data:test`: 2 files and 9 tests passed
+- `pnpm test`: 83 files and 626 tests passed
+- `pnpm typecheck`: passed for runtime and AWS infrastructure projects
+- `pnpm build`: passed, including the Vite production build and AWS TypeScript
+  build
+- the existing Vite warning for a JavaScript chunk above 500 kB remains; no
+  new build error was introduced
+- the production directory scan found no common credential names, AWS access
+  key pattern, or `/Users/` absolute path
+- the published and production GeoJSON SHA-256 both equal
+  `d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`
+
+The production artifact remains 933,093 bytes raw, 234,976 bytes with gzip
+level 9, and 124,956 bytes with Brotli quality 11. It therefore remains below
+the 10 MiB raw and 2 MiB gzip gates. Vite preview serves it from the expected
+same-origin path with `application/geo+json`; the paired manifest is served as
+`application/json`.
+
+### Local performance evidence
+
+A 25-run local production-preview measurement on Node.js 24.19.0 produced:
+
+| Stage | Mean | p95 | Maximum |
+| --- | ---: | ---: | ---: |
+| HTTP response headers | 2.670 ms | 3.303 ms | 25.546 ms |
+| Response body read | 0.808 ms | 1.874 ms | 1.892 ms |
+| `JSON.parse` | 1.996 ms | 2.621 ms | 3.137 ms |
+
+The maximum response-header time was the first request. A separate 30-run
+measurement with the same `@maplibre/geojson-vt` implementation used by
+MapLibre produced:
+
+| Stage | Mean | p95 | Maximum |
+| --- | ---: | ---: | ---: |
+| Source index construction | 2.280 ms | 5.273 ms | 8.175 ms |
+| Seven representative tiles, z8 through z14 | 3.523 ms | 5.734 ms | 9.336 ms |
+
+These measurements support the GeoJSON format decision and were paired with
+manual browser observation of visible stalls, pan, zoom, and paint work.
+
+### Official point comparison
+
+Representative interior points were derived from the published polygons and
+queried against the current CAL FIRE LRA feature layer. Each official response
+matched the published severity and responsibility area:
+
+| Published severity | Longitude | Latitude | Official response |
+| --- | ---: | ---: | --- |
+| Moderate | -117.46685073 | 33.984651805 | `FHSZ=1`, `Moderate`, `LRA` |
+| High | -117.671529995 | 33.949015935 | `FHSZ=2`, `High`, `LRA` |
+| Very High | -117.676467185 | 33.87774064 | `FHSZ=3`, `Very High`, `LRA` |
+
+The current OSFM page still defines exactly `Moderate`, `High`, and `Very High`
+and continues to distinguish hazard from risk. The current CAL FIRE
+jurisdiction layer returns Chino, Chino Hills, Corona, Eastvale, and Jurupa
+Valley as qualifying incorporated cities. Current local records continue to
+support local adoption for Chino, Chino Hills, Corona, and Jurupa Valley. No
+final Eastvale adoption record was found during the recheck, so Eastvale
+correctly remains `recommended` in the artifact and UI.
+
+### Manual browser acceptance
+
+The Codex app displayed the local Browser tab, but its browser-control runtime
+repeatedly returned no available instance, including after the tab and desktop
+app were restarted. No standalone Playwright or unrelated browser surface was
+used as a substitute. The user therefore started the real local API and React
+application and completed the browser checklist directly on 2026-08-21. The
+user confirmed that every acceptance criterion passed and supplied a desktop
+screenshot of the enabled production-sized map surface.
+
+- off state made no wildfire artifact request
+- first enable loaded only the manifest and versioned GeoJSON
+- successful same-mount disable and re-enable did not refetch the GeoJSON
+- basemap roads, boundaries, and labels remained legible across all severities
+- normal and selected listing points, including white strokes, remained above
+  and visually stronger than the polygon fills
+- legend, navigation, attribution, and the mobile list/map switch did not
+  overlap at the tested desktop and 390 by 844 mobile viewports
+- pan and zoom remained smooth with no visible first-enable stall
+- version, snapshot, jurisdiction status, blank-area disclosure, and official
+  CAL FIRE / OSFM link rendered correctly
+
+The screenshot and user attestation provide the direct browser evidence that
+the unavailable control runtime could not capture. Block 19.5 and Block 19 are
+complete.
+
 ## Out of scope
 
 - active wildfire perimeters or incidents
@@ -356,14 +448,14 @@ startup or CI.
 
 ## Sub-block readiness
 
-Blocks 19.0 through 19.4 are complete. Block 19.2 produced the reproducible
+Blocks 19.0 through 19.5 are complete. Block 19.2 produced the reproducible
 builder, fixture tests, controlled city-boundary snapshot, versioned GeoJSON,
 and provenance manifest. Block 19.3 added the lazy, validated MapLibre driver
 controller, stable layer ordering, bounded failure rollback, and cleanup.
 Block 19.4 added the accessible switch, atomic metadata loading, bounded UI
 states, responsive legend, reviewed attribution, and disclosure text. Block
-19.5 is the next executable block and requires a fresh explanation and explicit
-confirmation.
+19.5 passed automated regression, production build, performance, official
+source, desktop, mobile, interaction, and request-lifecycle acceptance.
 
 ## References
 
