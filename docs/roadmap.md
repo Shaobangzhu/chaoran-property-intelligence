@@ -14,8 +14,8 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
-Blocks 18.1-18.9, Blocks 19.0-19.5, and Blocks 20.0-20.7 are complete. The
-repository currently contains:
+Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.1 are
+complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -799,7 +799,14 @@ preserving durable pending events and stable listing records.
    risks, and test plan. **Complete in documentation only.**
 2. `21.1` Add versioned Domain criteria, exact property-type and city enums,
    strict validation, current-value defaults, and parameterized acquisition
-   and new-listing predicates. Production behavior remains unchanged.
+   and new-listing predicates. **Complete in code and offline verification:**
+   Domain now owns a frozen, strict `schemaVersion: 1` criteria value, all seven
+   property types, the canonical five-city set, bounded numeric validation,
+   fixed `CA`/`Active` invariants, and parameterized predicates. Zero bedroom
+   or bathroom minimums accept nullable Land data. Compatibility exports keep
+   the existing worker on the exact current defaults, so provider, database,
+   and notification behavior remain unchanged. All 793 tests, full runtime/CDK
+   typecheck, and the production build pass.
 3. `21.2` Add migration 007, profile ports, a PostgreSQL adapter, an exact
    current-behavior seed, optimistic revision updates, canonical no-op saves,
    and migration/repository tests.

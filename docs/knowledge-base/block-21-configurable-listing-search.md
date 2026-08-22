@@ -2,9 +2,12 @@
 
 ## Status
 
-Block 21 is planned in documentation only. No source code, migration, local or
-Aurora database, RentCast quota, Telegram delivery, deployment, schedule, or
-AWS resource has been changed.
+Blocks 21.0 and 21.1 are complete. Domain now exposes the strict version-1
+criteria value, exact enums, canonical defaults, and parameterized acquisition
+and new-listing predicates. Existing worker composition continues to use the
+same defaults through compatibility exports. No migration, local or Aurora
+database, RentCast quota, Telegram delivery, deployment, schedule, or AWS
+resource has been changed.
 
 ## Product Goal
 
@@ -116,12 +119,17 @@ Validation is owned by Domain/application code and must:
 - require exact case-sensitive enum values
 - reject duplicate or empty city selections
 - canonicalize city ordering before equality checks or persistence
-- require non-negative safe whole-dollar prices and
-  `minimumPrice <= maximumPrice`
-- require whole-number bedrooms in the supported UI range
-- require bathrooms in supported half-step increments
+- require whole-dollar prices from `0` through PostgreSQL integer maximum
+  `2,147,483,647`, with `minimumPrice <= maximumPrice`
+- require whole-number bedrooms from `0` through `10`
+- require bathrooms from `0` through `10` in half-step increments
 - reject unknown keys and unsupported schema versions
 - keep `CA` and `Active` immutable outside trusted server composition
+
+A zero bedroom or bathroom minimum means `Any`; a candidate may therefore have
+a null value for that field. A positive minimum still requires the candidate
+field to exist and meet the threshold. This keeps `Land` usable without
+weakening residential criteria.
 
 Pure functions parameterize both alert predicates:
 
@@ -339,7 +347,10 @@ pending outbox delivery must still run on the baseline path.
    test plan. **Complete in documentation only.**
 2. `21.1` Add versioned Domain criteria, enums, validation, defaults, and
    parameterized acquisition/new-listing predicates. Keep production composed
-   with the seeded default behavior.
+   with the seeded default behavior. **Complete:** the immutable criteria,
+   strict parser, canonical cities, bounded numeric contract, dynamic
+   predicates, and backwards-compatible default exports are implemented. All
+   793 tests, full runtime/CDK typecheck, and the production build pass.
 3. `21.2` Add migration 007, profile ports, PostgreSQL adapter, optimistic
    revision updates, exact current-value seed, and migration/repository tests.
 4. `21.3` Add get/update application use cases, canonical no-op behavior,
@@ -368,4 +379,3 @@ remain separately gated.
 - [RentCast sale listings endpoint](https://developers.rentcast.io/reference/sale-listings)
 - [RentCast property types](https://developers.rentcast.io/reference/property-types)
 - [ADR 0009](../adr/0009-persisted-listing-search-criteria.md)
-

@@ -2,10 +2,31 @@ export const domainPackageName = "@chaoran-property-intelligence/domain";
 
 export { isTargetCity } from "./cityFilter.js";
 export {
+  matchesListingAcquisitionCriteria,
   matchesMvpSearchCriteria,
+  matchesNewListingCriteria,
   matchesPriceAlertAcquisitionCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
+export {
+  defaultListingSearchCriteria,
+  InvalidListingSearchCriteriaError,
+  isListingPropertyType,
+  isListingSearchCity,
+  listingPropertyTypes,
+  listingSearchCities,
+  listingSearchCriteriaSchemaVersion,
+  listingSearchState,
+  listingSearchStatus,
+  maximumListingSearchBathrooms,
+  maximumListingSearchBedrooms,
+  maximumListingSearchPrice,
+  normalizeListingSearchCriteria,
+  type ListingPropertyType,
+  type ListingSearchCity,
+  type ListingSearchCriteriaField,
+  type ListingSearchCriteriaV1,
+} from "./listingSearchCriteria.js";
 export type {
   ListingSource,
   ManualNormalizedListing,

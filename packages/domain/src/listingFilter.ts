@@ -1,12 +1,8 @@
 import { isTargetCity } from "./cityFilter.js";
-
-const requiredState = "CA";
-const requiredStatus = "Active";
-const requiredPropertyType = "Single Family";
-const minimumPrice = 780000;
-const maximumPrice = 850000;
-const minimumBedrooms = 4;
-const minimumBathrooms = 2.5;
+import {
+  defaultListingSearchCriteria,
+  type ListingSearchCriteriaV1,
+} from "./listingSearchCriteria.js";
 
 export interface ListingCandidate {
   city: string | null;
@@ -18,30 +14,37 @@ export interface ListingCandidate {
   bathrooms: number | null;
 }
 
-export function matchesMvpSearchCriteria(listing: ListingCandidate): boolean {
+export function matchesNewListingCriteria(
+  listing: ListingCandidate,
+  criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
+): boolean {
   return (
-    matchesPriceAlertAcquisitionCriteria(listing) &&
+    matchesListingAcquisitionCriteria(listing, criteria) &&
     listing.price !== null &&
-    listing.price >= minimumPrice
+    listing.price >= criteria.minimumPrice
   );
 }
 
-export function matchesPriceAlertAcquisitionCriteria(
+export function matchesListingAcquisitionCriteria(
   listing: ListingCandidate,
+  criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
 ): boolean {
-  if (listing.city === null || !isTargetCity(listing.city)) {
+  if (
+    listing.city === null ||
+    !isTargetCity(listing.city, criteria.cities)
+  ) {
     return false;
   }
 
-  if (listing.state !== requiredState) {
+  if (listing.state !== criteria.state) {
     return false;
   }
 
-  if (listing.status !== requiredStatus) {
+  if (listing.status !== criteria.status) {
     return false;
   }
 
-  if (listing.propertyType !== requiredPropertyType) {
+  if (listing.propertyType !== criteria.propertyType) {
     return false;
   }
 
@@ -49,17 +52,39 @@ export function matchesPriceAlertAcquisitionCriteria(
     return false;
   }
 
-  if (listing.price > maximumPrice) {
+  if (listing.price > criteria.maximumPrice) {
     return false;
   }
 
-  if (listing.bedrooms === null || listing.bedrooms < minimumBedrooms) {
+  if (
+    criteria.minimumBedrooms > 0 &&
+    (listing.bedrooms === null ||
+      listing.bedrooms < criteria.minimumBedrooms)
+  ) {
     return false;
   }
 
-  if (listing.bathrooms === null || listing.bathrooms < minimumBathrooms) {
+  if (
+    criteria.minimumBathrooms > 0 &&
+    (listing.bathrooms === null ||
+      listing.bathrooms < criteria.minimumBathrooms)
+  ) {
     return false;
   }
 
   return true;
+}
+
+export function matchesMvpSearchCriteria(
+  listing: ListingCandidate,
+  criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
+): boolean {
+  return matchesNewListingCriteria(listing, criteria);
+}
+
+export function matchesPriceAlertAcquisitionCriteria(
+  listing: ListingCandidate,
+  criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
+): boolean {
+  return matchesListingAcquisitionCriteria(listing, criteria);
 }

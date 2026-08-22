@@ -18,4 +18,9 @@ describe("target city filtering", () => {
   it("rejects non-target cities even if they are in nearby counties", () => {
     expect(isTargetCity("Riverside")).toBe(false);
   });
+
+  it("uses the selected criteria cities when they are provided", () => {
+    expect(isTargetCity("Corona", ["Corona", "Chino"])).toBe(true);
+    expect(isTargetCity("Eastvale", ["Corona", "Chino"])).toBe(false);
+  });
 });

@@ -100,12 +100,15 @@ validates API responses at runtime and never receives database, RentCast,
 Telegram, or AWS credentials. The browser never reads or stores the JWT. The
 web application remains local-only and is not deployed.
 
-Block 21 plans an authenticated `Search Criteria` workspace backed by one
-revisioned PostgreSQL profile. It will replace hard-coded alert criteria
-without turning the browser into a provider client. Saving criteria will not
-call RentCast, delete stored listings, or immediately change the Listings
-snapshot; the next worker run will apply the revision through a silent
-baseline. See the
+Block 21 is replacing hard-coded alert criteria with an authenticated `Search
+Criteria` workspace backed by one revisioned PostgreSQL profile. Block 21.1
+adds the strict version-1 Domain value, exact property-type and city enums,
+current production defaults, and parameterized acquisition/new-listing
+predicates. Existing worker call sites still use compatibility exports and the
+unchanged defaults; persistence, API, React, and dynamic worker composition
+remain later sub-blocks. Saving criteria will not call RentCast, delete stored
+listings, or immediately change the Listings snapshot; the next worker run
+will apply the revision through a silent baseline. See the
 [Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
 
 The API limits failed login responses to ten per 15 minutes per process before

@@ -1,11 +1,12 @@
-const targetCities = new Set([
-  "Chino",
-  "Chino Hills",
-  "Eastvale",
-  "Corona",
-  "Jurupa Valley",
-]);
+import {
+  defaultListingSearchCriteria,
+  type ListingSearchCity,
+} from "./listingSearchCriteria.js";
 
-export function isTargetCity(city: string): boolean {
-  return targetCities.has(city);
+export function isTargetCity(
+  city: string,
+  targetCities: readonly ListingSearchCity[] =
+    defaultListingSearchCriteria.cities,
+): boolean {
+  return targetCities.includes(city as ListingSearchCity);
 }
