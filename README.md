@@ -246,6 +246,13 @@ deployment, or AWS operation occurred. Follow the
 [price-alert production readiness runbook](docs/runbooks/price-alert-production-readiness.md)
 before using either mode against AWS.
 
+Block 20.7B runs those modes against a disposable `postgres:18` instance. The
+real migration path upgraded a synthetic `001-005` database to migration `006`,
+created two non-comparable address observations and one preserved pending event,
+and produced an identical database snapshot on retry. The temporary instance
+was removed; the existing local database and every external service remained
+untouched.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

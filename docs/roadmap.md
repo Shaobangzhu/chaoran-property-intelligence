@@ -749,8 +749,13 @@ Planned sub-block mapping:
    and the production runbook separates every external or mutating boundary.
    All 736 tests, full typecheck, build, CDK synth, fake-data dry run, and diff
    checks pass without a database, provider, Telegram, deployment, or AWS
-   operation. Disposable PostgreSQL integration in 20.7B and the AWS read-only
-   precheck in 20.7C remain pending separate approvals.
+   operation. **20.7B is complete:** a disposable `postgres:18` instance proved
+   the real `001-005` to `006` upgrade, two-address legacy backfill,
+   non-comparable first observation state, one preserved pending event, exact
+   aggregate verification, and an unchanged retry snapshot. The temporary
+   instance was removed and the existing local database remained healthy. No
+   provider, Telegram, Aurora, deployment, schedule, or AWS operation occurred.
+   The AWS read-only precheck in 20.7C remains pending separate approval.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 20.0 does not change source code, consume RentCast quota,

@@ -105,6 +105,33 @@ The Block 20.7B verification must prove:
 Starting, writing to, or removing that container requires the separate Block
 20.7B approval.
 
+### Local Execution Record: 2026-08-22
+
+Block 20.7B completed against a disposable `postgres:18` container with a
+random loopback port and temporary filesystem storage. The fixture contained
+only synthetic legacy listing rows and did not load `.env.local`.
+
+| Evidence | Result |
+| --- | --- |
+| Starting migrations | `001` through `005` recorded |
+| Pre-preparation schema | Price-alert schema not ready |
+| Pre-preparation migration 006 | Not applied |
+| Pre-preparation aggregates | Baseline absent; observations 0; pending 0; sent 0 |
+| Final migration count | 6 |
+| Final migration 006 | Applied |
+| Final price baseline | Initialized |
+| Final observations | 2, one per synthetic canonical address |
+| Non-comparable observations | 2 |
+| Preserved pending events | 1 new-listing event |
+| Sent events | 0 |
+| Idempotent retry | Counts and event-key hash unchanged |
+| Disposable container afterward | Removed |
+| Existing `cpi-postgres` afterward | Healthy and unchanged |
+
+The preparation and verification commands received only the disposable
+`DATABASE_URL` in an otherwise empty environment. No RentCast, Telegram, AWS,
+Aurora, or existing local-database operation occurred.
+
 ## AWS Read-Only Precheck
 
 Block 20.7C requires a separate approval and a current IAM Identity Center

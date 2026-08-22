@@ -605,7 +605,33 @@ All 736 tests, full typecheck, the production build, CDK synth, the fake-data
 worker dry run, and `git diff --check` pass. The dry run used no external service
 or production data. No Docker PostgreSQL integration, local or AWS database
 operation, RentCast request, Telegram message, deployment, schedule change, or
-AWS operation occurred. Block 20.7B and 20.7C remain pending and require fresh
+AWS operation occurred during 20.7A. At that boundary, Block 20.7B and 20.7C
+still required fresh approval.
+
+#### Block 20.7B: Disposable PostgreSQL migration integration
+
+**Complete against an isolated local database:**
+
+- a disposable `postgres:18` container used temporary filesystem storage and a
+  random loopback port, never `.env.local` or the existing `cpi_dev` database
+- the starting database recorded migrations `001` through `005`, contained a
+  legacy baseline marker, and used three synthetic snapshots across two
+  canonical addresses, including one pending listing
+- the pre-preparation read-only command reported schema not ready, migration 006
+  absent, price baseline absent, and zero new-table aggregates
+- `--prepare-price-alerts` applied migration 006, collapsed snapshots to two
+  address observations, left both non-comparable, created the independent price
+  baseline marker, and preserved exactly one pending new-listing event
+- a second preparation produced the same migration, marker, observation, event,
+  and event-key hash snapshot, proving the real PostgreSQL path is idempotent
+- the post-preparation read-only command reported schema, migration, and
+  baseline ready with two observations, one pending event, and zero sent events
+- the disposable container and temporary script were removed; the existing
+  `cpi-postgres` container remained healthy
+
+Only a disposable `DATABASE_URL` was provided to the worker commands. No real
+provider, Telegram, AWS, Aurora, deployment, schedule, or existing local
+database operation occurred. Block 20.7C remains pending and requires fresh
 approval.
 
 Every executable sub-block requires a fresh explanation and explicit user
