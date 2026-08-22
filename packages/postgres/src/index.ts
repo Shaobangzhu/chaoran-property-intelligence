@@ -16,6 +16,7 @@ export {
   type PgPoolLike,
 } from "./nodePostgresDatabase.js";
 export { PostgresListingRepository } from "./postgresListingRepository.js";
+export { PostgresListingSearchProfileRepository } from "./postgresListingSearchProfileRepository.js";
 export { PostgresListingAlertRepository } from "./postgresListingAlertRepository.js";
 export { PostgresListingQuery } from "./postgresListingQuery.js";
 export { PostgresManualListingRepository } from "./postgresManualListingRepository.js";

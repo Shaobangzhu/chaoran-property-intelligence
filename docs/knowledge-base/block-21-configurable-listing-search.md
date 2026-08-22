@@ -2,12 +2,12 @@
 
 ## Status
 
-Blocks 21.0 and 21.1 are complete. Domain now exposes the strict version-1
-criteria value, exact enums, canonical defaults, and parameterized acquisition
-and new-listing predicates. Existing worker composition continues to use the
-same defaults through compatibility exports. No migration, local or Aurora
-database, RentCast quota, Telegram delivery, deployment, schedule, or AWS
-resource has been changed.
+Blocks 21.0 through 21.2 are complete. Domain exposes the strict version-1
+criteria value, and migration 007 plus the transactional PostgreSQL profile
+adapter are bundled. Existing worker composition continues to use the same
+defaults through compatibility exports. Migration 007 has not been executed
+against a local or Aurora database. No database state, RentCast quota, Telegram
+delivery, deployment, schedule, or AWS resource has been changed.
 
 ## Product Goal
 
@@ -34,7 +34,7 @@ appear as editable form controls.
 
 ### Version-1 defaults
 
-Migration 007 must preserve the exact current behavior:
+Migration 007 seeds the exact current behavior:
 
 ```json
 {
@@ -139,7 +139,7 @@ Pure functions parameterize both alert predicates:
 
 ## Persistence Model
 
-Migration `007_create_listing_search_profile.sql` creates one profile table:
+Migration `007_create_listing_search_profile.sql` defines one profile table:
 
 ```text
 listing_search_profiles
@@ -158,12 +158,16 @@ JSON, and timestamps. The PostgreSQL adapter parses every row back through the
 strict criteria contract; malformed persisted configuration fails closed.
 
 The seed row uses revision 1 and applied revision 1 because its criteria are
-identical to the already initialized production behavior. An API update uses
-`WHERE revision = expectedRevision`; a stale update changes no row and maps to
-an application concurrency error.
+identical to the already initialized production behavior. The repository locks
+the primary row in a transaction before comparing `expectedRevision`. A
+changed save updates with `WHERE revision = expectedRevision`, increments only
+revision, and leaves appliedRevision unchanged. A stale save returns a typed
+conflict without issuing an update.
 
 Submitting criteria canonically equal to the saved profile is idempotent and
-does not increment revision.
+does not increment revision or update actor/timestamp metadata. PostgreSQL
+JSONB, bigint strings, timestamps, and nullable actor UUIDs are parsed through
+strict bounded contracts; malformed or missing seeded state fails closed.
 
 ## Application And API Boundaries
 
@@ -353,6 +357,10 @@ pending outbox delivery must still run on the baseline path.
    793 tests, full runtime/CDK typecheck, and the production build pass.
 3. `21.2` Add migration 007, profile ports, PostgreSQL adapter, optimistic
    revision updates, exact current-value seed, and migration/repository tests.
+   **Complete:** the bundled migration, typed ports, transactional row lock,
+   strict parsing, canonical no-op, changed-save, and stale-conflict paths are
+   implemented. All 812 tests, full runtime/CDK typecheck, and the production
+   build pass. No local or AWS database migration was executed.
 4. `21.3` Add get/update application use cases, canonical no-op behavior,
    actor attribution, revision conflict, and deterministic fakes.
 5. `21.4` Add authenticated administrator GET/PUT API routes, strict DTOs,

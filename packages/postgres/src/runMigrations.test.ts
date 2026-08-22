@@ -59,7 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(6);
+    expect(database.transactionCount).toBe(7);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -143,6 +143,30 @@ describe("runMigrations", () => {
     expect(database.queries[13]?.parameters).toEqual([
       "006_create_listing_alert_state",
     ]);
+    expect(database.queries[14]?.text).toContain(
+      "CREATE TABLE listing_search_profiles",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "CHECK (profile_key = 'primary')",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "REFERENCES users (id) ON DELETE SET NULL",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "INSERT INTO listing_search_profiles",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "\"propertyType\": \"Single Family\"",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "\"minimumPrice\": 780000",
+    );
+    expect(database.queries[14]?.text).toContain(
+      "\"maximumPrice\": 850000",
+    );
+    expect(database.queries[15]?.parameters).toEqual([
+      "007_create_listing_search_profile",
+    ]);
   });
 
   it("applies the remaining bundled migrations when the initial schema exists", async () => {
@@ -153,7 +177,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(5);
+    expect(database.transactionCount).toBe(6);
     expect(database.queries[2]?.text).toContain(
       "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
     );
@@ -179,6 +203,12 @@ describe("runMigrations", () => {
     );
     expect(database.queries[11]?.parameters).toEqual([
       "006_create_listing_alert_state",
+    ]);
+    expect(database.queries[12]?.text).toContain(
+      "CREATE TABLE listing_search_profiles",
+    );
+    expect(database.queries[13]?.parameters).toEqual([
+      "007_create_listing_search_profile",
     ]);
   });
 });

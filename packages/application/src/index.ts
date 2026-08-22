@@ -164,6 +164,14 @@ export type {
   StoredListing,
 } from "./checkNewListings.js";
 export {
+  PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+  type ListingSearchProfile,
+  type ListingSearchProfileQueryPort,
+  type ListingSearchProfileRepositoryPort,
+  type SaveListingSearchProfileInput,
+  type SaveListingSearchProfileResult,
+} from "./listingSearchProfile.js";
+export {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
   InvalidListingAlertStateError,

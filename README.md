@@ -104,8 +104,11 @@ Block 21 is replacing hard-coded alert criteria with an authenticated `Search
 Criteria` workspace backed by one revisioned PostgreSQL profile. Block 21.1
 adds the strict version-1 Domain value, exact property-type and city enums,
 current production defaults, and parameterized acquisition/new-listing
-predicates. Existing worker call sites still use compatibility exports and the
-unchanged defaults; persistence, API, React, and dynamic worker composition
+predicates. Block 21.2 bundles migration 007, application profile ports, and a
+transactional PostgreSQL adapter with strict row parsing, canonical no-op
+saves, and optimistic revision conflicts. The migration has not been run on a
+local or AWS database. Existing worker call sites still use compatibility
+exports and unchanged defaults; API, React, and dynamic worker composition
 remain later sub-blocks. Saving criteria will not call RentCast, delete stored
 listings, or immediately change the Listings snapshot; the next worker run
 will apply the revision through a silent baseline. See the

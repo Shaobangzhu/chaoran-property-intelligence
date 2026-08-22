@@ -14,7 +14,7 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
-Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.1 are
+Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.2 are
 complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
@@ -809,7 +809,16 @@ preserving durable pending events and stable listing records.
    typecheck, and the production build pass.
 3. `21.2` Add migration 007, profile ports, a PostgreSQL adapter, an exact
    current-behavior seed, optimistic revision updates, canonical no-op saves,
-   and migration/repository tests.
+   and migration/repository tests. **Complete in code and offline
+   verification:** migration 007 defines one constrained `primary` JSONB
+   profile and seeds revision/appliedRevision `1/1` with the exact Domain
+   defaults. Application exposes typed query/save ports and structured
+   `updated`, `unchanged`, and `conflict` outcomes. The PostgreSQL adapter uses
+   a transaction and row lock, strictly parses JSONB, bigint revisions,
+   timestamps, and actor UUIDs, preserves appliedRevision on an edit, and
+   performs no write for canonical no-op or stale input. All 812 tests, full
+   runtime/CDK typecheck, and the production build pass. Migration 007 was not
+   executed against a local or AWS database.
 4. `21.3` Add application get/update use cases, administrator attribution,
    stale-revision handling, baseline orchestration contracts, and deterministic
    fakes.
