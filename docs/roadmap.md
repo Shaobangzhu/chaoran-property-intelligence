@@ -13,14 +13,14 @@ features early.
 
 ## Current Status
 
-Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
-Blocks 18.1-18.9 and Blocks 19.0-19.4 are complete. The repository currently
-contains:
+Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
+Blocks 18.1-18.9, Blocks 19.0-19.5, and Blocks 20.0-20.7 are complete. The
+repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
 - mocked RentCast and Telegram adapters
-- the `CheckNewListings` application use case
+- the `CheckListingAlerts` new-listing and price-drop application workflow
 - a safe in-memory dry-run CLI
 - local integration verification
 - PostgreSQL migrations and a production worker composition root
@@ -773,3 +773,63 @@ See the
 [Block 20 Price-Drop Alerts Knowledge Base](knowledge-base/block-20-price-drop-alerts.md)
 and
 [ADR 0008: Price-Drop Alert State and Outbox](adr/0008-price-drop-alert-state-and-outbox.md).
+
+### Block 21: Configurable Listing Search Criteria
+
+Replace the hard-coded alert criteria with one authenticated, persisted search
+profile while preserving the backend as the authoritative and extensible
+filter boundary. California and active status remain fixed server invariants.
+The administrator can edit one property type, minimum and maximum price,
+minimum bedrooms, minimum bathrooms, and one to five cities from the existing
+five-city set.
+
+Block 21 keeps one regional RentCast request per worker run. Selected cities
+are applied by Domain logic after that response, and minimum price remains a
+new-listing threshold rather than an acquisition floor so tracked below-floor
+price drops continue to alert. Saving a changed profile increments its
+revision but does not call RentCast, send Telegram, delete existing listings,
+or alter the current Listings snapshot.
+
+An unapplied revision is silently baselined on the next worker run. This avoids
+treating existing inventory as newly listed when criteria are widened while
+preserving durable pending events and stable listing records.
+
+1. `21.0` Freeze the product semantics, fixed invariants, one-request provider
+   strategy, versioned profile schema, revision baseline, API/UI contracts,
+   risks, and test plan. **Complete in documentation only.**
+2. `21.1` Add versioned Domain criteria, exact property-type and city enums,
+   strict validation, current-value defaults, and parameterized acquisition
+   and new-listing predicates. Production behavior remains unchanged.
+3. `21.2` Add migration 007, profile ports, a PostgreSQL adapter, an exact
+   current-behavior seed, optimistic revision updates, canonical no-op saves,
+   and migration/repository tests.
+4. `21.3` Add application get/update use cases, administrator attribution,
+   stale-revision handling, baseline orchestration contracts, and deterministic
+   fakes.
+5. `21.4` Add administrator-only `GET` and `PUT`
+   `/api/listing-search-criteria` routes, strict bounded DTOs, Origin and
+   session enforcement, error mappings, composition, and security tests.
+6. `21.5` Add the authenticated React `Search Criteria` workspace with one
+   property-type select, price inputs, bedroom/bathroom selects, a five-city
+   checkbox disclosure, complete form states, accessibility, responsive
+   layout, and component tests.
+7. `21.6` Parameterize the RentCast request and production worker, load the
+   persisted profile before acquisition, keep one regional request, and fail
+   closed when total count exceeds the 500-row page cap.
+8. `21.7` Implement atomic revision-aware silent baseline, preserve pending
+   events, and add cross-layer tests for later new listings and tracked
+   below-floor price drops.
+9. `21.8` Run the full suite, typecheck, build, disposable `001-006 -> 007`
+   migration integration, local authenticated browser acceptance, fake-data
+   two-revision smoke, runbook updates, and a separately confirmed AWS
+   read-only precheck.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 21.0 does not change source code, connect to a database,
+consume RentCast quota, send Telegram, deploy, change a schedule, or operate an
+AWS resource.
+
+See the
+[Block 21 Configurable Listing Search Knowledge Base](knowledge-base/block-21-configurable-listing-search.md)
+and
+[ADR 0009: Persisted Listing Search Criteria](adr/0009-persisted-listing-search-criteria.md).

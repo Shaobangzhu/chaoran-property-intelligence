@@ -100,6 +100,14 @@ validates API responses at runtime and never receives database, RentCast,
 Telegram, or AWS credentials. The browser never reads or stores the JWT. The
 web application remains local-only and is not deployed.
 
+Block 21 plans an authenticated `Search Criteria` workspace backed by one
+revisioned PostgreSQL profile. It will replace hard-coded alert criteria
+without turning the browser into a provider client. Saving criteria will not
+call RentCast, delete stored listings, or immediately change the Listings
+snapshot; the next worker run will apply the revision through a silent
+baseline. See the
+[Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
+
 The API limits failed login responses to ten per 15 minutes per process before
 password verification, emits only request-ID-based security events, and requires
 explicit admin authorization for listings. API responses use Helmet security
@@ -338,6 +346,7 @@ planned React/Express production boundary.
 - [Latest-only Showing List publication decision](docs/adr/0006-latest-only-showing-list-publication.md)
 - [Wildfire hazard overlay decision](docs/adr/0007-wildfire-hazard-overlay.md)
 - [Price-drop alert state and outbox decision](docs/adr/0008-price-drop-alert-state-and-outbox.md)
+- [Persisted listing search criteria decision](docs/adr/0009-persisted-listing-search-criteria.md)
 - [Block 19.1 wildfire hazard source audit](docs/data/wildfire-hazard-source-audit.md)
 - [Wildfire hazard data builder](tools/wildfire-hazard/README.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
@@ -347,3 +356,4 @@ planned React/Express production boundary.
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
 - [Block 19 wildfire hazard overlay knowledge base](docs/knowledge-base/block-19-wildfire-hazard-overlay.md)
 - [Block 20 price-drop alerts knowledge base](docs/knowledge-base/block-20-price-drop-alerts.md)
+- [Block 21 configurable listing search knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md)
