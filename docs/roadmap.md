@@ -14,7 +14,7 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
-Blocks 18.1-18.9 and Blocks 19.0-19.3 are complete. The repository currently
+Blocks 18.1-18.9 and Blocks 19.0-19.4 are complete. The repository currently
 contains:
 
 - a TypeScript and pnpm workspace
@@ -619,7 +619,10 @@ Planned sub-block mapping:
    aborts pending work during cleanup.**
 5. `19.4` Add the responsive toggle, loading/error states, labeled legend,
    attribution, and accessible keyboard behavior. The overlay remains off by
-   default.
+   default. **Complete: a native switch drives the isolated map controller;
+   GeoJSON and reviewed manifest metadata load atomically; the responsive
+   legend exposes severity, version, snapshot, jurisdiction status,
+   attribution, and bounded retry/disclosure states.**
 6. `19.5` Complete fixture-based tests, browser visual verification,
    performance checks, known-location comparison against official maps, and
    production-build verification. Do not deploy AWS resources.

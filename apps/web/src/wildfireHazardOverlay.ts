@@ -1,5 +1,10 @@
 import type { AddLayerObject, Map as MapLibreMap } from "maplibre-gl";
 
+import {
+  loadWildfireHazardMetadata,
+  type WildfireHazardMetadata,
+} from "./wildfireHazardMetadata.js";
+
 export const WILDFIRE_HAZARD_ARTIFACT_URL =
   "/data/wildfire-hazard/fhsz-five-cities-2025.1.geojson";
 export const WILDFIRE_HAZARD_SOURCE_ID = "cpi-wildfire-hazard-source";
@@ -69,7 +74,11 @@ export type WildfireHazardPosition = [number, number];
 export type WildfireHazardOverlayState =
   | { status: "idle"; visible: false }
   | { status: "loading"; visible: false }
-  | { status: "ready"; visible: boolean }
+  | {
+      status: "ready";
+      visible: boolean;
+      metadata: WildfireHazardMetadata;
+    }
   | { status: "error"; visible: false };
 
 export interface WildfireHazardOverlayController {
@@ -108,12 +117,14 @@ interface CreateWildfireHazardOverlayControllerOptions {
   map: WildfireHazardMap;
   beforeLayerId: string;
   loadArtifact?: LoadWildfireHazardArtifact;
+  loadMetadata?: typeof loadWildfireHazardMetadata;
   onStateChange?: (state: WildfireHazardOverlayState) => void;
 }
 
 export function createWildfireHazardOverlayController({
   beforeLayerId,
   loadArtifact = loadWildfireHazardArtifact,
+  loadMetadata = loadWildfireHazardMetadata,
   map,
   onStateChange = () => undefined,
 }: CreateWildfireHazardOverlayControllerOptions): WildfireHazardOverlayController {
@@ -122,6 +133,7 @@ export function createWildfireHazardOverlayController({
   let destroyed = false;
   let installed = false;
   let loadPromise: Promise<void> | null = null;
+  let metadata: WildfireHazardMetadata | null = null;
   let sourceAdded = false;
   const addedLayerIds: string[] = [];
   let state: WildfireHazardOverlayState = {
@@ -140,8 +152,11 @@ export function createWildfireHazardOverlayController({
       desiredVisibility = visible;
       if (installed) {
         try {
+          if (metadata === null) {
+            throw new Error("Wildfire hazard metadata is unavailable.");
+          }
           setLayerVisibility(map, visible);
-          updateState({ status: "ready", visible });
+          updateState({ status: "ready", visible, metadata });
         } catch {
           rollbackInstallation();
           desiredVisibility = false;
@@ -169,20 +184,29 @@ export function createWildfireHazardOverlayController({
             if (destroyed || currentAbortController.signal.aborted) {
               return null;
             }
-            return loadArtifact(currentAbortController.signal);
+            return Promise.all([
+              loadArtifact(currentAbortController.signal),
+              loadMetadata(currentAbortController.signal),
+            ]);
           })
-          .then((artifact) => {
+          .then((bundle) => {
             if (
-              artifact === null ||
+              bundle === null ||
               destroyed ||
               currentAbortController.signal.aborted
             ) {
               return;
             }
+            const [artifact, loadedMetadata] = bundle;
             installLayers(artifact);
             installed = true;
+            metadata = loadedMetadata;
             setLayerVisibility(map, desiredVisibility);
-            updateState({ status: "ready", visible: desiredVisibility });
+            updateState({
+              status: "ready",
+              visible: desiredVisibility,
+              metadata,
+            });
           })
           .catch(() => {
             rollbackInstallation();
@@ -239,6 +263,7 @@ export function createWildfireHazardOverlayController({
 
   function rollbackInstallation(): void {
     installed = false;
+    metadata = null;
     for (const layerId of [...addedLayerIds].reverse()) {
       if (map.getLayer(layerId) !== undefined) {
         try {

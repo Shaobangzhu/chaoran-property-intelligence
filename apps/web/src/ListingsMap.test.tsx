@@ -13,6 +13,7 @@ import {
   type ListingsMapDriver,
 } from "./ListingsMap.js";
 import { coronaListing, eastvaleListing } from "./listingFixtures.js";
+import type { WildfireHazardMetadata } from "./wildfireHazardMetadata.js";
 
 afterEach(cleanup);
 
@@ -114,6 +115,83 @@ describe("ListingsMap", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
+  it("wires the wildfire switch, status, visibility, and retry to the driver", async () => {
+    const user = userEvent.setup();
+    const harness = createDriverHarness();
+    render(
+      <ListingsMap
+        createMap={harness.createMap}
+        listings={[eastvaleListing]}
+        onSelect={() => undefined}
+        selectedListingId={null}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("switch", { name: "Wildfire hazard zones" }),
+    ).not.toBeInTheDocument();
+    act(() => harness.options?.onReady());
+
+    const toggle = screen.getByRole("switch", {
+      name: "Wildfire hazard zones",
+    });
+    expect(toggle).not.toBeChecked();
+    expect(harness.driver.setWildfireHazardVisible).not.toHaveBeenCalled();
+
+    await user.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(harness.driver.setWildfireHazardVisible).toHaveBeenCalledWith(true);
+
+    act(() =>
+      harness.options?.onWildfireHazardStateChange({
+        status: "loading",
+        visible: false,
+      }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading hazard zones",
+    );
+
+    const metadata = createWildfireHazardMetadata();
+    act(() =>
+      harness.options?.onWildfireHazardStateChange({
+        status: "ready",
+        visible: true,
+        metadata,
+      }),
+    );
+    expect(
+      screen.getByLabelText("Fire Hazard Severity Zone legend"),
+    ).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(harness.driver.setWildfireHazardVisible).toHaveBeenLastCalledWith(
+      false,
+    );
+    act(() =>
+      harness.options?.onWildfireHazardStateChange({
+        status: "ready",
+        visible: false,
+        metadata,
+      }),
+    );
+    expect(
+      screen.queryByLabelText("Fire Hazard Severity Zone legend"),
+    ).not.toBeInTheDocument();
+
+    act(() =>
+      harness.options?.onWildfireHazardStateChange({
+        status: "error",
+        visible: false,
+      }),
+    );
+    expect(toggle).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Retry hazard layer" }));
+    expect(harness.driver.setWildfireHazardVisible).toHaveBeenLastCalledWith(
+      true,
+    );
+  });
+
   it("shows a bounded map error and can retry initialization", async () => {
     const user = userEvent.setup();
     const firstHarness = createDriverHarness();
@@ -172,4 +250,25 @@ function createDriverHarness(): {
   });
 
   return harness;
+}
+
+function createWildfireHazardMetadata(): WildfireHazardMetadata {
+  return {
+    artifactVersion: "2025.1",
+    snapshotAt: "2026-08-22T00:29:56Z",
+    sourceName: "CAL FIRE / Office of the State Fire Marshal",
+    sourceUrl:
+      "https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones",
+    sourceVersions: {
+      lra: "FHSZLRA25_1",
+      sra: "FHSZSRA_23_3",
+    },
+    jurisdictions: [
+      { name: "Chino", status: "locally-adopted" },
+      { name: "Chino Hills", status: "locally-adopted" },
+      { name: "Corona", status: "locally-adopted" },
+      { name: "Eastvale", status: "recommended" },
+      { name: "Jurupa Valley", status: "locally-adopted" },
+    ],
+  };
 }

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { WildfireHazardMetadata } from "./wildfireHazardMetadata.js";
 import {
   WILDFIRE_HAZARD_ARTIFACT_URL,
   WILDFIRE_HAZARD_FILL_LAYER_ID,
@@ -83,20 +84,24 @@ describe("wildfire hazard overlay controller", () => {
     const loadArtifact = vi.fn(async () =>
       parseWildfireHazardArtifact(createArtifact()),
     );
+    const loadMetadata = vi.fn(async () => createMetadata());
     const states: WildfireHazardOverlayState[] = [];
     const controller = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact,
+      loadMetadata,
       map,
       onStateChange: (state) => states.push(state),
     });
 
     expect(loadArtifact).not.toHaveBeenCalled();
+    expect(loadMetadata).not.toHaveBeenCalled();
     expect(map.sources.size).toBe(0);
 
     await controller.setVisible(true);
 
     expect(loadArtifact).toHaveBeenCalledOnce();
+    expect(loadMetadata).toHaveBeenCalledOnce();
     expect(map.sources.get(WILDFIRE_HAZARD_SOURCE_ID)).toMatchObject({
       type: "geojson",
     });
@@ -112,13 +117,13 @@ describe("wildfire hazard overlay controller", () => {
     expect(currentVisibilities(map)).toEqual(
       WILDFIRE_HAZARD_LAYER_IDS.map(() => "visible"),
     );
-    expect(states.at(-1)).toEqual({ status: "ready", visible: true });
+    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
 
     await controller.setVisible(false);
     expect(currentVisibilities(map)).toEqual(
       WILDFIRE_HAZARD_LAYER_IDS.map(() => "none"),
     );
-    expect(states.at(-1)).toEqual({ status: "ready", visible: false });
+    expect(states.at(-1)).toMatchObject({ status: "ready", visible: false });
 
     await controller.setVisible(true);
     expect(loadArtifact).toHaveBeenCalledOnce();
@@ -131,6 +136,7 @@ describe("wildfire hazard overlay controller", () => {
     const controller = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
+      loadMetadata: async () => createMetadata(),
       map,
     });
 
@@ -218,6 +224,7 @@ describe("wildfire hazard overlay controller", () => {
     const controller = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact,
+      loadMetadata: async () => createMetadata(),
       map,
       onStateChange: (state) => states.push(state),
     });
@@ -228,14 +235,14 @@ describe("wildfire hazard overlay controller", () => {
     resolveArtifact?.(parseWildfireHazardArtifact(createArtifact()));
     await pendingLoad;
 
-    expect(states.at(-1)).toEqual({ status: "ready", visible: false });
+    expect(states.at(-1)).toMatchObject({ status: "ready", visible: false });
     expect(currentVisibilities(map)).toEqual(
       WILDFIRE_HAZARD_LAYER_IDS.map(() => "none"),
     );
 
     await controller.setVisible(true);
     expect(loadArtifact).toHaveBeenCalledOnce();
-    expect(states.at(-1)).toEqual({ status: "ready", visible: true });
+    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
   });
 
   it("rolls back partial installation and reports a bounded overlay error", async () => {
@@ -245,11 +252,32 @@ describe("wildfire hazard overlay controller", () => {
     const controller = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
+      loadMetadata: async () => createMetadata(),
       map,
       onStateChange: (state) => states.push(state),
     });
 
     await expect(controller.setVisible(true)).resolves.toBeUndefined();
+
+    expect(map.sources.size).toBe(0);
+    expect(map.layers).toHaveLength(0);
+    expect(states.at(-1)).toEqual({ status: "error", visible: false });
+  });
+
+  it("does not install hazard geometry without reviewed attribution", async () => {
+    const map = new FakeWildfireHazardMap();
+    const states: WildfireHazardOverlayState[] = [];
+    const controller = createWildfireHazardOverlayController({
+      beforeLayerId: listingsLayerId,
+      loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
+      loadMetadata: async () => {
+        throw new Error("missing provenance");
+      },
+      map,
+      onStateChange: (state) => states.push(state),
+    });
+
+    await controller.setVisible(true);
 
     expect(map.sources.size).toBe(0);
     expect(map.layers).toHaveLength(0);
@@ -266,6 +294,7 @@ describe("wildfire hazard overlay controller", () => {
     const controller = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact,
+      loadMetadata: async () => createMetadata(),
       map,
       onStateChange: (state) => states.push(state),
     });
@@ -275,7 +304,7 @@ describe("wildfire hazard overlay controller", () => {
 
     await controller.setVisible(true);
     expect(loadArtifact).toHaveBeenCalledTimes(2);
-    expect(states.at(-1)).toEqual({ status: "ready", visible: true });
+    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
     expect(map.layers).toHaveLength(4);
   });
 
@@ -290,6 +319,7 @@ describe("wildfire hazard overlay controller", () => {
           signal.addEventListener("abort", () => reject(signal.reason));
         });
       },
+      loadMetadata: async () => createMetadata(),
       map: pendingMap,
     });
 
@@ -303,6 +333,7 @@ describe("wildfire hazard overlay controller", () => {
     const installedController = createWildfireHazardOverlayController({
       beforeLayerId: listingsLayerId,
       loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
+      loadMetadata: async () => createMetadata(),
       map: installedMap,
     });
     await installedController.setVisible(true);
@@ -410,5 +441,26 @@ function createArtifact(): {
         ],
       },
     })),
+  };
+}
+
+function createMetadata(): WildfireHazardMetadata {
+  return {
+    artifactVersion: "2025.1",
+    snapshotAt: "2026-08-22T00:29:56Z",
+    sourceName: "CAL FIRE / Office of the State Fire Marshal",
+    sourceUrl:
+      "https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones",
+    sourceVersions: {
+      lra: "FHSZLRA25_1",
+      sra: "FHSZSRA_23_3",
+    },
+    jurisdictions: [
+      { name: "Chino", status: "locally-adopted" },
+      { name: "Chino Hills", status: "locally-adopted" },
+      { name: "Corona", status: "locally-adopted" },
+      { name: "Eastvale", status: "recommended" },
+      { name: "Jurupa Valley", status: "locally-adopted" },
+    ],
   };
 }

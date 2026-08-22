@@ -5,8 +5,9 @@
 Accepted. Block 19.0 established the product and architecture constraints,
 Block 19.1 completed the official-source audit, and Block 19.2 implemented the
 reproducible GeoJSON build and provenance manifest. Block 19.3 implemented the
-lazy MapLibre overlay controller without enabling a user-visible control. No
-database object or AWS resource has been added.
+lazy MapLibre overlay controller, and Block 19.4 implemented its accessible
+switch, manifest-backed attribution, and responsive legend. No database object
+or AWS resource has been added.
 
 ## Context
 
@@ -46,6 +47,12 @@ point-in-polygon query and therefore does not yet justify enabling PostGIS.
 Expose one binary map control labeled `Wildfire hazard zones`. It changes only
 overlay visibility and never removes, ranks, or mutates listings. The overlay
 is off by default and is loaded lazily on first use.
+
+Block 19.4 implements the control as a native checkbox with switch semantics.
+Loading and errors remain inside the compact map tool surface. The legend is
+visible only with the overlay and includes the three official severities,
+canonical CAL FIRE / OSFM link, artifact and source versions, snapshot date,
+jurisdiction designation status, and the blank-area disclosure.
 
 Use official severity labels without inventing numeric scores. Do not call the
 feature `wildfire risk`, `fireline level`, `safe area`, or `insurance zone`.
@@ -174,11 +181,16 @@ instead of rebuilding the map or refetching data. A hazard failure must not
 transition the base map into its existing global `Map unavailable` state.
 
 Block 19.3 implements these semantics in the injected map driver. Its internal
-states are `idle`, `loading`, `ready`, and `error`; the future UI's `off` state
+states are `idle`, `loading`, `ready`, and `error`; the UI's `off` state
 maps to `idle` before loading and to `ready` with hidden layers after loading.
 The complete artifact is validated before source installation. Partial layer
 installation is rolled back, retries start cleanly, and unmount aborts pending
 loading and removes installed overlay resources.
+
+Block 19.4 makes that state machine user-visible. GeoJSON and the provenance
+manifest load concurrently; no geometry is installed when reviewed attribution
+is missing or invalid. An overlay error resets the switch, presents one bounded
+retry action, and leaves the base map and listing workflows unchanged.
 
 ### Security and privacy
 

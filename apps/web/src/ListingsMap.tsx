@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { listingsToFeatureCollection } from "./listingGeoJson.js";
 import type { ListingSummary } from "./listingsApi.js";
+import { WildfireHazardControl } from "./WildfireHazardControl.js";
 import {
   createMapLibreWildfireHazardMapAdapter,
   createWildfireHazardOverlayController,
@@ -93,6 +94,12 @@ export function ListingsMap({
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [wildfireHazardEnabled, setWildfireHazardEnabled] = useState(false);
+  const [wildfireHazardState, setWildfireHazardState] =
+    useState<WildfireHazardOverlayState>({
+      status: "idle",
+      visible: false,
+    });
 
   listingsRef.current = listings;
   selectedListingIdRef.current = selectedListingId;
@@ -108,13 +115,22 @@ export function ListingsMap({
     let active = true;
     let driver: ListingsMapDriver | null = null;
     setStatus("loading");
+    setWildfireHazardEnabled(false);
+    setWildfireHazardState({ status: "idle", visible: false });
 
     try {
       driver = createMap({
         container,
         onDraftCoordinatesChange: (coordinates) =>
           draftMarkerRef.current?.onCoordinatesChange(coordinates),
-        onWildfireHazardStateChange: () => undefined,
+        onWildfireHazardStateChange: (state) => {
+          if (active) {
+            setWildfireHazardState(state);
+            if (state.status === "error") {
+              setWildfireHazardEnabled(false);
+            }
+          }
+        },
         onSelect: (listingId) => onSelectRef.current(listingId),
         onReady: () => {
           if (active) {
@@ -161,6 +177,11 @@ export function ListingsMap({
     driverRef.current?.updateListings(listings, selectedListingId);
   }, [listings, selectedListingId]);
 
+  const setWildfireHazardVisibility = (visible: boolean): void => {
+    setWildfireHazardEnabled(visible);
+    void driverRef.current?.setWildfireHazardVisible(visible);
+  };
+
   useEffect(() => {
     driverRef.current?.updateDraftMarker(
       toDraftMarkerPresentation(draftMarker),
@@ -201,6 +222,14 @@ export function ListingsMap({
             Retry map
           </button>
         </div>
+      ) : null}
+      {status === "ready" ? (
+        <WildfireHazardControl
+          enabled={wildfireHazardEnabled}
+          state={wildfireHazardState}
+          onEnabledChange={setWildfireHazardVisibility}
+          onRetry={() => setWildfireHazardVisibility(true)}
+        />
       ) : null}
       {status === "ready" && draftMarker !== undefined ? (
         <div className="draft-marker-controls" aria-live="polite">

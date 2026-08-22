@@ -4,7 +4,7 @@
 
 Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
 existing listings map. This file is the implementation planning record. Blocks
-19.0 through 19.3 are complete; later executable sub-blocks still require
+19.0 through 19.4 are complete; later executable sub-blocks still require
 explicit confirmation.
 
 ## Feasibility
@@ -223,13 +223,13 @@ overlay and interactive.
 
 ## User interface
 
-Place a compact binary toggle in the map tool surface:
+Block 19.4 places a compact binary toggle in the map tool surface:
 
 ```text
 [toggle] Wildfire hazard zones
 ```
 
-Expected behavior:
+Implemented behavior:
 
 - default off
 - first enable starts lazy loading
@@ -238,7 +238,22 @@ Expected behavior:
 - disable hides layers and legend but keeps loaded data for the current page
 - failure displays `Hazard layer unavailable` with retry and leaves listing
   map interactions intact
-- keyboard, focus, screen-reader name, and mobile layout are tested
+- keyboard, focus, and screen-reader behavior are covered by automated tests
+- responsive desktop/mobile CSS is implemented; screenshot acceptance remains
+  in Block 19.5
+
+The control uses a native checkbox with `role="switch"` and remains absent
+until the base map is ready. The collapsed surface is 42 pixels high. Its
+expanded legend is constrained to the upper-left map area, leaving room for
+MapLibre navigation in the upper-right, attribution in the lower-right, and
+draft-marker controls at the bottom. The mobile width reserves 64 pixels on
+the right and bounds the expanded height above the draft controls.
+
+The manifest and GeoJSON load concurrently on first enable. The overlay is not
+installed unless both pass validation. The UI receives only reviewed browser
+metadata: artifact version, snapshot timestamp, canonical HTTPS source,
+LRA/SRA source versions, and the five jurisdiction statuses. It does not expose
+source download URLs, checksums, or toolchain details in component state.
 
 The legend lists `Moderate`, `High`, and `Very High` with matching swatches.
 It also states that blank map areas are not proof of no hazard. On narrow
@@ -341,12 +356,14 @@ startup or CI.
 
 ## Sub-block readiness
 
-Blocks 19.0 through 19.3 are complete. Block 19.2 produced the reproducible
+Blocks 19.0 through 19.4 are complete. Block 19.2 produced the reproducible
 builder, fixture tests, controlled city-boundary snapshot, versioned GeoJSON,
 and provenance manifest. Block 19.3 added the lazy, validated MapLibre driver
-controller, stable layer ordering, bounded failure rollback, and cleanup. It
-still did not add a user-visible map control. Block 19.4 is the next executable
-block and requires a fresh explanation and explicit confirmation.
+controller, stable layer ordering, bounded failure rollback, and cleanup.
+Block 19.4 added the accessible switch, atomic metadata loading, bounded UI
+states, responsive legend, reviewed attribution, and disclosure text. Block
+19.5 is the next executable block and requires a fresh explanation and explicit
+confirmation.
 
 ## References
 
