@@ -215,9 +215,8 @@ describe("CheckListingAlerts", () => {
   });
 
   it("alerts when a tracked address drops below 780000", async () => {
-    const repository = createInitializedRepository(
-      createListing({ price: 825000 }),
-    );
+    const original = createListing({ price: 825000 });
+    const repository = createInitializedRepository(original);
 
     await createUseCase(
       new MutableListingSource([createListing({ price: 770000 })]),
@@ -231,6 +230,13 @@ describe("CheckListingAlerts", () => {
       previousPrice: 825000,
       currentPrice: 770000,
     });
+    expect(repository.listingSnapshots).toEqual([
+      expect.objectContaining({
+        sourceListingId: original.sourceListingId,
+        price: 770000,
+        firstDiscoveredAt: original.firstDiscoveredAt,
+      }),
+    ]);
   });
 
   it("gives an eligible new listing identity precedence over a price drop", async () => {
@@ -257,6 +263,9 @@ describe("CheckListingAlerts", () => {
       previousPrice: null,
       currentPrice: 810000,
     });
+    expect(
+      repository.listingSnapshots.map((listing) => listing.sourceListingId),
+    ).toEqual([previousListing.sourceListingId, relisted.sourceListingId]);
   });
 
   it("uses price-drop semantics for a changed identity below the new-listing floor", async () => {

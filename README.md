@@ -218,6 +218,16 @@ percentage price changes, and chunks only between event blocks within the
 fakes; no database migration, real provider call, production Telegram send,
 deployment, or AWS change occurred.
 
+Block 20.6 adds cross-layer regression proof without changing runtime behavior
+or the API schema. A price-only transition keeps the existing listing key,
+database UUID, and first-discovery time while projecting the latest price
+through PostgreSQL and `/api/listings`. React renders one card and one GeoJSON
+map feature for that UUID, and list/map selection plus Showing List generation
+continue to reference it. Existing manual-listing tests remain green, while an
+accepted genuine relisting still creates a separate listing identity. All 724
+tests, full typecheck, and the production build pass offline; no local or AWS
+database, provider, Telegram, deployment, or AWS operation occurred.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

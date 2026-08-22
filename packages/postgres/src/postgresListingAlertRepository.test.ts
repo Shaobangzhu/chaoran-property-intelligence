@@ -145,7 +145,7 @@ describe("PostgresListingAlertRepository", () => {
     ]);
   });
 
-  it("locks and compare-and-swaps an observation before persisting its event", async () => {
+  it("updates the stable listing identity before persisting a price-drop event", async () => {
     const transition = createPriceDropTransition();
     const database = new RecordingSqlDatabase([
       { rows: [] },
@@ -166,6 +166,16 @@ describe("PostgresListingAlertRepository", () => {
     expect(database.queries[1]?.parameters).toEqual([
       [transition.observation.addressKey],
     ]);
+    expect(database.queries[2]?.text).toContain(
+      "ON CONFLICT (deduplication_key) DO UPDATE",
+    );
+    expect(database.queries[2]?.text).not.toMatch(/\n\s+id,/u);
+    expect(database.queries[2]?.text).not.toContain(
+      "first_discovered_at = EXCLUDED.first_discovered_at",
+    );
+    expect(database.queries[2]?.parameters[0]).toBe(
+      transition.observation.listingKey,
+    );
     expect(database.queries[2]?.parameters).toContain(810000);
     expect(database.queries[3]?.parameters[6]).toBe(true);
     expect(database.queries[4]?.text).toContain("ON CONFLICT (event_key) DO NOTHING");

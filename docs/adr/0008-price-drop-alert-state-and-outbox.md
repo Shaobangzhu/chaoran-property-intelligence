@@ -2,12 +2,13 @@
 
 ## Status
 
-Accepted. Blocks 20.0 through 20.5 now record and implement the product
+Accepted. Blocks 20.0 through 20.6 now record, implement, and verify the product
 semantics, coverage gate, application detection, PostgreSQL schema, durable
 outbox, legacy migration boundary, Telegram representation, and production
-worker composition. Migration 006 and the new worker composition are verified
-offline but have not been applied to local Docker PostgreSQL or AWS; the
-deployed worker remains on its previously published composition.
+worker composition plus stable API and React projection. Migration 006 and the
+new worker composition are verified offline but have not been applied to local
+Docker PostgreSQL or AWS; the deployed worker remains on its previously
+published composition.
 
 ## Context
 
@@ -207,12 +208,21 @@ under the existing rule. Block 20 does not collapse separate relisting history
 without a separate product decision. The application query must nevertheless
 avoid adding a duplicate row solely because an asking price changed.
 
+Block 20.6 verifies this boundary without changing production code. Repository
+tests prove the price-only conflict path preserves the database identity and
+first-discovery value. PostgreSQL query, authenticated API, React card, GeoJSON
+feature, list/map selection, and Showing List generation tests all retain the
+same UUID while exposing the latest price. Existing manual-listing coverage
+remains green, and a genuine accepted relisting still retains its separate
+listing identity.
+
 ### RentCast acquisition boundary
 
-The existing provider request applies `$780,000:$850,000` before the application
-filter. A listing that falls from `$790,000` to `$770,000` therefore disappears
-before the worker can compare prices. The confirmed requirement includes that
-decrease.
+Before Block 20.5, the provider request applied `$780,000:$850,000` before the
+application filter, so a listing falling from `$790,000` to `$770,000`
+disappeared before comparison. The Block 20.5 repository profile now acquires
+through the `$850,000` upper bound and leaves new-listing eligibility to the
+application, allowing that tracked decrease to remain visible.
 
 Block 20.1 must evaluate a one-request strategy that removes or lowers the
 provider-side minimum while retaining the current location, active status,

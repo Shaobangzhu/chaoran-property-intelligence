@@ -730,7 +730,16 @@ Planned sub-block mapping:
    database, Telegram, deployment, or AWS operation occurred.
 7. `20.6` Keep stable API and React listing identity while exposing the latest
    price. Verify one card and map marker, unchanged selection/Showing List
-   references, manual listings, and genuine relisting behavior.
+   references, manual listings, and genuine relisting behavior. **Complete as
+   offline regression coverage with no runtime or schema change:** persistence
+   assertions prove a price transition conflicts on the same listing key
+   without replacing its database UUID or first-discovery time. PostgreSQL and
+   authenticated API tests return one stable ID with the latest `$770,000`
+   price. React renders one card and one GeoJSON point and keeps list/map
+   selection on that ID; Showing List generation reloads the same ID with its
+   latest price. Existing manual-listing coverage passes, and a genuine accepted
+   relisting remains a separate identity. All 724 tests pass; no database,
+   provider, Telegram, deployment, or AWS operation occurred.
 8. `20.7` Complete full tests, type checking, builds, migration integration,
    local smoke verification, runbook updates, and AWS read-only precheck. Real
    provider calls, database migration, production Telegram, deployment, and

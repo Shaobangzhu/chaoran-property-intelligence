@@ -543,6 +543,31 @@ describe("createApp", () => {
     });
   });
 
+  it("returns the latest price without changing the public listing id", async () => {
+    const listing = createListingRecord();
+    listing.listing.price = 770000;
+    listing.listing.lastSeenDate = "2026-08-22";
+    const listListings = new FakeListListings([listing]);
+
+    const response = await request(
+      createTestApp({ listListings }),
+      "/api/listings",
+      { headers: sessionHeaders() },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      listings: [
+        {
+          id: listing.id,
+          price: 770000,
+          lastSeenDate: "2026-08-22",
+        },
+      ],
+    });
+    expect(listListings.calls).toBe(1);
+  });
+
   it("protects and returns only the bounded current Showing List review DTO", async () => {
     const getCurrentShowingListDraft = new FakeGetCurrentShowingListDraft();
     const app = createTestApp({ getCurrentShowingListDraft });

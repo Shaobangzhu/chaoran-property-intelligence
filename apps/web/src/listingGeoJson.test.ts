@@ -38,4 +38,22 @@ describe("listingsToFeatureCollection", () => {
       ],
     });
   });
+
+  it("keeps one stable map feature when only the asking price changes", () => {
+    const currentListing = { ...eastvaleListing, price: 770000 };
+
+    const collection = listingsToFeatureCollection(
+      [currentListing],
+      currentListing.id,
+    );
+
+    expect(collection.features).toEqual([
+      expect.objectContaining({
+        properties: {
+          id: currentListing.id,
+          selected: true,
+        },
+      }),
+    ]);
+  });
 });

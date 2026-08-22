@@ -136,6 +136,27 @@ describe("GenerateShowingListDraft", () => {
     ]);
   });
 
+  it("keeps the selected listing id while using its latest price", async () => {
+    const query = new RecordingShowingListQuery([
+      createRecord(firstListingId, {
+        price: 770000,
+        lastSeenDate: "2026-08-22",
+      }),
+    ]);
+    const generator = successfulGenerator([firstListingId]);
+    const useCase = new GenerateShowingListDraft({ query, generator });
+
+    await useCase.execute(createInput());
+
+    expect(query.calls).toEqual([[firstListingId]]);
+    expect(generator.calls[0]?.listings).toEqual([
+      expect.objectContaining({
+        id: firstListingId,
+        price: 770000,
+      }),
+    ]);
+  });
+
   it.each([
     ["an invalid actor", createInput({ actorUserId: "not-a-uuid" })],
     [

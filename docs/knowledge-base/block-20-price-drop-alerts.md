@@ -542,9 +542,34 @@ worker therefore remains on its previously published image until Block 20.7.
 
 ### Block 20.6: API and React consistency
 
-Prove that the API returns the latest price with stable listing identity and
-that React renders one card and one map point. Add regression coverage for
-selection, Showing List references, manual listings, and genuine relistings.
+**Complete as offline regression coverage with no runtime or API-schema
+change:**
+
+- the application repository fake proves a tracked `$825,000 -> $770,000`
+  transition replaces the snapshot for the existing listing key, retains the
+  original `sourceListingId` and `firstDiscoveredAt`, and leaves exactly one
+  current snapshot
+- the PostgreSQL adapter test proves the same deduplication-key conflict path
+  updates mutable listing fields without inserting or updating the database
+  `id` or replacing `first_discovered_at`
+- `PostgresListingQuery` and the authenticated `/api/listings` route each
+  project one stable UUID with the latest `$770,000` price and fresh
+  `lastSeenDate`
+- React renders one listing card and one map input for that UUID, displays the
+  latest price, and keeps list-to-map selection on the same UUID; the GeoJSON
+  adapter independently proves one selected feature
+- Showing List generation reloads the authoritative row by the unchanged UUID
+  and gives the generator its latest price, so existing selection references do
+  not become stale solely because price changed
+- existing manual-listing API, PostgreSQL, and React lifecycle suites remain
+  unchanged and passing because manual rows remain outside automated price
+  observation
+- a genuine accepted relisting still creates a new-listing event and a second
+  listing-key snapshot, preserving the pre-Block 20 relisting rule
+
+All 724 tests, full typecheck, and the production build pass. No local or AWS
+database operation, RentCast request, Telegram message, deployment, schedule
+change, or other AWS operation occurred. The deployed image remains unchanged.
 
 ### Block 20.7: Verification and deployment readiness
 

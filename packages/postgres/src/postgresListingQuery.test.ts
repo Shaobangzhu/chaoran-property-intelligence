@@ -51,6 +51,33 @@ describe("PostgresListingQuery", () => {
     expect(database.queries[0]?.text).toContain("WHERE archived_at IS NULL");
   });
 
+  it("projects one stable database id with the latest observed price", async () => {
+    const stableId = "0198c7d2-7668-7775-b0fc-b789690a60c1";
+    const database = new RecordingSqlDatabase([
+      {
+        rows: [
+          createListingRow({
+            id: stableId,
+            price: 770000,
+            last_seen_date: "2026-08-22",
+          }),
+        ],
+      },
+    ]);
+    const query = new PostgresListingQuery(database);
+
+    const records = await query.listListings();
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      id: stableId,
+      listing: {
+        price: 770000,
+        lastSeenDate: "2026-08-22",
+      },
+    });
+  });
+
   it("rejects rows without a string listing id", async () => {
     const database = new RecordingSqlDatabase([
       {

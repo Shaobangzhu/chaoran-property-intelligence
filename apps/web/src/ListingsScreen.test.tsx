@@ -181,6 +181,40 @@ describe("ListingsScreen", () => {
     expect(screen.getByText("1 stored listing")).toBeInTheDocument();
   });
 
+  it("renders one current card and map point with the latest price and stable selection", async () => {
+    const user = userEvent.setup();
+    const currentListing = {
+      ...eastvaleListing,
+      price: 770000,
+      lastSeenDate: "2026-08-22",
+    };
+    render(
+      <ListingsScreen
+        loadListings={async () => [currentListing]}
+        mapView={PriceProjectionMap}
+      />,
+    );
+
+    const row = await screen.findByRole("button", {
+      name: currentListing.formattedAddress,
+    });
+    expect(screen.getAllByRole("button", {
+      name: currentListing.formattedAddress,
+    })).toHaveLength(1);
+    expect(screen.getByText("$770,000")).toBeInTheDocument();
+    expect(screen.getByTestId("map-listing-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("map-listing-id")).toHaveTextContent(
+      currentListing.id,
+    );
+
+    await user.click(row);
+
+    expect(row).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("map-selection")).toHaveTextContent(
+      currentListing.id,
+    );
+  });
+
   it("renders manual listings without inventing missing property facts", async () => {
     const manualListing: ListingSummary = {
       ...eastvaleListing,
@@ -386,6 +420,19 @@ function FakeMap({
 
 function PassiveMap(): React.JSX.Element {
   return <div aria-label="Listings map" />;
+}
+
+function PriceProjectionMap({
+  listings,
+  selectedListingId,
+}: ListingsMapViewProps): React.JSX.Element {
+  return (
+    <div aria-label="Listings map">
+      <span data-testid="map-listing-count">{listings.length}</span>
+      <span data-testid="map-listing-id">{listings[0]?.id ?? "none"}</span>
+      <span data-testid="map-selection">{selectedListingId ?? "none"}</span>
+    </div>
+  );
 }
 
 function DraftMap({ draftMarker }: ListingsMapViewProps): React.JSX.Element {
