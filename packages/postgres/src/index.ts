@@ -8,6 +8,10 @@ export {
   type BaselineState,
 } from "./inspectBaselineState.js";
 export {
+  inspectPriceAlertState,
+  type PriceAlertState,
+} from "./inspectPriceAlertState.js";
+export {
   NodePostgresDatabase,
   type PgPoolLike,
 } from "./nodePostgresDatabase.js";

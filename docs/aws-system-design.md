@@ -443,6 +443,13 @@ and aggregate baseline/pending/sent counts. It is used before and after the
 first production run from inside the VPC because Aurora is not publicly
 reachable.
 
+Block 20 adds `--verify-price-alerts` and `--prepare-price-alerts` so the
+price-alert rollout does not couple database preparation to provider or
+notification traffic. Verification reads only migration 006, the independent
+price baseline marker, and aggregate observation/event counts. Preparation
+applies bundled migrations and conditionally converts legacy alert state; it
+loads only PostgreSQL configuration and makes no external HTTP request.
+
 The image also exposes `--telegram-smoke-test` for a controlled one-message
 delivery check. That mode loads only the Telegram bot token and chat ID, sends a
 fixed non-listing message, and does not create a database connection or a
@@ -465,13 +472,15 @@ Block 20 does not plan a new AWS service, schedule, credential, public endpoint,
 or browser secret. A future approved deployment will update the worker image
 and apply a PostgreSQL migration inside the existing runtime boundary.
 
-Migration 006 will add `listing_price_observations` and `listing_alert_events` to
+Migration 006 adds `listing_price_observations` and `listing_alert_events` to
 the existing Aurora database. The adapter protects observation transitions with
 transaction-level address locks, preserves immutable pending payloads for
 retry, and conditionally converts legacy pending new-listing rows. Existing
 rows are initially non-comparable so the first fresh provider result cannot be
-misread as a historical price drop. These objects exist only in repository SQL
-until a separately confirmed deployment runs the bundled migrations.
+misread as a historical price drop. The migration remains unapplied to Aurora
+until the database-only preparation task receives separate approval. Migration
+006 is additive; application rollback restores the earlier ECS task definition
+without deleting the new tables or migration record.
 
 The currently deployed image still filters out prices below `$780,000`. The
 repository's Block 20.5 production profile uses one broadened
@@ -691,6 +700,7 @@ The following are release gates, not suggestions:
 - [AWS deployment runbook](runbooks/aws-deployment.md)
 - [Production baseline runbook](runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](runbooks/telegram-production-smoke-test.md)
+- [Price-alert production readiness runbook](runbooks/price-alert-production-readiness.md)
 - [Local listings vertical-slice runbook](runbooks/local-listings-vertical-slice.md)
 - [ADR 0002: AWS Deployment Foundation](adr/0002-aws-deployment-foundation.md)
 - [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)

@@ -228,6 +228,24 @@ accepted genuine relisting still creates a separate listing identity. All 724
 tests, full typecheck, and the production build pass offline; no local or AWS
 database, provider, Telegram, deployment, or AWS operation occurred.
 
+Block 20.7A adds two database-only operational modes so migration and legacy
+price-state initialization do not share an approval boundary with RentCast or
+Telegram:
+
+```bash
+node apps/alert-worker/dist/index.js --verify-price-alerts
+node apps/alert-worker/dist/index.js --prepare-price-alerts
+```
+
+The verification mode is read-only and prints only migration, marker, and
+aggregate observation/event state. The preparation mode applies bundled
+migrations and initializes legacy price state without loading provider or
+Telegram configuration. All 736 tests, full typecheck, the production build,
+CDK synth, and the fake-data dry run pass. No PostgreSQL, RentCast, Telegram,
+deployment, or AWS operation occurred. Follow the
+[price-alert production readiness runbook](docs/runbooks/price-alert-production-readiness.md)
+before using either mode against AWS.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

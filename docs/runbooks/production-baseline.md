@@ -217,4 +217,5 @@ been reviewed.
 
 - [AWS system design and configuration](../aws-system-design.md)
 - [AWS deployment runbook](aws-deployment.md)
+- [Price-alert production readiness runbook](price-alert-production-readiness.md)
 - [Project roadmap](../roadmap.md)

@@ -1,8 +1,10 @@
+import { prepareProductionPriceAlerts } from "./prepareProductionPriceAlerts.js";
 import { runAlertWorker } from "./runAlertWorker.js";
 import { runProduction } from "./runProduction.js";
 import { runShowingListProduction } from "./runShowingListProduction.js";
 import { runTelegramSmokeTest } from "./runTelegramSmokeTest.js";
 import { verifyProductionBaseline } from "./verifyProductionBaseline.js";
+import { verifyProductionPriceAlerts } from "./verifyProductionPriceAlerts.js";
 
 interface ProcessLike {
   argv: string[];
@@ -21,6 +23,10 @@ process.exitCode = await runAlertWorker(
     stderr: process.stderr,
   },
   {
+    prepareProductionPriceAlerts: () =>
+      prepareProductionPriceAlerts({
+        environment: process.env,
+      }),
     runProduction: () =>
       runProduction({
         environment: process.env,
@@ -40,6 +46,10 @@ process.exitCode = await runAlertWorker(
       }),
     verifyProductionBaseline: () =>
       verifyProductionBaseline({
+        environment: process.env,
+      }),
+    verifyProductionPriceAlerts: () =>
+      verifyProductionPriceAlerts({
         environment: process.env,
       }),
   },

@@ -37,7 +37,7 @@ describe("runAlertWorker", () => {
     expect(exitCode).toBe(1);
     expect(stdout.output).toBe("");
     expect(stderr.output).toContain(
-      "This worker supports only --dry-run, --run, --run-showing-list, --verify-baseline, or --telegram-smoke-test.",
+      "This worker supports only --dry-run, --prepare-price-alerts, --run, --run-showing-list, --verify-baseline, --verify-price-alerts, or --telegram-smoke-test.",
     );
   });
 
@@ -54,10 +54,12 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction,
         runShowingListProduction,
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -83,10 +85,12 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction,
         runShowingListProduction,
         runTelegramSmokeTest,
         verifyProductionBaseline,
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -112,10 +116,12 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction,
         runShowingListProduction,
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -140,10 +146,12 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction,
         runShowingListProduction,
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline,
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -166,6 +174,85 @@ describe("runAlertWorker", () => {
     expect(stderr.output).toBe("");
   });
 
+  it("runs only the database price-alert preparation action", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const prepareProductionPriceAlerts = vi.fn(async () => {});
+    const runProduction = vi.fn(async () => {});
+    const verifyProductionPriceAlerts = vi.fn(async () =>
+      createPriceAlertState(),
+    );
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--prepare-price-alerts"],
+        stdout,
+        stderr,
+      },
+      {
+        prepareProductionPriceAlerts,
+        runProduction,
+        runShowingListProduction: async () => {},
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(prepareProductionPriceAlerts).toHaveBeenCalledOnce();
+    expect(runProduction).not.toHaveBeenCalled();
+    expect(verifyProductionPriceAlerts).not.toHaveBeenCalled();
+    expect(stdout.output).toBe(
+      "Production price-alert preparation completed.\n",
+    );
+    expect(stderr.output).toBe("");
+  });
+
+  it("prints aggregate price-alert state without mutating the database", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const prepareProductionPriceAlerts = vi.fn(async () => {});
+    const runProduction = vi.fn(async () => {});
+    const verifyProductionPriceAlerts = vi.fn(async () =>
+      createPriceAlertState(),
+    );
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--verify-price-alerts"],
+        stdout,
+        stderr,
+      },
+      {
+        prepareProductionPriceAlerts,
+        runProduction,
+        runShowingListProduction: async () => {},
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(verifyProductionPriceAlerts).toHaveBeenCalledOnce();
+    expect(prepareProductionPriceAlerts).not.toHaveBeenCalled();
+    expect(runProduction).not.toHaveBeenCalled();
+    expect(stdout.output).toBe(
+      [
+        "Production price-alert verification completed.",
+        "Schema ready: yes",
+        "Migration 006 applied: yes",
+        "Price baseline initialized: yes",
+        "Price observations: 28",
+        "Pending alert events: 1",
+        "Sent alert events: 4",
+        "",
+      ].join("\n"),
+    );
+    expect(stderr.output).toBe("");
+  });
+
   it("returns a failing exit code when the production action fails", async () => {
     const stdout = new MemoryWriter();
     const stderr = new MemoryWriter();
@@ -177,12 +264,14 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction: async () => {
           throw new Error("Database unavailable");
         },
         runShowingListProduction: async () => {},
         runTelegramSmokeTest: async () => {},
         verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -202,12 +291,14 @@ describe("runAlertWorker", () => {
         stderr,
       },
       {
+        prepareProductionPriceAlerts: async () => {},
         runProduction: async () => {},
         runShowingListProduction: async () => {},
         runTelegramSmokeTest: async () => {
           throw new Error("Telegram unavailable");
         },
         verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
       },
     );
 
@@ -215,6 +306,64 @@ describe("runAlertWorker", () => {
     expect(stdout.output).toBe("");
     expect(stderr.output).toBe(
       "Telegram smoke test failed: Telegram unavailable\n",
+    );
+  });
+
+  it("returns a failing exit code when price-alert preparation fails", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--prepare-price-alerts"],
+        stdout,
+        stderr,
+      },
+      {
+        prepareProductionPriceAlerts: async () => {
+          throw new Error("Migration unavailable");
+        },
+        runProduction: async () => {},
+        runShowingListProduction: async () => {},
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => createPriceAlertState(),
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toBe(
+      "Price-alert preparation failed: Migration unavailable\n",
+    );
+  });
+
+  it("returns a failing exit code when price-alert verification fails", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+
+    const exitCode = await runAlertWorker(
+      {
+        args: ["--verify-price-alerts"],
+        stdout,
+        stderr,
+      },
+      {
+        prepareProductionPriceAlerts: async () => {},
+        runProduction: async () => {},
+        runShowingListProduction: async () => {},
+        runTelegramSmokeTest: async () => {},
+        verifyProductionBaseline: async () => createBaselineState(),
+        verifyProductionPriceAlerts: async () => {
+          throw new Error("Inspection unavailable");
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toBe(
+      "Price-alert verification failed: Inspection unavailable\n",
     );
   });
 });
@@ -227,6 +376,17 @@ function createBaselineState() {
     baselineListings: 4,
     pendingListings: 0,
     sentListings: 0,
+  };
+}
+
+function createPriceAlertState() {
+  return {
+    schemaReady: true,
+    migrationApplied: true,
+    baselineInitialized: true,
+    priceObservations: 28,
+    pendingEvents: 1,
+    sentEvents: 4,
   };
 }
 

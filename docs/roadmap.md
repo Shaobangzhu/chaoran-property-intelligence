@@ -743,7 +743,14 @@ Planned sub-block mapping:
 8. `20.7` Complete full tests, type checking, builds, migration integration,
    local smoke verification, runbook updates, and AWS read-only precheck. Real
    provider calls, database migration, production Telegram, deployment, and
-   schedule enablement remain independently confirmed operations.
+   schedule enablement remain independently confirmed operations. **20.7A is
+   complete:** the image now exposes database-only preparation and read-only
+   price-alert verification modes; aggregate output contains no listing data,
+   and the production runbook separates every external or mutating boundary.
+   All 736 tests, full typecheck, build, CDK synth, fake-data dry run, and diff
+   checks pass without a database, provider, Telegram, deployment, or AWS
+   operation. Disposable PostgreSQL integration in 20.7B and the AWS read-only
+   precheck in 20.7C remain pending separate approvals.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 20.0 does not change source code, consume RentCast quota,

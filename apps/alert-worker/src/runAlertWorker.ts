@@ -1,4 +1,7 @@
-import type { BaselineState } from "@chaoran-property-intelligence/postgres";
+import type {
+  BaselineState,
+  PriceAlertState,
+} from "@chaoran-property-intelligence/postgres";
 
 import { runDryRun } from "./runDryRun.js";
 
@@ -13,14 +16,16 @@ export interface AlertWorkerRuntime {
 }
 
 export interface AlertWorkerActions {
+  prepareProductionPriceAlerts(): Promise<void>;
   runProduction(): Promise<void>;
   runShowingListProduction(): Promise<void>;
   runTelegramSmokeTest(): Promise<void>;
   verifyProductionBaseline(): Promise<BaselineState>;
+  verifyProductionPriceAlerts(): Promise<PriceAlertState>;
 }
 
 const supportedModesMessage =
-  "This worker supports only --dry-run, --run, --run-showing-list, --verify-baseline, or --telegram-smoke-test.\n";
+  "This worker supports only --dry-run, --prepare-price-alerts, --run, --run-showing-list, --verify-baseline, --verify-price-alerts, or --telegram-smoke-test.\n";
 
 export async function runAlertWorker(
   runtime: AlertWorkerRuntime,
@@ -61,6 +66,22 @@ export async function runAlertWorker(
     }
   }
 
+  if (
+    runtime.args[0] === "--prepare-price-alerts" &&
+    actions !== undefined
+  ) {
+    try {
+      await actions.prepareProductionPriceAlerts();
+      runtime.stdout.write("Production price-alert preparation completed.\n");
+      return 0;
+    } catch (error) {
+      runtime.stderr.write(
+        `Price-alert preparation failed: ${getErrorMessage(error)}\n`,
+      );
+      return 1;
+    }
+  }
+
   if (runtime.args[0] === "--run-showing-list" && actions !== undefined) {
     try {
       await actions.runShowingListProduction();
@@ -82,6 +103,22 @@ export async function runAlertWorker(
     } catch (error) {
       runtime.stderr.write(
         `Baseline verification failed: ${getErrorMessage(error)}\n`,
+      );
+      return 1;
+    }
+  }
+
+  if (
+    runtime.args[0] === "--verify-price-alerts" &&
+    actions !== undefined
+  ) {
+    try {
+      const state = await actions.verifyProductionPriceAlerts();
+      writePriceAlertState(runtime.stdout, state);
+      return 0;
+    } catch (error) {
+      runtime.stderr.write(
+        `Price-alert verification failed: ${getErrorMessage(error)}\n`,
       );
       return 1;
     }
@@ -116,6 +153,23 @@ function writeBaselineState(writer: TextWriter, state: BaselineState): void {
   writer.write(`Baseline listings: ${state.baselineListings}\n`);
   writer.write(`Pending listings: ${state.pendingListings}\n`);
   writer.write(`Sent listings: ${state.sentListings}\n`);
+}
+
+function writePriceAlertState(
+  writer: TextWriter,
+  state: PriceAlertState,
+): void {
+  writer.write("Production price-alert verification completed.\n");
+  writer.write(`Schema ready: ${state.schemaReady ? "yes" : "no"}\n`);
+  writer.write(
+    `Migration 006 applied: ${state.migrationApplied ? "yes" : "no"}\n`,
+  );
+  writer.write(
+    `Price baseline initialized: ${state.baselineInitialized ? "yes" : "no"}\n`,
+  );
+  writer.write(`Price observations: ${state.priceObservations}\n`);
+  writer.write(`Pending alert events: ${state.pendingEvents}\n`);
+  writer.write(`Sent alert events: ${state.sentEvents}\n`);
 }
 
 function getErrorMessage(error: unknown): string {

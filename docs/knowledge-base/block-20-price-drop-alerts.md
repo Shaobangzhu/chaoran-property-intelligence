@@ -579,6 +579,35 @@ rollback, first-run baseline, and controlled Telegram verification. Do not
 deploy, enable a schedule, consume a real provider request, or send production
 Telegram without separate confirmation.
 
+#### Block 20.7A: Database-only controls and offline gate
+
+**Complete in code, documentation, and offline verification:**
+
+- `--prepare-price-alerts` loads only database configuration, applies unapplied
+  bundled migrations, conditionally initializes legacy price observation state,
+  and always closes PostgreSQL without constructing provider or notification
+  clients
+- `--verify-price-alerts` performs no migration and reports only schema
+  readiness, migration 006, the independent price baseline marker, and aggregate
+  observation/pending/sent event counts
+- incomplete schema and migration-record disagreement remain visible instead of
+  being collapsed into a successful readiness result
+- command dispatch, migration and initialization failures, inspection failures,
+  database closure, and output redaction are covered by focused tests
+- the production readiness runbook now separates image deployment, read-only
+  inspection, database preparation, real provider acquisition, Telegram
+  delivery, and schedule enablement into independent approvals
+- rollback restores the prior ECS task definition while retaining additive
+  migration 006; the previous worker must remain disabled until pending event
+  state has been reviewed
+
+All 736 tests, full typecheck, the production build, CDK synth, the fake-data
+worker dry run, and `git diff --check` pass. The dry run used no external service
+or production data. No Docker PostgreSQL integration, local or AWS database
+operation, RentCast request, Telegram message, deployment, schedule change, or
+AWS operation occurred. Block 20.7B and 20.7C remain pending and require fresh
+approval.
+
 Every executable sub-block requires a fresh explanation and explicit user
 confirmation.
 

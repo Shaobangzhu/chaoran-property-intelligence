@@ -196,3 +196,11 @@ Application teardown and full cost teardown are different operations.
 
 Never treat a successful `cdk destroy` as proof that the AWS account has no
 remaining billable resources.
+
+## Feature Rollouts
+
+The Block 20 worker image, migration 006, legacy price-state initialization,
+real RentCast request, Telegram delivery, and schedule enablement use separate
+approval boundaries. Follow the
+[price-alert production readiness runbook](price-alert-production-readiness.md)
+instead of allowing the default worker command to combine those operations.
