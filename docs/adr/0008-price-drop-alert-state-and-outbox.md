@@ -212,7 +212,12 @@ margin, returned-page completeness, below-floor count, target-city counts,
 price range, response-body bytes, and elapsed time. A PASS requires both a total
 below 500 and a returned page length equal to the expected page length.
 Production remains `price=780000:850000`. Block 20.1A used fixtures only; Block
-20.1B remains the separately approved one-request measurement.
+20.1B then executed exactly one approved audit request. `X-Total-Count` and the
+returned array both contained 132 listings, leaving 368 rows below the page
+cap. Fifty-four returned listings were below `$780,000`; the returned price
+range was `$575,875-$850,000`. The complete 148,427-byte body arrived in 6,089
+ms. The acquisition gate passed without pagination, and production remained
+unchanged.
 
 ### Baseline and deployment behavior
 

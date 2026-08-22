@@ -216,7 +216,7 @@ The RentCast adapter now has two isolated internal request profiles:
 The separate maintenance command is:
 
 ```bash
-pnpm rentcast:coverage-audit -- --execute-one-request
+pnpm rentcast:coverage-audit:execute-one-request
 ```
 
 The executable refuses to call `fetch` when the exact confirmation argument is
@@ -235,9 +235,50 @@ suite, full repository typecheck, and alert-worker production build pass. A
 local invocation without the confirmation argument exited before `fetch` with
 the expected `No RentCast request was made` message. The command has not been
 run with its confirmation argument, so no real RentCast request has been made.
-Block 20.1B remains pending a separate review of the exact request and
-authorization for one request. Production behavior must not change until that
-measurement passes.
+At the end of 20.1A, Block 20.1B still required a separate review and explicit
+authorization. The completed 20.1B measurement is recorded below; production
+behavior remains unchanged.
+
+### Block 20.1B coverage result
+
+Block 20.1B executed one and only one real RentCast request on 2026-08-21 after
+the user reviewed the exact endpoint, query parameters, quota impact, logging
+boundary, and no-retry rule. An initial pnpm argument-separator invocation was
+rejected by the CLI before `fetch` and explicitly reported that no request was
+made. The corrected guarded CLI then consumed the single authorized request.
+
+Aggregate result:
+
+| Measurement | Result |
+| --- | ---: |
+| Coverage gate | `PASS` |
+| `X-Total-Count` | `132` |
+| Returned listings | `132` |
+| Returned page complete | `yes` |
+| Result limit | `500` |
+| Cap margin | `368` |
+| Listings below `$780,000` | `54` |
+| Returned price range | `$575,875-$850,000` |
+| Response body | `148,427` bytes |
+| Elapsed time | `6,089` ms |
+| Chino | `24` |
+| Chino Hills | `0` |
+| Corona | `11` |
+| Eastvale | `4` |
+| Jurupa Valley | `0` |
+| Non-target cities | `93` |
+
+The total stayed well below 500 and the returned page matched the total, so the
+one-request broadened acquisition profile can cover prices below `$780,000`
+without pagination under the measured market snapshot. Zero results for Chino
+Hills and Jurupa Valley mean only that no listing matched all current provider
+filters in those cities at this snapshot; they do not remove either city from
+the application criteria.
+
+No credential, request URL, raw response, property ID, or address was logged or
+stored. The command did not connect to PostgreSQL, send Telegram, call AWS, or
+change `searchSaleListings()`. Block 20.1 is complete. A future real audit is a
+new quota-consuming operation and requires fresh approval.
 
 ## Baseline and migration
 
@@ -339,9 +380,9 @@ AWS system design, knowledge base, and ADR. **Complete in documentation only.**
 Add fixture-based request tests and a controlled measurement command. After a
 separate confirmation, consume at most one real RentCast request to verify that
 removing the minimum price retains acceptable coverage below the `500` cap.
-Do not change production search behavior in this sub-block. **20.1A is complete
-with the isolated command and offline tests; 20.1B remains pending one-request
-approval and measurement.**
+Do not change production search behavior in this sub-block. **Complete: 20.1A
+implemented the isolated command and offline tests; 20.1B used one approved
+request and passed with 132 complete results and 368 rows of cap margin.**
 
 ### Block 20.2: Domain and application contracts
 

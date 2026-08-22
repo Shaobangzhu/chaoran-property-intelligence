@@ -475,7 +475,11 @@ mode of the scheduled production worker. It requires the exact
 uses `price=*:850000`, `limit=500`, and `includeTotalCount=true`, and emits only
 aggregate measurements. The ordinary worker still uses
 `price=780000:850000`. No real audit request or AWS operation was performed in
-20.1A; the one-request Block 20.1B measurement is pending explicit approval.
+20.1A. Block 20.1B later used one explicitly approved request: all 132 matching
+rows were returned, 54 were below `$780,000`, and the result retained 368 rows
+of margin below the 500-row cap. The request took 6,089 ms and returned a
+148,427-byte body. No database, Telegram, or AWS operation accompanied it, and
+the deployed worker remains unchanged.
 
 ## Database Design
 

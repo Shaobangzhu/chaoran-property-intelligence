@@ -6,7 +6,7 @@ import type { TextWriter } from "./runAlertWorker.js";
 
 const executionConfirmation = "--execute-one-request";
 const usage =
-  "Usage: pnpm rentcast:coverage-audit -- --execute-one-request\n";
+  "Usage: pnpm rentcast:coverage-audit:execute-one-request\n";
 
 export interface RentCastCoverageAuditCommandRuntime {
   args: string[];

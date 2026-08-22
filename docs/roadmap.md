@@ -682,8 +682,10 @@ Planned sub-block mapping:
    remains exactly `780000:850000`. Twenty-two focused tests pass without a real
    request. The audit gate also rejects an incomplete returned page. The
    complete 641-test suite, full typecheck, alert-worker build, and
-   no-confirmation CLI rejection also pass. **20.1B remains pending separate
-   approval for one API request.**
+   no-confirmation CLI rejection also pass. **20.1B complete:** one explicitly
+   approved request returned all 132 matches, including 54 below `$780,000`,
+   with 368 rows of cap margin. The page was complete and the gate passed.
+   Production remained unchanged, and Block 20.1 is complete.
 3. `20.2` Add strict structured-address normalization, typed `new-listing` and
    `price-drop` events, observation contracts, event-oriented notification
    ports, validation, and in-memory fakes.

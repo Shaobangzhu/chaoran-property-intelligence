@@ -20,7 +20,9 @@ describe("runRentCastCoverageAuditCommand", () => {
     expect(exitCode).toBe(1);
     expect(fetch).not.toHaveBeenCalled();
     expect(stdout.output).toBe("");
-    expect(stderr.output).toContain("--execute-one-request");
+    expect(stderr.output).toContain(
+      "pnpm rentcast:coverage-audit:execute-one-request",
+    );
     expect(stderr.output).toContain("No RentCast request was made.");
   });
 

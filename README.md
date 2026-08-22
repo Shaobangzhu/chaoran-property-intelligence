@@ -166,7 +166,7 @@ pnpm rentcast:coverage-audit
 The separately approved one-request form is:
 
 ```bash
-pnpm rentcast:coverage-audit -- --execute-one-request
+pnpm rentcast:coverage-audit:execute-one-request
 ```
 
 The command loads only `RENTCAST_API_KEY`, uses the audit-only `*:850000`
@@ -174,7 +174,9 @@ price range plus `includeTotalCount=true`, and prints aggregate counts, price
 range, response-body bytes, elapsed time, and the 500-result cap margin. It
 never prints credentials, the request URL, raw response, or street addresses.
 Block 20.1A implemented and tested this command without making a real RentCast
-request. Do not execute the confirmed form until the Block 20.1B request review.
+request. Block 20.1B later executed it once under explicit approval and recorded
+only aggregate evidence in the Block 20 knowledge base. A future repeat still
+requires a fresh quota and request review.
 
 The production image also provides a read-only aggregate baseline check:
 
