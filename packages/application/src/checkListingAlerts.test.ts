@@ -301,6 +301,32 @@ describe("CheckListingAlerts", () => {
     expect(notifications.calls).toHaveLength(1);
   });
 
+  it("establishes a comparison baseline for migrated legacy state without alerting", async () => {
+    const previousListing = createListing({ price: 825000 });
+    const previousObservation = createObservation(
+      previousListing,
+      "2026-08-20T15:00:00.000Z",
+    );
+    previousObservation.comparisonReady = false;
+    const repository = new FakeListingAlertStateRepository({
+      baselineInitialized: true,
+      observations: [previousObservation],
+    });
+
+    await createUseCase(
+      new MutableListingSource([createListing({ price: 810000 })]),
+      repository,
+      new FakeListingAlertNotifications(),
+      () => firstRunAt,
+    ).execute();
+
+    expect(repository.events).toEqual([]);
+    expect(repository.observations[0]).toMatchObject({
+      latestPrice: 810000,
+      comparisonReady: true,
+    });
+  });
+
   it("creates the same transition key when a storage retry uses a later clock", async () => {
     const firstEventKey = await captureFailedTransitionEventKey(firstRunAt);
     const secondEventKey = await captureFailedTransitionEventKey(secondRunAt);
@@ -575,6 +601,7 @@ function createObservation(
     latestPrice: listing.price,
     latestListedDate: listing.listedDate,
     latestLastSeenDate: listing.lastSeenDate,
+    comparisonReady: true,
     observedAt,
   };
 }

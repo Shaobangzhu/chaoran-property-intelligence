@@ -2,10 +2,11 @@
 
 ## Status
 
-Accepted for implementation planning. Block 20.0 records the product semantics,
-state boundaries, data-acquisition gate, migration direction, and staged test
-plan. No runtime code, database object, RentCast request, Telegram message, or
-AWS resource was changed in Block 20.0.
+Accepted. Blocks 20.0 through 20.4 now record and implement the product
+semantics, coverage gate, application detection, PostgreSQL schema, durable
+outbox, and legacy migration boundary. Migration 006 and its adapter are
+verified offline but have not been applied to local Docker PostgreSQL or AWS;
+the production worker remains on the legacy composition.
 
 ## Context
 
@@ -106,8 +107,8 @@ Separate three responsibilities that are currently combined in `listings`:
 3. Notification events form a durable outbox with immutable event payloads and
    `pending` or `sent` delivery state.
 
-Block 20.4 will select the exact PostgreSQL names and constraints, but the
-minimum logical records are:
+Block 20.4 selects the concrete tables `listing_price_observations` and
+`listing_alert_events`. Their application-facing logical records are:
 
 ```ts
 interface ListingObservationState {
@@ -117,6 +118,7 @@ interface ListingObservationState {
   latestPrice: number;
   latestListedDate: string;
   latestLastSeenDate: string;
+  comparisonReady: boolean;
   observedAt: string;
 }
 
@@ -147,7 +149,7 @@ type ListingAlertEvent =
 
 Block 20.2 resolves application identity around deterministic `eventKey`,
 `listingKey`, and the branded canonical `addressKey`; it does not expose a
-database-generated UUID through the application port. Block 20.4 may add an
+database-generated UUID through the application port. Block 20.4 adds an
 internal PostgreSQL primary key without changing this contract. The canonical
 address representation is explicitly versioned as `address:v1:` and URI-encodes
 each normalized component before joining it with `|`.
@@ -173,9 +175,24 @@ transition. After a send succeeds, mark only the delivered event keys as sent.
 If the send fails or has an ambiguous timeout, events remain pending under the
 project's existing retry boundary.
 
-The eventual schema migration must preserve any legacy pending new-listing
-notification. It must not silently mark a pending message sent or generate
-historical price-drop events from old rows.
+The schema migration preserves any legacy pending new-listing notification. It
+does not silently mark a pending message sent or generate historical price-drop
+events from old rows.
+
+The concrete adapter serializes each batch with sorted, transaction-level
+advisory locks per canonical address and locks existing observation rows with
+`FOR UPDATE`. Each transition carries the exact expected previous observation;
+a mismatch raises a concurrency conflict before any write. An event-key replay
+is accepted only when its immutable payload matches the stored payload.
+
+Legacy initialization runs under a separate baseline advisory lock. It proceeds
+only when `baseline_initialized` exists and
+`price_observation_baseline_initialized` does not. Existing RentCast rows are
+collapsed to the latest canonical-address observation with
+`comparison_ready = false`, existing pending rows become pending new-listing
+events, and the new marker is written last in the same transaction. The first
+fresh comparison promotes the observation to ready without emitting a
+historical price-drop event.
 
 ### Current listing projection
 

@@ -89,7 +89,7 @@ describe("FakeListingAlertStateRepository", () => {
       observedAt: "2026-08-21T14:00:00.000Z",
     });
     const repository = new FakeListingAlertStateRepository({
-      baselineInitialized: true,
+      baselineEntries: [createPreviousBaselineEntry()],
       events: [laterEvent, earlierEvent],
     });
 
@@ -115,22 +115,23 @@ describe("FakeListingAlertStateRepository", () => {
 
   it("rejects mutation of an existing immutable event payload", async () => {
     const transition = createPriceDropTransition();
+    if (transition.event?.kind !== "price-drop") {
+      throw new Error("Expected a price-drop transition fixture");
+    }
     const repository = new FakeListingAlertStateRepository({
-      baselineInitialized: true,
-      events: [transition.event!],
+      baselineEntries: [createPreviousBaselineEntry()],
+      events: [{ ...transition.event!, previousPrice: 830000 }],
     });
-    const changedTransition = createPriceDropTransition();
-    changedTransition.event = createPriceDropEvent({ previousPrice: 830000 });
 
     await expect(
-      repository.saveListingAlertTransitions([changedTransition]),
+      repository.saveListingAlertTransitions([transition]),
     ).rejects.toThrow("is immutable");
   });
 
   it("keeps a sent event sent when an identical transition is replayed", async () => {
     const transition = createPriceDropTransition();
     const repository = new FakeListingAlertStateRepository({
-      baselineInitialized: true,
+      baselineEntries: [createPreviousBaselineEntry()],
       events: [{ ...transition.event!, status: "sent" }],
     });
 
@@ -144,8 +145,8 @@ describe("FakeListingAlertStateRepository", () => {
     const repository = new FakeListingAlertStateRepository({
       baselineEntries: [
         {
-          listing: createObservedListing(),
-          observation: createObservation({ latestPrice: 810000 }),
+          listing: createObservedListing({ price: 825000 }),
+          observation: createObservation({ latestPrice: 825000 }),
         },
       ],
     });
@@ -174,6 +175,24 @@ describe("FakeListingAlertStateRepository", () => {
     expect(repository.observations).toEqual([]);
     expect(repository.events).toEqual([]);
     expect(repository.calls[0]?.method).toBe("saveListingAlertTransitions");
+  });
+
+  it("rejects a stale transition without changing repository state", async () => {
+    const repository = new FakeListingAlertStateRepository({
+      baselineEntries: [createPreviousBaselineEntry()],
+    });
+    const transition = createPriceDropTransition();
+    transition.expectedPreviousObservation = createObservation({
+      latestPrice: 830000,
+    });
+    transition.event = null;
+
+    await expect(
+      repository.saveListingAlertTransitions([transition]),
+    ).rejects.toThrow("changed concurrently");
+
+    expect(repository.observations[0]?.latestPrice).toBe(825000);
+    expect(repository.events).toEqual([]);
   });
 
   it("does not partially initialize an invalid baseline batch", async () => {
@@ -270,6 +289,7 @@ function createObservation(
     latestPrice: 810000,
     latestListedDate: "2026-08-19T00:00:00.000Z",
     latestLastSeenDate: "2026-08-21T12:00:00.000Z",
+    comparisonReady: true,
     observedAt: "2026-08-21T15:00:00.000Z",
     ...overrides,
   };
@@ -313,6 +333,14 @@ function createPriceDropTransition(): ListingAlertTransition {
   return {
     listing: createObservedListing(),
     observation: createObservation(),
+    expectedPreviousObservation: createObservation({ latestPrice: 825000 }),
     event: createPriceDropEvent(),
+  };
+}
+
+function createPreviousBaselineEntry() {
+  return {
+    listing: createObservedListing({ price: 825000 }),
+    observation: createObservation({ latestPrice: 825000 }),
   };
 }

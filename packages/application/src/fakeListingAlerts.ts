@@ -7,6 +7,9 @@ import {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
   InvalidListingAlertStateError,
+  ListingAlertObservationConflictError,
+  listingPriceObservationSchema,
+  listingPriceObservationsEqual,
   listingAlertEventSchema,
   type ListingAlertBaselineEntry,
   type ListingAlertEvent,
@@ -47,6 +50,7 @@ export type FakeListingAlertStateRepositoryCall =
 export interface FakeListingAlertStateRepositoryOptions {
   baselineInitialized?: boolean;
   baselineEntries?: readonly ListingAlertBaselineEntry[];
+  observations?: readonly ListingPriceObservation[];
   events?: readonly ListingAlertEvent[];
   failures?: Partial<Record<FakeListingAlertStateRepositoryMethod, Error>>;
 }
@@ -69,11 +73,20 @@ export class FakeListingAlertStateRepository
 
   constructor(options: FakeListingAlertStateRepositoryOptions = {}) {
     this.baselineInitialized =
-      options.baselineInitialized ?? options.baselineEntries !== undefined;
+      options.baselineInitialized ??
+      (options.baselineEntries !== undefined ||
+        options.observations !== undefined);
     this.failures = options.failures ?? {};
 
     for (const entry of options.baselineEntries ?? []) {
       this.storeBaselineEntry(entry);
+    }
+    for (const observation of options.observations ?? []) {
+      const parsedObservation = listingPriceObservationSchema.parse(observation);
+      this.observationsByAddress.set(
+        parsedObservation.addressKey,
+        cloneObservation(parsedObservation),
+      );
     }
     for (const event of options.events ?? []) {
       const parsedEvent = listingAlertEventSchema.parse(event);
@@ -161,8 +174,29 @@ export class FakeListingAlertStateRepository
     this.throwConfiguredFailure("saveListingAlertTransitions");
 
     const prospectiveEvents = new Map(this.eventsByKey);
+    const seenAddresses = new Set<ListingAddressKey>();
     for (const transition of clonedTransitions) {
       assertValidListingAlertTransition(transition);
+      if (seenAddresses.has(transition.observation.addressKey)) {
+        throw new InvalidListingAlertStateError(
+          "A listing alert transition batch cannot repeat an address",
+        );
+      }
+      seenAddresses.add(transition.observation.addressKey);
+
+      const currentObservation =
+        this.observationsByAddress.get(transition.observation.addressKey) ??
+        null;
+      if (
+        !listingPriceObservationsEqual(
+          currentObservation,
+          transition.expectedPreviousObservation,
+        )
+      ) {
+        throw new ListingAlertObservationConflictError(
+          transition.observation.addressKey,
+        );
+      }
       this.assertEventIsImmutable(transition.event, prospectiveEvents);
       if (transition.event !== null) {
         prospectiveEvents.set(transition.event.eventKey, transition.event);
@@ -303,6 +337,10 @@ function cloneTransition(
 ): ListingAlertTransition {
   return {
     ...cloneBaselineEntry(transition),
+    expectedPreviousObservation:
+      transition.expectedPreviousObservation === null
+        ? null
+        : cloneObservation(transition.expectedPreviousObservation),
     event: transition.event === null ? null : cloneEvent(transition.event),
   };
 }

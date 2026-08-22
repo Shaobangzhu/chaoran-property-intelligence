@@ -149,9 +149,12 @@ The repository operation for one provider snapshot must atomically:
 Telegram delivery occurs after commit. On success, only delivered event IDs
 become `sent`. On failure, pending payloads remain unchanged for retry.
 
-Block 20.4 will define the concrete migration and legacy compatibility. It must
-carry forward any existing `pending` new-listing delivery and must not infer
-historical price drops from stale listing prices.
+Block 20.4 defines this transaction in
+`PostgresListingAlertRepository`. Sorted canonical-address advisory locks and
+`FOR UPDATE` row locks protect an exact expected-previous compare-and-swap.
+The transaction then updates the current listing snapshot, latest observation,
+and optional immutable outbox event together. Any stale observation or event
+payload collision rejects the transaction.
 
 ## RentCast coverage
 
@@ -296,8 +299,15 @@ Existing new-listing behavior continues:
 - the first price-state initialization does not suppress a genuinely unseen
   new listing detected in that same run
 
-The exact initialization marker and migration transaction are Block 20.4
-implementation decisions. Tests must prove recovery after interruption.
+Migration `006_create_listing_alert_state.sql` adds
+`listing_price_observations` and `listing_alert_events`. The exact new marker is
+`price_observation_baseline_initialized`. The idempotent legacy initializer
+runs only when the old `baseline_initialized` marker exists; it creates
+canonical address keys in TypeScript, retains legacy pending rows as immutable
+new-listing events, and writes the new marker only at the end of the same
+transaction. Existing observations start with `comparison_ready = false`, so
+their first fresh provider result advances the baseline without inferring a
+historical price drop. A genuinely unseen eligible listing remains alertable.
 
 ## Telegram contract
 
@@ -401,14 +411,15 @@ state rejection. **Complete:**
   added.
 - `ListingPriceObservation` stores canonical address identity, stable listing
   identity, RentCast source identity, the latest whole-dollar price, provider
-  dates, and the worker observation timestamp.
+  dates, the worker observation timestamp, and whether the observation is safe
+  to use as a price comparison baseline.
 - `ListingAlertEvent` is a strict discriminated union. A `new-listing` event
   requires `previousPrice: null`; a `price-drop` event requires a positive
   integer `previousPrice` strictly greater than `currentPrice`.
-- `ListingAlertTransition` carries the current listing snapshot, next
-  observation, and at most one pending immutable event. Runtime validation
-  requires their address, listing, source, price, provider dates, display
-  address, and observation time to agree.
+- `ListingAlertTransition` carries the current listing snapshot, exact expected
+  previous observation, next observation, and at most one pending immutable
+  event. Runtime validation requires their address, listing, source, price,
+  provider dates, display address, and observation time to agree.
 - `ListingAlertStateRepositoryPort` defines baseline initialization,
   observation lookup, atomic transition persistence, ordered pending-event
   reads, and sent-state updates. `ListingAlertNotificationPort` accepts typed
@@ -417,11 +428,11 @@ state rejection. **Complete:**
   preserve observation ordering, support configured failures, reject event
   payload mutation, and never downgrade a replayed sent event to pending.
 
-The existing `CheckNewListings`, RentCast production query, PostgreSQL adapter,
-Telegram adapter, API, React application, worker composition, and AWS resources
-were intentionally not changed. Block 20.3 will consume these parallel
-contracts when implementing detection. Twenty-nine focused contract tests, all
-670 project tests, full typecheck, and the production build pass.
+At the end of 20.2, the existing `CheckNewListings`, RentCast production query,
+PostgreSQL adapter, Telegram adapter, API, React application, worker
+composition, and AWS resources were intentionally unchanged. Twenty-nine
+focused contract tests, all 670 project tests, full typecheck, and the
+production build passed.
 
 ### Block 20.3: Detection workflow
 
@@ -469,6 +480,30 @@ operation occurred. Production remains on the legacy use case until Blocks
 Add the observation state and durable notification outbox, transactionally
 update current snapshots, migrate legacy pending delivery safely, and cover
 constraints, concurrency, rollback, parsing, and migration idempotency.
+**Complete in code and offline tests:**
+
+- migration `006_create_listing_alert_state.sql` creates one latest observation
+  per canonical address and immutable `new-listing` / `price-drop` outbox rows,
+  with price-shape, delivery-state, identity-length, and pending-order
+  constraints
+- `PostgresListingAlertRepository` implements the Block 20.2 port, preserves a
+  listing row's original ID and `firstDiscoveredAt`, and updates its current
+  price rather than inserting a price-only duplicate
+- transition persistence takes sorted address advisory locks and row locks,
+  verifies `expectedPreviousObservation`, then atomically upserts the listing,
+  observation, and optional event; stale writers and mismatched immutable event
+  keys fail the transaction
+- pending events are returned by `observed_at, event_key`; sent updates affect
+  only named pending events and synchronize the legacy listing status only for
+  delivered new-listing events
+- legacy initialization is conditional and idempotent. It preserves pending
+  new-listing work, does not resend sent rows, and uses
+  `comparison_ready = false` to prevent a historical price-drop false positive
+
+No migration was applied to local Docker PostgreSQL or AWS, no real provider or
+Telegram operation occurred, and production composition remains on the legacy
+worker until Block 20.5. All 711 tests, full typecheck, and the production build
+pass.
 
 ### Block 20.5: Telegram and worker composition
 

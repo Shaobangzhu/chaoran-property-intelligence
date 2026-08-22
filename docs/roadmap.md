@@ -707,7 +707,13 @@ Planned sub-block mapping:
 5. `20.4` Add the PostgreSQL observation state and durable notification outbox,
    update current listing snapshots transactionally, preserve legacy pending
    delivery, and verify rollback, constraints, concurrency, and migration
-   idempotency.
+   idempotency. **Complete in code and offline verification:** migration 006,
+   exact expected-observation compare-and-swap, immutable event persistence,
+   ordered pending delivery, sent-state compatibility, and conditional legacy
+   backfill are implemented. Migrated observations require one fresh comparison
+   baseline before a price-drop event. No local or AWS database was migrated,
+   and production composition remains unchanged. All 711 tests, full typecheck,
+   and the production build pass.
 6. `20.5` Add Telegram event formatting with previous/current price, absolute
    and percentage decrease, bounded chunking, worker composition, and adapter
    integration tests without regressing smoke-test or Showing List delivery.

@@ -83,6 +83,12 @@ describe("listing alert contracts", () => {
       safeParseListingPriceObservation({ ...observation, extra: "field" })
         .success,
     ).toBe(false);
+    expect(
+      safeParseListingPriceObservation({
+        ...observation,
+        comparisonReady: "yes",
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts a relationally consistent price-drop transition", () => {
@@ -171,6 +177,7 @@ function createObservation(
     latestPrice: 810000,
     latestListedDate: "2026-08-19T00:00:00.000Z",
     latestLastSeenDate: "2026-08-21T12:00:00.000Z",
+    comparisonReady: true,
     observedAt: "2026-08-21T15:00:00.000Z",
     ...overrides,
   };
@@ -214,6 +221,7 @@ function createPriceDropTransition(): ListingAlertTransition {
   return {
     listing: createObservedListing(),
     observation: createObservation(),
+    expectedPreviousObservation: createObservation({ latestPrice: 825000 }),
     event: createPriceDropEvent(),
   };
 }

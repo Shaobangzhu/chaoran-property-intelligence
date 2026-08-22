@@ -13,7 +13,8 @@ truth. This document explains that code; the deployment runbook owns commands
 and operator procedures. ADR 0002 owns the deployed worker foundation, ADR 0003
 owns the planned React and Express production boundary, ADR 0006 owns the
 planned latest-only Showing List publication boundary, and ADR 0008 owns the
-planned price-drop observation and notification-outbox boundary.
+implemented-but-not-deployed price-drop observation and notification-outbox
+boundary.
 
 ## Deployment Status
 
@@ -446,10 +447,11 @@ delivery check. That mode loads only the Telegram bot token and chat ID, sends a
 fixed non-listing message, and does not create a database connection or a
 RentCast client.
 
-### Planned Block 20 Price-Drop Evolution
+### Block 20 Price-Drop Evolution
 
-**Status: accepted target application architecture; not implemented or
-deployed.** Block 20 will extend the existing daily worker so a lower observed
+**Status: detection, migration 006, and the PostgreSQL adapter are implemented
+and verified offline; worker composition and deployment are not complete.**
+Block 20 extends the existing daily worker so a lower observed
 price at the same canonical RentCast address creates a durable Telegram event.
 The planned flow separates the current listing snapshot, latest address-level
 price observation, and immutable pending/sent notification event. This keeps
@@ -461,6 +463,14 @@ application secret, VPC path, log group, DLQ, and IAM boundaries are sufficient.
 Block 20 does not plan a new AWS service, schedule, credential, public endpoint,
 or browser secret. A future approved deployment will update the worker image
 and apply a PostgreSQL migration inside the existing runtime boundary.
+
+Migration 006 adds `listing_price_observations` and `listing_alert_events` to
+the existing Aurora database. The adapter protects observation transitions with
+transaction-level address locks, preserves immutable pending payloads for
+retry, and conditionally converts legacy pending new-listing rows. Existing
+rows are initially non-comparable so the first fresh provider result cannot be
+misread as a historical price drop. These objects exist only in repository SQL
+until a separately confirmed deployment runs the bundled migrations.
 
 The current RentCast request filters out prices below `$780,000` before the
 application sees them. Block 20.1 must first prove that one broadened request

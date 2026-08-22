@@ -32,6 +32,7 @@ export const listingPriceObservationSchema = z.strictObject({
   latestPrice: positiveWholeDollarSchema,
   latestListedDate: providerDateSchema,
   latestLastSeenDate: providerDateSchema,
+  comparisonReady: z.boolean(),
   observedAt: timestampSchema,
 });
 
@@ -84,6 +85,7 @@ export interface ListingAlertBaselineEntry {
 }
 
 export interface ListingAlertTransition extends ListingAlertBaselineEntry {
+  expectedPreviousObservation: ListingPriceObservation | null;
   event: ListingAlertEvent | null;
 }
 
@@ -113,6 +115,13 @@ export class InvalidListingAlertStateError extends Error {
   }
 }
 
+export class ListingAlertObservationConflictError extends Error {
+  constructor(addressKey: ListingAddressKey) {
+    super(`Listing alert observation changed concurrently for ${addressKey}`);
+    this.name = "ListingAlertObservationConflictError";
+  }
+}
+
 export function safeParseListingPriceObservation(value: unknown) {
   return listingPriceObservationSchema.safeParse(value);
 }
@@ -134,12 +143,30 @@ export function assertValidListingAlertBaselineEntry(
   }
 
   assertListingMatchesObservation(entry.listing, observationResult.data);
+
+  if (!observationResult.data.comparisonReady) {
+    throw new InvalidListingAlertStateError(
+      "A new price-observation baseline must be comparison ready",
+    );
+  }
 }
 
 export function assertValidListingAlertTransition(
   transition: ListingAlertTransition,
 ): void {
   assertValidListingAlertBaselineEntry(transition);
+
+  const previous = parseExpectedPreviousObservation(
+    transition.expectedPreviousObservation,
+  );
+  if (
+    previous !== null &&
+    previous.addressKey !== transition.observation.addressKey
+  ) {
+    throw new InvalidListingAlertStateError(
+      "Previous and latest observation address keys must match",
+    );
+  }
 
   if (transition.event === null) {
     return;
@@ -186,6 +213,63 @@ export function assertValidListingAlertTransition(
       "Event address snapshot must match the observed listing",
     );
   }
+  if (
+    event.kind === "new-listing" &&
+    previous !== null &&
+    previous.listingKey === observation.listingKey
+  ) {
+    throw new InvalidListingAlertStateError(
+      "A new-listing event cannot repeat the same listing identity",
+    );
+  }
+  if (event.kind === "price-drop") {
+    if (previous === null || !previous.comparisonReady) {
+      throw new InvalidListingAlertStateError(
+        "A price-drop event requires a comparison-ready previous observation",
+      );
+    }
+    if (event.previousPrice !== previous.latestPrice) {
+      throw new InvalidListingAlertStateError(
+        "Event previous price must match the expected observation",
+      );
+    }
+  }
+}
+
+export function listingPriceObservationsEqual(
+  first: ListingPriceObservation | null,
+  second: ListingPriceObservation | null,
+): boolean {
+  if (first === null || second === null) {
+    return first === second;
+  }
+
+  return (
+    first.addressKey === second.addressKey &&
+    first.listingKey === second.listingKey &&
+    first.sourceListingId === second.sourceListingId &&
+    first.latestPrice === second.latestPrice &&
+    first.latestListedDate === second.latestListedDate &&
+    first.latestLastSeenDate === second.latestLastSeenDate &&
+    first.comparisonReady === second.comparisonReady &&
+    first.observedAt === second.observedAt
+  );
+}
+
+function parseExpectedPreviousObservation(
+  observation: ListingPriceObservation | null,
+): ListingPriceObservation | null {
+  if (observation === null) {
+    return null;
+  }
+
+  const result = listingPriceObservationSchema.safeParse(observation);
+  if (!result.success) {
+    throw new InvalidListingAlertStateError(
+      `Invalid expected previous observation: ${result.error.message}`,
+    );
+  }
+  return result.data;
 }
 
 function assertListingMatchesObservation(

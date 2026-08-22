@@ -7,6 +7,12 @@ export {
   type ListingAlertCriteriaPort,
 } from "./checkListingAlerts.js";
 export { createListingKey } from "./listingIdentity.js";
+export {
+  createNewListingAlertEventKey,
+  createPriceDropListingAlertEventKey,
+  type NewListingAlertEventIdentity,
+  type PriceDropListingAlertEventIdentity,
+} from "./listingAlertIdentity.js";
 export { ArchiveManualListing } from "./archiveManualListing.js";
 export type {
   ArchiveManualListingInput,
@@ -161,11 +167,13 @@ export {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
   InvalidListingAlertStateError,
+  ListingAlertObservationConflictError,
   LISTING_ALERT_LIMITS,
   listingAlertEventSchema,
   listingAlertKindSchema,
   listingAlertStatusSchema,
   listingPriceObservationSchema,
+  listingPriceObservationsEqual,
   safeParseListingAlertEvent,
   safeParseListingPriceObservation,
   type ListingAlertBaselineEntry,

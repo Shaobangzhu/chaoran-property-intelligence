@@ -13,9 +13,11 @@ import {
   type ListingAlertTransition,
   type ListingPriceObservation,
 } from "./listingAlertContracts.js";
+import {
+  createNewListingAlertEventKey,
+  createPriceDropListingAlertEventKey,
+} from "./listingAlertIdentity.js";
 import { createListingKey } from "./listingIdentity.js";
-
-const LISTING_ALERT_EVENT_KEY_PREFIX = "listing-alert:v1";
 
 export interface ListingAlertCriteriaPort {
   matchesAcquisitionCriteria(listing: RentCastNormalizedListing): boolean;
@@ -194,12 +196,15 @@ function createTransition(
   ) {
     event = createNewListingEvent(candidate, observedAt);
   } else if (candidate.listing.price < previous.latestPrice) {
-    event = createPriceDropEvent(candidate, previous, observedAt);
+    event = previous.comparisonReady
+      ? createPriceDropEvent(candidate, previous, observedAt)
+      : null;
   }
 
   return {
     listing: candidate.listing,
     observation,
+    expectedPreviousObservation: previous ?? null,
     event,
   };
 }
@@ -215,6 +220,7 @@ function createObservation(
     latestPrice: candidate.listing.price,
     latestListedDate: candidate.listing.listedDate,
     latestLastSeenDate: candidate.listing.lastSeenDate,
+    comparisonReady: true,
     observedAt,
   };
 }
@@ -224,14 +230,12 @@ function createNewListingEvent(
   observedAt: string,
 ): ListingAlertEvent {
   return {
-    eventKey: [
-      LISTING_ALERT_EVENT_KEY_PREFIX,
-      "new-listing",
-      encodeKeyPart(candidate.addressKey),
-      encodeKeyPart(candidate.listingKey),
-      candidate.listing.price,
-      encodeKeyPart(candidate.listing.lastSeenDate),
-    ].join(":"),
+    eventKey: createNewListingAlertEventKey({
+      addressKey: candidate.addressKey,
+      listingKey: candidate.listingKey,
+      currentPrice: candidate.listing.price,
+      latestLastSeenDate: candidate.listing.lastSeenDate,
+    }),
     listingKey: candidate.listingKey,
     addressKey: candidate.addressKey,
     kind: "new-listing",
@@ -249,16 +253,14 @@ function createPriceDropEvent(
   observedAt: string,
 ): ListingAlertEvent {
   return {
-    eventKey: [
-      LISTING_ALERT_EVENT_KEY_PREFIX,
-      "price-drop",
-      encodeKeyPart(candidate.addressKey),
-      encodeKeyPart(candidate.listingKey),
-      previous.latestPrice,
-      candidate.listing.price,
-      encodeKeyPart(previous.observedAt),
-      encodeKeyPart(candidate.listing.lastSeenDate),
-    ].join(":"),
+    eventKey: createPriceDropListingAlertEventKey({
+      addressKey: candidate.addressKey,
+      listingKey: candidate.listingKey,
+      previousPrice: previous.latestPrice,
+      currentPrice: candidate.listing.price,
+      previousObservedAt: previous.observedAt,
+      latestLastSeenDate: candidate.listing.lastSeenDate,
+    }),
     listingKey: candidate.listingKey,
     addressKey: candidate.addressKey,
     kind: "price-drop",
@@ -276,10 +278,6 @@ function readObservedAt(now: () => Date): string {
     throw new InvalidListingAlertClockError();
   }
   return value.toISOString();
-}
-
-function encodeKeyPart(value: string): string {
-  return encodeURIComponent(value);
 }
 
 function listingsAreEquivalent(

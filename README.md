@@ -182,10 +182,9 @@ Block 20.2 adds the provider-neutral price-alert contracts without changing the
 production worker. `ListingAddressKey` provides strict, versioned structured-
 address identity; application records distinguish latest price observations
 from immutable `new-listing` and `price-drop` events. The event-oriented
-repository and notification ports currently run only through deterministic
-test fakes. RentCast production acquisition, PostgreSQL persistence, Telegram
-formatting, React, and AWS resources remain unchanged until their later
-confirmed sub-blocks.
+repository and notification ports were first exercised through deterministic
+test fakes. RentCast production acquisition, Telegram formatting, React, and
+AWS resources remain unchanged until their later confirmed sub-blocks.
 
 Block 20.3 adds a parallel `CheckListingAlerts` detection workflow. It separates
 the broadened no-minimum-price acquisition predicate from the existing
@@ -195,6 +194,19 @@ for accepted new identities or strict price decreases. Unseen below-floor rows
 remain ignored, while a tracked address can alert below the floor. The legacy
 production `CheckNewListings` composition remains active until the PostgreSQL
 and Telegram integrations are implemented and separately approved.
+
+Block 20.4 adds migration `006_create_listing_alert_state.sql` and the parallel
+`PostgresListingAlertRepository`. PostgreSQL now has address-level latest-price
+observations plus an immutable pending/sent alert outbox. Transition writes use
+sorted transaction-level advisory locks, row locks, and expected-previous
+comparison before atomically updating the current listing snapshot,
+observation, and optional event. A conditional legacy initializer preserves old
+pending new-listing work while marking migrated observations non-comparable;
+their first fresh provider observation establishes the price baseline without
+creating a historical price-drop alert. This code has only been verified
+offline: no local or AWS database migration was applied, and production still
+uses `CheckNewListings` until Block 20.5 composition is approved. All 711 tests,
+full typecheck, and the production build pass.
 
 The production image also provides a read-only aggregate baseline check:
 
