@@ -14,7 +14,7 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
-Blocks 18.1-18.9 and Blocks 19.0-19.2 are complete. The repository currently
+Blocks 18.1-18.9 and Blocks 19.0-19.3 are complete. The repository currently
 contains:
 
 - a TypeScript and pnpm workspace
@@ -613,7 +613,10 @@ Planned sub-block mapping:
    builds produced the same SHA-256.**
 4. `19.3` Extend the injected MapLibre driver with lazy source loading,
    severity fill and boundary layers, stable layer ordering, and bounded
-   overlay-only failure behavior.
+   overlay-only failure behavior. **Complete: the driver validates and loads
+   the versioned same-origin artifact once, installs four hidden layers below
+   listing points, reuses them across toggles, rolls back partial failures, and
+   aborts pending work during cleanup.**
 5. `19.4` Add the responsive toggle, loading/error states, labeled legend,
    attribution, and accessible keyboard behavior. The overlay remains off by
    default.

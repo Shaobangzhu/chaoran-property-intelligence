@@ -4,8 +4,9 @@
 
 Accepted. Block 19.0 established the product and architecture constraints,
 Block 19.1 completed the official-source audit, and Block 19.2 implemented the
-reproducible GeoJSON build and provenance manifest. No map UI, database object,
-or AWS resource has been added.
+reproducible GeoJSON build and provenance manifest. Block 19.3 implemented the
+lazy MapLibre overlay controller without enabling a user-visible control. No
+database object or AWS resource has been added.
 
 ## Context
 
@@ -132,7 +133,7 @@ finite coordinates, and produce deterministic output.
 ### Map composition and visual hierarchy
 
 Keep the existing listing source and circle layer authoritative. Add the hazard
-layers after the basemap loads and before `cpi-listings`:
+layers after the basemap loads and before `stored-listing-points`:
 
 ```text
 OpenFreeMap basemap
@@ -171,6 +172,13 @@ The map control owns four bounded states:
 After the first successful load, toggling changes MapLibre layer visibility
 instead of rebuilding the map or refetching data. A hazard failure must not
 transition the base map into its existing global `Map unavailable` state.
+
+Block 19.3 implements these semantics in the injected map driver. Its internal
+states are `idle`, `loading`, `ready`, and `error`; the future UI's `off` state
+maps to `idle` before loading and to `ready` with hidden layers after loading.
+The complete artifact is validated before source installation. Partial layer
+installation is rolled back, retries start cleanly, and unmount aborts pending
+loading and removes installed overlay resources.
 
 ### Security and privacy
 

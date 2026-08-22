@@ -4,7 +4,7 @@
 
 Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
 existing listings map. This file is the implementation planning record. Blocks
-19.0 through 19.2 are complete; later executable sub-blocks still require
+19.0 through 19.3 are complete; later executable sub-blocks still require
 explicit confirmation.
 
 ## Feasibility
@@ -180,15 +180,15 @@ credentials. The overlay uses the same application origin as the React build.
 
 ## Map driver design
 
-Extend the injected map driver rather than letting React manipulate MapLibre
-objects directly. The planned responsibilities are:
+Block 19.3 extends the injected map driver rather than letting React manipulate
+MapLibre objects directly. Its responsibilities are:
 
 - install the hazard source once after successful lazy loading
 - create one fill layer and bounded boundary layers
-- place all hazard layers below `cpi-listings`
+- place all hazard layers below the existing `stored-listing-points` layer
 - set visibility without rebuilding the map
 - preserve listing selection, fit, draft-marker, and map-error behavior
-- dispose listeners and requests when the component unmounts
+- abort requests and remove installed overlay resources on unmount
 
 Proposed stable IDs:
 
@@ -199,6 +199,22 @@ cpi-wildfire-hazard-outline-moderate
 cpi-wildfire-hazard-outline-high
 cpi-wildfire-hazard-outline-very-high
 ```
+
+The implementation lives in `apps/web/src/wildfireHazardOverlay.ts`. The
+driver exposes `setWildfireHazardVisible(boolean)` and does not call it by
+default, so Block 19.3 causes no request or visual change on page load. First
+enable fetches the versioned same-origin
+`/data/wildfire-hazard/fhsz-five-cities-2025.1.geojson` artifact, validates the
+complete collection, installs all four layers hidden, and then changes their
+visibility together. A successful disable/enable cycle reuses the installed
+source and layers.
+
+The controller state machine is `idle`, `loading`, `ready`, and `error`, with
+visibility represented separately in the ready state. Unsupported severity,
+responsibility area, designation status, geometry, coordinates, network
+failure, or partial MapLibre installation produces a bounded overlay error.
+Partial source/layer installation is rolled back. Destroy aborts a pending
+request and removes installed overlay resources before the map is removed.
 
 The fill expression uses red depth plus bounded opacity. Boundary tone and
 weight may also increase with severity so the distinction is not encoded only
@@ -284,13 +300,13 @@ startup or CI.
 ### Map driver
 
 - source installed once
-- hazard layers inserted before `cpi-listings`
+- hazard layers inserted before `stored-listing-points`
 - severity expression and opacity values
 - default hidden visibility
 - repeated toggle does not duplicate source or layers
 - listing selection and draft marker continue to work
 - overlay error does not invoke the global map-error callback
-- cleanup aborts pending load and removes listeners
+- cleanup aborts pending load and removes installed overlay resources
 
 ### React UI
 
@@ -325,11 +341,12 @@ startup or CI.
 
 ## Sub-block readiness
 
-Blocks 19.0 through 19.2 are complete. Block 19.2 produced the reproducible
+Blocks 19.0 through 19.3 are complete. Block 19.2 produced the reproducible
 builder, fixture tests, controlled city-boundary snapshot, versioned GeoJSON,
-and provenance manifest. It did not add a user-visible map feature. Block 19.3
-is the next executable block and requires a fresh explanation and explicit
-confirmation.
+and provenance manifest. Block 19.3 added the lazy, validated MapLibre driver
+controller, stable layer ordering, bounded failure rollback, and cleanup. It
+still did not add a user-visible map control. Block 19.4 is the next executable
+block and requires a fresh explanation and explicit confirmation.
 
 ## References
 

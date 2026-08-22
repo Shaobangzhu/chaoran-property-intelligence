@@ -12,6 +12,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { listingsToFeatureCollection } from "./listingGeoJson.js";
 import type { ListingSummary } from "./listingsApi.js";
+import {
+  createMapLibreWildfireHazardMapAdapter,
+  createWildfireHazardOverlayController,
+  type WildfireHazardOverlayController,
+  type WildfireHazardOverlayState,
+} from "./wildfireHazardOverlay.js";
 
 const LISTINGS_SOURCE_ID = "stored-listings";
 const LISTINGS_LAYER_ID = "stored-listing-points";
@@ -50,6 +56,7 @@ export interface ListingsMapDriver {
   fitToListings: (listings: ListingSummary[]) => void;
   focusListing: (listing: ListingSummary) => void;
   updateDraftMarker: (draftMarker: DraftMarkerPresentation | null) => void;
+  setWildfireHazardVisible: (visible: boolean) => Promise<void>;
   resize: () => void;
   destroy: () => void;
 }
@@ -58,6 +65,9 @@ interface CreateListingsMapOptions {
   container: HTMLElement;
   onSelect: (listingId: string) => void;
   onDraftCoordinatesChange: (coordinates: ListingCoordinates) => void;
+  onWildfireHazardStateChange: (
+    state: WildfireHazardOverlayState,
+  ) => void;
   onReady: () => void;
   onError: (error: unknown) => void;
 }
@@ -104,6 +114,7 @@ export function ListingsMap({
         container,
         onDraftCoordinatesChange: (coordinates) =>
           draftMarkerRef.current?.onCoordinatesChange(coordinates),
+        onWildfireHazardStateChange: () => undefined,
         onSelect: (listingId) => onSelectRef.current(listingId),
         onReady: () => {
           if (active) {
@@ -220,6 +231,7 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
   container,
   onDraftCoordinatesChange,
   onSelect,
+  onWildfireHazardStateChange,
   onReady,
   onError,
 }) => {
@@ -227,6 +239,8 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
   let collection = listingsToFeatureCollection([], null);
   let draftMarkerState: DraftMarkerPresentation | null = null;
   let draftMarker: Marker | null = null;
+  let wildfireHazardOverlay: WildfireHazardOverlayController | null = null;
+  let wildfireHazardVisible = false;
   const map = new MapLibreMap({
     center: [-117.58, 33.94],
     container,
@@ -262,6 +276,15 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
         "circle-stroke-width": 2,
       },
     });
+
+    wildfireHazardOverlay = createWildfireHazardOverlayController({
+      beforeLayerId: LISTINGS_LAYER_ID,
+      map: createMapLibreWildfireHazardMapAdapter(map),
+      onStateChange: onWildfireHazardStateChange,
+    });
+    if (wildfireHazardVisible) {
+      void wildfireHazardOverlay.setVisible(true);
+    }
 
     map.on("click", LISTINGS_LAYER_ID, (event) => {
       const listingId = event.features?.[0]?.properties.id;
@@ -350,8 +373,13 @@ export const createMapLibreListingsMap: CreateListingsMap = ({
         updateCanvasCursor();
       }
     },
+    setWildfireHazardVisible: async (visible) => {
+      wildfireHazardVisible = visible;
+      await wildfireHazardOverlay?.setVisible(visible);
+    },
     resize: () => map.resize(),
     destroy: () => {
+      wildfireHazardOverlay?.destroy();
       draftMarker?.remove();
       map.remove();
     },

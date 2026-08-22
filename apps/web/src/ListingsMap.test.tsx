@@ -39,6 +39,7 @@ describe("ListingsMap", () => {
       null,
     );
     expect(harness.driver.updateDraftMarker).toHaveBeenLastCalledWith(null);
+    expect(harness.driver.setWildfireHazardVisible).not.toHaveBeenCalled();
 
     act(() => harness.options?.onReady());
     expect(screen.queryByText("Loading map")).not.toBeInTheDocument();
@@ -152,6 +153,7 @@ function createDriverHarness(): {
     fitToListings: vi.fn(),
     focusListing: vi.fn(),
     resize: vi.fn(),
+    setWildfireHazardVisible: vi.fn(),
     updateDraftMarker: vi.fn(),
     updateListings: vi.fn(),
   };
