@@ -14,8 +14,8 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
-Blocks 18.1-18.9 are complete. Block 19.0 planning and Block 19.1 source audit
-are complete. The repository currently contains:
+Blocks 18.1-18.9 and Blocks 19.0-19.2 are complete. The repository currently
+contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -608,7 +608,9 @@ Planned sub-block mapping:
    prototype; Eastvale remains recommended until local adoption is verified.**
 3. `19.2` Add a reproducible normalization and clipping pipeline plus a
    provenance manifest and deterministic test fixture. Do not add a runtime
-   ArcGIS dependency.
+   ArcGIS dependency. **Complete: the digest-pinned GDAL pipeline emits a
+   933,093-byte five-city GeoJSON and provenance manifest; two controlled
+   builds produced the same SHA-256.**
 4. `19.3` Extend the injected MapLibre driver with lazy source loading,
    severity fill and boundary layers, stable layer ordering, and bounded
    overlay-only failure behavior.

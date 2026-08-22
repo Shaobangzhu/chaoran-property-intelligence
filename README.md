@@ -231,6 +231,7 @@ planned React/Express production boundary.
 - [Latest-only Showing List publication decision](docs/adr/0006-latest-only-showing-list-publication.md)
 - [Wildfire hazard overlay decision](docs/adr/0007-wildfire-hazard-overlay.md)
 - [Block 19.1 wildfire hazard source audit](docs/data/wildfire-hazard-source-audit.md)
+- [Wildfire hazard data builder](tools/wildfire-hazard/README.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)

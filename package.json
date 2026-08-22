@@ -23,7 +23,9 @@
     "typecheck:runtime": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p packages/openai/tsconfig.json && tsc --noEmit -p packages/pdf/tsconfig.json && tsc --noEmit -p packages/s3/tsconfig.json && tsc --noEmit -p packages/postgres/tsconfig.json && tsc --noEmit -p packages/auth/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/admin-cli/tsconfig.json && pnpm --dir apps/web typecheck",
     "user:create-admin": "pnpm build:admin-cli && node --env-file-if-exists=.env.local apps/admin-cli/dist/index.js",
     "verify:local": "vitest run apps/alert-worker/src/localIntegration.test.ts",
-    "web:dev": "pnpm --dir apps/web dev"
+    "web:dev": "pnpm --dir apps/web dev",
+    "wildfire:data:build": "node tools/wildfire-hazard/build.mjs",
+    "wildfire:data:test": "vitest run tools/wildfire-hazard"
   },
   "devDependencies": {
     "typescript": "^5.9.2",

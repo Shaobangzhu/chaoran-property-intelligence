@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted. Block 19.0 established the product and architecture constraints, and
-Block 19.1 completed the official-source audit and selected a GeoJSON runtime
-artifact. No application code, database object, or AWS resource has been added.
+Accepted. Block 19.0 established the product and architecture constraints,
+Block 19.1 completed the official-source audit, and Block 19.2 implemented the
+reproducible GeoJSON build and provenance manifest. No map UI, database object,
+or AWS resource has been added.
 
 ## Context
 
@@ -75,13 +76,20 @@ geometry for the product area. The conservative, unsimplified prototype is
 the installed MapLibre tiling dependency created its source and a
 representative z8 tile in a 14.066 ms 10-run mean.
 
-Block 19.2 must build the release artifact from checksum-pinned CAL FIRE / OSFM
-archives, hard clip it to the product boundary, and emit a provenance manifest.
-The ArcGIS services used to validate the audit are not runtime or build
-dependencies. A maintained MapLibre-compatible tiled artifact remains the
-fallback if the reproducible artifact exceeds either size limit or Block 19.5
-finds a visible browser stall. Never ship the whole-state source dataset to the
-browser.
+Block 19.2 builds the release artifact from checksum-pinned CAL FIRE / OSFM
+archives and a tracked five-city boundary snapshot derived from the reviewed
+CAL FIRE incorporated-city export. GDAL 3.13.2 is pinned by multi-platform OCI
+digest and runs without container network access. The official archives remain
+outside Git, the moving city export is not contacted during a normal rebuild,
+and no ArcGIS service is a browser runtime dependency.
+
+The first reproducible output contains 85 features and 35,512 positions. It is
+933,093 bytes raw and 234,976 bytes at gzip level 9, with SHA-256
+`d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`.
+Two consecutive builds from the controlled inputs produced the same checksum.
+A maintained MapLibre-compatible tiled artifact remains the fallback if Block
+19.5 finds a visible browser stall. Never ship the whole-state source dataset
+to the browser.
 
 The derived artifact must preserve source attribution and license notices. It
 must not silently merge polygons with conflicting jurisdictional status.
@@ -92,6 +100,14 @@ Chino, Chino Hills, Corona, and Jurupa Valley have verified local adoption
 records. Eastvale remains `recommended` until a current adopted ordinance and
 map are verified; qualifying status or a proposed ordinance is insufficient to
 label its features `locally-adopted`.
+
+The official LRA archive contains invalid source geometry. The build does not
+skip it: GDAL `ST_MakeValid` is applied explicitly after city clipping, and the
+manifest records invalid counts, non-polygon clipping artifacts, per-severity
+area reconciliation, and final validity. The first output repaired one
+self-intersecting `Very High` feature, removed one zero-area line component,
+preserved all 85 eligible features, and stayed below the `0.001` area-drift
+limit.
 
 ### Geometry contract
 
@@ -178,6 +194,8 @@ dataset refresh, conflict handling, disclosures, and tests independently.
 - Static same-origin publication improves reproducibility and avoids a live
   ArcGIS dependency.
 - The repository needs a documented update process when official maps change.
+- Rebuilds require Node.js 24.19.0, Docker, the pinned GDAL image, and access to
+  locally cached checksum-pinned official archives.
 - LRA recommendation/adoption status remains visible instead of being flattened
   into a misleading statewide certainty.
 - GeoJSON is the accepted initial format because measured official geometry

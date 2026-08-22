@@ -8,13 +8,13 @@ geometry budget, and browser parse cost were reviewed.
 
 The selected Block 19 runtime format is one versioned, same-origin GeoJSON
 artifact that is fetched lazily when the user first enables the overlay. The
-measured conservative prototype is below both documented size limits. A tiled
-artifact remains a fallback only if the reproducible Block 19.2 build or Block
-19.5 browser verification fails the same gate.
+measured conservative prototype is below both documented size limits. Block
+19.2 subsequently passed the reproducible build gate. A tiled artifact remains
+a fallback only if Block 19.5 browser verification fails the same gate.
 
-This audit does not publish a browser artifact or add a runtime ArcGIS
-dependency. The downloaded archives and measurement prototype are audit inputs
-outside the repository, not application assets.
+Block 19.1 did not publish a browser artifact or add a runtime ArcGIS
+dependency. Block 19.2 now publishes a versioned derived GeoJSON and manifest;
+the downloaded archives remain ignored local inputs outside Git.
 
 ## Authoritative Sources
 
@@ -32,11 +32,19 @@ Acquisition was recorded at `2026-08-22T00:13:29Z`, which is
 | LRA | `FHSZLRA251Allgdb.zip` | 9,840,158 bytes | 2025-05-01 | `736fa5231c70b844550784cd13c8d414c239cf9573c9cae6139554ef0bf464b6` | EPSG:3310 |
 | SRA | `FHSZSRA_23_3.zip` | 36,001,656 bytes | 2025-02-24 | `e744eb8eb7895157f4025109f29ff5312180a52fdb4648ff9fe9328edf4db3b2` | EPSG:3310 in the downloaded shapefile |
 
+Block 19.2 also acquired the official CAL FIRE `California Incorporated
+Cities` GeoJSON export: 38,672,112 bytes with SHA-256
+`0571ca0f9d66a96889a0df7ee0b417790b3bf71fd3410af92ae7a097fbc8cb8e`.
+Because that export URL is mutable, the repository tracks only its five-city
+version `24_1` subset: 558,149 bytes with SHA-256
+`29d92acd5ec5e210d2894eb6cffba14540e7f7a0d7d3e4e1388a0eb512d804f8`.
+The source catalog identifies the dataset as Creative Commons Attribution.
+
 The LRA archive contains the `FHSZLRA25_1_All.gdb` File Geodatabase. The SRA
 archive contains both shapefile and File Geodatabase representations. Block
-19.2 must ingest these checksum-pinned archives directly with a pinned GIS
-toolchain; the official feature services are validation and audit surfaces,
-not build or browser runtime dependencies.
+19.2 ingests these checksum-pinned archives directly with a digest-pinned GDAL
+3.13.2 image; the official feature services remain validation and audit
+surfaces, not browser runtime dependencies.
 
 Official download URLs:
 
@@ -84,9 +92,9 @@ envelope:
 The read-only official feature-service query returns whole features that
 intersect an envelope rather than cutting their geometry at the boundary.
 Therefore, the measurement prototype is a conservative spatially selected
-superset and its geometry extends beyond the envelope. Block 19.2 must hard
-clip source geometry to the documented product boundary. This should reduce,
-not increase, the measured payload.
+superset and its geometry extends beyond the envelope. Block 19.2 hard clips
+source geometry to the union of the five reviewed incorporated-city boundaries.
+The final artifact does not include nearby context outside those cities.
 
 ## Jurisdiction Verification
 
@@ -96,8 +104,8 @@ status is not uniform:
 
 | Jurisdiction | Audited status | Evidence and artifact rule |
 | --- | --- | --- |
-| Chino | Locally adopted | Chino Valley Fire District records Ordinance 2025-01 for Chino and Chino Hills, adopted 2025-07-09 and effective 2025-09-01. Block 19.2 must compare the adopted attachment with the OSFM recommendation before assigning feature status. |
-| Chino Hills | Locally adopted | Same Chino Valley Fire District ordinance and comparison requirement as Chino. |
+| Chino | Locally adopted | Chino Valley Fire District Ordinance 2025-01 applies to Chino and Chino Hills, was adopted 2025-07-09, and became effective 2025-09-01. The ordinance states that the District made no changes to the State Fire Marshal recommendations or maps. |
+| Chino Hills | Locally adopted | Same Chino Valley Fire District ordinance and no-change finding as Chino. |
 | Corona | Locally adopted | Corona adopted Ordinance 3418 on 2025-06-04, effective 2025-07-04. The city states that it did not propose additions or increases to the OSFM map. |
 | Jurupa Valley | Locally adopted | The City Council adopted Ordinance 2025-13 on 2025-06-26, adopting the State Fire Marshal recommendations. |
 | Eastvale | Recommended until locally verified | CAL FIRE's public status layer showed a qualifying jurisdiction and public-contact status. The official city record found for this audit documents a proposed ordinance review, not final adoption. Do not label Eastvale features `locally-adopted` until a current adopted ordinance and map are obtained. |
@@ -150,31 +158,37 @@ GeoJSON passes the Block 19 format gate with margin:
 - the prototype includes whole intersecting polygons and no simplification,
   while the final artifact will be clipped
 
-Block 19.2 will therefore emit one versioned GeoJSON artifact and a paired
-provenance manifest. Block 19.5 must still measure fetch, parse, source
+Block 19.2 emits one versioned GeoJSON artifact and a paired provenance
+manifest. Block 19.5 must still measure fetch, parse, source
 installation, pan, and zoom behavior in supported desktop and mobile browsers.
 If a visible stall occurs or the reproducible output crosses either hard size
 limit, the decision returns to a maintained MapLibre-compatible tiled format;
 the limits are not raised.
 
-## Block 19.2 Requirements
+## Block 19.2 Result
 
-The implementation block must:
+The completed implementation:
 
-1. Pin a maintained GIS transformation tool and record its version.
-2. Verify archive checksums before extraction.
-3. Read the downloaded official archives, not the ArcGIS validation endpoint.
-4. Reproject to WGS84 longitude/latitude and preserve polygon holes.
-5. Hard clip to the documented product boundary with a reviewed context margin.
-6. Allow only `Moderate`, `High`, and `Very High`; exclude `NonWildland`.
-7. Resolve designation status by jurisdiction and leave Eastvale
-   `recommended` until local adoption is verified.
-8. Emit deterministic feature order, minimal properties, counts, bounds,
-   source metadata, transformation metadata, and output checksums.
-9. Fail on unknown categories, invalid geometry, non-finite coordinates, or
-   unreconciled count/area changes.
-10. Keep official downloads, provider calls, and production-sized artifacts
-    out of ordinary CI; CI uses a deterministic fixture.
+1. Pins GDAL `3.13.2` by multi-platform OCI digest.
+2. Verifies source checksums and byte limits before GIS processing.
+3. Reads the downloaded OSFM archives and a tracked five-city boundary snapshot.
+4. Hard clips to the five incorporated-city boundaries, reprojects to WGS84,
+   and preserves polygon holes without boundary simplification.
+5. Uses explicit GDAL `ST_MakeValid`, records repair and area metrics, and
+   fails if output remains invalid or area drift exceeds `0.001`.
+6. Allows only `Moderate`, `High`, and `Very High`; excludes `NonWildland`.
+7. Keeps Eastvale `recommended` while assigning the four verified local
+   adoptions and SRA `effective` status.
+8. Emits deterministic minimal properties, counts, bounds, attribution,
+   transformation metadata, and checksums.
+9. Uses a deterministic fixture in ordinary CI with no provider or Docker call.
+
+The resulting artifact has 85 features, 35,512 coordinate positions, 933,093
+raw bytes, and 234,976 gzip bytes. It excludes 8 `NonWildland` features,
+repairs one self-intersecting source feature, removes one zero-area line
+component produced by clipping, and has zero invalid output geometries. Two
+identical builds produced SHA-256
+`d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`.
 
 Before publishing a derived artifact, preserve required official attribution
 and recheck the current source terms and disclaimers. This audit makes no

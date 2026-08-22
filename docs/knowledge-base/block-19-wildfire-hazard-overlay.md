@@ -4,8 +4,8 @@
 
 Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
 existing listings map. This file is the implementation planning record. Blocks
-19.0 and 19.1 are complete; later executable sub-blocks still require explicit
-confirmation.
+19.0 through 19.2 are complete; later executable sub-blocks still require
+explicit confirmation.
 
 ## Feasibility
 
@@ -93,6 +93,30 @@ The deterministic preparation pipeline must:
    and output checksum.
 9. Compare feature counts and area summaries before and after transformation.
 
+### As-built pipeline
+
+Block 19.2 implements the maintainer-only builder in
+`tools/wildfire-hazard`. It uses:
+
+- Node.js `24.19.0`
+- GDAL `3.13.2` in a pinned multi-platform OCI image
+- checksum-pinned LRA and SRA archives in an ignored local cache
+- a tracked 558,149-byte five-city boundary snapshot derived from the reviewed
+  CAL FIRE incorporated-city export
+- a Docker container with networking disabled during every GIS operation
+
+The pipeline hard clips each responsibility-area layer to Chino, Chino Hills,
+Corona, Eastvale, and Jurupa Valley. It extracts polygonal components, applies
+GDAL `ST_MakeValid` explicitly, converts to EPSG:4326, rounds to seven decimal
+places, and then lets the Node artifact layer validate, sort, budget, and hash
+the result. It never skips invalid features.
+
+The production manifest records source and artifact checksums, source byte
+counts, licenses, attribution, target-city designation evidence, feature and
+coordinate counts, bounds, geometry repairs, area reconciliation, and transfer
+budgets. The build atomically publishes the GeoJSON and manifest under
+`apps/web/public/data/wildfire-hazard`.
+
 ### Format gate
 
 Block 19.1 measured a conservative, unsimplified spatial-selection prototype:
@@ -105,8 +129,19 @@ Block 19.1 measured a conservative, unsimplified spatial-selection prototype:
   request a representative z8 tile
 
 The official-service query returned whole intersecting features, so Block 19.2
-must hard clip the release artifact. Even this larger conservative prototype
-passes the format gate.
+hard clips the release artifact to the union of the five incorporated-city
+boundaries. The reproducible output contains:
+
+- 85 features and 35,512 coordinate positions
+- 933,093 bytes raw
+- 234,976 bytes at gzip level 9
+- 28 `Moderate`, 27 `High`, and 30 `Very High` features
+- 18 SRA/effective, 56 LRA/locally-adopted, and 11 LRA/recommended features
+- 8 excluded `NonWildland` features
+- one repaired source self-intersection and zero invalid output geometries
+
+Two consecutive builds produced SHA-256
+`d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`.
 
 Use GeoJSON only when all are true:
 
@@ -290,16 +325,18 @@ startup or CI.
 
 ## Sub-block readiness
 
-Blocks 19.0 and 19.1 are complete. Block 19.1 produced a source audit, city
-status review, format decision, and temporary measured prototype, not a
-user-visible map feature. Block 19.2 is the next executable block and requires
-a fresh explanation and explicit confirmation.
+Blocks 19.0 through 19.2 are complete. Block 19.2 produced the reproducible
+builder, fixture tests, controlled city-boundary snapshot, versioned GeoJSON,
+and provenance manifest. It did not add a user-visible map feature. Block 19.3
+is the next executable block and requires a fresh explanation and explicit
+confirmation.
 
 ## References
 
 - [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
 - [California Open Data Fire Hazard Severity Zone Viewer](https://lab.data.ca.gov/dataset/fire-hazard-severity-zone-viewer)
 - [Block 19.1 Wildfire Hazard Source Audit](../data/wildfire-hazard-source-audit.md)
+- [Wildfire Hazard Data Builder](../../tools/wildfire-hazard/README.md)
 - [ADR 0001: Persistence Direction](../adr/0001-persistence-direction.md)
 - [ADR 0003: API, Web, and Map Foundation](../adr/0003-api-web-map-foundation.md)
 - [ADR 0007: Wildfire Hazard Overlay](../adr/0007-wildfire-hazard-overlay.md)

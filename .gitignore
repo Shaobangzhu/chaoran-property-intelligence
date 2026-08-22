@@ -75,6 +75,9 @@ web_modules/
 .cache
 .parcel-cache
 
+# Checksum-pinned wildfire source archives and GDAL intermediates
+/.cache/wildfire-hazard/
+
 # Next.js build output
 .next
 out

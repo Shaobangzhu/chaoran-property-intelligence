@@ -1,0 +1,124 @@
+{
+  "artifact": {
+    "version": "2025.1",
+    "fileName": "fhsz-five-cities-2025.1.geojson",
+    "manifestFileName": "manifest.json",
+    "snapshotAt": "2026-08-22T00:29:56Z",
+    "coordinatePrecision": 7,
+    "maximumRawBytes": 10485760,
+    "maximumGzipBytes": 2097152,
+    "maximumAreaDriftRatio": 0.001
+  },
+  "gdal": {
+    "version": "3.13.2",
+    "image": "ghcr.io/osgeo/gdal:ubuntu-small-3.13.2@sha256:49b1b7a9779340ad66e7f87ea78ea632e923867df24e68c6d17f0079220e16b3",
+    "nodeVersion": "24.19.0"
+  },
+  "sources": [
+    {
+      "id": "lra",
+      "title": "2025 combined LRA Fire Hazard Severity Zones",
+      "canonicalUrl": "https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones",
+      "downloadUrl": "https://34c031f8-c9fd-4018-8c5a-4159cdff6b0d-cdn-endpoint.azureedge.net/-/media/osfm-website/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones/fhszlra251allgdb.zip?hash=4FE6C7291E09FC36126F91318C6CCB88&rev=c273e91031b6401b99937894df5f1266",
+      "fileName": "FHSZLRA251Allgdb.zip",
+      "sha256": "736fa5231c70b844550784cd13c8d414c239cf9573c9cae6139554ef0bf464b6",
+      "maximumBytes": 15000000,
+      "version": "FHSZLRA25_1",
+      "responsibilityArea": "lra",
+      "gdalDataSource": "/vsizip//work/sources/FHSZLRA251Allgdb.zip/FHSZLRA25_1_All.gdb",
+      "gdalLayer": "FHSALRA25_v1_All",
+      "license": "Creative Commons Attribution",
+      "attribution": "CAL FIRE / Office of the State Fire Marshal"
+    },
+    {
+      "id": "sra",
+      "title": "2023 SRA Fire Hazard Severity Zones",
+      "canonicalUrl": "https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones",
+      "downloadUrl": "https://34c031f8-c9fd-4018-8c5a-4159cdff6b0d-cdn-endpoint.azureedge.net/-/media/osfm-website/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones/fhszsra_23_3.zip?hash=87816F8F0635FFA1D7B99A723DE38A70&rev=f5118b1ba17044a8aa3cd2994f00d6d3",
+      "fileName": "FHSZSRA_23_3.zip",
+      "sha256": "e744eb8eb7895157f4025109f29ff5312180a52fdb4648ff9fe9328edf4db3b2",
+      "maximumBytes": 45000000,
+      "version": "FHSZSRA_23_3",
+      "responsibilityArea": "sra",
+      "gdalDataSource": "/vsizip//work/sources/FHSZSRA_23_3.zip/FHSZSRA_23_3.gdb",
+      "gdalLayer": "FHSZSRA_23_3",
+      "license": "Creative Commons Attribution",
+      "attribution": "CAL FIRE / Office of the State Fire Marshal"
+    },
+    {
+      "id": "city-boundaries",
+      "title": "California Incorporated Cities",
+      "canonicalUrl": "https://lab.data.ca.gov/dataset/california-incorporated-cities",
+      "downloadUrl": "https://gis.data.cnra.ca.gov/api/download/v1/items/5ed97ff8ffeb4eaca7e06a8237d18e13/geojson?layers=0",
+      "fileName": "target-city-boundaries-24_1.geojson",
+      "trackedPath": "tools/wildfire-hazard/sources/target-city-boundaries-24_1.geojson",
+      "sha256": "29d92acd5ec5e210d2894eb6cffba14540e7f7a0d7d3e4e1388a0eb512d804f8",
+      "maximumBytes": 1000000,
+      "upstreamSnapshotSha256": "0571ca0f9d66a96889a0df7ee0b417790b3bf71fd3410af92ae7a097fbc8cb8e",
+      "upstreamSnapshotBytes": 38672112,
+      "version": "24_1",
+      "gdalDataSource": "/work/sources/target-city-boundaries-24_1.geojson",
+      "gdalLayer": "target_city_boundaries",
+      "license": "Creative Commons Attribution",
+      "attribution": "CAL FIRE FRAP / California Board of Equalization"
+    }
+  ],
+  "jurisdictions": [
+    {
+      "name": "Chino",
+      "slug": "chino",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "chino-valley-ordinance-2025-01"
+    },
+    {
+      "name": "Chino Hills",
+      "slug": "chino-hills",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "chino-valley-ordinance-2025-01"
+    },
+    {
+      "name": "Corona",
+      "slug": "corona",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "corona-ordinance-3418"
+    },
+    {
+      "name": "Eastvale",
+      "slug": "eastvale",
+      "lraDesignationStatus": "recommended",
+      "evidenceId": "eastvale-proposal-review"
+    },
+    {
+      "name": "Jurupa Valley",
+      "slug": "jurupa-valley",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "jurupa-valley-ordinance-2025-13"
+    }
+  ],
+  "designationEvidence": [
+    {
+      "id": "chino-valley-ordinance-2025-01",
+      "title": "Chino Valley Independent Fire District Ordinance 2025-01",
+      "url": "https://chinovalleyfire.org/DocumentCenter/View/402/Fire-Hazard-Severity-Zone-Ordinance",
+      "finding": "Adopted the State Fire Marshal recommendations without changes for Chino and Chino Hills; effective 2025-09-01."
+    },
+    {
+      "id": "corona-ordinance-3418",
+      "title": "City of Corona Ordinance 3418 staff report",
+      "url": "https://pub-corona.escribemeetings.com/filestream.ashx?DocumentId=25746",
+      "finding": "Adopted the OSFM map without additions or increases; effective 2025-07-04."
+    },
+    {
+      "id": "eastvale-proposal-review",
+      "title": "City of Eastvale Public Safety Commission report",
+      "url": "https://d3n9y02raazwpg.cloudfront.net/eastvale/59d6f124-bcd5-11ef-ab4b-005056a89546-d60328a7-4a03-48da-a1ce-62a28b0c2bb6-1744912649.pdf",
+      "finding": "Documents proposed ordinance review but not final adoption; retain recommended status."
+    },
+    {
+      "id": "jurupa-valley-ordinance-2025-13",
+      "title": "City of Jurupa Valley Ordinance 2025-13 adoption minutes",
+      "url": "https://www.jurupavalley.org/DocumentCenter/View/4218",
+      "finding": "Adopted the State Fire Marshal recommendations on 2025-06-26."
+    }
+  ]
+}
