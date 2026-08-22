@@ -3,8 +3,9 @@
 ## Purpose
 
 Block 19 adds an optional official Fire Hazard Severity Zone overlay to the
-existing listings map. This file is the implementation planning record. Block
-19.0 changes documentation only and does not authorize executable sub-blocks.
+existing listings map. This file is the implementation planning record. Blocks
+19.0 and 19.1 are complete; later executable sub-blocks still require explicit
+confirmation.
 
 ## Feasibility
 
@@ -46,32 +47,41 @@ or local emergency instructions.
 
 ## Official data baseline
 
-Block 19.1 begins from the official CAL FIRE / OSFM page and rechecks it on the
-day of acquisition. The documentation review on 2026-08-21 found:
+Block 19.1 began from the official CAL FIRE / OSFM page and rechecked it on the
+day of acquisition. The audit on 2026-08-21 found:
 
 - SRA dataset `FHSZSRA_23_3`, effective April 1, 2024
 - LRA combined dataset `FHSZLRA25_1`, released as 2025 recommendations across
   phases 1 through 4
 - official severity classes `Moderate`, `High`, and `Very High`
 - official guidance that FHSZ evaluates hazard rather than risk
+- an LRA `NonWildland` category that is not a severity and must be excluded
 
 Target coverage includes Chino, Chino Hills, Eastvale, Corona, and Jurupa
-Valley. Block 19.1 must verify the responsibility-area and adoption status for
-each target jurisdiction. An OSFM recommendation may be displayed only when
-the UI and provenance manifest say `recommended`; it must not be presented as
-a locally adopted designation without a verified local source.
+Valley. Chino, Chino Hills, Corona, and Jurupa Valley have verified local
+adoption records. Eastvale remains `recommended` because the official city
+record found during the audit documents a proposal review but not final
+adoption. An OSFM recommendation may be displayed only when the UI and
+provenance manifest say `recommended`; it must not be presented as a locally
+adopted designation without a verified local source.
+
+The source archives, checksums, jurisdiction evidence, measurements, and known
+limitations are recorded in the
+[Block 19.1 Wildfire Hazard Source Audit](../data/wildfire-hazard-source-audit.md).
 
 ## Data artifact strategy
 
-The preferred runtime is a same-origin static artifact produced from the
-official downloads. The source archives themselves are not web assets and are
-not committed merely to begin implementation.
+The selected runtime is a same-origin GeoJSON artifact produced from the
+official downloads and loaded only after first use. The source archives
+themselves are not web assets and are not committed merely to begin
+implementation.
 
 The deterministic preparation pipeline must:
 
 1. Record canonical URLs, metadata, acquisition timestamp, and source hashes.
 2. Extract only the required polygon layers.
-3. Normalize severity and responsibility-area fields through an allowlist.
+3. Normalize severity and responsibility-area fields through an allowlist and
+   exclude `NonWildland`.
 4. Reproject to EPSG:4326 with longitude first.
 5. Repair only transformations explicitly supported by the selected GIS tool;
    do not silently discard invalid features.
@@ -85,7 +95,18 @@ The deterministic preparation pipeline must:
 
 ### Format gate
 
-Block 19.1 measures the real clipped output before dependencies are selected.
+Block 19.1 measured a conservative, unsimplified spatial-selection prototype:
+
+- 207 features and 138,701 coordinate positions
+- 3,615,513 bytes raw
+- 976,807 bytes at gzip level 9
+- 7.942 ms Node.js 24.19.0 JSON parse mean across 50 runs
+- 14.066 ms mean across 10 runs to construct the installed client tiler and
+  request a representative z8 tile
+
+The official-service query returned whole intersecting features, so Block 19.2
+must hard clip the release artifact. Even this larger conservative prototype
+passes the format gate.
 
 Use GeoJSON only when all are true:
 
@@ -96,9 +117,9 @@ Use GeoJSON only when all are true:
   supported desktop and mobile test profiles
 - boundary simplification remains visually faithful at supported zooms
 
-If any condition fails, use a maintained MapLibre-compatible tiled artifact
-instead of increasing the budgets. The final choice and measured evidence are
-recorded in the ADR before Block 19.2.
+GeoJSON is selected for Block 19.2. If the reproducible archive-based artifact
+or Block 19.5 browser verification fails any condition, use a maintained
+MapLibre-compatible tiled artifact instead of increasing the budgets.
 
 CI uses a small deterministic fixture and never downloads the official source.
 A source refresh is an explicit maintainer operation with reviewable hashes and
@@ -269,15 +290,16 @@ startup or CI.
 
 ## Sub-block readiness
 
-Block 19.0 is complete when this knowledge base, the roadmap, and ADR 0007 are
-reviewed. Block 19.1 is the first executable block and still requires explicit
-confirmation. Its output is a source audit and measured artifact prototype,
-not a user-visible map feature.
+Blocks 19.0 and 19.1 are complete. Block 19.1 produced a source audit, city
+status review, format decision, and temporary measured prototype, not a
+user-visible map feature. Block 19.2 is the next executable block and requires
+a fresh explanation and explicit confirmation.
 
 ## References
 
 - [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
 - [California Open Data Fire Hazard Severity Zone Viewer](https://lab.data.ca.gov/dataset/fire-hazard-severity-zone-viewer)
+- [Block 19.1 Wildfire Hazard Source Audit](../data/wildfire-hazard-source-audit.md)
 - [ADR 0001: Persistence Direction](../adr/0001-persistence-direction.md)
 - [ADR 0003: API, Web, and Map Foundation](../adr/0003-api-web-map-foundation.md)
 - [ADR 0007: Wildfire Hazard Overlay](../adr/0007-wildfire-hazard-overlay.md)

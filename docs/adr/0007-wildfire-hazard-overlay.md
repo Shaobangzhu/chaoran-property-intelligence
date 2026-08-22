@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposed. Block 19.0 records a documentation-only direction. No dataset,
-dependency, application code, database object, or AWS resource has been added.
+Accepted. Block 19.0 established the product and architecture constraints, and
+Block 19.1 completed the official-source audit and selected a GeoJSON runtime
+artifact. No application code, database object, or AWS resource has been added.
 
 ## Context
 
@@ -67,16 +68,30 @@ coverage area. This avoids runtime CORS, provider availability, schema drift,
 rate-limit, and credential questions and fits the future private S3 plus
 CloudFront web origin.
 
-Block 19.1 selects the artifact format after measuring real data:
+Block 19.1 selected one normalized GeoJSON artifact after measuring official
+geometry for the product area. The conservative, unsimplified prototype is
+3,615,513 bytes raw and 976,807 bytes at gzip level 9, below the 10 MiB raw and
+2 MiB compressed limits. Node.js 24.19.0 parsed it in a 7.942 ms 50-run mean;
+the installed MapLibre tiling dependency created its source and a
+representative z8 tile in a 14.066 ms 10-run mean.
 
-- prefer one normalized GeoJSON artifact when the clipped and simplified file
-  meets the documented transfer and parse budgets
-- use a maintained MapLibre-compatible tiled artifact when GeoJSON exceeds the
-  budget
-- never ship the whole-state source dataset to the browser
+Block 19.2 must build the release artifact from checksum-pinned CAL FIRE / OSFM
+archives, hard clip it to the product boundary, and emit a provenance manifest.
+The ArcGIS services used to validate the audit are not runtime or build
+dependencies. A maintained MapLibre-compatible tiled artifact remains the
+fallback if the reproducible artifact exceeds either size limit or Block 19.5
+finds a visible browser stall. Never ship the whole-state source dataset to the
+browser.
 
 The derived artifact must preserve source attribution and license notices. It
 must not silently merge polygons with conflicting jurisdictional status.
+
+The LRA source also contains `NonWildland`. That value is not an additional
+hazard severity and must be excluded through a positive category allowlist.
+Chino, Chino Hills, Corona, and Jurupa Valley have verified local adoption
+records. Eastvale remains `recommended` until a current adopted ordinance and
+map are verified; qualifying status or a proposed ordinance is insufficient to
+label its features `locally-adopted`.
 
 ### Geometry contract
 
@@ -165,6 +180,9 @@ dataset refresh, conflict handling, disclosures, and tests independently.
 - The repository needs a documented update process when official maps change.
 - LRA recommendation/adoption status remains visible instead of being flattened
   into a misleading statewide certainty.
+- GeoJSON is the accepted initial format because measured official geometry
+  passes both hard size limits with margin; browser behavior remains a release
+  gate rather than an assumption.
 - A display overlay cannot answer whether a listing is definitively inside a
   zone; that requires a separately reviewed spatial-query feature.
 
@@ -173,3 +191,4 @@ dataset refresh, conflict handling, disclosures, and tests independently.
 - [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
 - [California Open Data Fire Hazard Severity Zone Viewer](https://lab.data.ca.gov/dataset/fire-hazard-severity-zone-viewer)
 - [MapLibre GL JS GeoJSON source example](https://maplibre.org/maplibre-gl-js/docs/examples/geojson-line/)
+- [Block 19.1 Wildfire Hazard Source Audit](../data/wildfire-hazard-source-audit.md)

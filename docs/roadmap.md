@@ -14,8 +14,8 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6, and
-Blocks 18.1-18.9 are complete. Block 19.0 planning is complete. The repository
-currently contains:
+Blocks 18.1-18.9 are complete. Block 19.0 planning and Block 19.1 source audit
+are complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -603,7 +603,9 @@ Planned sub-block mapping:
    **Complete in documentation only.**
 2. `19.1` Audit the current official SRA and LRA datasets, verify the five
    target jurisdictions, measure clipped geometry, and select GeoJSON or a
-   tiled artifact using the documented performance gate.
+   tiled artifact using the documented performance gate. **Complete: GeoJSON
+   selected from a conservative 3,615,513-byte raw / 976,807-byte gzip
+   prototype; Eastvale remains recommended until local adoption is verified.**
 3. `19.2` Add a reproducible normalization and clipping pipeline plus a
    provenance manifest and deterministic test fixture. Do not add a runtime
    ArcGIS dependency.
@@ -625,4 +627,6 @@ freshness, API, and disclosure decision.
 See the
 [Block 19 Wildfire Hazard Overlay Knowledge Base](knowledge-base/block-19-wildfire-hazard-overlay.md)
 and
-[ADR 0007: Wildfire Hazard Overlay](adr/0007-wildfire-hazard-overlay.md).
+[ADR 0007: Wildfire Hazard Overlay](adr/0007-wildfire-hazard-overlay.md). The
+source evidence and format measurements are in the
+[Block 19.1 Wildfire Hazard Source Audit](data/wildfire-hazard-source-audit.md).
