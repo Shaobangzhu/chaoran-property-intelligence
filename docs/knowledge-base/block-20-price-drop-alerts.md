@@ -389,7 +389,39 @@ request and passed with 132 complete results and 368 rows of cap margin.**
 Add canonical-address normalization, typed listing alert events, observation
 records, event-oriented notification ports, and deterministic fakes. Keep
 provider and database adapters unchanged while contract tests establish invalid
-state rejection.
+state rejection. **Complete:**
+
+- `ListingAddressKey` uses the collision-safe
+  `address:v1:<line1>|<unit>|<city>|<state>|<zip>` representation. Each
+  normalized component is URI-encoded before joining. Persisted keys must parse
+  back to exactly the same canonical representation.
+- Required address fields reject missing, non-string, and blank values. A
+  missing, null, or blank unit becomes the empty component; a present unit
+  remains part of identity. No fuzzy matching or abbreviation expansion was
+  added.
+- `ListingPriceObservation` stores canonical address identity, stable listing
+  identity, RentCast source identity, the latest whole-dollar price, provider
+  dates, and the worker observation timestamp.
+- `ListingAlertEvent` is a strict discriminated union. A `new-listing` event
+  requires `previousPrice: null`; a `price-drop` event requires a positive
+  integer `previousPrice` strictly greater than `currentPrice`.
+- `ListingAlertTransition` carries the current listing snapshot, next
+  observation, and at most one pending immutable event. Runtime validation
+  requires their address, listing, source, price, provider dates, display
+  address, and observation time to agree.
+- `ListingAlertStateRepositoryPort` defines baseline initialization,
+  observation lookup, atomic transition persistence, ordered pending-event
+  reads, and sent-state updates. `ListingAlertNotificationPort` accepts typed
+  events instead of address strings.
+- Deterministic repository and notification fakes clone state and call history,
+  preserve observation ordering, support configured failures, reject event
+  payload mutation, and never downgrade a replayed sent event to pending.
+
+The existing `CheckNewListings`, RentCast production query, PostgreSQL adapter,
+Telegram adapter, API, React application, worker composition, and AWS resources
+were intentionally not changed. Block 20.3 will consume these parallel
+contracts when implementing detection. Twenty-nine focused contract tests, all
+670 project tests, full typecheck, and the production build pass.
 
 ### Block 20.3: Detection workflow
 

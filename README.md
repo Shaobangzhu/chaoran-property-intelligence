@@ -178,6 +178,15 @@ request. Block 20.1B later executed it once under explicit approval and recorded
 only aggregate evidence in the Block 20 knowledge base. A future repeat still
 requires a fresh quota and request review.
 
+Block 20.2 adds the provider-neutral price-alert contracts without changing the
+production worker. `ListingAddressKey` provides strict, versioned structured-
+address identity; application records distinguish latest price observations
+from immutable `new-listing` and `price-drop` events. The event-oriented
+repository and notification ports currently run only through deterministic
+test fakes. RentCast production acquisition, PostgreSQL persistence, Telegram
+formatting, React, and AWS resources remain unchanged until their later
+confirmed sub-blocks.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

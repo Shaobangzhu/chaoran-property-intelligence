@@ -149,6 +149,34 @@ export type {
   ListingSourcePort,
   StoredListing,
 } from "./checkNewListings.js";
+export {
+  assertValidListingAlertBaselineEntry,
+  assertValidListingAlertTransition,
+  InvalidListingAlertStateError,
+  LISTING_ALERT_LIMITS,
+  listingAlertEventSchema,
+  listingAlertKindSchema,
+  listingAlertStatusSchema,
+  listingPriceObservationSchema,
+  safeParseListingAlertEvent,
+  safeParseListingPriceObservation,
+  type ListingAlertBaselineEntry,
+  type ListingAlertEvent,
+  type ListingAlertKind,
+  type ListingAlertNotificationPort,
+  type ListingAlertStateRepositoryPort,
+  type ListingAlertStatus,
+  type ListingAlertTransition,
+  type ListingPriceObservation,
+} from "./listingAlertContracts.js";
+export {
+  FakeListingAlertNotifications,
+  FakeListingAlertStateRepository,
+  type FakeListingAlertNotificationsOptions,
+  type FakeListingAlertStateRepositoryCall,
+  type FakeListingAlertStateRepositoryMethod,
+  type FakeListingAlertStateRepositoryOptions,
+} from "./fakeListingAlerts.js";
 export { CreateAdminUser } from "./createAdminUser.js";
 export type {
   CreateAdminUserInput,

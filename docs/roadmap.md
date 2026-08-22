@@ -688,7 +688,12 @@ Planned sub-block mapping:
    Production remained unchanged, and Block 20.1 is complete.
 3. `20.2` Add strict structured-address normalization, typed `new-listing` and
    `price-drop` events, observation contracts, event-oriented notification
-   ports, validation, and in-memory fakes.
+   ports, validation, and in-memory fakes. **Complete:** the versioned
+   `ListingAddressKey`, strict observation/event validation, atomic-transition
+   boundary, immutable event semantics, deterministic state repository, and
+   notification fake are implemented. The legacy worker and every production
+   adapter remain unchanged. Twenty-nine focused contract tests, all 670 project
+   tests, full typecheck, and the production build pass.
 4. `20.3` Implement detection using the previous committed observation, with
    new-listing precedence, `$1` decreases, below-floor tracked decreases,
    increase updates, silent initialization, multiple pending transitions, and

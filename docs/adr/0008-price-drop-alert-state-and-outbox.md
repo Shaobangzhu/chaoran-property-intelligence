@@ -112,7 +112,7 @@ minimum logical records are:
 ```ts
 interface ListingObservationState {
   addressKey: string;
-  listingId: string;
+  listingKey: string;
   sourceListingId: string;
   latestPrice: number;
   latestListedDate: string;
@@ -122,10 +122,10 @@ interface ListingObservationState {
 
 type ListingAlertEvent =
   | {
-      id: string;
       eventKey: string;
       kind: "new-listing";
-      listingId: string;
+      listingKey: string;
+      addressKey: string;
       formattedAddress: string;
       currentPrice: number;
       previousPrice: null;
@@ -133,17 +133,24 @@ type ListingAlertEvent =
       observedAt: string;
     }
   | {
-      id: string;
       eventKey: string;
       kind: "price-drop";
-      listingId: string;
+      listingKey: string;
+      addressKey: string;
       formattedAddress: string;
       previousPrice: number;
       currentPrice: number;
       status: "pending" | "sent";
       observedAt: string;
-    };
+};
 ```
+
+Block 20.2 resolves application identity around deterministic `eventKey`,
+`listingKey`, and the branded canonical `addressKey`; it does not expose a
+database-generated UUID through the application port. Block 20.4 may add an
+internal PostgreSQL primary key without changing this contract. The canonical
+address representation is explicitly versioned as `address:v1:` and URI-encodes
+each normalized component before joining it with `|`.
 
 The event payload is immutable. Later listing updates must not rewrite the
 previous or current price shown for an earlier pending event.
@@ -151,7 +158,7 @@ previous or current price shown for an earlier pending event.
 Persist the observation update, current listing snapshot update, and any new
 outbox event in one database transaction. The observation state may advance
 before Telegram succeeds because the durable pending event retains the exact
-transition. After a send succeeds, mark only the delivered event IDs as sent.
+transition. After a send succeeds, mark only the delivered event keys as sent.
 If the send fails or has an ambiguous timeout, events remain pending under the
 project's existing retry boundary.
 
