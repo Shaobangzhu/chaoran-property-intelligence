@@ -482,6 +482,14 @@ until the database-only preparation task receives separate approval. Migration
 006 is additive; application rollback restores the earlier ECS task definition
 without deleting the new tables or migration record.
 
+The 2026-08-22 Block 20.7C read-only precheck confirmed that the current AWS
+stack still lacks the weekly Showing List resources and runs alert task
+definition revision 7 with the daily Scheduler disabled. The reviewed
+`--no-change-set` diff adds the documented weekly resources in a disabled state
+and replaces the alert-worker image. It does not change the database, VPC,
+retained resources, or schedule enabled states. The combined rollout remains a
+separately approved future operation.
+
 The currently deployed image still filters out prices below `$780,000`. The
 repository's Block 20.5 production profile uses one broadened
 `price=*:850000`, `limit=500` request without `includeTotalCount`; the

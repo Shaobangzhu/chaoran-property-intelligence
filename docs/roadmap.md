@@ -755,7 +755,15 @@ Planned sub-block mapping:
    aggregate verification, and an unchanged retry snapshot. The temporary
    instance was removed and the existing local database remained healthy. No
    provider, Telegram, Aurora, deployment, schedule, or AWS operation occurred.
-   The AWS read-only precheck in 20.7C remains pending separate approval.
+   **20.7C and Block 20 deployment readiness are complete:** the matching
+   federated identity, Region, stacks, disabled daily Scheduler, zero ECS tasks,
+   available Aurora, failure rules, Secret metadata, and SNS confirmation all
+   passed read-only checks. The weekly Scheduler is not yet deployed. A
+   no-change-set CDK diff contains no Guardrails, database, VPC, deletion,
+   retained-resource replacement, or schedule-enablement change; it combines
+   the expected Block 20 worker image with the previously deferred weekly
+   Showing List infrastructure. No deployment, task, database connection,
+   Secret-value read, provider request, or Telegram delivery occurred.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 20.0 does not change source code, consume RentCast quota,

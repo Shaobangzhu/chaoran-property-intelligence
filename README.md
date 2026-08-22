@@ -253,6 +253,14 @@ and produced an identical database snapshot on retry. The temporary instance
 was removed; the existing local database and every external service remained
 untouched.
 
+Block 20.7C completes the AWS read-only precheck. The federated identity,
+Region, stacks, disabled daily Scheduler, idle ECS cluster, available Aurora,
+failure rules, Secret metadata, and SNS subscription passed. The weekly Showing
+List Scheduler is not yet deployed. The reviewed no-change-set CDK diff combines
+its disabled infrastructure with the Block 20 worker image and contains no
+database, VPC, retained-resource replacement, deletion, or schedule-enablement
+change. No AWS resource was changed and no task or external workflow ran.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

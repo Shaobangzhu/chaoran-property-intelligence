@@ -7,6 +7,11 @@ without enabling recurring execution until a separate approval gate. It can
 call PostgreSQL, OpenAI, S3, and Telegram and can replace the current production
 draft, so it is never part of an ordinary local test or CI run.
 
+The Block 20.7C read-only precheck on 2026-08-22 confirmed that these weekly AWS
+resources are still absent. The next reviewed Production diff combines this
+disabled weekly infrastructure with the Block 20 worker-image update; it is not
+an image-only deployment.
+
 ## Required Configuration
 
 Keep both schedules disabled while preparing `.env.local`. The application

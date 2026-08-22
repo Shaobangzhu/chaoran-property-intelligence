@@ -631,8 +631,40 @@ still required fresh approval.
 
 Only a disposable `DATABASE_URL` was provided to the worker commands. No real
 provider, Telegram, AWS, Aurora, deployment, schedule, or existing local
-database operation occurred. Block 20.7C remains pending and requires fresh
+database operation occurred. At that boundary, Block 20.7C still required fresh
 approval.
+
+#### Block 20.7C: AWS read-only precheck
+
+**Complete without changing AWS resources:**
+
+- the renewed `cpi-admin` SSO session resolved to the matching federated
+  AdministratorAccess identity in `us-west-2`, never root
+- `CDKToolkit` and Guardrails were `CREATE_COMPLETE`; Production was
+  `UPDATE_COMPLETE`
+- the daily alert Scheduler was `DISABLED`; the weekly Showing List Scheduler
+  was absent, confirming that its source implementation has not been deployed
+- the production ECS cluster had zero running and zero pending tasks, Aurora
+  was `available`, both failure rules were `ENABLED`, both Secret resources were
+  complete by metadata, and the SNS email subscription was confirmed
+- the deployed alert task definition remained revision 7 with its default
+  `--run` command; no task was started
+- `cdk diff --no-change-set` found no Guardrails difference and no Production
+  database, VPC, retained-resource replacement, deletion, or schedule
+  enablement
+- the Production diff contains the expected Block 20 worker image replacement
+  plus the previously implemented but undeployed weekly Showing List bucket,
+  task, IAM, log, DLQ, and disabled Scheduler resources
+- the synthesized template independently confirmed both Scheduler states as
+  `DISABLED`
+
+Block 20.7 deployment readiness is complete. The next deployment is not an
+image-only operation: it combines the deferred weekly Showing List
+infrastructure with the Block 20 worker image. Deployment, Aurora migration,
+read-only in-VPC verification tasks, a real RentCast request, Telegram delivery,
+and schedule enablement all remain separately confirmed production operations.
+No change set, deployment, ECS task, database connection, Secret-value read,
+provider request, or Telegram message occurred during 20.7C.
 
 Every executable sub-block requires a fresh explanation and explicit user
 confirmation.

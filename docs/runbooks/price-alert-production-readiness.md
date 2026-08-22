@@ -7,8 +7,10 @@ worker image deployment, PostgreSQL preparation, read-only verification, real
 RentCast acquisition, Telegram delivery, and schedule enablement into distinct
 approval boundaries.
 
-The production Region is `us-west-2`. Both `cpi-daily-property-alert` and
-`cpi-weekly-showing-list` must remain `DISABLED` throughout Block 20.7.
+The production Region is `us-west-2`. `cpi-daily-property-alert` must remain
+`DISABLED` throughout Block 20.7. If `cpi-weekly-showing-list` exists, it must
+also remain `DISABLED`; the Block 20.7C precheck confirmed that it is not yet
+deployed and that the local template would create it disabled.
 
 ## Safety Boundary
 
@@ -139,7 +141,8 @@ session. Before any deployment, verify without starting a task:
 
 - STS resolves to the reviewed federated administrator identity in `us-west-2`
 - Guardrails and Production CloudFormation stacks are complete
-- both EventBridge Scheduler resources are `DISABLED`
+- the daily Scheduler is `DISABLED`, and the weekly Scheduler is either absent
+  or `DISABLED`
 - no production ECS task is pending or running
 - Aurora is `available`
 - both task-failure EventBridge rules are enabled
@@ -149,6 +152,45 @@ session. Before any deployment, verify without starting a task:
 
 Do not read Secret values during the precheck. Block 20.7C does not deploy an
 image, start an ECS task, or connect to Aurora.
+
+### AWS Read-Only Execution Record: 2026-08-22
+
+The precheck used the `cpi-admin` IAM Identity Center profile. The SSO session
+was renewed after its cached token expired. No root or long-lived credentials
+were used.
+
+| Evidence | Result |
+| --- | --- |
+| Identity | Matching federated AdministratorAccess identity |
+| Region | `us-west-2` |
+| `CDKToolkit` | `CREATE_COMPLETE` |
+| Guardrails stack | `CREATE_COMPLETE` |
+| Production stack | `UPDATE_COMPLETE` |
+| Daily Scheduler | `DISABLED` |
+| Weekly Scheduler | Not deployed |
+| ECS running tasks | 0 |
+| ECS pending tasks | 0 |
+| Aurora | `available` |
+| Failure EventBridge rules | 2 of 2 `ENABLED` |
+| Secret resources | 2 of 2 complete; metadata only |
+| SNS email | Confirmed |
+| Current alert task revision | 7, default `--run` command |
+| CDK change-set creation | Disabled with `--no-change-set` |
+
+The Guardrails stack has no diff. The Production diff contains two reviewed
+groups:
+
+- the Block 20 alert-worker image replacement
+- the previously implemented but undeployed weekly Showing List bucket,
+  task definition, least-privilege roles and policies, log group, DLQ, and
+  Scheduler, plus the application Secret description update
+
+Both synthesized Schedulers are `DISABLED`. The diff contains no database or
+VPC change, retained-resource replacement, resource deletion, Secret-value
+read, or schedule enablement. Because the weekly infrastructure is absent from
+AWS, the next production deployment is a combined Showing List infrastructure
+and Block 20 worker rollout, not an image-only update. It requires a separate
+deployment approval and the corresponding runbook gates.
 
 ## Controlled Production Sequence
 
