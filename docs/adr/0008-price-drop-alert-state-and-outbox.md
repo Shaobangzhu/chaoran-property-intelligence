@@ -198,6 +198,22 @@ coverage. If the one-request strategy fails, stop and revise the acquisition
 plan; do not silently spend one request per tracked address or add pagination
 that exceeds the monthly request budget.
 
+Block 20.1A checked the current official RentCast search-query and sale-listing
+references. Numeric range endpoints are inclusive, and an omitted endpoint is
+represented by `*`; the audit profile therefore uses `price=*:850000` rather
+than an empty or guessed zero lower bound. The endpoint supports at most 500
+rows per page and returns the full match count in `X-Total-Count` when
+`includeTotalCount=true`.
+
+The implemented audit is isolated from `searchSaleListings()` and the scheduled
+worker. Its maintenance command refuses to call `fetch` without the exact
+`--execute-one-request` argument and reports only aggregate result count, cap
+margin, returned-page completeness, below-floor count, target-city counts,
+price range, response-body bytes, and elapsed time. A PASS requires both a total
+below 500 and a returned page length equal to the expected page length.
+Production remains `price=780000:850000`. Block 20.1A used fixtures only; Block
+20.1B remains the separately approved one-request measurement.
+
 ### Baseline and deployment behavior
 
 The first successfully migrated Block 20 worker run initializes observation
@@ -275,6 +291,8 @@ test boundary, OpenAI, or AWS.
 
 ## References
 
+- [RentCast Search Queries](https://developers.rentcast.io/reference/search-queries)
+- [RentCast GET Sale Listings](https://developers.rentcast.io/reference/sale-listings)
 - [Project Roadmap](../roadmap.md)
 - [Block 20 Price-Drop Alerts Knowledge Base](../knowledge-base/block-20-price-drop-alerts.md)
 - [ADR 0001: Persistence Direction](0001-persistence-direction.md)

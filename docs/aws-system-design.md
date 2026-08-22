@@ -469,6 +469,14 @@ increasing the one-request-per-run cost model. A real audit request, database
 migration, production Telegram test, image deployment, and schedule enablement
 each remain separately confirmed operations.
 
+Block 20.1A implements the audit as a separate maintenance entrypoint, not as a
+mode of the scheduled production worker. It requires the exact
+`--execute-one-request` argument before `fetch`, loads only `RENTCAST_API_KEY`,
+uses `price=*:850000`, `limit=500`, and `includeTotalCount=true`, and emits only
+aggregate measurements. The ordinary worker still uses
+`price=780000:850000`. No real audit request or AWS operation was performed in
+20.1A; the one-request Block 20.1B measurement is pending explicit approval.
+
 ## Database Design
 
 | Setting | Value |

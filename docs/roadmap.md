@@ -675,6 +675,15 @@ Planned sub-block mapping:
    command. After separate confirmation, use at most one real request to measure
    broadened-query count, cap margin, response size, latency, target-city
    coverage, and tracked-address presence. Do not change production behavior.
+   **20.1A complete:** official documentation confirms `*` as an omitted range
+   endpoint; the isolated audit profile uses `price=*:850000`,
+   `includeTotalCount=true`, and `limit=500`. A dedicated aggregate-only command
+   requires `--execute-one-request`, while the default production profile
+   remains exactly `780000:850000`. Twenty-two focused tests pass without a real
+   request. The audit gate also rejects an incomplete returned page. The
+   complete 641-test suite, full typecheck, alert-worker build, and
+   no-confirmation CLI rejection also pass. **20.1B remains pending separate
+   approval for one API request.**
 3. `20.2` Add strict structured-address normalization, typed `new-listing` and
    `price-drop` events, observation contracts, event-oriented notification
    ports, validation, and in-memory fakes.

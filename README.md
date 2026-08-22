@@ -154,6 +154,28 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits.
 
+Block 20.1A adds an isolated RentCast price-drop coverage audit command. It
+does not run through the production worker, connect to PostgreSQL, or send
+Telegram. Running the script without its explicit confirmation argument exits
+before `fetch`:
+
+```bash
+pnpm rentcast:coverage-audit
+```
+
+The separately approved one-request form is:
+
+```bash
+pnpm rentcast:coverage-audit -- --execute-one-request
+```
+
+The command loads only `RENTCAST_API_KEY`, uses the audit-only `*:850000`
+price range plus `includeTotalCount=true`, and prints aggregate counts, price
+range, response-body bytes, elapsed time, and the 500-result cap margin. It
+never prints credentials, the request URL, raw response, or street addresses.
+Block 20.1A implemented and tested this command without making a real RentCast
+request. Do not execute the confirmed form until the Block 20.1B request review.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

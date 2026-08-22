@@ -195,6 +195,50 @@ If the result reaches the cap or coverage is ambiguous, stop Block 20.1 and
 revise the acquisition design. Do not silently add per-address requests,
 pagination, or additional daily provider calls.
 
+### Block 20.1A as-built result
+
+Block 20.1A checked the official RentCast
+[Search Queries](https://developers.rentcast.io/reference/search-queries) and
+[GET Sale Listings](https://developers.rentcast.io/reference/sale-listings)
+references on 2026-08-21. The documented one-sided range syntax uses `*` for an
+omitted endpoint, so the candidate profile is `price=*:850000`. The endpoint
+supports `limit=500`, `includeTotalCount=true`, and the `X-Total-Count` response
+header. This allows one request to prove whether the broadened result fits in
+one complete page.
+
+The RentCast adapter now has two isolated internal request profiles:
+
+- ordinary `searchSaleListings()` remains `price=780000:850000`, keeps the same
+  location and property filters, and does not request a total-count header
+- `searchSaleListingsForCoverageAudit()` uses `price=*:850000`, retains every
+  other production filter and `limit=500`, and requests the total count
+
+The separate maintenance command is:
+
+```bash
+pnpm rentcast:coverage-audit -- --execute-one-request
+```
+
+The executable refuses to call `fetch` when the exact confirmation argument is
+missing. Its output contains only the total and returned counts, cap margin,
+below-`$780,000` count, minimum/maximum returned price, target-city and
+non-target-city counts, response-body byte count, elapsed milliseconds, and a
+PASS/FAIL gate. It does not print the key, request URL, raw body, property ID,
+or street address. It loads no database or Telegram configuration and performs
+no write. PASS requires `X-Total-Count < 500` and a returned array length equal
+to `min(X-Total-Count, 500)`; an unexpectedly incomplete page fails even when
+the total is below the cap.
+
+Block 20.1A added 22 focused adapter, aggregation, validation, cap, redaction,
+and CLI-guard tests. All use injected fixture responses. The complete 641-test
+suite, full repository typecheck, and alert-worker production build pass. A
+local invocation without the confirmation argument exited before `fetch` with
+the expected `No RentCast request was made` message. The command has not been
+run with its confirmation argument, so no real RentCast request has been made.
+Block 20.1B remains pending a separate review of the exact request and
+authorization for one request. Production behavior must not change until that
+measurement passes.
+
 ## Baseline and migration
 
 The first production-capable Block 20 run establishes the latest price for each
@@ -295,7 +339,9 @@ AWS system design, knowledge base, and ADR. **Complete in documentation only.**
 Add fixture-based request tests and a controlled measurement command. After a
 separate confirmation, consume at most one real RentCast request to verify that
 removing the minimum price retains acceptable coverage below the `500` cap.
-Do not change production search behavior in this sub-block.
+Do not change production search behavior in this sub-block. **20.1A is complete
+with the isolated command and offline tests; 20.1B remains pending one-request
+approval and measurement.**
 
 ### Block 20.2: Domain and application contracts
 

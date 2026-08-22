@@ -1,5 +1,10 @@
 const rentCastSaleListingsUrl = "https://api.rentcast.io/v1/listings/sale";
 const defaultTimeoutMs = 30000;
+const saleListingsResultLimit = 500;
+
+type SaleListingsRequestProfile =
+  | "production"
+  | "price-drop-coverage-audit";
 
 export interface RentCastSaleListingsClientOptions {
   apiKey: string;
@@ -28,6 +33,13 @@ export interface RentCastSaleListing {
   mlsNumber: string | null;
 }
 
+export interface RentCastSaleListingsCoveragePage {
+  listings: RentCastSaleListing[];
+  responseBodyBytes: number;
+  resultLimit: number;
+  totalCount: number;
+}
+
 export interface RentCastListingsPort {
   searchSaleListings(): Promise<RentCastSaleListing[]>;
 }
@@ -44,16 +56,34 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
   }
 
   async searchSaleListings(): Promise<RentCastSaleListing[]> {
-    const url = new URL(rentCastSaleListingsUrl);
-    url.searchParams.set("address", "1065 Brea Mall, Brea, CA 92821");
-    url.searchParams.set("radius", "20");
-    url.searchParams.set("state", "CA");
-    url.searchParams.set("status", "Active");
-    url.searchParams.set("propertyType", "Single Family");
-    url.searchParams.set("price", "780000:850000");
-    url.searchParams.set("bedrooms", "4:");
-    url.searchParams.set("bathrooms", "2.5:");
-    url.searchParams.set("limit", "500");
+    const result = await this.requestSaleListings("production");
+    return result.listings;
+  }
+
+  async searchSaleListingsForCoverageAudit(): Promise<RentCastSaleListingsCoveragePage> {
+    const result = await this.requestSaleListings(
+      "price-drop-coverage-audit",
+    );
+    const totalCount = readCoverageTotalCount(result.response);
+
+    if (totalCount < result.listings.length) {
+      throw new Error(
+        "RentCast coverage audit total count was smaller than the response page",
+      );
+    }
+
+    return {
+      listings: result.listings,
+      responseBodyBytes: result.responseBodyBytes,
+      resultLimit: saleListingsResultLimit,
+      totalCount,
+    };
+  }
+
+  private async requestSaleListings(
+    profile: SaleListingsRequestProfile,
+  ): Promise<SaleListingsRequestResult> {
+    const url = createSaleListingsUrl(profile);
 
     const abortController = new AbortController();
     const timeout = setTimeout(() => {
@@ -86,9 +116,16 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
       );
     }
 
+    let responseText: string;
+    try {
+      responseText = await response.text();
+    } catch {
+      throw new Error("RentCast sale listings response was not valid JSON");
+    }
+
     let body: unknown;
     try {
-      body = await response.json();
+      body = JSON.parse(responseText) as unknown;
     } catch {
       throw new Error("RentCast sale listings response was not valid JSON");
     }
@@ -99,8 +136,60 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
       );
     }
 
-    return body.map(parseRentCastSaleListing);
+    return {
+      listings: body.map(parseRentCastSaleListing),
+      response,
+      responseBodyBytes: new TextEncoder().encode(responseText).byteLength,
+    };
   }
+}
+
+interface SaleListingsRequestResult {
+  listings: RentCastSaleListing[];
+  response: Response;
+  responseBodyBytes: number;
+}
+
+function createSaleListingsUrl(
+  profile: SaleListingsRequestProfile,
+): URL {
+  const url = new URL(rentCastSaleListingsUrl);
+  url.searchParams.set("address", "1065 Brea Mall, Brea, CA 92821");
+  url.searchParams.set("radius", "20");
+  url.searchParams.set("state", "CA");
+  url.searchParams.set("status", "Active");
+  url.searchParams.set("propertyType", "Single Family");
+  url.searchParams.set(
+    "price",
+    profile === "production" ? "780000:850000" : "*:850000",
+  );
+  url.searchParams.set("bedrooms", "4:");
+  url.searchParams.set("bathrooms", "2.5:");
+  url.searchParams.set("limit", String(saleListingsResultLimit));
+
+  if (profile === "price-drop-coverage-audit") {
+    url.searchParams.set("includeTotalCount", "true");
+  }
+
+  return url;
+}
+
+function readCoverageTotalCount(response: Response): number {
+  const value = response.headers.get("X-Total-Count");
+  if (value === null || !/^\d+$/.test(value)) {
+    throw new Error(
+      "RentCast coverage audit response did not include a valid X-Total-Count header",
+    );
+  }
+
+  const totalCount = Number(value);
+  if (!Number.isSafeInteger(totalCount)) {
+    throw new Error(
+      "RentCast coverage audit response did not include a valid X-Total-Count header",
+    );
+  }
+
+  return totalCount;
 }
 
 function parseRentCastSaleListing(value: unknown): RentCastSaleListing {

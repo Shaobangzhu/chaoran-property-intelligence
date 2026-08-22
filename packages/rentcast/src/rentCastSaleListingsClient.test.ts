@@ -92,6 +92,102 @@ describe("RentCastSaleListingsClient", () => {
     ]);
   });
 
+  it("builds the isolated price-drop coverage audit request", async () => {
+    const responseBody = JSON.stringify([rentCastListing]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      new Response(responseBody, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Total-Count": "47",
+        },
+      }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await expect(
+      client.searchSaleListingsForCoverageAudit(),
+    ).resolves.toEqual({
+      listings: [rentCastListing],
+      responseBodyBytes: new TextEncoder().encode(responseBody).byteLength,
+      resultLimit: 500,
+      totalCount: 47,
+    });
+
+    const firstCall = fetch.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    if (firstCall === undefined) {
+      throw new Error("Expected RentCast fetch to be called");
+    }
+
+    const [url, init] = firstCall;
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).searchParams.get("address")).toBe(
+      "1065 Brea Mall, Brea, CA 92821",
+    );
+    expect((url as URL).searchParams.get("radius")).toBe("20");
+    expect((url as URL).searchParams.get("state")).toBe("CA");
+    expect((url as URL).searchParams.get("status")).toBe("Active");
+    expect((url as URL).searchParams.get("propertyType")).toBe(
+      "Single Family",
+    );
+    expect((url as URL).searchParams.get("price")).toBe("*:850000");
+    expect((url as URL).searchParams.get("bedrooms")).toBe("4:");
+    expect((url as URL).searchParams.get("bathrooms")).toBe("2.5:");
+    expect((url as URL).searchParams.get("limit")).toBe("500");
+    expect((url as URL).searchParams.get("includeTotalCount")).toBe("true");
+    expect((url as URL).searchParams.get("apiKey")).toBeNull();
+    expect(init).toMatchObject({
+      headers: {
+        "X-Api-Key": "test-api-key",
+      },
+    });
+  });
+
+  it.each([null, "", "not-a-number", "1.5", "-1"])(
+    "rejects an invalid coverage total-count header: %s",
+    async (totalCount) => {
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (totalCount !== null) {
+        headers.set("X-Total-Count", totalCount);
+      }
+
+      const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+        new Response("[]", { headers }),
+      );
+      const client = new RentCastSaleListingsClient({
+        apiKey: "test-api-key",
+        fetch,
+      });
+
+      await expect(
+        client.searchSaleListingsForCoverageAudit(),
+      ).rejects.toThrow(
+        "RentCast coverage audit response did not include a valid X-Total-Count header",
+      );
+    },
+  );
+
+  it("rejects a coverage count smaller than the returned page", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json([rentCastListing], {
+        headers: { "X-Total-Count": "0" },
+      }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await expect(
+      client.searchSaleListingsForCoverageAudit(),
+    ).rejects.toThrow(
+      "RentCast coverage audit total count was smaller than the response page",
+    );
+  });
+
   it("throws when RentCast returns a non-2xx response", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       new Response("Unauthorized", {
