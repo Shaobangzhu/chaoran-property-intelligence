@@ -260,7 +260,11 @@ importers:
         specifier: ^24.13.3
         version: 24.13.3
 
-  packages/telegram: {}
+  packages/telegram:
+    dependencies:
+      '@chaoran-property-intelligence/application':
+        specifier: workspace:*
+        version: link:../application
 
 packages:
 

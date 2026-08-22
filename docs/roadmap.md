@@ -678,9 +678,9 @@ Planned sub-block mapping:
    **20.1A complete:** official documentation confirms `*` as an omitted range
    endpoint; the isolated audit profile uses `price=*:850000`,
    `includeTotalCount=true`, and `limit=500`. A dedicated aggregate-only command
-   requires `--execute-one-request`, while the default production profile
-   remains exactly `780000:850000`. Twenty-two focused tests pass without a real
-   request. The audit gate also rejects an incomplete returned page. The
+   requires `--execute-one-request`, while the production profile at the end of
+   20.1 remained exactly `780000:850000`. Twenty-two focused tests pass without
+   a real request. The audit gate also rejects an incomplete returned page. The
    complete 641-test suite, full typecheck, alert-worker build, and
    no-confirmation CLI rejection also pass. **20.1B complete:** one explicitly
    approved request returned all 132 matches, including 54 below `$780,000`,
@@ -717,6 +717,17 @@ Planned sub-block mapping:
 6. `20.5` Add Telegram event formatting with previous/current price, absolute
    and percentage decrease, bounded chunking, worker composition, and adapter
    integration tests without regressing smoke-test or Showing List delivery.
+   **Complete in code and offline verification:** the production worker now
+   composes `CheckListingAlerts`, `PostgresListingAlertRepository`, and typed
+   Telegram notification events; migration and legacy initialization run before
+   the broadened `price=*:850000`, `limit=500` provider request. Telegram keeps
+   each event intact, formats whole-dollar and one-decimal percentage changes,
+   and prevalidates a batch before bounded delivery. The dry-run uses the same
+   application pipeline. Adapter integration proves a tracked `$825,000` row
+   dropping to `$770,000`, durable snapshot update, exact Telegram content, and
+   database close order. Existing address alerts, production smoke test, and
+   Showing List delivery remain covered. All 719 tests pass; no real provider,
+   database, Telegram, deployment, or AWS operation occurred.
 7. `20.6` Keep stable API and React listing identity while exposing the latest
    price. Verify one card and map marker, unchanged selection/Showing List
    references, manual listings, and genuine relisting behavior.

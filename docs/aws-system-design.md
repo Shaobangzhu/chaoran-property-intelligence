@@ -13,8 +13,8 @@ truth. This document explains that code; the deployment runbook owns commands
 and operator procedures. ADR 0002 owns the deployed worker foundation, ADR 0003
 owns the planned React and Express production boundary, ADR 0006 owns the
 planned latest-only Showing List publication boundary, and ADR 0008 owns the
-implemented-but-not-deployed price-drop observation and notification-outbox
-boundary.
+implemented-but-not-deployed price-drop observation, notification-outbox,
+Telegram, and worker-composition boundary.
 
 ## Deployment Status
 
@@ -32,6 +32,7 @@ Last verified: 2026-08-20.
 | Application secret | Three required keys populated and verified without logging values |
 | Worker execution | Block 14 baseline complete: marker present, baseline 28, pending 0, sent 0 |
 | Telegram smoke test | Block 14.1 complete; one fixed message delivered and confirmed |
+| Block 20 worker code | Composition and offline verification complete; not deployed |
 | Template drift | Final post-deployment CDK diff reported no differences |
 
 The AWS account ID, IAM Identity Center portal URL, alert email, and all secret
@@ -449,11 +450,11 @@ RentCast client.
 
 ### Block 20 Price-Drop Evolution
 
-**Status: detection, migration 006, and the PostgreSQL adapter are implemented
-and verified offline; worker composition and deployment are not complete.**
+**Status: detection, migration 006, PostgreSQL, Telegram, and worker composition
+are implemented and verified offline; deployment is not complete.**
 Block 20 extends the existing daily worker so a lower observed
 price at the same canonical RentCast address creates a durable Telegram event.
-The planned flow separates the current listing snapshot, latest address-level
+The repository flow separates the current listing snapshot, latest address-level
 price observation, and immutable pending/sent notification event. This keeps
 one API and React listing row while preserving previous/current prices across a
 Telegram retry.
@@ -464,7 +465,7 @@ Block 20 does not plan a new AWS service, schedule, credential, public endpoint,
 or browser secret. A future approved deployment will update the worker image
 and apply a PostgreSQL migration inside the existing runtime boundary.
 
-Migration 006 adds `listing_price_observations` and `listing_alert_events` to
+Migration 006 will add `listing_price_observations` and `listing_alert_events` to
 the existing Aurora database. The adapter protects observation transitions with
 transaction-level address locks, preserves immutable pending payloads for
 retry, and conditionally converts legacy pending new-listing rows. Existing
@@ -472,24 +473,29 @@ rows are initially non-comparable so the first fresh provider result cannot be
 misread as a historical price drop. These objects exist only in repository SQL
 until a separately confirmed deployment runs the bundled migrations.
 
-The current RentCast request filters out prices below `$780,000` before the
-application sees them. Block 20.1 must first prove that one broadened request
-retains complete-enough coverage below the provider's `500` result cap without
-increasing the one-request-per-run cost model. A real audit request, database
-migration, production Telegram test, image deployment, and schedule enablement
-each remain separately confirmed operations.
+The currently deployed image still filters out prices below `$780,000`. The
+repository's Block 20.5 production profile uses one broadened
+`price=*:850000`, `limit=500` request without `includeTotalCount`; the
+application ignores unseen below-floor listings but compares previously tracked
+addresses. The worker runs bundled migrations and the conditional legacy
+initializer before constructing the provider source. A database migration,
+real production provider run, production listing Telegram delivery, image
+deployment, and schedule enablement each remain separately confirmed
+operations.
 
 Block 20.1A implements the audit as a separate maintenance entrypoint, not as a
 mode of the scheduled production worker. It requires the exact
 `--execute-one-request` argument before `fetch`, loads only `RENTCAST_API_KEY`,
 uses `price=*:850000`, `limit=500`, and `includeTotalCount=true`, and emits only
-aggregate measurements. The ordinary worker still uses
-`price=780000:850000`. No real audit request or AWS operation was performed in
-20.1A. Block 20.1B later used one explicitly approved request: all 132 matching
-rows were returned, 54 were below `$780,000`, and the result retained 368 rows
-of margin below the 500-row cap. The request took 6,089 ms and returned a
-148,427-byte body. No database, Telegram, or AWS operation accompanied it, and
-the deployed worker remains unchanged.
+aggregate measurements. The ordinary worker still used
+`price=780000:850000` through Block 20.4. No real audit request or AWS operation
+was performed in 20.1A. Block 20.1B later used one explicitly approved request:
+all 132 matching rows were returned, 54 were below `$780,000`, and the result
+retained 368 rows of margin below the 500-row cap. The request took 6,089 ms and
+returned a 148,427-byte body. Block 20.5 then adopted the broadened profile in
+repository code, using deterministic adapters and fixtures only. No database,
+Telegram, or AWS operation accompanied it, and the deployed worker remains
+unchanged.
 
 ## Database Design
 

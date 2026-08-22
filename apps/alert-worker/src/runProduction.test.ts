@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  ListingNotificationPort,
+  ListingAlertNotificationPort,
   ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
+import { FakeListingAlertStateRepository } from "@chaoran-property-intelligence/application";
 import type {
   SqlConnection,
   SqlDatabase,
@@ -26,16 +27,14 @@ describe("runProduction", () => {
     expect(events).toEqual([
       "database:connection-string",
       "migrate",
+      "repository:create",
+      "repository:legacy-initialize",
       "source:rentcast-secret",
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "database:close",
     ]);
-    expect(
-      database.queries.some((query) =>
-        query.text.includes("INSERT INTO alert_worker_state"),
-      ),
-    ).toBe(true);
+    expect(database.queries).toEqual([]);
   });
 
   it("closes the database when migration fails", async () => {
@@ -49,6 +48,25 @@ describe("runProduction", () => {
 
     await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
       "Migration failed",
+    );
+
+    expect(events.at(-1)).toBe("database:close");
+  });
+
+  it("closes the database when legacy initialization fails", async () => {
+    const events: string[] = [];
+    const database = new FakeSqlDatabase(events);
+    const dependencies = createDependencies(database, events);
+    dependencies.createRepository = () => ({
+      ...createRepositoryStub(),
+      async initializeLegacyListingAlertState() {
+        events.push("repository:legacy-initialize");
+        throw new Error("Legacy initialization failed");
+      },
+    });
+
+    await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
+      "Legacy initialization failed",
     );
 
     expect(events.at(-1)).toBe("database:close");
@@ -82,6 +100,29 @@ function createDependencies(
     async runMigrations() {
       events.push("migrate");
     },
+    createRepository() {
+      events.push("repository:create");
+      const repository = new FakeListingAlertStateRepository({
+        baselineInitialized: true,
+      });
+      return {
+        isPriceObservationBaselineInitialized: () =>
+          repository.isPriceObservationBaselineInitialized(),
+        initializePriceObservationBaseline: (entries) =>
+          repository.initializePriceObservationBaseline(entries),
+        findPriceObservations: (addressKeys) =>
+          repository.findPriceObservations(addressKeys),
+        saveListingAlertTransitions: (transitions) =>
+          repository.saveListingAlertTransitions(transitions),
+        findPendingListingAlertEvents: () =>
+          repository.findPendingListingAlertEvents(),
+        markListingAlertEventsSent: (eventKeys) =>
+          repository.markListingAlertEventsSent(eventKeys),
+        async initializeLegacyListingAlertState() {
+          events.push("repository:legacy-initialize");
+        },
+      };
+    },
     createSource(options): ListingSourcePort {
       events.push(`source:${options.apiKey}`);
       return {
@@ -91,14 +132,38 @@ function createDependencies(
         },
       };
     },
-    createNotifications(options): ListingNotificationPort {
+    createNotifications(options): ListingAlertNotificationPort {
       events.push(`notifications:${options.botToken}:${options.chatId}`);
       return {
-        async sendListingAddresses() {
+        async sendListingAlerts() {
           throw new Error("Unexpected notification");
         },
       };
     },
+  };
+}
+
+function createRepositoryStub() {
+  const repository = new FakeListingAlertStateRepository({
+    baselineInitialized: true,
+  });
+  return {
+    isPriceObservationBaselineInitialized: () =>
+      repository.isPriceObservationBaselineInitialized(),
+    initializePriceObservationBaseline: (entries: Parameters<
+      typeof repository.initializePriceObservationBaseline
+    >[0]) => repository.initializePriceObservationBaseline(entries),
+    findPriceObservations: (addressKeys: Parameters<
+      typeof repository.findPriceObservations
+    >[0]) => repository.findPriceObservations(addressKeys),
+    saveListingAlertTransitions: (transitions: Parameters<
+      typeof repository.saveListingAlertTransitions
+    >[0]) => repository.saveListingAlertTransitions(transitions),
+    findPendingListingAlertEvents: () =>
+      repository.findPendingListingAlertEvents(),
+    markListingAlertEventsSent: (eventKeys: Parameters<
+      typeof repository.markListingAlertEventsSent
+    >[0]) => repository.markListingAlertEventsSent(eventKeys),
   };
 }
 

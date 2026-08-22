@@ -1,12 +1,16 @@
 import {
-  CheckNewListings,
-  type ListingNotificationPort,
+  CheckListingAlerts,
+  type ListingAlertNotificationPort,
+  type ListingAlertStateRepositoryPort,
   type ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
-import { matchesMvpSearchCriteria } from "@chaoran-property-intelligence/domain";
+import {
+  matchesMvpSearchCriteria,
+  matchesPriceAlertAcquisitionCriteria,
+} from "@chaoran-property-intelligence/domain";
 import {
   createPostgresDatabase,
-  PostgresListingRepository,
+  PostgresListingAlertRepository,
   runBundledMigrations,
   type PostgresConnectionConfig,
   type SqlDatabase,
@@ -35,18 +39,27 @@ export interface ProductionNotificationOptions {
   fetch: typeof fetch;
 }
 
+export interface ProductionListingAlertRepository
+  extends ListingAlertStateRepositoryPort {
+  initializeLegacyListingAlertState(): Promise<void>;
+}
+
 export interface ProductionDependencies {
   createDatabase(connection: PostgresConnectionConfig): SqlDatabase;
   runMigrations(database: SqlDatabase): Promise<void>;
+  createRepository(database: SqlDatabase): ProductionListingAlertRepository;
   createSource(options: ProductionSourceOptions): ListingSourcePort;
   createNotifications(
     options: ProductionNotificationOptions,
-  ): ListingNotificationPort;
+  ): ListingAlertNotificationPort;
 }
 
 const defaultDependencies: ProductionDependencies = {
   createDatabase: createPostgresDatabase,
   runMigrations: runBundledMigrations,
+  createRepository(database) {
+    return new PostgresListingAlertRepository(database);
+  },
   createSource(options) {
     return new RentCastListingSource({
       client: new RentCastSaleListingsClient({
@@ -74,25 +87,29 @@ export async function runProduction(
 
   try {
     await dependencies.runMigrations(database);
+    const repository = dependencies.createRepository(database);
+    await repository.initializeLegacyListingAlertState();
 
-    const checkNewListings = new CheckNewListings({
+    const checkListingAlerts = new CheckListingAlerts({
       source: dependencies.createSource({
         apiKey: config.rentCastApiKey,
         fetch: runtime.fetch,
         now: runtime.now,
       }),
-      repository: new PostgresListingRepository(database),
+      repository,
       notifications: dependencies.createNotifications({
         botToken: config.telegramBotToken,
         chatId: config.telegramChatId,
         fetch: runtime.fetch,
       }),
       criteria: {
-        matchesSearchCriteria: matchesMvpSearchCriteria,
+        matchesAcquisitionCriteria: matchesPriceAlertAcquisitionCriteria,
+        matchesNewListingCriteria: matchesMvpSearchCriteria,
       },
+      now: runtime.now,
     });
 
-    await checkNewListings.execute();
+    await checkListingAlerts.execute();
   } finally {
     await database.close();
   }

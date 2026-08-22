@@ -3,7 +3,7 @@ const defaultTimeoutMs = 30000;
 const saleListingsResultLimit = 500;
 
 type SaleListingsRequestProfile =
-  | "production"
+  | "price-alert-production"
   | "price-drop-coverage-audit";
 
 export interface RentCastSaleListingsClientOptions {
@@ -56,7 +56,9 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
   }
 
   async searchSaleListings(): Promise<RentCastSaleListing[]> {
-    const result = await this.requestSaleListings("production");
+    const result = await this.requestSaleListings(
+      "price-alert-production",
+    );
     return result.listings;
   }
 
@@ -159,10 +161,7 @@ function createSaleListingsUrl(
   url.searchParams.set("state", "CA");
   url.searchParams.set("status", "Active");
   url.searchParams.set("propertyType", "Single Family");
-  url.searchParams.set(
-    "price",
-    profile === "production" ? "780000:850000" : "*:850000",
-  );
+  url.searchParams.set("price", "*:850000");
   url.searchParams.set("bedrooms", "4:");
   url.searchParams.set("bathrooms", "2.5:");
   url.searchParams.set("limit", String(saleListingsResultLimit));

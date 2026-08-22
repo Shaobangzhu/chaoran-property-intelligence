@@ -1,3 +1,9 @@
+import {
+  safeParseListingAlertEvent,
+  type ListingAlertEvent,
+  type ListingAlertNotificationPort,
+} from "@chaoran-property-intelligence/application";
+
 const telegramApiBaseUrl = "https://api.telegram.org";
 const telegramMessageTextLimit = 4096;
 const productionSmokeTestText = [
@@ -21,7 +27,9 @@ export interface TelegramBotClientOptions {
   fetch: typeof fetch;
 }
 
-export class TelegramBotClient implements TelegramNotificationPort {
+export class TelegramBotClient
+  implements TelegramNotificationPort, ListingAlertNotificationPort
+{
   private readonly botToken: string;
   private readonly chatId: string;
   private readonly fetch: typeof fetch;
@@ -38,6 +46,15 @@ export class TelegramBotClient implements TelegramNotificationPort {
     }
 
     const messageChunks = chunkAddresses(addresses);
+    for (const text of messageChunks) {
+      await this.sendMessage(text);
+    }
+  }
+
+  async sendListingAlerts(
+    events: readonly ListingAlertEvent[],
+  ): Promise<void> {
+    const messageChunks = chunkListingAlertEvents(events);
     for (const text of messageChunks) {
       await this.sendMessage(text);
     }
@@ -116,6 +133,78 @@ function chunkAddresses(addresses: string[]): string[] {
   }
 
   return chunks;
+}
+
+export function formatListingAlertEvent(event: ListingAlertEvent): string {
+  const parsedEvent = parsePendingListingAlertEvent(event);
+
+  if (parsedEvent.kind === "new-listing") {
+    return [
+      "NEW LISTING",
+      "",
+      parsedEvent.formattedAddress,
+      formatCurrency(parsedEvent.currentPrice),
+    ].join("\n");
+  }
+
+  const decrease = parsedEvent.previousPrice - parsedEvent.currentPrice;
+  const percentage = (decrease / parsedEvent.previousPrice) * 100;
+
+  return [
+    "PRICE DROP",
+    "",
+    parsedEvent.formattedAddress,
+    `${formatCurrency(parsedEvent.previousPrice)} -> ${formatCurrency(parsedEvent.currentPrice)}`,
+    `Down ${formatCurrency(decrease)} (${percentage.toFixed(1)}%)`,
+  ].join("\n");
+}
+
+function chunkListingAlertEvents(
+  events: readonly ListingAlertEvent[],
+): string[] {
+  const blocks = events.map(formatListingAlertEvent);
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  for (const block of blocks) {
+    if (block.length > telegramMessageTextLimit) {
+      throw new Error("Telegram listing alert cannot exceed 4096 characters");
+    }
+
+    const nextChunk =
+      currentChunk.length === 0 ? block : `${currentChunk}\n\n${block}`;
+    if (nextChunk.length <= telegramMessageTextLimit) {
+      currentChunk = nextChunk;
+      continue;
+    }
+
+    chunks.push(currentChunk);
+    currentChunk = block;
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks;
+}
+
+function parsePendingListingAlertEvent(
+  event: ListingAlertEvent,
+): ListingAlertEvent {
+  const result = safeParseListingAlertEvent(event);
+  if (!result.success || result.data.status !== "pending") {
+    throw new Error("Telegram listing alert event was invalid");
+  }
+  return result.data;
+}
+
+function formatCurrency(value: number): string {
+  return `$${value.toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    useGrouping: true,
+  })}`;
 }
 
 function isTelegramOkResponse(value: unknown): boolean {

@@ -178,22 +178,20 @@ request. Block 20.1B later executed it once under explicit approval and recorded
 only aggregate evidence in the Block 20 knowledge base. A future repeat still
 requires a fresh quota and request review.
 
-Block 20.2 adds the provider-neutral price-alert contracts without changing the
-production worker. `ListingAddressKey` provides strict, versioned structured-
-address identity; application records distinguish latest price observations
-from immutable `new-listing` and `price-drop` events. The event-oriented
-repository and notification ports were first exercised through deterministic
-test fakes. RentCast production acquisition, Telegram formatting, React, and
-AWS resources remain unchanged until their later confirmed sub-blocks.
+Block 20.2 added the provider-neutral price-alert contracts without changing
+the production worker at that stage. `ListingAddressKey` provides strict,
+versioned structured-address identity; application records distinguish latest
+price observations from immutable `new-listing` and `price-drop` events. The
+event-oriented repository and notification ports were first exercised through
+deterministic test fakes.
 
 Block 20.3 adds a parallel `CheckListingAlerts` detection workflow. It separates
 the broadened no-minimum-price acquisition predicate from the existing
 `$780,000-$850,000` new-listing predicate, compares each tracked canonical
 address with its latest committed observation, and creates durable typed events
 for accepted new identities or strict price decreases. Unseen below-floor rows
-remain ignored, while a tracked address can alert below the floor. The legacy
-production `CheckNewListings` composition remains active until the PostgreSQL
-and Telegram integrations are implemented and separately approved.
+remain ignored, while a tracked address can alert below the floor. This use case
+remained parallel to the legacy production composition through Block 20.4.
 
 Block 20.4 adds migration `006_create_listing_alert_state.sql` and the parallel
 `PostgresListingAlertRepository`. PostgreSQL now has address-level latest-price
@@ -204,9 +202,21 @@ observation, and optional event. A conditional legacy initializer preserves old
 pending new-listing work while marking migrated observations non-comparable;
 their first fresh provider observation establishes the price baseline without
 creating a historical price-drop alert. This code has only been verified
-offline: no local or AWS database migration was applied, and production still
-uses `CheckNewListings` until Block 20.5 composition is approved. All 711 tests,
-full typecheck, and the production build pass.
+offline: no local or AWS database migration was applied. At the end of Block
+20.4, production still used `CheckNewListings`; all 711 tests, full typecheck,
+and the production build passed.
+
+Block 20.5 switches the repository's production worker composition to
+`CheckListingAlerts`, `PostgresListingAlertRepository`, and typed Telegram
+events. The ordinary RentCast request now uses `price=*:850000`, `limit=500`,
+and no total-count request. After migrations, the worker runs the idempotent
+legacy initializer before its provider request. Telegram renders complete
+`NEW LISTING` and `PRICE DROP` blocks, includes previous/current, absolute, and
+percentage price changes, and chunks only between event blocks within the
+4,096-character limit. The dry-run follows the same application pipeline. All
+719 tests, full typecheck, and the production build pass using fixtures and
+fakes; no database migration, real provider call, production Telegram send,
+deployment, or AWS change occurred.
 
 The production image also provides a read-only aggregate baseline check:
 

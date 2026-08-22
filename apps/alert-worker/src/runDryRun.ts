@@ -1,14 +1,14 @@
 import {
-  CheckNewListings,
-  type ListingNotificationPort,
+  CheckListingAlerts,
+  FakeListingAlertNotifications,
+  FakeListingAlertStateRepository,
   type ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
 import {
   matchesMvpSearchCriteria,
+  matchesPriceAlertAcquisitionCriteria,
   type RentCastNormalizedListing,
 } from "@chaoran-property-intelligence/domain";
-
-import { InMemoryListingRepository } from "./inMemoryListingRepository.js";
 
 export interface DryRunSummary {
   baselineInitialized: boolean;
@@ -17,23 +17,26 @@ export interface DryRunSummary {
 }
 
 export async function runDryRun(): Promise<DryRunSummary> {
-  const repository = new InMemoryListingRepository();
-  const notifications = new RecordingListingNotifications();
-  const checkNewListings = new CheckNewListings({
+  const repository = new FakeListingAlertStateRepository();
+  const notifications = new FakeListingAlertNotifications();
+  const checkListingAlerts = new CheckListingAlerts({
     source: new StaticListingSource(createDryRunListings()),
     repository,
     notifications,
     criteria: {
-      matchesSearchCriteria: matchesMvpSearchCriteria,
+      matchesAcquisitionCriteria: matchesPriceAlertAcquisitionCriteria,
+      matchesNewListingCriteria: matchesMvpSearchCriteria,
     },
+    now: () => new Date("2026-08-21T15:00:00.000Z"),
   });
 
-  await checkNewListings.execute();
+  await checkListingAlerts.execute();
 
   return {
-    baselineInitialized: repository.baselineInitialized,
-    storedListings: repository.records.size,
-    notificationBatches: notifications.sentAddressBatches.length,
+    baselineInitialized:
+      await repository.isPriceObservationBaselineInitialized(),
+    storedListings: repository.listingSnapshots.length,
+    notificationBatches: notifications.calls.length,
   };
 }
 
@@ -42,14 +45,6 @@ class StaticListingSource implements ListingSourcePort {
 
   async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
     return this.listings;
-  }
-}
-
-class RecordingListingNotifications implements ListingNotificationPort {
-  readonly sentAddressBatches: string[][] = [];
-
-  async sendListingAddresses(addresses: string[]): Promise<void> {
-    this.sentAddressBatches.push(addresses);
   }
 }
 

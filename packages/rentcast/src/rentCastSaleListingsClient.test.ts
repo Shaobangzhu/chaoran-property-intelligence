@@ -56,10 +56,11 @@ describe("RentCastSaleListingsClient", () => {
     expect((url as URL).searchParams.get("propertyType")).toBe(
       "Single Family",
     );
-    expect((url as URL).searchParams.get("price")).toBe("780000:850000");
+    expect((url as URL).searchParams.get("price")).toBe("*:850000");
     expect((url as URL).searchParams.get("bedrooms")).toBe("4:");
     expect((url as URL).searchParams.get("bathrooms")).toBe("2.5:");
     expect((url as URL).searchParams.get("limit")).toBe("500");
+    expect((url as URL).searchParams.get("includeTotalCount")).toBeNull();
     expect((url as URL).searchParams.get("apiKey")).toBeNull();
 
     expect(init).toMatchObject({

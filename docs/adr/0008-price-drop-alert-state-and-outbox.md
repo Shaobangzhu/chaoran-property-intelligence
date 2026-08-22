@@ -2,11 +2,12 @@
 
 ## Status
 
-Accepted. Blocks 20.0 through 20.4 now record and implement the product
+Accepted. Blocks 20.0 through 20.5 now record and implement the product
 semantics, coverage gate, application detection, PostgreSQL schema, durable
-outbox, and legacy migration boundary. Migration 006 and its adapter are
-verified offline but have not been applied to local Docker PostgreSQL or AWS;
-the production worker remains on the legacy composition.
+outbox, legacy migration boundary, Telegram representation, and production
+worker composition. Migration 006 and the new worker composition are verified
+offline but have not been applied to local Docker PostgreSQL or AWS; the
+deployed worker remains on its previously published composition.
 
 ## Context
 
@@ -246,13 +247,15 @@ worker. Its maintenance command refuses to call `fetch` without the exact
 margin, returned-page completeness, below-floor count, target-city counts,
 price range, response-body bytes, and elapsed time. A PASS requires both a total
 below 500 and a returned page length equal to the expected page length.
-Production remains `price=780000:850000`. Block 20.1A used fixtures only; Block
-20.1B then executed exactly one approved audit request. `X-Total-Count` and the
-returned array both contained 132 listings, leaving 368 rows below the page
-cap. Fifty-four returned listings were below `$780,000`; the returned price
-range was `$575,875-$850,000`. The complete 148,427-byte body arrived in 6,089
-ms. The acquisition gate passed without pagination, and production remained
-unchanged.
+Production remained `price=780000:850000` through Block 20.4. Block 20.1A used
+fixtures only; Block 20.1B then executed exactly one approved audit request.
+`X-Total-Count` and the returned array both contained 132 listings, leaving 368
+rows below the page cap. Fifty-four returned listings were below `$780,000`;
+the returned price range was `$575,875-$850,000`. The complete 148,427-byte body
+arrived in 6,089 ms. The acquisition gate passed without pagination, and
+production remained unchanged at that stage. Block 20.5 subsequently changed
+the repository's ordinary production profile to `price=*:850000`, `limit=500`,
+without `includeTotalCount`, retaining the proved one-request model.
 
 ### Baseline and deployment behavior
 
@@ -269,15 +272,25 @@ The migration and first run must be recoverable:
 - redeploying or rerunning at the same provider snapshot creates no duplicate
   event
 
-Block 20.0 does not enable either AWS schedule. Deployment, database migration,
-real-provider verification, and production Telegram delivery remain separate,
-explicitly approved operations.
+The Block 20.5 worker runs bundled migrations and the conditional legacy
+initializer before its first broadened provider request. The deployed AWS image
+and schedule are unchanged. Deployment, database migration, real-provider
+verification, and production Telegram delivery remain separate, explicitly
+approved operations.
 
 ### Telegram representation
 
-New-listing alerts may retain their existing concise behavior, but the adapter
-contract becomes event-based rather than address-array based. A price-drop
-message must include:
+The adapter contract is event-based while the old address-array method remains
+available for backward compatibility. New-listing messages use this shape:
+
+```text
+NEW LISTING
+
+100 Main St, Chino, CA 91710
+$825,000
+```
+
+A price-drop message uses this shape:
 
 ```text
 PRICE DROP
@@ -288,8 +301,10 @@ Down $20,000 (2.4%)
 ```
 
 Amounts use whole-dollar US formatting. The percentage is derived from the
-immutable event prices and rounded consistently. Formatting and chunking must
-keep one event readable and must enforce Telegram's 4,096-character limit.
+immutable event prices and rounded to one decimal place. The adapter validates
+the full batch before sending, keeps each event intact, separates events with a
+blank line, and chunks only between event blocks while enforcing Telegram's
+4,096-character limit.
 
 ### Verification boundary
 

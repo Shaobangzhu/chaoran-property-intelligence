@@ -158,12 +158,12 @@ payload collision rejects the transaction.
 
 ## RentCast coverage
 
-### Current gap
+### Pre-20.5 gap
 
-The provider request currently filters `price=780000:850000` and limits the
-response to `500`. Application criteria repeat the same price range. Because
-provider filtering happens first, a price below `$780,000` is invisible even
-when its address was previously tracked.
+Before Block 20.5, the provider request filtered `price=780000:850000` and
+limited the response to `500`. Application criteria repeated the same price
+range. Because provider filtering happened first, a price below `$780,000` was
+invisible even when its address was previously tracked.
 
 ### Required split
 
@@ -211,8 +211,9 @@ one complete page.
 
 The RentCast adapter now has two isolated internal request profiles:
 
-- ordinary `searchSaleListings()` remains `price=780000:850000`, keeps the same
-  location and property filters, and does not request a total-count header
+- at the end of Block 20.1, ordinary `searchSaleListings()` remained
+  `price=780000:850000`, kept the same location and property filters, and did
+  not request a total-count header
 - `searchSaleListingsForCoverageAudit()` uses `price=*:850000`, retains every
   other production filter and `limit=500`, and requests the total count
 
@@ -472,8 +473,8 @@ idempotency, and retry ordering against in-memory ports. **Complete:**
 Seventy-one focused domain/application tests, all 701 project tests, full
 typecheck, and the production build pass. No RentCast request, PostgreSQL
 operation, Telegram send, React change, worker composition change, or AWS
-operation occurred. Production remains on the legacy use case until Blocks
-20.4 and 20.5 provide the durable adapter and notifier.
+operation occurred. At the end of Block 20.3, production remained on the legacy
+use case pending the durable adapter and notifier in Blocks 20.4 and 20.5.
 
 ### Block 20.4: PostgreSQL migration and adapter
 
@@ -501,15 +502,43 @@ constraints, concurrency, rollback, parsing, and migration idempotency.
   `comparison_ready = false` to prevent a historical price-drop false positive
 
 No migration was applied to local Docker PostgreSQL or AWS, no real provider or
-Telegram operation occurred, and production composition remains on the legacy
-worker until Block 20.5. All 711 tests, full typecheck, and the production build
-pass.
+Telegram operation occurred, and production composition remained on the legacy
+worker at the end of Block 20.4. All 711 tests, full typecheck, and the
+production build passed.
 
 ### Block 20.5: Telegram and worker composition
 
-Implement new-listing and price-drop formatting, safe chunking, runtime wiring,
-and worker-level integration tests. Preserve production smoke-test and weekly
-Showing List Telegram behavior.
+**Complete in code and offline verification:**
+
+- `TelegramBotClient` now implements the event-oriented notification port while
+  retaining `sendListingAddresses`, the isolated production smoke test, and
+  weekly Showing List delivery
+- `NEW LISTING` blocks show the address and current price; `PRICE DROP` blocks
+  show the address, previous/current prices, absolute decrease, and a
+  consistently rounded one-decimal percentage
+- the adapter validates the entire pending-event batch before sending, preserves
+  complete event blocks, separates them with a blank line, and chunks only
+  between blocks under Telegram's 4,096-character limit
+- a Telegram HTTP or API failure propagates to `CheckListingAlerts`; the
+  application marks events sent only after the complete notification call
+  succeeds, so durable pending events remain retryable
+- `runProduction` runs bundled migrations, conditionally initializes legacy
+  alert state, then constructs `CheckListingAlerts` with
+  `PostgresListingAlertRepository`, acquisition criteria, and new-listing
+  criteria before making the provider request
+- ordinary RentCast production acquisition now uses `price=*:850000` and
+  `limit=500` without `includeTotalCount`; unseen below-floor listings remain
+  excluded by the application while tracked below-floor decreases remain
+  visible
+- the fake dry-run follows the same typed application workflow, and a worker
+  integration test proves `$825,000 -> $770,000`, exact Telegram content,
+  current-snapshot replacement, sent outbox state, initialization order, and
+  database closure through real adapters with fake HTTP and persistence
+
+All 719 tests, full typecheck, and the production build pass. No local or AWS
+database migration, real RentCast request, production Telegram message,
+deployment, schedule change, or other AWS operation occurred. The deployed AWS
+worker therefore remains on its previously published image until Block 20.7.
 
 ### Block 20.6: API and React consistency
 
