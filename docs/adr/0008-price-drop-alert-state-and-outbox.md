@@ -152,6 +152,17 @@ internal PostgreSQL primary key without changing this contract. The canonical
 address representation is explicitly versioned as `address:v1:` and URI-encodes
 each normalized component before joining it with `|`.
 
+Block 20.3 implements the decision in a parallel `CheckListingAlerts` use case.
+Acquisition and new-listing acceptance are separate predicates: acquisition
+removes only the `$780,000` floor, while an unseen below-floor address is not
+tracked. Existing addresses still advance their observation below the floor and
+emit a price-drop event on a strict decrease. An accepted changed listing
+identity takes new-listing precedence; a below-floor changed identity can only
+produce a price-drop for an already tracked address. Event identity combines
+versioned listing/address identity, immutable prices, the previous observation,
+and provider last-seen data, so it remains stable when a storage retry uses a
+later worker clock.
+
 The event payload is immutable. Later listing updates must not rewrite the
 previous or current price shown for an earlier pending event.
 

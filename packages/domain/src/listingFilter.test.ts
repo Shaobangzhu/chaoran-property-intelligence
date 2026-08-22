@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   matchesMvpSearchCriteria,
+  matchesPriceAlertAcquisitionCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
 
@@ -100,4 +101,60 @@ describe("MVP listing search criteria", () => {
       matchesMvpSearchCriteria(withListingOverride({ price: null })),
     ).toBe(false);
   });
+});
+
+describe("price-alert acquisition criteria", () => {
+  const matchingListing: ListingCandidate = {
+    city: "Eastvale",
+    state: "CA",
+    status: "Active",
+    propertyType: "Single Family",
+    price: 825000,
+    bedrooms: 4,
+    bathrooms: 3,
+  };
+
+  it("retains eligible listings below the new-listing price floor", () => {
+    expect(
+      matchesPriceAlertAcquisitionCriteria({
+        ...matchingListing,
+        price: 575875,
+      }),
+    ).toBe(true);
+  });
+
+  it("retains the upper price limit", () => {
+    expect(
+      matchesPriceAlertAcquisitionCriteria({
+        ...matchingListing,
+        price: 850000,
+      }),
+    ).toBe(true);
+    expect(
+      matchesPriceAlertAcquisitionCriteria({
+        ...matchingListing,
+        price: 850001,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    { city: "Brea" },
+    { state: "AZ" },
+    { status: "Pending" },
+    { propertyType: "Condo" },
+    { bedrooms: 3 },
+    { bathrooms: 2 },
+    { price: null },
+  ] satisfies Partial<ListingCandidate>[])(
+    "retains all non-minimum eligibility constraints: %o",
+    (override) => {
+      expect(
+        matchesPriceAlertAcquisitionCriteria({
+          ...matchingListing,
+          ...override,
+        }),
+      ).toBe(false);
+    },
+  );
 });

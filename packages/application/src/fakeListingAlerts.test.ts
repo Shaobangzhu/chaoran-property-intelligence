@@ -140,6 +140,25 @@ describe("FakeListingAlertStateRepository", () => {
     expect(repository.events[0]?.status).toBe("sent");
   });
 
+  it("preserves first discovery when an existing listing snapshot advances", async () => {
+    const repository = new FakeListingAlertStateRepository({
+      baselineEntries: [
+        {
+          listing: createObservedListing(),
+          observation: createObservation({ latestPrice: 810000 }),
+        },
+      ],
+    });
+    const transition = createPriceDropTransition();
+    transition.listing.firstDiscoveredAt = "2026-08-21T15:00:00.000Z";
+
+    await repository.saveListingAlertTransitions([transition]);
+
+    expect(repository.listingSnapshots[0]?.firstDiscoveredAt).toBe(
+      "2026-08-19T13:00:00.000Z",
+    );
+  });
+
   it("records a configured failure without changing repository state", async () => {
     const repository = new FakeListingAlertStateRepository({
       baselineInitialized: true,

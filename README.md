@@ -187,6 +187,15 @@ test fakes. RentCast production acquisition, PostgreSQL persistence, Telegram
 formatting, React, and AWS resources remain unchanged until their later
 confirmed sub-blocks.
 
+Block 20.3 adds a parallel `CheckListingAlerts` detection workflow. It separates
+the broadened no-minimum-price acquisition predicate from the existing
+`$780,000-$850,000` new-listing predicate, compares each tracked canonical
+address with its latest committed observation, and creates durable typed events
+for accepted new identities or strict price decreases. Unseen below-floor rows
+remain ignored, while a tracked address can alert below the floor. The legacy
+production `CheckNewListings` composition remains active until the PostgreSQL
+and Telegram integrations are implemented and separately approved.
+
 The production image also provides a read-only aggregate baseline check:
 
 ```bash

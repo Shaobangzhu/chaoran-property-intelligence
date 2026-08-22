@@ -174,9 +174,9 @@ export class FakeListingAlertStateRepository
         transition.observation.addressKey,
         cloneObservation(transition.observation),
       );
-      this.listingsByKey.set(
+      this.storeListingSnapshot(
         transition.observation.listingKey,
-        cloneListing(transition.listing),
+        transition.listing,
       );
       if (transition.event !== null) {
         const existing = this.eventsByKey.get(transition.event.eventKey);
@@ -221,10 +221,19 @@ export class FakeListingAlertStateRepository
       entry.observation.addressKey,
       cloneObservation(entry.observation),
     );
-    this.listingsByKey.set(
-      entry.observation.listingKey,
-      cloneListing(entry.listing),
-    );
+    this.storeListingSnapshot(entry.observation.listingKey, entry.listing);
+  }
+
+  private storeListingSnapshot(
+    listingKey: string,
+    listing: RentCastNormalizedListing,
+  ): void {
+    const existing = this.listingsByKey.get(listingKey);
+    this.listingsByKey.set(listingKey, {
+      ...cloneListing(listing),
+      firstDiscoveredAt:
+        existing?.firstDiscoveredAt ?? listing.firstDiscoveredAt,
+    });
   }
 
   private assertEventIsImmutable(

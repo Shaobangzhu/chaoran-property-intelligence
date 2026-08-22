@@ -427,7 +427,42 @@ contracts when implementing detection. Twenty-nine focused contract tests, all
 
 Implement new-listing precedence, latest-observation comparison, below-floor
 tracked transitions, increase updates, silent first price baseline, event
-idempotency, and retry ordering against in-memory ports.
+idempotency, and retry ordering against in-memory ports. **Complete:**
+
+- `matchesPriceAlertAcquisitionCriteria` retains the target cities, California,
+  Active status, Single Family type, bedroom and bathroom minimums, and
+  `$850,000` ceiling while removing only the `$780,000` floor.
+  `matchesMvpSearchCriteria` remains the new-listing eligibility predicate.
+- The existing MLS-first, RentCast-fallback listing key was extracted without
+  changing its persisted format. Legacy `CheckNewListings` now reuses the same
+  helper and its regression tests remain green.
+- The parallel `CheckListingAlerts` use case silently baselines only eligible
+  new listings. After initialization it reads the latest observation for every
+  acquired canonical address and atomically persists every actionable snapshot
+  and observation with at most one pending event.
+- An unseen in-range identity creates `new-listing`; an unseen below-floor row
+  is ignored and does not become tracked. A tracked strict decrease creates
+  `price-drop`, including a `$1` decrease or a current price below `$780,000`.
+  Equal and higher prices advance observation metadata without an event.
+- An accepted changed listing identity takes `new-listing` precedence over a
+  simultaneous decrease. If the changed identity is below the new-listing
+  floor, it is not accepted as a new listing, but a strict decrease at the
+  already tracked address still produces `price-drop`.
+- Event keys are versioned and deterministic from immutable provider and prior
+  observation facts rather than the current worker clock. A repeated provider
+  snapshot creates no duplicate event. Exact duplicate provider rows collapse;
+  conflicting rows at one canonical address fail before repository access.
+- Pending events are read only after transition persistence. Telegram failure
+  leaves them pending; a later run can preserve and deliver multiple decreases
+  in observation order, even when the provider returns no current listings.
+- The deterministic repository projection preserves an existing listing's
+  original `firstDiscoveredAt` while updating its current snapshot.
+
+Seventy-one focused domain/application tests, all 701 project tests, full
+typecheck, and the production build pass. No RentCast request, PostgreSQL
+operation, Telegram send, React change, worker composition change, or AWS
+operation occurred. Production remains on the legacy use case until Blocks
+20.4 and 20.5 provide the durable adapter and notifier.
 
 ### Block 20.4: PostgreSQL migration and adapter
 

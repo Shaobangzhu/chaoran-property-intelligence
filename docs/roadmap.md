@@ -697,7 +697,13 @@ Planned sub-block mapping:
 4. `20.3` Implement detection using the previous committed observation, with
    new-listing precedence, `$1` decreases, below-floor tracked decreases,
    increase updates, silent initialization, multiple pending transitions, and
-   idempotent retry tests.
+   idempotent retry tests. **Complete:** the parallel `CheckListingAlerts` use
+   case, acquisition/new-listing criteria split, legacy-compatible listing key,
+   deterministic event identity, duplicate-provider-row guard, ordered retry,
+   failure recovery, and first-discovery preservation are implemented against
+   deterministic ports. Seventy-one focused tests, all 701 project tests, full
+   typecheck, and the production build pass. Production composition remains on
+   `CheckNewListings` until Blocks 20.4 and 20.5.
 5. `20.4` Add the PostgreSQL observation state and durable notification outbox,
    update current listing snapshots transactionally, preserve legacy pending
    delivery, and verify rollback, constraints, concurrency, and migration

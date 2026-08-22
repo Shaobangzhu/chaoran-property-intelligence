@@ -1,5 +1,7 @@
 import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 
+import { createListingKey } from "./listingIdentity.js";
+
 export type NotificationStatus = "baseline" | "pending" | "sent";
 
 export interface StoredListing {
@@ -61,7 +63,7 @@ export class CheckNewListings {
     if (!baselineInitialized) {
       await this.repository.initializeBaseline(
         matchingListings.map((listing) => ({
-          deduplicationKey: createDeduplicationKey(listing),
+          deduplicationKey: createListingKey(listing),
           listing,
           notificationStatus: "baseline",
         })),
@@ -90,7 +92,7 @@ export class CheckNewListings {
     listings: RentCastNormalizedListing[],
   ): Promise<StoredListing[]> {
     const candidateRecords = listings.map((listing) => ({
-      deduplicationKey: createDeduplicationKey(listing),
+      deduplicationKey: createListingKey(listing),
       listing,
       notificationStatus: "pending" as const,
     }));
@@ -105,12 +107,4 @@ export class CheckNewListings {
       (record) => !existingKeys.has(record.deduplicationKey),
     );
   }
-}
-
-function createDeduplicationKey(listing: RentCastNormalizedListing): string {
-  if (listing.mlsName !== null && listing.mlsNumber !== null) {
-    return `mls:${listing.mlsName}:${listing.mlsNumber}:${listing.listedDate}`;
-  }
-
-  return `${listing.source}:${listing.sourceListingId}:${listing.listedDate}`;
 }

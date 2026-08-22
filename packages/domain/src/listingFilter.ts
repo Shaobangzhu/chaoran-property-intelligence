@@ -19,6 +19,16 @@ export interface ListingCandidate {
 }
 
 export function matchesMvpSearchCriteria(listing: ListingCandidate): boolean {
+  return (
+    matchesPriceAlertAcquisitionCriteria(listing) &&
+    listing.price !== null &&
+    listing.price >= minimumPrice
+  );
+}
+
+export function matchesPriceAlertAcquisitionCriteria(
+  listing: ListingCandidate,
+): boolean {
   if (listing.city === null || !isTargetCity(listing.city)) {
     return false;
   }
@@ -39,7 +49,7 @@ export function matchesMvpSearchCriteria(listing: ListingCandidate): boolean {
     return false;
   }
 
-  if (listing.price < minimumPrice || listing.price > maximumPrice) {
+  if (listing.price > maximumPrice) {
     return false;
   }
 

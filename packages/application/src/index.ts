@@ -1,4 +1,12 @@
 export { CheckNewListings } from "./checkNewListings.js";
+export {
+  AmbiguousListingAddressObservationError,
+  CheckListingAlerts,
+  InvalidListingAlertClockError,
+  type CheckListingAlertsOptions,
+  type ListingAlertCriteriaPort,
+} from "./checkListingAlerts.js";
+export { createListingKey } from "./listingIdentity.js";
 export { ArchiveManualListing } from "./archiveManualListing.js";
 export type {
   ArchiveManualListingInput,
