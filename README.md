@@ -230,6 +230,7 @@ planned React/Express production boundary.
 - [Manual listing model decision](docs/adr/0005-manual-listing-model.md)
 - [Latest-only Showing List publication decision](docs/adr/0006-latest-only-showing-list-publication.md)
 - [Wildfire hazard overlay decision](docs/adr/0007-wildfire-hazard-overlay.md)
+- [Price-drop alert state and outbox decision](docs/adr/0008-price-drop-alert-state-and-outbox.md)
 - [Block 19.1 wildfire hazard source audit](docs/data/wildfire-hazard-source-audit.md)
 - [Wildfire hazard data builder](tools/wildfire-hazard/README.md)
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
@@ -238,3 +239,4 @@ planned React/Express production boundary.
 - [Weekly Showing List production runbook](docs/runbooks/showing-list-production.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
 - [Block 19 wildfire hazard overlay knowledge base](docs/knowledge-base/block-19-wildfire-hazard-overlay.md)
+- [Block 20 price-drop alerts knowledge base](docs/knowledge-base/block-20-price-drop-alerts.md)

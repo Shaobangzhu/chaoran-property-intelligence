@@ -11,8 +11,9 @@ Future resources are included only in sections explicitly labeled as planned.
 The TypeScript CDK code under `infra/aws` remains the infrastructure source of
 truth. This document explains that code; the deployment runbook owns commands
 and operator procedures. ADR 0002 owns the deployed worker foundation, ADR 0003
-owns the planned React and Express production boundary, and ADR 0006 owns the
-planned latest-only Showing List publication boundary.
+owns the planned React and Express production boundary, ADR 0006 owns the
+planned latest-only Showing List publication boundary, and ADR 0008 owns the
+planned price-drop observation and notification-outbox boundary.
 
 ## Deployment Status
 
@@ -444,6 +445,29 @@ The image also exposes `--telegram-smoke-test` for a controlled one-message
 delivery check. That mode loads only the Telegram bot token and chat ID, sends a
 fixed non-listing message, and does not create a database connection or a
 RentCast client.
+
+### Planned Block 20 Price-Drop Evolution
+
+**Status: accepted target application architecture; not implemented or
+deployed.** Block 20 will extend the existing daily worker so a lower observed
+price at the same canonical RentCast address creates a durable Telegram event.
+The planned flow separates the current listing snapshot, latest address-level
+price observation, and immutable pending/sent notification event. This keeps
+one API and React listing row while preserving previous/current prices across a
+Telegram retry.
+
+The existing Fargate task, disabled `cpi-daily-property-alert` Scheduler,
+application secret, VPC path, log group, DLQ, and IAM boundaries are sufficient.
+Block 20 does not plan a new AWS service, schedule, credential, public endpoint,
+or browser secret. A future approved deployment will update the worker image
+and apply a PostgreSQL migration inside the existing runtime boundary.
+
+The current RentCast request filters out prices below `$780,000` before the
+application sees them. Block 20.1 must first prove that one broadened request
+retains complete-enough coverage below the provider's `500` result cap without
+increasing the one-request-per-run cost model. A real audit request, database
+migration, production Telegram test, image deployment, and schedule enablement
+each remain separately confirmed operations.
 
 ## Database Design
 

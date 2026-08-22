@@ -644,3 +644,64 @@ and
 [ADR 0007: Wildfire Hazard Overlay](adr/0007-wildfire-hazard-overlay.md). The
 source evidence and format measurements are in the
 [Block 19.1 Wildfire Hazard Source Audit](data/wildfire-hazard-source-audit.md).
+
+### Block 20: Price-Drop Alerts
+
+Extend the property-alert workflow so a strictly lower observed asking price at
+the same canonical RentCast address creates a durable Telegram alert. A price
+drop uses the new-listing delivery and retry guarantees but is not a new MLS
+identity: it does not change `listedDate`, create a duplicate React listing row,
+or add another map point.
+
+The previous value is the immediately prior successfully persisted observation,
+not the last alerted price. Every integer-dollar decrease qualifies. Increases
+advance the observation baseline without an alert, and unchanged prices remain
+idempotent. The first Block 20-capable run establishes price state silently.
+Manual listings remain outside the automated observation lifecycle.
+
+The confirmed coverage includes a tracked property that falls below the current
+`$780,000` minimum. Before changing the production request, Block 20.1 must
+prove that a one-request RentCast acquisition strategy can retain this coverage
+without reaching the `500` result cap or increasing the monthly request budget.
+
+Planned sub-block mapping:
+
+1. `20.0` Freeze product semantics, canonical address identity, observation and
+   outbox architecture, RentCast coverage gate, migration behavior, Telegram
+   content, React projection, AWS runtime boundary, and test plan. **Complete in
+   documentation only; no code, provider, database, Telegram, or AWS operation
+   was performed.**
+2. `20.1` Add deterministic coverage fixtures and a controlled RentCast audit
+   command. After separate confirmation, use at most one real request to measure
+   broadened-query count, cap margin, response size, latency, target-city
+   coverage, and tracked-address presence. Do not change production behavior.
+3. `20.2` Add strict structured-address normalization, typed `new-listing` and
+   `price-drop` events, observation contracts, event-oriented notification
+   ports, validation, and in-memory fakes.
+4. `20.3` Implement detection using the previous committed observation, with
+   new-listing precedence, `$1` decreases, below-floor tracked decreases,
+   increase updates, silent initialization, multiple pending transitions, and
+   idempotent retry tests.
+5. `20.4` Add the PostgreSQL observation state and durable notification outbox,
+   update current listing snapshots transactionally, preserve legacy pending
+   delivery, and verify rollback, constraints, concurrency, and migration
+   idempotency.
+6. `20.5` Add Telegram event formatting with previous/current price, absolute
+   and percentage decrease, bounded chunking, worker composition, and adapter
+   integration tests without regressing smoke-test or Showing List delivery.
+7. `20.6` Keep stable API and React listing identity while exposing the latest
+   price. Verify one card and map marker, unchanged selection/Showing List
+   references, manual listings, and genuine relisting behavior.
+8. `20.7` Complete full tests, type checking, builds, migration integration,
+   local smoke verification, runbook updates, and AWS read-only precheck. Real
+   provider calls, database migration, production Telegram, deployment, and
+   schedule enablement remain independently confirmed operations.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 20.0 does not change source code, consume RentCast quota,
+connect to PostgreSQL, send Telegram, or operate AWS resources.
+
+See the
+[Block 20 Price-Drop Alerts Knowledge Base](knowledge-base/block-20-price-drop-alerts.md)
+and
+[ADR 0008: Price-Drop Alert State and Outbox](adr/0008-price-drop-alert-state-and-outbox.md).
