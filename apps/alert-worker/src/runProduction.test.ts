@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type {
   ListingAlertNotificationPort,
+  ListingSearchProfile,
   ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
 import { FakeListingAlertStateRepository } from "@chaoran-property-intelligence/application";
+import {
+  defaultListingSearchCriteria,
+  type ListingSearchCriteriaV1,
+} from "@chaoran-property-intelligence/domain";
 import type {
   SqlConnection,
   SqlDatabase,
@@ -13,6 +18,7 @@ import type {
 
 import {
   runProduction,
+  UnappliedListingSearchProfileRevisionError,
   type ProductionDependencies,
 } from "./runProduction.js";
 
@@ -27,9 +33,11 @@ describe("runProduction", () => {
     expect(events).toEqual([
       "database:connection-string",
       "migrate",
+      "profile:create",
+      "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      "source:rentcast-secret",
+      "source:rentcast-secret:Single Family:850000:4:2.5",
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "database:close",
@@ -71,6 +79,107 @@ describe("runProduction", () => {
 
     expect(events.at(-1)).toBe("database:close");
   });
+
+  it.each([
+    ["one city", ["Corona"]],
+    [
+      "five cities",
+      ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
+    ],
+  ] as const)(
+    "projects provider fields without projecting cities for %s",
+    async (_label, cities) => {
+      const events: string[] = [];
+      const database = new FakeSqlDatabase(events);
+      const criteria: ListingSearchCriteriaV1 = {
+        ...defaultListingSearchCriteria,
+        propertyType: "Condo",
+        maximumPrice: 1_250_000,
+        minimumBedrooms: 0,
+        minimumBathrooms: 0,
+        cities,
+      };
+
+      await runProduction(
+        createRuntime(),
+        createDependencies(database, events, createProfile({ criteria })),
+      );
+
+      expect(
+        events.filter((event) => event.startsWith("source:rentcast-secret")),
+      ).toEqual(["source:rentcast-secret:Condo:1250000:0:0"]);
+      expect(events.filter((event) => event === "source:fetch")).toHaveLength(
+        1,
+      );
+    },
+  );
+
+  it("fails closed before source construction for an unapplied revision", async () => {
+    const events: string[] = [];
+    const database = new FakeSqlDatabase(events);
+    const dependencies = createDependencies(
+      database,
+      events,
+      createProfile({ revision: 2, appliedRevision: 1 }),
+    );
+
+    await expect(
+      runProduction(createRuntime(), dependencies),
+    ).rejects.toBeInstanceOf(UnappliedListingSearchProfileRevisionError);
+
+    expect(events).toEqual([
+      "database:connection-string",
+      "migrate",
+      "profile:create",
+      "profile:load",
+      "database:close",
+    ]);
+  });
+
+  it("fails closed before source construction when the profile is missing", async () => {
+    const events: string[] = [];
+    const database = new FakeSqlDatabase(events);
+    const dependencies = createDependencies(database, events, null);
+
+    await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
+      "Listing search profile was unavailable",
+    );
+
+    expect(events).toEqual([
+      "database:connection-string",
+      "migrate",
+      "profile:create",
+      "profile:load",
+      "database:close",
+    ]);
+  });
+
+  it("fails closed before source construction for a malformed profile", async () => {
+    const events: string[] = [];
+    const database = new FakeSqlDatabase(events);
+    const malformedProfile = {
+      ...createProfile(),
+      criteria: {
+        ...defaultListingSearchCriteria,
+        state: "NV",
+      },
+    } as unknown as ListingSearchProfile;
+
+    await expect(
+      runProduction(
+        createRuntime(),
+        createDependencies(database, events, malformedProfile),
+      ),
+    ).rejects.toThrow("Listing search profile contract was invalid");
+
+    expect(events).toEqual([
+      "database:connection-string",
+      "migrate",
+      "profile:create",
+      "profile:load",
+      "database:close",
+    ]);
+  });
 });
 
 function createRuntime() {
@@ -91,6 +200,7 @@ function createRuntime() {
 function createDependencies(
   database: SqlDatabase,
   events: string[],
+  profile: ListingSearchProfile | null = createProfile(),
 ): ProductionDependencies {
   return {
     createDatabase(connection) {
@@ -99,6 +209,15 @@ function createDependencies(
     },
     async runMigrations() {
       events.push("migrate");
+    },
+    createSearchProfileQuery() {
+      events.push("profile:create");
+      return {
+        async findPrimaryProfile() {
+          events.push("profile:load");
+          return profile;
+        },
+      };
     },
     createRepository() {
       events.push("repository:create");
@@ -124,7 +243,16 @@ function createDependencies(
       };
     },
     createSource(options): ListingSourcePort {
-      events.push(`source:${options.apiKey}`);
+      events.push(
+        [
+          "source",
+          options.apiKey,
+          options.searchCriteria.propertyType,
+          options.searchCriteria.maximumPrice,
+          options.searchCriteria.minimumBedrooms,
+          options.searchCriteria.minimumBathrooms,
+        ].join(":"),
+      );
       return {
         async getActiveSaleListings() {
           events.push("source:fetch");
@@ -140,6 +268,22 @@ function createDependencies(
         },
       };
     },
+  };
+}
+
+function createProfile(
+  overrides: Partial<ListingSearchProfile> = {},
+): ListingSearchProfile {
+  return {
+    profileKey: "primary",
+    schemaVersion: 1,
+    criteria: defaultListingSearchCriteria,
+    revision: 1,
+    appliedRevision: 1,
+    updatedByUserId: null,
+    createdAt: "2026-08-20T19:00:00.000Z",
+    updatedAt: "2026-08-21T19:00:00.000Z",
+    ...overrides,
   };
 }
 

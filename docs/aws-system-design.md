@@ -490,15 +490,19 @@ and replaces the alert-worker image. It does not change the database, VPC,
 retained resources, or schedule enabled states. The combined rollout remains a
 separately approved future operation.
 
-The currently deployed image still filters out prices below `$780,000`. The
-repository's Block 20.5 production profile uses one broadened
-`price=*:850000`, `limit=500` request without `includeTotalCount`; the
-application ignores unseen below-floor listings but compares previously tracked
-addresses. The worker runs bundled migrations and the conditional legacy
-initializer before constructing the provider source. A database migration,
-real production provider run, production listing Telegram delivery, image
-deployment, and schedule enablement each remain separately confirmed
-operations.
+The currently deployed image still filters out prices below `$780,000` and
+predates Block 21.6. Repository code now loads the persisted primary search
+profile after bundled migrations and before constructing the alert, provider,
+or notification adapters. It projects property type, maximum price, minimum
+bedrooms, and minimum bathrooms into one regional RentCast request with
+`price=*:<maximumPrice>`, `limit=500`, and `includeTotalCount=true`; city and
+minimum-price decisions remain Domain filters. Missing, malformed, or
+temporarily unapplied profiles fail closed. A response total above 500 or an
+incomplete below-cap page stops before listing state or Telegram mutation. The
+unapplied-revision guard remains temporary until Block 21.7 implements atomic
+silent baseline. Migration 007, a real production provider run, production
+listing Telegram delivery, image deployment, and schedule enablement each
+remain separately confirmed operations.
 
 Block 20.1A implements the audit as a separate maintenance entrypoint, not as a
 mode of the scheduled production worker. It requires the exact

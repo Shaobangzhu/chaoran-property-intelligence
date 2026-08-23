@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { RentCastSaleListingsClient } from "./rentCastSaleListingsClient.js";
+import {
+  defaultRentCastSaleListingsSearchCriteria,
+  rentCastSaleListingPropertyTypes,
+  RentCastSaleListingsClient,
+  type RentCastSaleListingsSearchCriteria,
+} from "./rentCastSaleListingsClient.js";
 
 describe("RentCastSaleListingsClient", () => {
   const rentCastListing = {
@@ -26,14 +31,14 @@ describe("RentCastSaleListingsClient", () => {
 
   it("builds the sale listings request and sends the API key in a header", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Response.json([]),
+      Response.json([], { headers: { "X-Total-Count": "0" } }),
     );
     const client = new RentCastSaleListingsClient({
       apiKey: "test-api-key",
       fetch,
     });
 
-    await client.searchSaleListings();
+    await client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria);
 
     expect(fetch).toHaveBeenCalledOnce();
 
@@ -60,7 +65,7 @@ describe("RentCastSaleListingsClient", () => {
     expect((url as URL).searchParams.get("bedrooms")).toBe("4:");
     expect((url as URL).searchParams.get("bathrooms")).toBe("2.5:");
     expect((url as URL).searchParams.get("limit")).toBe("500");
-    expect((url as URL).searchParams.get("includeTotalCount")).toBeNull();
+    expect((url as URL).searchParams.get("includeTotalCount")).toBe("true");
     expect((url as URL).searchParams.get("apiKey")).toBeNull();
 
     expect(init).toMatchObject({
@@ -73,24 +78,81 @@ describe("RentCastSaleListingsClient", () => {
   });
 
   it("returns validated sale listings and ignores extra API fields", async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      Response.json([
-        {
-          ...rentCastListing,
-          listingAgent: {
-            name: "Should Not Be Used By Telegram MVP",
-          },
+    const responseBody = JSON.stringify([
+      {
+        ...rentCastListing,
+        listingAgent: {
+          name: "Should Not Be Used By Telegram MVP",
         },
-      ]),
+      },
+    ]);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      new Response(responseBody, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Total-Count": "1",
+        },
+      }),
     );
     const client = new RentCastSaleListingsClient({
       apiKey: "test-api-key",
       fetch,
     });
 
-    await expect(client.searchSaleListings()).resolves.toEqual([
-      rentCastListing,
-    ]);
+    await expect(
+      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+    ).resolves.toEqual({
+      listings: [rentCastListing],
+      responseBodyBytes: new TextEncoder().encode(responseBody).byteLength,
+      resultLimit: 500,
+      totalCount: 1,
+    });
+  });
+
+  it.each(rentCastSaleListingPropertyTypes)(
+    "projects the %s property type and numeric boundaries into one request",
+    async (propertyType) => {
+      const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+        Response.json([], { headers: { "X-Total-Count": "0" } }),
+      );
+      const client = new RentCastSaleListingsClient({
+        apiKey: "test-api-key",
+        fetch,
+      });
+      const criteria: RentCastSaleListingsSearchCriteria = {
+        propertyType,
+        maximumPrice: 1_250_000,
+        minimumBedrooms: 0,
+        minimumBathrooms: 0,
+      };
+
+      await client.searchSaleListings(criteria);
+
+      expect(fetch).toHaveBeenCalledOnce();
+      const url = fetch.mock.calls[0]?.[0];
+      expect(url).toBeInstanceOf(URL);
+      expect((url as URL).searchParams.get("propertyType")).toBe(propertyType);
+      expect((url as URL).searchParams.get("price")).toBe("*:1250000");
+      expect((url as URL).searchParams.get("bedrooms")).toBe("0:");
+      expect((url as URL).searchParams.get("bathrooms")).toBe("0:");
+      expect((url as URL).searchParams.get("includeTotalCount")).toBe("true");
+    },
+  );
+
+  it("rejects malformed search criteria before fetch", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await expect(
+      client.searchSaleListings({
+        ...defaultRentCastSaleListingsSearchCriteria,
+        minimumBathrooms: 2.25,
+      }),
+    ).rejects.toThrow("RentCast sale listings search criteria were invalid");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("builds the isolated price-drop coverage audit request", async () => {
@@ -166,7 +228,7 @@ describe("RentCastSaleListingsClient", () => {
       await expect(
         client.searchSaleListingsForCoverageAudit(),
       ).rejects.toThrow(
-        "RentCast coverage audit response did not include a valid X-Total-Count header",
+        "RentCast sale listings response did not include a valid X-Total-Count header",
       );
     },
   );
@@ -185,7 +247,7 @@ describe("RentCastSaleListingsClient", () => {
     await expect(
       client.searchSaleListingsForCoverageAudit(),
     ).rejects.toThrow(
-      "RentCast coverage audit total count was smaller than the response page",
+      "RentCast sale listings total count was smaller than the response page",
     );
   });
 
@@ -201,7 +263,9 @@ describe("RentCastSaleListingsClient", () => {
       fetch,
     });
 
-    await expect(client.searchSaleListings()).rejects.toThrow(
+    await expect(
+      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+    ).rejects.toThrow(
       "RentCast sale listings request failed with status 401",
     );
   });
@@ -219,7 +283,9 @@ describe("RentCastSaleListingsClient", () => {
       fetch,
     });
 
-    await expect(client.searchSaleListings()).rejects.toThrow(
+    await expect(
+      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+    ).rejects.toThrow(
       "RentCast sale listings response was not valid JSON",
     );
   });
@@ -233,7 +299,9 @@ describe("RentCastSaleListingsClient", () => {
       fetch,
     });
 
-    await expect(client.searchSaleListings()).rejects.toThrow(
+    await expect(
+      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+    ).rejects.toThrow(
       "RentCast sale listings response did not match the expected schema",
     );
   });
@@ -256,7 +324,9 @@ describe("RentCastSaleListingsClient", () => {
       timeoutMs: 1000,
     });
 
-    const search = client.searchSaleListings();
+    const search = client.searchSaleListings(
+      defaultRentCastSaleListingsSearchCriteria,
+    );
     const expectation = expect(search).rejects.toThrow(
       "RentCast sale listings request timed out",
     );
@@ -282,10 +352,12 @@ describe("RentCastSaleListingsClient", () => {
       apiKey: "test-api-key",
       fetch,
     });
-    const search = client.searchSaleListings().catch((error: unknown) => {
-      timedOut = true;
-      return error;
-    });
+    const search = client
+      .searchSaleListings(defaultRentCastSaleListingsSearchCriteria)
+      .catch((error: unknown) => {
+        timedOut = true;
+        return error;
+      });
 
     try {
       await vi.advanceTimersByTimeAsync(10_000);

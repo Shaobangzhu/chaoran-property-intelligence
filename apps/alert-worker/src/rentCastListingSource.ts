@@ -3,27 +3,52 @@ import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/d
 import type {
   RentCastListingsPort,
   RentCastSaleListing,
+  RentCastSaleListingsSearchCriteria,
 } from "@chaoran-property-intelligence/rentcast";
 
 export interface RentCastListingSourceOptions {
   client: RentCastListingsPort;
+  searchCriteria: RentCastSaleListingsSearchCriteria;
   now: () => Date;
+}
+
+export class RentCastListingCoverageExceededError extends Error {
+  constructor() {
+    super("RentCast listing search exceeded the complete response page limit");
+    this.name = "RentCastListingCoverageExceededError";
+  }
+}
+
+export class IncompleteRentCastListingPageError extends Error {
+  constructor() {
+    super("RentCast listing search returned an incomplete response page");
+    this.name = "IncompleteRentCastListingPageError";
+  }
 }
 
 export class RentCastListingSource implements ListingSourcePort {
   private readonly client: RentCastListingsPort;
+  private readonly searchCriteria: RentCastSaleListingsSearchCriteria;
   private readonly now: () => Date;
 
   constructor(options: RentCastListingSourceOptions) {
     this.client = options.client;
+    this.searchCriteria = options.searchCriteria;
     this.now = options.now;
   }
 
   async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
-    const listings = await this.client.searchSaleListings();
+    const page = await this.client.searchSaleListings(this.searchCriteria);
+    if (page.totalCount > page.resultLimit) {
+      throw new RentCastListingCoverageExceededError();
+    }
+    if (page.listings.length !== page.totalCount) {
+      throw new IncompleteRentCastListingPageError();
+    }
+
     const firstDiscoveredAt = this.now().toISOString();
 
-    return listings.map((listing) =>
+    return page.listings.map((listing) =>
       normalizeRentCastListing(listing, firstDiscoveredAt),
     );
   }

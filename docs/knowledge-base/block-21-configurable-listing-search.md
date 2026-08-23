@@ -431,7 +431,19 @@ pending outbox delivery must still run on the baseline path.
    operation occurred.
 7. `21.6` Parameterize the RentCast URL and production worker, enforce one
    regional request and the 500-row coverage gate, and load the persisted
-   profile before acquisition.
+   profile before acquisition. **Complete:** the provider client accepts a
+   strict typed projection for all seven property types and dynamic maximum
+   price, bedroom, and bathroom bounds. Every production search keeps the
+   regional anchor, radius, `CA`, `Active`, `price=*:<maximumPrice>`,
+   `limit=500`, and `includeTotalCount=true`. The worker loads and validates
+   the primary profile before constructing alert state, source, or
+   notification adapters; selected cities and minimum price remain Domain
+   predicates and never multiply provider requests. Missing or malformed
+   profiles fail closed. Until Block 21.7 supplies atomic revision baseline,
+   `revision != appliedRevision` also fails before the provider request. A
+   total above 500 or an incomplete below-cap page fails before listing state
+   or Telegram changes. All 903 tests, full runtime/CDK typecheck, and the
+   production build pass. No external or production operation occurred.
 8. `21.7` Implement revision-aware silent baseline, pending-event preservation,
    and cross-layer tests proving later new-listing and price-drop behavior.
 9. `21.8` Run full verification, disposable migration integration, local

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { CheckNewListings } from "@chaoran-property-intelligence/application";
 import { matchesMvpSearchCriteria } from "@chaoran-property-intelligence/domain";
 import {
+  defaultRentCastSaleListingsSearchCriteria,
   RentCastSaleListingsClient,
   type RentCastSaleListing,
 } from "@chaoran-property-intelligence/rentcast";
@@ -57,7 +58,9 @@ describe("local alert worker integration", () => {
         throw new Error("Unexpected RentCast request");
       }
 
-      return Response.json(responseBody);
+      return Response.json(responseBody, {
+        headers: { "X-Total-Count": String(responseBody.length) },
+      });
     });
     const telegramFetch = vi.fn<typeof fetch>(async () =>
       Response.json({ ok: true }),
@@ -68,6 +71,7 @@ describe("local alert worker integration", () => {
         apiKey: "fake-api-key",
         fetch: rentCastFetch,
       }),
+      searchCriteria: defaultRentCastSaleListingsSearchCriteria,
       now: () => new Date("2026-08-19T17:00:00.000Z"),
     });
     const checkNewListings = new CheckNewListings({

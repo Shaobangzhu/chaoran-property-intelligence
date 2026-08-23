@@ -858,7 +858,21 @@ preserving durable pending events and stable listing records.
    notification, deployment, or AWS operation occurred.
 7. `21.6` Parameterize the RentCast request and production worker, load the
    persisted profile before acquisition, keep one regional request, and fail
-   closed when total count exceeds the 500-row page cap.
+   closed when total count exceeds the 500-row page cap. **Complete in code
+   and offline verification:** the RentCast adapter now accepts a typed
+   provider projection, keeps the fixed regional anchor/CA/Active scope, uses
+   dynamic property type, maximum price, bedroom, and bathroom values, and
+   requests `includeTotalCount=true` with `limit=500`. Production loads and
+   strictly validates the primary profile before constructing alert state,
+   source, or notification adapters. City and minimum price remain Domain
+   filters, so one-city and five-city profiles both issue one regional request
+   and tracked below-floor price drops remain eligible. Missing, malformed,
+   or temporarily unapplied profiles fail closed; Block 21.7 will replace the
+   unapplied-revision guard with atomic silent baseline. A total above the cap
+   or an incomplete below-cap page fails before listing state or Telegram
+   mutation. All 903 tests, full runtime/CDK typecheck, and the production
+   build pass. No real provider, database, Telegram, deployment, schedule, or
+   AWS operation occurred.
 8. `21.7` Implement atomic revision-aware silent baseline, preserve pending
    events, and add cross-layer tests for later new listings and tracked
    below-floor price drops.

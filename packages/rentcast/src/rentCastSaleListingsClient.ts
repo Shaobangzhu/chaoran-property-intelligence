@@ -2,9 +2,32 @@ const rentCastSaleListingsUrl = "https://api.rentcast.io/v1/listings/sale";
 const defaultTimeoutMs = 30000;
 const saleListingsResultLimit = 500;
 
-type SaleListingsRequestProfile =
-  | "price-alert-production"
-  | "price-drop-coverage-audit";
+export const rentCastSaleListingPropertyTypes = Object.freeze([
+  "Single Family",
+  "Condo",
+  "Townhouse",
+  "Manufactured",
+  "Multi-Family",
+  "Apartment",
+  "Land",
+] as const);
+
+export type RentCastSaleListingPropertyType =
+  (typeof rentCastSaleListingPropertyTypes)[number];
+
+export interface RentCastSaleListingsSearchCriteria {
+  readonly propertyType: RentCastSaleListingPropertyType;
+  readonly maximumPrice: number;
+  readonly minimumBedrooms: number;
+  readonly minimumBathrooms: number;
+}
+
+export const defaultRentCastSaleListingsSearchCriteria = Object.freeze({
+  propertyType: "Single Family",
+  maximumPrice: 850_000,
+  minimumBedrooms: 4,
+  minimumBathrooms: 2.5,
+} satisfies RentCastSaleListingsSearchCriteria);
 
 export interface RentCastSaleListingsClientOptions {
   apiKey: string;
@@ -33,15 +56,19 @@ export interface RentCastSaleListing {
   mlsNumber: string | null;
 }
 
-export interface RentCastSaleListingsCoveragePage {
+export interface RentCastSaleListingsPage {
   listings: RentCastSaleListing[];
   responseBodyBytes: number;
   resultLimit: number;
   totalCount: number;
 }
 
+export type RentCastSaleListingsCoveragePage = RentCastSaleListingsPage;
+
 export interface RentCastListingsPort {
-  searchSaleListings(): Promise<RentCastSaleListing[]>;
+  searchSaleListings(
+    criteria: RentCastSaleListingsSearchCriteria,
+  ): Promise<RentCastSaleListingsPage>;
 }
 
 export class RentCastSaleListingsClient implements RentCastListingsPort {
@@ -55,22 +82,31 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
     this.timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
   }
 
-  async searchSaleListings(): Promise<RentCastSaleListing[]> {
-    const result = await this.requestSaleListings(
-      "price-alert-production",
-    );
-    return result.listings;
+  async searchSaleListings(
+    criteria: RentCastSaleListingsSearchCriteria,
+  ): Promise<RentCastSaleListingsPage> {
+    return this.requestSaleListings(criteria);
   }
 
-  async searchSaleListingsForCoverageAudit(): Promise<RentCastSaleListingsCoveragePage> {
-    const result = await this.requestSaleListings(
-      "price-drop-coverage-audit",
+  async searchSaleListingsForCoverageAudit(
+    criteria: RentCastSaleListingsSearchCriteria =
+      defaultRentCastSaleListingsSearchCriteria,
+  ): Promise<RentCastSaleListingsCoveragePage> {
+    return this.requestSaleListings(criteria);
+  }
+
+  private async requestSaleListings(
+    criteria: RentCastSaleListingsSearchCriteria,
+  ): Promise<RentCastSaleListingsPage> {
+    const normalizedCriteria = normalizeSearchCriteria(criteria);
+    const result = await this.fetchSaleListings(
+      createSaleListingsUrl(normalizedCriteria),
     );
     const totalCount = readCoverageTotalCount(result.response);
 
     if (totalCount < result.listings.length) {
       throw new Error(
-        "RentCast coverage audit total count was smaller than the response page",
+        "RentCast sale listings total count was smaller than the response page",
       );
     }
 
@@ -82,11 +118,9 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
     };
   }
 
-  private async requestSaleListings(
-    profile: SaleListingsRequestProfile,
+  private async fetchSaleListings(
+    url: URL,
   ): Promise<SaleListingsRequestResult> {
-    const url = createSaleListingsUrl(profile);
-
     const abortController = new AbortController();
     const timeout = setTimeout(() => {
       abortController.abort();
@@ -153,38 +187,74 @@ interface SaleListingsRequestResult {
 }
 
 function createSaleListingsUrl(
-  profile: SaleListingsRequestProfile,
+  criteria: RentCastSaleListingsSearchCriteria,
 ): URL {
   const url = new URL(rentCastSaleListingsUrl);
   url.searchParams.set("address", "1065 Brea Mall, Brea, CA 92821");
   url.searchParams.set("radius", "20");
   url.searchParams.set("state", "CA");
   url.searchParams.set("status", "Active");
-  url.searchParams.set("propertyType", "Single Family");
-  url.searchParams.set("price", "*:850000");
-  url.searchParams.set("bedrooms", "4:");
-  url.searchParams.set("bathrooms", "2.5:");
+  url.searchParams.set("propertyType", criteria.propertyType);
+  url.searchParams.set("price", `*:${criteria.maximumPrice}`);
+  url.searchParams.set("bedrooms", `${criteria.minimumBedrooms}:`);
+  url.searchParams.set("bathrooms", `${criteria.minimumBathrooms}:`);
   url.searchParams.set("limit", String(saleListingsResultLimit));
-
-  if (profile === "price-drop-coverage-audit") {
-    url.searchParams.set("includeTotalCount", "true");
-  }
+  url.searchParams.set("includeTotalCount", "true");
 
   return url;
+}
+
+function normalizeSearchCriteria(
+  criteria: RentCastSaleListingsSearchCriteria,
+): RentCastSaleListingsSearchCriteria {
+  if (
+    criteria === null ||
+    typeof criteria !== "object" ||
+    !rentCastSaleListingPropertyTypes.includes(criteria.propertyType) ||
+    !isNonNegativeSafeInteger(criteria.maximumPrice) ||
+    !isNonNegativeSafeInteger(criteria.minimumBedrooms) ||
+    !isNonNegativeHalfStep(criteria.minimumBathrooms)
+  ) {
+    throw new Error("RentCast sale listings search criteria were invalid");
+  }
+
+  return Object.freeze({
+    propertyType: criteria.propertyType,
+    maximumPrice: criteria.maximumPrice,
+    minimumBedrooms: criteria.minimumBedrooms,
+    minimumBathrooms: criteria.minimumBathrooms,
+  });
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+  );
+}
+
+function isNonNegativeHalfStep(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    Number.isInteger(value * 2)
+  );
 }
 
 function readCoverageTotalCount(response: Response): number {
   const value = response.headers.get("X-Total-Count");
   if (value === null || !/^\d+$/.test(value)) {
     throw new Error(
-      "RentCast coverage audit response did not include a valid X-Total-Count header",
+      "RentCast sale listings response did not include a valid X-Total-Count header",
     );
   }
 
   const totalCount = Number(value);
   if (!Number.isSafeInteger(totalCount)) {
     throw new Error(
-      "RentCast coverage audit response did not include a valid X-Total-Count header",
+      "RentCast sale listings response did not include a valid X-Total-Count header",
     );
   }
 

@@ -1,21 +1,29 @@
 import {
   CheckListingAlerts,
+  ListingSearchProfileUnavailableError,
+  normalizeListingSearchProfile,
   type ListingAlertNotificationPort,
   type ListingAlertStateRepositoryPort,
+  type ListingSearchProfileQueryPort,
   type ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
 import {
-  matchesMvpSearchCriteria,
-  matchesPriceAlertAcquisitionCriteria,
+  matchesListingAcquisitionCriteria,
+  matchesNewListingCriteria,
+  type ListingSearchCriteriaV1,
 } from "@chaoran-property-intelligence/domain";
 import {
   createPostgresDatabase,
   PostgresListingAlertRepository,
+  PostgresListingSearchProfileRepository,
   runBundledMigrations,
   type PostgresConnectionConfig,
   type SqlDatabase,
 } from "@chaoran-property-intelligence/postgres";
-import { RentCastSaleListingsClient } from "@chaoran-property-intelligence/rentcast";
+import {
+  RentCastSaleListingsClient,
+  type RentCastSaleListingsSearchCriteria,
+} from "@chaoran-property-intelligence/rentcast";
 import { TelegramBotClient } from "@chaoran-property-intelligence/telegram";
 
 import { loadProductionConfig } from "./productionConfig.js";
@@ -31,6 +39,7 @@ export interface ProductionSourceOptions {
   apiKey: string;
   fetch: typeof fetch;
   now: () => Date;
+  searchCriteria: RentCastSaleListingsSearchCriteria;
 }
 
 export interface ProductionNotificationOptions {
@@ -48,6 +57,9 @@ export interface ProductionDependencies {
   createDatabase(connection: PostgresConnectionConfig): SqlDatabase;
   runMigrations(database: SqlDatabase): Promise<void>;
   createRepository(database: SqlDatabase): ProductionListingAlertRepository;
+  createSearchProfileQuery(
+    database: SqlDatabase,
+  ): ListingSearchProfileQueryPort;
   createSource(options: ProductionSourceOptions): ListingSourcePort;
   createNotifications(
     options: ProductionNotificationOptions,
@@ -60,12 +72,16 @@ const defaultDependencies: ProductionDependencies = {
   createRepository(database) {
     return new PostgresListingAlertRepository(database);
   },
+  createSearchProfileQuery(database) {
+    return new PostgresListingSearchProfileRepository(database);
+  },
   createSource(options) {
     return new RentCastListingSource({
       client: new RentCastSaleListingsClient({
         apiKey: options.apiKey,
         fetch: options.fetch,
       }),
+      searchCriteria: options.searchCriteria,
       now: options.now,
     });
   },
@@ -78,6 +94,13 @@ const defaultDependencies: ProductionDependencies = {
   },
 };
 
+export class UnappliedListingSearchProfileRevisionError extends Error {
+  constructor() {
+    super("Listing search profile revision has not been baselined");
+    this.name = "UnappliedListingSearchProfileRevisionError";
+  }
+}
+
 export async function runProduction(
   runtime: ProductionRuntime,
   dependencies: ProductionDependencies = defaultDependencies,
@@ -87,6 +110,16 @@ export async function runProduction(
 
   try {
     await dependencies.runMigrations(database);
+    const profileQuery = dependencies.createSearchProfileQuery(database);
+    const rawProfile = await profileQuery.findPrimaryProfile();
+    if (rawProfile === null) {
+      throw new ListingSearchProfileUnavailableError();
+    }
+    const profile = normalizeListingSearchProfile(rawProfile);
+    if (profile.revision !== profile.appliedRevision) {
+      throw new UnappliedListingSearchProfileRevisionError();
+    }
+
     const repository = dependencies.createRepository(database);
     await repository.initializeLegacyListingAlertState();
 
@@ -95,6 +128,7 @@ export async function runProduction(
         apiKey: config.rentCastApiKey,
         fetch: runtime.fetch,
         now: runtime.now,
+        searchCriteria: projectRentCastSearchCriteria(profile.criteria),
       }),
       repository,
       notifications: dependencies.createNotifications({
@@ -103,8 +137,10 @@ export async function runProduction(
         fetch: runtime.fetch,
       }),
       criteria: {
-        matchesAcquisitionCriteria: matchesPriceAlertAcquisitionCriteria,
-        matchesNewListingCriteria: matchesMvpSearchCriteria,
+        matchesAcquisitionCriteria: (listing) =>
+          matchesListingAcquisitionCriteria(listing, profile.criteria),
+        matchesNewListingCriteria: (listing) =>
+          matchesNewListingCriteria(listing, profile.criteria),
       },
       now: runtime.now,
     });
@@ -113,4 +149,15 @@ export async function runProduction(
   } finally {
     await database.close();
   }
+}
+
+function projectRentCastSearchCriteria(
+  criteria: ListingSearchCriteriaV1,
+): RentCastSaleListingsSearchCriteria {
+  return Object.freeze({
+    propertyType: criteria.propertyType,
+    maximumPrice: criteria.maximumPrice,
+    minimumBedrooms: criteria.minimumBedrooms,
+    minimumBathrooms: criteria.minimumBathrooms,
+  });
 }

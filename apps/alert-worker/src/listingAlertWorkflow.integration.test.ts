@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createListingKey,
   FakeListingAlertStateRepository,
+  type ListingSearchProfile,
   type ListingPriceObservation,
 } from "@chaoran-property-intelligence/application";
 import {
   createListingAddressKey,
+  defaultListingSearchCriteria,
   type RentCastNormalizedListing,
 } from "@chaoran-property-intelligence/domain";
 import type {
@@ -20,7 +22,10 @@ import {
 } from "@chaoran-property-intelligence/rentcast";
 import { TelegramBotClient } from "@chaoran-property-intelligence/telegram";
 
-import { RentCastListingSource } from "./rentCastListingSource.js";
+import {
+  RentCastListingCoverageExceededError,
+  RentCastListingSource,
+} from "./rentCastListingSource.js";
 import {
   runProduction,
   type ProductionDependencies,
@@ -41,13 +46,24 @@ describe("listing alert production workflow integration", () => {
         steps.push("rentcast:request");
         expect(url.searchParams.get("price")).toBe("*:850000");
         expect(url.searchParams.get("limit")).toBe("500");
-        expect(url.searchParams.get("includeTotalCount")).toBeNull();
-        return Response.json([
-          createRentCastListing({
-            price: 770000,
-            lastSeenDate: "2026-08-22T12:00:00.000Z",
-          }),
-        ]);
+        expect(url.searchParams.get("includeTotalCount")).toBe("true");
+        return Response.json(
+          [
+            createRentCastListing({
+              price: 770000,
+              lastSeenDate: "2026-08-22T12:00:00.000Z",
+            }),
+            createRentCastListing({
+              id: "rentcast-chino",
+              formattedAddress: "456 Oak Ave, Chino, CA 91710",
+              addressLine1: "456 Oak Ave",
+              city: "Chino",
+              zipCode: "91710",
+              price: 760000,
+            }),
+          ],
+          { headers: { "X-Total-Count": "2" } },
+        );
       }
       if (url.origin === "https://api.telegram.org") {
         steps.push("telegram:request");
@@ -63,6 +79,15 @@ describe("listing alert production workflow integration", () => {
       async runMigrations() {
         steps.push("database:migrate");
       },
+      createSearchProfileQuery() {
+        steps.push("profile:create");
+        return {
+          async findPrimaryProfile() {
+            steps.push("profile:load");
+            return createSearchProfile();
+          },
+        };
+      },
       createRepository() {
         steps.push("repository:create");
         return repository;
@@ -74,6 +99,7 @@ describe("listing alert production workflow integration", () => {
             apiKey: options.apiKey,
             fetch: options.fetch,
           }),
+          searchCriteria: options.searchCriteria,
           now: options.now,
         });
       },
@@ -100,6 +126,8 @@ describe("listing alert production workflow integration", () => {
     expect(steps).toEqual([
       "database:create",
       "database:migrate",
+      "profile:create",
+      "profile:load",
       "repository:create",
       "repository:legacy-initialize",
       "source:create",
@@ -143,7 +171,88 @@ describe("listing alert production workflow integration", () => {
       ].join("\n"),
     });
   });
+
+  it("fails the coverage gate before listing state or Telegram changes", async () => {
+    const steps: string[] = [];
+    const repository = new IntegrationListingAlertRepository(
+      steps,
+      createObservation(createNormalizedListing()),
+    );
+    const database = new RecordingSqlDatabase(steps);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = input as URL;
+      if (url.origin !== "https://api.rentcast.io") {
+        throw new Error(`Unexpected HTTP request: ${url.origin}`);
+      }
+      steps.push("rentcast:request");
+      return Response.json([createRentCastListing()], {
+        headers: { "X-Total-Count": "501" },
+      });
+    });
+    const dependencies: ProductionDependencies = {
+      createDatabase() {
+        return database;
+      },
+      async runMigrations() {},
+      createSearchProfileQuery() {
+        return { findPrimaryProfile: async () => createSearchProfile() };
+      },
+      createRepository() {
+        return repository;
+      },
+      createSource(options) {
+        return new RentCastListingSource({
+          client: new RentCastSaleListingsClient({
+            apiKey: options.apiKey,
+            fetch: options.fetch,
+          }),
+          searchCriteria: options.searchCriteria,
+          now: options.now,
+        });
+      },
+      createNotifications(options) {
+        return new TelegramBotClient(options);
+      },
+    };
+
+    await expect(
+      runProduction(
+        {
+          environment: {
+            DATABASE_URL: "postgresql://database.example/app",
+            RENTCAST_API_KEY: "rentcast-secret",
+            TELEGRAM_BOT_TOKEN: "telegram-secret",
+            TELEGRAM_CHAT_ID: "123456789",
+          },
+          fetch,
+          now: () => new Date("2026-08-22T15:00:00.000Z"),
+        },
+        dependencies,
+      ),
+    ).rejects.toBeInstanceOf(RentCastListingCoverageExceededError);
+
+    expect(repository.calls).toEqual([]);
+    expect(repository.events).toHaveLength(0);
+    expect(repository.listingSnapshots).toHaveLength(0);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
 });
+
+function createSearchProfile(): ListingSearchProfile {
+  return {
+    profileKey: "primary",
+    schemaVersion: 1,
+    criteria: {
+      ...defaultListingSearchCriteria,
+      cities: ["Corona"],
+    },
+    revision: 1,
+    appliedRevision: 1,
+    updatedByUserId: null,
+    createdAt: "2026-08-20T19:00:00.000Z",
+    updatedAt: "2026-08-21T19:00:00.000Z",
+  };
+}
 
 class IntegrationListingAlertRepository extends FakeListingAlertStateRepository {
   constructor(
