@@ -846,7 +846,16 @@ preserving durable pending events and stable listing records.
 6. `21.5` Add the authenticated React `Search Criteria` workspace with one
    property-type select, price inputs, bedroom/bathroom selects, a five-city
    checkbox disclosure, complete form states, accessibility, responsive
-   layout, and component tests.
+   layout, and component tests. **Complete in code and offline verification:**
+   the third authenticated workspace uses a strict typed client backed by the
+   shared Domain enums and bounds. It implements initial load/retry, clean and
+   dirty state, local validation, discard, duplicate-safe save, success,
+   unavailable, optimistic conflict/reload, and load/save session expiry. The
+   accessible city disclosure supports one-to-five selection, Escape,
+   click-away, and focus return; desktop and narrow layouts keep stable form
+   controls and tabs. All 886 tests, full runtime/CDK typecheck, and the
+   production build pass. No migration, database connection, provider request,
+   notification, deployment, or AWS operation occurred.
 7. `21.6` Parameterize the RentCast request and production worker, load the
    persisted profile before acquisition, keep one regional request, and fail
    closed when total count exceeds the 500-row page cap.

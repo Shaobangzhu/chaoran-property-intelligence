@@ -114,11 +114,14 @@ administrator-only `GET` and `PUT /api/listing-search-criteria` routes with
 strict 4 KiB DTO parsing, optimistic revision conflicts, authenticated actor
 injection, bounded responses, and the existing Origin/session defenses. The
 production API composes both use cases with the PostgreSQL profile repository.
-Existing worker call sites still use compatibility exports and unchanged
-defaults; React and dynamic worker composition remain later sub-blocks. Saving
-criteria will not call RentCast, delete stored listings, or immediately change
-the Listings snapshot; the next worker run will apply the revision through a
-silent baseline. See the
+Block 21.5 adds the authenticated React `Search Criteria` workspace, a strict
+runtime-validating client, the seven property types, bounded price/room inputs,
+the five-city checkbox disclosure, local validation, dirty/discard/save states,
+conflict reload, and session-expiry handling. Existing worker call sites still
+use compatibility exports and unchanged defaults; dynamic worker composition
+remains a later sub-block. Saving criteria will not call RentCast, delete stored
+listings, or immediately change the Listings snapshot; the next worker run will
+apply the revision through a silent baseline. See the
 [Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
 
 The API limits failed login responses to ten per 15 minutes per process before

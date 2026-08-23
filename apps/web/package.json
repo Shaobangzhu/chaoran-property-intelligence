@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
+    "@chaoran-property-intelligence/domain": "workspace:*",
     "lucide-react": "^1.33.0",
     "maplibre-gl": "^6.4.1",
     "react": "^19.2.0",

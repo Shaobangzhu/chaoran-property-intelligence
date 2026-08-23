@@ -2,12 +2,14 @@
 
 ## Status
 
-Blocks 21.0 through 21.3 are complete. Domain exposes the strict version-1
-criteria value; migration 007 and the PostgreSQL adapter are bundled; and the
-strict Get/Update application use cases plus deterministic fake are available.
-Existing API and worker composition remain unchanged. Migration 007 has not
-been executed against a local or Aurora database. No database state, RentCast
-quota, Telegram delivery, deployment, schedule, or AWS resource has changed.
+Blocks 21.0 through 21.5 are complete. Domain exposes the strict version-1
+criteria value; migration 007 and the PostgreSQL adapter are bundled; the
+strict Get/Update application use cases and administrator API are composed; and
+the authenticated React workspace is implemented with a runtime-validating
+client and complete form states. Worker composition still uses the unchanged
+default compatibility path. Migration 007 has not been executed against a
+local or Aurora database. No database state, RentCast quota, Telegram delivery,
+deployment, schedule, or AWS resource has changed.
 
 ## Product Goal
 
@@ -417,6 +419,16 @@ pending outbox delivery must still run on the baseline path.
    deployment, or AWS operation occurred.
 6. `21.5` Add the React `Search Criteria` workspace, typed client, complete
    control states, accessibility, responsiveness, and component tests.
+   **Complete:** the third authenticated workspace shares Domain enums and
+   bounds, strictly parses the API response, and sends only expected revision
+   plus editable criteria. The form implements all seven property types,
+   bounded whole-dollar and room controls, the five-city checkbox disclosure,
+   loading/retry, clean/dirty, validation, discard, duplicate-safe save,
+   success, unavailable, conflict/reload, and session-expiry states. Escape,
+   click-away, focus return, field relationships, and narrow layouts are
+   covered. All 886 tests, full runtime/CDK typecheck, and the production build
+   pass. No migration, database, provider, Telegram, deployment, or AWS
+   operation occurred.
 7. `21.6` Parameterize the RentCast URL and production worker, enforce one
    regional request and the 500-row coverage gate, and load the persisted
    profile before acquisition.

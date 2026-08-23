@@ -2,6 +2,7 @@ import {
   AlertCircle,
   Building2,
   ClipboardList,
+  ListFilter,
   LoaderCircle,
   LogIn,
   LogOut,
@@ -46,6 +47,15 @@ import {
   saveCurrentShowingList,
 } from "./showingListApi.js";
 import {
+  SearchCriteriaScreen,
+  type ListingSearchCriteriaLoader,
+  type ListingSearchCriteriaSaver,
+} from "./SearchCriteriaScreen.js";
+import {
+  fetchListingSearchCriteria,
+  updateListingSearchCriteria,
+} from "./listingSearchCriteriaApi.js";
+import {
   InvalidCredentialsError,
   LoginRateLimitedError,
   type AuthenticatedUser,
@@ -69,6 +79,10 @@ const defaultReviewCurrentShowingList: CurrentShowingListReviewer = (input) =>
   markCurrentShowingListReviewed(input);
 const defaultDownloadCurrentShowingList: CurrentShowingListDownloader = () =>
   downloadCurrentShowingList();
+const defaultLoadListingSearchCriteria: ListingSearchCriteriaLoader = (signal) =>
+  fetchListingSearchCriteria({ signal });
+const defaultSaveListingSearchCriteria: ListingSearchCriteriaSaver = (input) =>
+  updateListingSearchCriteria(input);
 
 type AppState =
   | { status: "checking" }
@@ -81,11 +95,13 @@ interface AppProps {
   createListing?: ManualListingCreator;
   downloadShowingList?: CurrentShowingListDownloader;
   loadCurrentShowingList?: CurrentShowingListLoader;
+  loadSearchCriteria?: ListingSearchCriteriaLoader;
   markShowingListReviewed?: CurrentShowingListReviewer;
   sessionClient?: SessionClient;
   loadListings?: ListingsLoader;
   mapView?: ComponentType<ListingsMapViewProps>;
   saveShowingList?: CurrentShowingListSaver;
+  saveSearchCriteria?: ListingSearchCriteriaSaver;
   updateListing?: ManualListingUpdater;
 }
 
@@ -94,18 +110,20 @@ export function App({
   createListing = defaultCreateListing,
   downloadShowingList = defaultDownloadCurrentShowingList,
   loadCurrentShowingList = defaultLoadCurrentShowingList,
+  loadSearchCriteria = defaultLoadListingSearchCriteria,
   markShowingListReviewed = defaultReviewCurrentShowingList,
   sessionClient = defaultSessionClient,
   loadListings = defaultLoadListings,
   mapView,
   saveShowingList = defaultSaveCurrentShowingList,
+  saveSearchCriteria = defaultSaveListingSearchCriteria,
   updateListing = defaultUpdateListing,
 }: AppProps = {}): React.JSX.Element {
   const [state, setState] = useState<AppState>({ status: "checking" });
   const [sessionRequest, setSessionRequest] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<
-    "listings" | "showing-list"
+    "listings" | "search-criteria" | "showing-list"
   >("listings");
 
   useEffect(() => {
@@ -243,6 +261,36 @@ export function App({
       }
     }, [downloadShowingList]);
 
+  const protectedSearchCriteriaLoader =
+    useCallback<ListingSearchCriteriaLoader>(
+      async (signal) => {
+        try {
+          return await loadSearchCriteria(signal);
+        } catch (error) {
+          if (error instanceof SessionAuthenticationRequiredError) {
+            setState({ status: "signed-out" });
+          }
+          throw error;
+        }
+      },
+      [loadSearchCriteria],
+    );
+
+  const protectedSearchCriteriaSaver =
+    useCallback<ListingSearchCriteriaSaver>(
+      async (input) => {
+        try {
+          return await saveSearchCriteria(input);
+        } catch (error) {
+          if (error instanceof SessionAuthenticationRequiredError) {
+            setState({ status: "signed-out" });
+          }
+          throw error;
+        }
+      },
+      [saveSearchCriteria],
+    );
+
   const handleLogout = async (): Promise<void> => {
     if (state.status !== "authenticated" || isSigningOut) {
       return;
@@ -335,6 +383,16 @@ export function App({
               <ClipboardList aria-hidden="true" size={17} />
               Showing List
             </button>
+            <button
+              type="button"
+              aria-current={
+                activeWorkspace === "search-criteria" ? "page" : undefined
+              }
+              onClick={() => setActiveWorkspace("search-criteria")}
+            >
+              <ListFilter aria-hidden="true" size={17} />
+              Search Criteria
+            </button>
           </nav>
           {activeWorkspace === "listings" ? (
             <ListingsScreen
@@ -344,7 +402,8 @@ export function App({
               {...(mapView === undefined ? {} : { mapView })}
               updateListing={protectedListingUpdater}
             />
-          ) : (
+          ) : null}
+          {activeWorkspace === "showing-list" ? (
             <ShowingListScreen
               downloadArtifact={protectedShowingListDownloader}
               loadCurrent={protectedShowingListLoader}
@@ -352,7 +411,13 @@ export function App({
               markReviewed={protectedShowingListReviewer}
               saveDraft={protectedShowingListSaver}
             />
-          )}
+          ) : null}
+          {activeWorkspace === "search-criteria" ? (
+            <SearchCriteriaScreen
+              loadCriteria={protectedSearchCriteriaLoader}
+              saveCriteria={protectedSearchCriteriaSaver}
+            />
+          ) : null}
         </>
       ) : null}
     </div>

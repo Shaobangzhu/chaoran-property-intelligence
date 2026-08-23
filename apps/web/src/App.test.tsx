@@ -10,6 +10,7 @@ import { App } from "./App.js";
 import type { ListingsMapViewProps } from "./ListingsScreen.js";
 import { eastvaleListing } from "./listingFixtures.js";
 import { SessionAuthenticationRequiredError } from "./listingsApi.js";
+import type { ListingSearchCriteriaSnapshot } from "./listingSearchCriteriaApi.js";
 import {
   InvalidCredentialsError,
   LoginRateLimitedError,
@@ -96,6 +97,27 @@ describe("App authentication boundary", () => {
       await screen.findByRole("heading", { name: "No current Showing List" }),
     ).toBeInTheDocument();
     expect(loadCurrentShowingList).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to the protected Search Criteria workspace", async () => {
+    const user = userEvent.setup();
+    const loadSearchCriteria = vi.fn(async () => searchCriteriaSnapshot());
+    render(
+      <App
+        loadListings={async () => []}
+        loadSearchCriteria={loadSearchCriteria}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Search Criteria" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Search Criteria" }),
+    ).toBeInTheDocument();
+    expect(loadSearchCriteria).toHaveBeenCalledTimes(1);
   });
 
   it("recovers when the initial session check fails", async () => {
@@ -304,6 +326,52 @@ describe("App authentication boundary", () => {
     ).toBeInTheDocument();
   });
 
+  it("returns to login when the Search Criteria session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        loadListings={async () => []}
+        loadSearchCriteria={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Search Criteria" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to login when a Search Criteria save session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        loadListings={async () => []}
+        loadSearchCriteria={async () => searchCriteriaSnapshot()}
+        mapView={PassiveMap}
+        saveSearchCriteria={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Search Criteria" }));
+    await screen.findByRole("heading", { name: "Search Criteria" });
+    await user.selectOptions(screen.getByLabelText("Property type"), "Condo");
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
+
   it("returns to login when the manual-create session expires", async () => {
     const user = userEvent.setup();
     render(
@@ -406,6 +474,21 @@ function sessionClient(overrides: Partial<SessionClient> = {}): SessionClient {
     login: async () => authenticatedUser,
     logout: async () => undefined,
     ...overrides,
+  };
+}
+
+function searchCriteriaSnapshot(): ListingSearchCriteriaSnapshot {
+  return {
+    criteria: {
+      propertyType: "Single Family",
+      minimumPrice: 780000,
+      maximumPrice: 850000,
+      minimumBedrooms: 4,
+      minimumBathrooms: 2.5,
+      cities: ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
+    },
+    revision: 2,
+    updatedAt: "2026-08-22T20:00:00.000Z",
   };
 }
 
