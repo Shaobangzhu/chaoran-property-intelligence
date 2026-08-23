@@ -95,6 +95,15 @@ The profile revision is marked applied only in the same database transaction
 that commits its baseline. A provider, validation, cap, or database failure
 leaves the revision unapplied and creates no partial alert state.
 
+The implemented transaction locks the primary profile and candidate addresses,
+then writes full-criteria inventory plus candidates that already have a price
+observation. This keeps tracked below-minimum properties comparison-ready
+without starting observation history for a newly discovered below-minimum
+address. The transaction also establishes the global price-baseline marker and
+does not mutate alert events. Existing pending events are delivered only after
+the baseline commits; a notification failure leaves them pending and does not
+reopen the applied revision.
+
 ### Authenticated API and React workspace
 
 Expose administrator-only `GET` and `PUT` endpoints under
@@ -121,4 +130,3 @@ the existing listing snapshot view.
 - Supporting multiple profiles, client-specific alerts, multi-select property
   types, arbitrary California cities, or immediate preview requests requires a
   separately planned version.
-

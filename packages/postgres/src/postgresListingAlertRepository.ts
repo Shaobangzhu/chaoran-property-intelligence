@@ -1,17 +1,23 @@
 import {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
+  assertValidListingSearchRevisionBaselineInput,
   createNewListingAlertEventKey,
   InvalidListingAlertStateError,
+  InvalidListingSearchRevisionBaselineError,
   listingAlertEventSchema,
   listingPriceObservationSchema,
   listingPriceObservationsEqual,
   ListingAlertObservationConflictError,
+  PRIMARY_LISTING_SEARCH_PROFILE_KEY,
   type ListingAlertBaselineEntry,
   type ListingAlertEvent,
   type ListingAlertStateRepositoryPort,
   type ListingAlertTransition,
   type ListingPriceObservation,
+  type ApplyListingSearchRevisionBaselineInput,
+  type ApplyListingSearchRevisionBaselineResult,
+  type ListingSearchRevisionBaselineRepositoryPort,
 } from "@chaoran-property-intelligence/application";
 import {
   createListingAddressKey,
@@ -35,6 +41,22 @@ const legacyBaselineStateKey = "baseline_initialized";
 const priceObservationBaselineStateKey =
   "price_observation_baseline_initialized";
 const baselineAdvisoryLockKey = "cpi:listing-alert-baseline:v1";
+
+const lockListingSearchRevisionSql = `
+  SELECT revision, applied_revision
+  FROM listing_search_profiles
+  WHERE profile_key = $1
+  FOR UPDATE
+`;
+
+const applyListingSearchRevisionSql = `
+  UPDATE listing_search_profiles
+  SET applied_revision = $2
+  WHERE profile_key = $1
+    AND revision = $2
+    AND applied_revision = $3
+  RETURNING revision, applied_revision
+`;
 
 const listingColumns = `
   deduplication_key,
@@ -104,7 +126,9 @@ const upsertObservationSql = `
 `;
 
 export class PostgresListingAlertRepository
-  implements ListingAlertStateRepositoryPort
+  implements
+    ListingAlertStateRepositoryPort,
+    ListingSearchRevisionBaselineRepositoryPort
 {
   constructor(private readonly database: SqlDatabase) {}
 
@@ -181,6 +205,83 @@ export class PostgresListingAlertRepository
       }
 
       await insertStateMarker(connection, priceObservationBaselineStateKey);
+    });
+  }
+
+  async applyListingSearchRevisionBaseline(
+    input: ApplyListingSearchRevisionBaselineInput,
+  ): Promise<ApplyListingSearchRevisionBaselineResult> {
+    assertValidListingSearchRevisionBaselineInput(input);
+
+    return this.database.transaction(async (connection) => {
+      const profileResult = await connection.query(
+        lockListingSearchRevisionSql,
+        [PRIMARY_LISTING_SEARCH_PROFILE_KEY],
+      );
+      const currentRevision = parseListingSearchRevision(profileResult.rows);
+
+      if (currentRevision.revision !== input.expectedRevision) {
+        return { status: "conflict" };
+      }
+      if (currentRevision.appliedRevision === input.expectedRevision) {
+        return { status: "already-applied" };
+      }
+      if (
+        currentRevision.appliedRevision !== input.expectedAppliedRevision
+      ) {
+        return { status: "conflict" };
+      }
+
+      const addressKeys = input.candidates
+        .map((candidate) => candidate.observation.addressKey)
+        .sort((first, second) => first.localeCompare(second));
+      for (const addressKey of addressKeys) {
+        await acquireAdvisoryLock(
+          connection,
+          `cpi:listing-alert:${addressKey}`,
+        );
+      }
+
+      const existingAddresses = await findExistingObservationAddresses(
+        connection,
+        addressKeys,
+      );
+      const selectedCandidates = input.candidates.filter(
+        (candidate) =>
+          candidate.isNewListingEligible ||
+          existingAddresses.has(candidate.observation.addressKey),
+      );
+
+      for (const candidate of selectedCandidates) {
+        await upsertListing(
+          connection,
+          candidate.listing,
+          candidate.observation.listingKey,
+          "baseline",
+        );
+        await upsertObservation(connection, candidate.observation);
+      }
+      await insertStateMarker(connection, priceObservationBaselineStateKey);
+
+      const updateResult = await connection.query(
+        applyListingSearchRevisionSql,
+        [
+          PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+          input.expectedRevision,
+          input.expectedAppliedRevision,
+        ],
+      );
+      const appliedRevision = parseListingSearchRevision(updateResult.rows);
+      if (
+        appliedRevision.revision !== input.expectedRevision ||
+        appliedRevision.appliedRevision !== input.expectedRevision
+      ) {
+        throw new InvalidListingSearchRevisionBaselineError(
+          "Applied listing search revision did not match the baseline",
+        );
+      }
+
+      return { status: "applied" };
     });
   }
 
@@ -379,6 +480,68 @@ async function acquireAdvisoryLock(
     "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
     [key],
   );
+}
+
+async function findExistingObservationAddresses(
+  connection: SqlConnection,
+  addressKeys: readonly ListingAddressKey[],
+): Promise<Set<ListingAddressKey>> {
+  if (addressKeys.length === 0) {
+    return new Set();
+  }
+
+  const result = await connection.query(
+    `SELECT
+       address_key,
+       listing_key,
+       source_listing_id,
+       latest_price,
+       latest_listed_date,
+       latest_last_seen_date,
+       comparison_ready,
+       observed_at
+     FROM listing_price_observations
+     WHERE address_key = ANY($1::text[])
+     FOR UPDATE`,
+    [addressKeys],
+  );
+  return new Set(
+    result.rows.map((row) => parseObservationRow(row).addressKey),
+  );
+}
+
+function parseListingSearchRevision(
+  rows: readonly unknown[],
+): { revision: number; appliedRevision: number } {
+  if (rows.length !== 1) {
+    throw new InvalidListingSearchRevisionBaselineError(
+      "Primary listing search revision was unavailable",
+    );
+  }
+  const row = readRecord(rows[0]);
+  const revision = readRevision(row.revision);
+  const appliedRevision = readRevision(row.applied_revision);
+  if (appliedRevision > revision) {
+    throw new InvalidListingSearchRevisionBaselineError(
+      "Primary listing search revision state was invalid",
+    );
+  }
+  return { revision, appliedRevision };
+}
+
+function readRevision(value: unknown): number {
+  const parsed =
+    typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+  if (
+    typeof parsed !== "number" ||
+    !Number.isSafeInteger(parsed) ||
+    parsed < 1
+  ) {
+    throw new InvalidListingSearchRevisionBaselineError(
+      "Primary listing search revision state was invalid",
+    );
+  }
+  return parsed;
 }
 
 async function upsertListing(

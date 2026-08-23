@@ -491,16 +491,20 @@ retained resources, or schedule enabled states. The combined rollout remains a
 separately approved future operation.
 
 The currently deployed image still filters out prices below `$780,000` and
-predates Block 21.6. Repository code now loads the persisted primary search
-profile after bundled migrations and before constructing the alert, provider,
-or notification adapters. It projects property type, maximum price, minimum
-bedrooms, and minimum bathrooms into one regional RentCast request with
+predates Blocks 21.6 and 21.7. Repository code now loads the persisted primary
+search profile after bundled migrations and before constructing the alert,
+provider, or notification adapters. It projects property type, maximum price,
+minimum bedrooms, and minimum bathrooms into one regional RentCast request with
 `price=*:<maximumPrice>`, `limit=500`, and `includeTotalCount=true`; city and
-minimum-price decisions remain Domain filters. Missing, malformed, or
-temporarily unapplied profiles fail closed. A response total above 500 or an
-incomplete below-cap page stops before listing state or Telegram mutation. The
-unapplied-revision guard remains temporary until Block 21.7 implements atomic
-silent baseline. Migration 007, a real production provider run, production
+minimum-price decisions remain Domain filters. Missing or malformed profiles
+fail closed. An unapplied profile revision now performs one provider request
+and an atomic silent baseline: PostgreSQL locks the profile and candidate
+addresses, refreshes full-criteria inventory plus already tracked below-floor
+addresses, preserves all outbox events, and advances `applied_revision` only
+with the baseline writes. Existing pending events are delivered after commit.
+A response total above 500 or an incomplete below-cap page stops before
+baseline, listing state, or Telegram mutation. Migration 007, a real production
+provider run, production
 listing Telegram delivery, image deployment, and schedule enablement each
 remain separately confirmed operations.
 

@@ -18,7 +18,6 @@ import type {
 
 import {
   runProduction,
-  UnappliedListingSearchProfileRevisionError,
   type ProductionDependencies,
 } from "./runProduction.js";
 
@@ -114,7 +113,7 @@ describe("runProduction", () => {
     },
   );
 
-  it("fails closed before source construction for an unapplied revision", async () => {
+  it("silently baselines an unapplied revision through the production composition", async () => {
     const events: string[] = [];
     const database = new FakeSqlDatabase(events);
     const dependencies = createDependencies(
@@ -123,15 +122,19 @@ describe("runProduction", () => {
       createProfile({ revision: 2, appliedRevision: 1 }),
     );
 
-    await expect(
-      runProduction(createRuntime(), dependencies),
-    ).rejects.toBeInstanceOf(UnappliedListingSearchProfileRevisionError);
+    await runProduction(createRuntime(), dependencies);
 
     expect(events).toEqual([
       "database:connection-string",
       "migrate",
       "profile:create",
       "profile:load",
+      "repository:create",
+      "repository:legacy-initialize",
+      "source:rentcast-secret:Single Family:850000:4:2.5",
+      "notifications:telegram-secret:123456789",
+      "source:fetch",
+      "repository:revision-baseline:2:1:0",
       "database:close",
     ]);
   });
@@ -223,6 +226,8 @@ function createDependencies(
       events.push("repository:create");
       const repository = new FakeListingAlertStateRepository({
         baselineInitialized: true,
+        listingSearchRevision: profile?.revision ?? 1,
+        listingSearchAppliedRevision: profile?.appliedRevision ?? 1,
       });
       return {
         isPriceObservationBaselineInitialized: () =>
@@ -237,6 +242,12 @@ function createDependencies(
           repository.findPendingListingAlertEvents(),
         markListingAlertEventsSent: (eventKeys) =>
           repository.markListingAlertEventsSent(eventKeys),
+        applyListingSearchRevisionBaseline: async (input) => {
+          events.push(
+            `repository:revision-baseline:${input.expectedRevision}:${input.expectedAppliedRevision}:${input.candidates.length}`,
+          );
+          return repository.applyListingSearchRevisionBaseline(input);
+        },
         async initializeLegacyListingAlertState() {
           events.push("repository:legacy-initialize");
         },
@@ -308,6 +319,9 @@ function createRepositoryStub() {
     markListingAlertEventsSent: (eventKeys: Parameters<
       typeof repository.markListingAlertEventsSent
     >[0]) => repository.markListingAlertEventsSent(eventKeys),
+    applyListingSearchRevisionBaseline: (input: Parameters<
+      typeof repository.applyListingSearchRevisionBaseline
+    >[0]) => repository.applyListingSearchRevisionBaseline(input),
   };
 }
 

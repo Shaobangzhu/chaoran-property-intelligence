@@ -12,6 +12,8 @@ import {
   type ListingAlertStateRepositoryPort,
   type ListingAlertTransition,
   type ListingPriceObservation,
+  type ListingSearchRevisionBaselineCandidate,
+  type ListingSearchRevisionBaselineRepositoryPort,
 } from "./listingAlertContracts.js";
 import {
   createNewListingAlertEventKey,
@@ -30,6 +32,13 @@ export interface CheckListingAlertsOptions {
   notifications: ListingAlertNotificationPort;
   criteria: ListingAlertCriteriaPort;
   now: () => Date;
+  revisionBaseline?: ListingSearchRevisionBaselineContext;
+}
+
+export interface ListingSearchRevisionBaselineContext {
+  revision: number;
+  appliedRevision: number;
+  repository: ListingSearchRevisionBaselineRepositoryPort;
 }
 
 export class InvalidListingAlertClockError extends Error {
@@ -46,12 +55,22 @@ export class AmbiguousListingAddressObservationError extends Error {
   }
 }
 
+export class ListingSearchRevisionBaselineConflictError extends Error {
+  constructor() {
+    super("Listing search profile changed during revision baseline");
+    this.name = "ListingSearchRevisionBaselineConflictError";
+  }
+}
+
 export class CheckListingAlerts {
   private readonly source: ListingSourcePort;
   private readonly repository: ListingAlertStateRepositoryPort;
   private readonly notifications: ListingAlertNotificationPort;
   private readonly criteria: ListingAlertCriteriaPort;
   private readonly now: () => Date;
+  private readonly revisionBaseline:
+    | ListingSearchRevisionBaselineContext
+    | undefined;
 
   constructor(options: CheckListingAlertsOptions) {
     this.source = options.source;
@@ -59,6 +78,7 @@ export class CheckListingAlerts {
     this.notifications = options.notifications;
     this.criteria = options.criteria;
     this.now = options.now;
+    this.revisionBaseline = options.revisionBaseline;
   }
 
   async execute(): Promise<void> {
@@ -68,6 +88,15 @@ export class CheckListingAlerts {
         this.criteria.matchesAcquisitionCriteria(listing),
       ),
     );
+
+    if (
+      this.revisionBaseline !== undefined &&
+      this.revisionBaseline.revision !==
+        this.revisionBaseline.appliedRevision
+    ) {
+      await this.applyRevisionBaseline(candidates);
+      return;
+    }
 
     const baselineInitialized =
       await this.repository.isPriceObservationBaselineInitialized();
@@ -123,8 +152,37 @@ export class CheckListingAlerts {
       await this.repository.saveListingAlertTransitions(transitions);
     }
 
-    const pendingEvents =
-      await this.repository.findPendingListingAlertEvents();
+    await this.deliverPendingEvents();
+  }
+
+  private async applyRevisionBaseline(
+    candidates: readonly PreparedListingCandidate[],
+  ): Promise<void> {
+    const revisionBaseline = this.revisionBaseline!;
+    const observedAt = candidates.length === 0 ? null : readObservedAt(this.now);
+    const baselineCandidates: ListingSearchRevisionBaselineCandidate[] =
+      candidates.map((candidate) => ({
+        ...createBaselineEntry(candidate, observedAt!),
+        isNewListingEligible: this.criteria.matchesNewListingCriteria(
+          candidate.listing,
+        ),
+      }));
+    const result =
+      await revisionBaseline.repository.applyListingSearchRevisionBaseline({
+        expectedRevision: revisionBaseline.revision,
+        expectedAppliedRevision: revisionBaseline.appliedRevision,
+        candidates: baselineCandidates,
+      });
+
+    if (result.status === "conflict") {
+      throw new ListingSearchRevisionBaselineConflictError();
+    }
+
+    await this.deliverPendingEvents();
+  }
+
+  private async deliverPendingEvents(): Promise<void> {
+    const pendingEvents = await this.repository.findPendingListingAlertEvents();
     if (pendingEvents.length === 0) {
       return;
     }

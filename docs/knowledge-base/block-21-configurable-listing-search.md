@@ -2,14 +2,15 @@
 
 ## Status
 
-Blocks 21.0 through 21.5 are complete. Domain exposes the strict version-1
+Blocks 21.0 through 21.7 are complete. Domain exposes the strict version-1
 criteria value; migration 007 and the PostgreSQL adapter are bundled; the
 strict Get/Update application use cases and administrator API are composed; and
 the authenticated React workspace is implemented with a runtime-validating
-client and complete form states. Worker composition still uses the unchanged
-default compatibility path. Migration 007 has not been executed against a
-local or Aurora database. No database state, RentCast quota, Telegram delivery,
-deployment, schedule, or AWS resource has changed.
+client and complete form states. Production worker composition now loads the
+profile, projects one capped regional provider request, and atomically applies
+new revisions through a silent baseline. Migration 007 has not been executed
+against a local or Aurora database. No database state, RentCast quota, Telegram
+delivery, deployment, schedule, or AWS resource has changed.
 
 ## Product Goal
 
@@ -312,6 +313,25 @@ snapshots and comparison observations, then sets `appliedRevision = revision`.
 No revision is marked applied until all baseline writes succeed. Existing
 pending outbox delivery must still run on the baseline path.
 
+Block 21.7 implements that boundary as follows:
+
+- Application tags every acquisition candidate with its new-listing
+  eligibility and emits no alert transition on the revision-baseline path.
+- PostgreSQL locks the primary profile row and validates the worker's expected
+  revision. A newer revision returns `conflict`; a revision already applied by
+  another worker returns `already-applied` without repeating writes.
+- Candidate addresses are advisory-locked in canonical order. The transaction
+  writes candidates that either satisfy the full new-listing criteria or
+  already have an address-level price observation. Newly discovered addresses
+  below `minimumPrice` are not added to tracking, while tracked properties
+  below that floor receive a fresh comparison baseline.
+- Listing snapshots, observations, the global price-baseline marker, and
+  `applied_revision` are committed together. The transaction never inserts,
+  deletes, or rewrites listing alert events.
+- After an `applied` or `already-applied` result, the worker delivers existing
+  pending outbox events. A Telegram failure cannot roll back the committed
+  baseline and leaves those events pending for retry.
+
 ## Security And Operations
 
 - Only an authenticated administrator may read or update criteria.
@@ -439,13 +459,26 @@ pending outbox delivery must still run on the baseline path.
    the primary profile before constructing alert state, source, or
    notification adapters; selected cities and minimum price remain Domain
    predicates and never multiply provider requests. Missing or malformed
-   profiles fail closed. Until Block 21.7 supplies atomic revision baseline,
-   `revision != appliedRevision` also fails before the provider request. A
+   profiles fail closed. At this checkpoint, `revision != appliedRevision` also
+   failed before the provider request; Block 21.7 replaces that temporary guard
+   with the atomic revision baseline described below. A
    total above 500 or an incomplete below-cap page fails before listing state
    or Telegram changes. All 903 tests, full runtime/CDK typecheck, and the
    production build pass. No external or production operation occurred.
 8. `21.7` Implement revision-aware silent baseline, pending-event preservation,
    and cross-layer tests proving later new-listing and price-drop behavior.
+   **Complete:** Application owns the tagged-candidate orchestration and typed
+   `applied`, `already-applied`, and `conflict` outcomes. PostgreSQL locks the
+   primary profile and candidate addresses, refreshes full-criteria inventory
+   plus already tracked below-floor addresses, preserves existing outbox rows,
+   writes the global price-baseline marker, and advances `applied_revision`
+   atomically. A conflict or provider, cap, validation, or database failure
+   leaves the revision unapplied and sends no notification. Successful and
+   already-applied paths deliver older pending events before returning; later
+   new listings and tracked drops below the minimum price retain Block 20
+   behavior. All 914 tests, full runtime/CDK typecheck, and the production build
+   pass. No provider, database, Telegram, deployment, schedule, or AWS operation
+   occurred.
 9. `21.8` Run full verification, disposable migration integration, local
    authenticated acceptance, fake-data two-revision smoke, runbook updates, and
    an independently confirmed AWS read-only precheck.

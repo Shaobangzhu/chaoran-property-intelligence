@@ -5,6 +5,7 @@ import {
   type ListingAlertNotificationPort,
   type ListingAlertStateRepositoryPort,
   type ListingSearchProfileQueryPort,
+  type ListingSearchRevisionBaselineRepositoryPort,
   type ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
 import {
@@ -49,7 +50,9 @@ export interface ProductionNotificationOptions {
 }
 
 export interface ProductionListingAlertRepository
-  extends ListingAlertStateRepositoryPort {
+  extends
+    ListingAlertStateRepositoryPort,
+    ListingSearchRevisionBaselineRepositoryPort {
   initializeLegacyListingAlertState(): Promise<void>;
 }
 
@@ -94,13 +97,6 @@ const defaultDependencies: ProductionDependencies = {
   },
 };
 
-export class UnappliedListingSearchProfileRevisionError extends Error {
-  constructor() {
-    super("Listing search profile revision has not been baselined");
-    this.name = "UnappliedListingSearchProfileRevisionError";
-  }
-}
-
 export async function runProduction(
   runtime: ProductionRuntime,
   dependencies: ProductionDependencies = defaultDependencies,
@@ -116,10 +112,6 @@ export async function runProduction(
       throw new ListingSearchProfileUnavailableError();
     }
     const profile = normalizeListingSearchProfile(rawProfile);
-    if (profile.revision !== profile.appliedRevision) {
-      throw new UnappliedListingSearchProfileRevisionError();
-    }
-
     const repository = dependencies.createRepository(database);
     await repository.initializeLegacyListingAlertState();
 
@@ -143,6 +135,11 @@ export async function runProduction(
           matchesNewListingCriteria(listing, profile.criteria),
       },
       now: runtime.now,
+      revisionBaseline: {
+        revision: profile.revision,
+        appliedRevision: profile.appliedRevision,
+        repository,
+      },
     });
 
     await checkListingAlerts.execute();

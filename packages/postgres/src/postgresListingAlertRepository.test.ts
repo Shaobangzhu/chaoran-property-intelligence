@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   createListingKey,
+  InvalidListingSearchRevisionBaselineError,
   ListingAlertObservationConflictError,
+  type ApplyListingSearchRevisionBaselineInput,
   type ListingAlertEvent,
+  type ListingSearchRevisionBaselineCandidate,
   type ListingAlertTransition,
   type ListingPriceObservation,
 } from "@chaoran-property-intelligence/application";
@@ -63,6 +66,160 @@ describe("PostgresListingAlertRepository", () => {
     expect(database.queries[4]?.parameters).toEqual([
       "price_observation_baseline_initialized",
     ]);
+  });
+
+  it("atomically applies a search revision for eligible and already tracked addresses", async () => {
+    const eligible = createListing({
+      sourceListingId: "rentcast-eligible",
+      mlsNumber: "PW26181311",
+      formattedAddress: "100 Main St, Chino, CA 91710",
+      addressLine1: "100 Main St",
+      city: "Chino",
+      zipCode: "91710",
+      price: 830000,
+    });
+    const trackedBelowFloor = createListing({ price: 770000 });
+    const untrackedBelowFloor = createListing({
+      sourceListingId: "rentcast-untracked",
+      mlsNumber: "PW26181312",
+      formattedAddress: "200 Main St, Chino, CA 91710",
+      addressLine1: "200 Main St",
+      city: "Chino",
+      zipCode: "91710",
+      price: 760000,
+    });
+    const trackedPrevious = createObservation(
+      createListing({ price: 825000 }),
+    );
+    const input = createRevisionBaselineInput([
+      createRevisionBaselineCandidate(eligible, true),
+      createRevisionBaselineCandidate(trackedBelowFloor, false),
+      createRevisionBaselineCandidate(untrackedBelowFloor, false),
+    ]);
+    const database = new RecordingSqlDatabase([
+      { rows: [{ revision: "2", applied_revision: "1" }] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [createObservationRow(trackedPrevious)] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [{ revision: "2", applied_revision: "2" }] },
+    ]);
+    const repository = new PostgresListingAlertRepository(database);
+
+    await expect(
+      repository.applyListingSearchRevisionBaseline(input),
+    ).resolves.toEqual({ status: "applied" });
+
+    expect(database.transactionCount).toBe(1);
+    expect(database.queries[0]?.text).toContain(
+      "FROM listing_search_profiles",
+    );
+    expect(database.queries[0]?.text).toContain("FOR UPDATE");
+    expect(
+      database.queries
+        .slice(1, 4)
+        .every((query) => query.text.includes("pg_advisory_xact_lock")),
+    ).toBe(true);
+    expect(database.queries[4]?.text).toContain(
+      "FROM listing_price_observations",
+    );
+    expect(database.queries[5]?.parameters[0]).toBe(
+      createListingKey(eligible),
+    );
+    expect(database.queries[7]?.parameters[0]).toBe(
+      createListingKey(trackedBelowFloor),
+    );
+    expect(
+      database.queries.some(
+        (query) => query.parameters[0] === createListingKey(untrackedBelowFloor),
+      ),
+    ).toBe(false);
+    expect(database.queries[9]?.parameters).toEqual([
+      "price_observation_baseline_initialized",
+    ]);
+    expect(database.queries[10]?.text).toContain(
+      "SET applied_revision = $2",
+    );
+    expect(database.queries[10]?.parameters).toEqual(["primary", 2, 1]);
+    expect(
+      database.queries.some((query) =>
+        query.text.includes("INSERT INTO listing_alert_events"),
+      ),
+    ).toBe(false);
+  });
+
+  it("returns already-applied without repeating baseline writes", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [{ revision: "2", applied_revision: "2" }] },
+    ]);
+    const repository = new PostgresListingAlertRepository(database);
+
+    await expect(
+      repository.applyListingSearchRevisionBaseline(
+        createRevisionBaselineInput([]),
+      ),
+    ).resolves.toEqual({ status: "already-applied" });
+
+    expect(database.queries).toHaveLength(1);
+  });
+
+  it("returns conflict when the locked profile revision changed", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [{ revision: "3", applied_revision: "1" }] },
+    ]);
+    const repository = new PostgresListingAlertRepository(database);
+
+    await expect(
+      repository.applyListingSearchRevisionBaseline(
+        createRevisionBaselineInput([]),
+      ),
+    ).resolves.toEqual({ status: "conflict" });
+
+    expect(database.queries).toHaveLength(1);
+  });
+
+  it("does not advance applied revision when a baseline listing write fails", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [{ revision: "2", applied_revision: "1" }] },
+      { rows: [] },
+      { rows: [] },
+      new Error("listing write failed"),
+    ]);
+    const repository = new PostgresListingAlertRepository(database);
+
+    await expect(
+      repository.applyListingSearchRevisionBaseline(
+        createRevisionBaselineInput([
+          createRevisionBaselineCandidate(createListing(), true),
+        ]),
+      ),
+    ).rejects.toThrow("listing write failed");
+
+    expect(
+      database.queries.some((query) =>
+        query.text.includes("SET applied_revision = $2"),
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects malformed revision baseline input before opening a transaction", async () => {
+    const database = new RecordingSqlDatabase();
+    const repository = new PostgresListingAlertRepository(database);
+
+    await expect(
+      repository.applyListingSearchRevisionBaseline({
+        expectedRevision: 1,
+        expectedAppliedRevision: 1,
+        candidates: [],
+      }),
+    ).rejects.toBeInstanceOf(InvalidListingSearchRevisionBaselineError);
+
+    expect(database.transactionCount).toBe(0);
   });
 
   it("does not create the new marker when no legacy baseline exists", async () => {
@@ -277,14 +434,20 @@ class RecordingSqlDatabase implements SqlDatabase {
   readonly queries: RecordedQuery[] = [];
   transactionCount = 0;
 
-  constructor(private readonly responses: SqlQueryResult[] = []) {}
+  constructor(
+    private readonly responses: Array<SqlQueryResult | Error> = [],
+  ) {}
 
   async query(
     text: string,
     parameters: readonly unknown[] = [],
   ): Promise<SqlQueryResult> {
     this.queries.push({ text, parameters });
-    return this.responses.shift() ?? { rows: [] };
+    const response = this.responses.shift();
+    if (response instanceof Error) {
+      throw response;
+    }
+    return response ?? { rows: [] };
   }
 
   async transaction<T>(
@@ -369,6 +532,29 @@ function createPriceDropTransition(): ListingAlertTransition {
     observation,
     expectedPreviousObservation: previous,
     event,
+  };
+}
+
+function createRevisionBaselineInput(
+  candidates: readonly ListingSearchRevisionBaselineCandidate[],
+): ApplyListingSearchRevisionBaselineInput {
+  return {
+    expectedRevision: 2,
+    expectedAppliedRevision: 1,
+    candidates,
+  };
+}
+
+function createRevisionBaselineCandidate(
+  listing: RentCastNormalizedListing,
+  isNewListingEligible: boolean,
+): ListingSearchRevisionBaselineCandidate {
+  return {
+    listing,
+    observation: createObservation(listing, {
+      observedAt: "2026-08-22T15:00:00.000Z",
+    }),
+    isNewListingEligible,
   };
 }
 

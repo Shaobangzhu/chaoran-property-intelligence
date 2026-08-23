@@ -195,7 +195,10 @@ describe("listing alert production workflow integration", () => {
       },
       async runMigrations() {},
       createSearchProfileQuery() {
-        return { findPrimaryProfile: async () => createSearchProfile() };
+        return {
+          findPrimaryProfile: async () =>
+            createSearchProfile({ revision: 2, appliedRevision: 1 }),
+        };
       },
       createRepository() {
         return repository;
@@ -236,9 +239,137 @@ describe("listing alert production workflow integration", () => {
     expect(repository.listingSnapshots).toHaveLength(0);
     expect(fetch).toHaveBeenCalledOnce();
   });
+
+  it("silently baselines a revision before later new-listing and below-floor drop alerts", async () => {
+    const steps: string[] = [];
+    const widenedCriteria = {
+      ...defaultListingSearchCriteria,
+      cities: ["Chino", "Corona"] as const,
+    };
+    let profile = createSearchProfile({
+      criteria: widenedCriteria,
+      revision: 2,
+      appliedRevision: 1,
+    });
+    let providerCall = 0;
+    const repository = new IntegrationListingAlertRepository(
+      steps,
+      createObservation(createNormalizedListing()),
+      { revision: 2, appliedRevision: 1 },
+    );
+    const database = new RecordingSqlDatabase(steps);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = input as URL;
+      if (url.origin === "https://api.rentcast.io") {
+        providerCall += 1;
+        steps.push(`rentcast:request:${providerCall}`);
+        const tracked = createRentCastListing({
+          price: providerCall === 1 ? 820000 : 770000,
+          lastSeenDate:
+            providerCall === 1
+              ? "2026-08-22T12:00:00.000Z"
+              : "2026-08-23T12:00:00.000Z",
+        });
+        const widenedInventory = createRentCastListing({
+          id: "rentcast-widened",
+          formattedAddress: "100 Main St, Chino, CA 91710",
+          addressLine1: "100 Main St",
+          city: "Chino",
+          zipCode: "91710",
+          price: 830000,
+        });
+        const listings =
+          providerCall === 1
+            ? [tracked, widenedInventory]
+            : [
+                tracked,
+                widenedInventory,
+                createRentCastListing({
+                  id: "rentcast-later-new",
+                  formattedAddress: "300 Main St, Corona, CA 92882",
+                  addressLine1: "300 Main St",
+                  price: 840000,
+                }),
+              ];
+        return Response.json(listings, {
+          headers: { "X-Total-Count": String(listings.length) },
+        });
+      }
+      if (url.origin === "https://api.telegram.org") {
+        steps.push("telegram:request");
+        return Response.json({ ok: true, result: {} });
+      }
+      throw new Error(`Unexpected HTTP request: ${url.origin}`);
+    });
+    const dependencies: ProductionDependencies = {
+      createDatabase: () => database,
+      runMigrations: async () => {},
+      createSearchProfileQuery: () => ({
+        findPrimaryProfile: async () => profile,
+      }),
+      createRepository: () => repository,
+      createSource: (options) =>
+        new RentCastListingSource({
+          client: new RentCastSaleListingsClient({
+            apiKey: options.apiKey,
+            fetch: options.fetch,
+          }),
+          searchCriteria: options.searchCriteria,
+          now: options.now,
+        }),
+      createNotifications: (options) => new TelegramBotClient(options),
+    };
+    const runtime = {
+      environment: {
+        DATABASE_URL: "postgresql://database.example/app",
+        RENTCAST_API_KEY: "rentcast-secret",
+        TELEGRAM_BOT_TOKEN: "telegram-secret",
+        TELEGRAM_CHAT_ID: "123456789",
+      },
+      fetch,
+      now: () => new Date("2026-08-22T15:00:00.000Z"),
+    };
+
+    await runProduction(runtime, dependencies);
+
+    expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
+    expect(repository.observations).toHaveLength(2);
+    expect(repository.events).toEqual([]);
+    expect(steps.filter((step) => step === "telegram:request")).toHaveLength(0);
+
+    profile = createSearchProfile({
+      criteria: widenedCriteria,
+      revision: 2,
+      appliedRevision: 2,
+    });
+    await runProduction(
+      { ...runtime, now: () => new Date("2026-08-23T15:00:00.000Z") },
+      dependencies,
+    );
+
+    expect(repository.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "price-drop",
+          previousPrice: 820000,
+          currentPrice: 770000,
+          status: "sent",
+        }),
+        expect.objectContaining({
+          kind: "new-listing",
+          previousPrice: null,
+          currentPrice: 840000,
+          status: "sent",
+        }),
+      ]),
+    );
+    expect(steps.filter((step) => step === "telegram:request")).toHaveLength(1);
+  });
 });
 
-function createSearchProfile(): ListingSearchProfile {
+function createSearchProfile(
+  overrides: Partial<ListingSearchProfile> = {},
+): ListingSearchProfile {
   return {
     profileKey: "primary",
     schemaVersion: 1,
@@ -251,6 +382,7 @@ function createSearchProfile(): ListingSearchProfile {
     updatedByUserId: null,
     createdAt: "2026-08-20T19:00:00.000Z",
     updatedAt: "2026-08-21T19:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -258,8 +390,17 @@ class IntegrationListingAlertRepository extends FakeListingAlertStateRepository 
   constructor(
     private readonly steps: string[],
     observation: ListingPriceObservation,
+    revisions: { revision: number; appliedRevision: number } = {
+      revision: 1,
+      appliedRevision: 1,
+    },
   ) {
-    super({ baselineInitialized: true, observations: [observation] });
+    super({
+      baselineInitialized: true,
+      observations: [observation],
+      listingSearchRevision: revisions.revision,
+      listingSearchAppliedRevision: revisions.appliedRevision,
+    });
   }
 
   async initializeLegacyListingAlertState(): Promise<void> {

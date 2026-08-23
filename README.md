@@ -117,11 +117,15 @@ production API composes both use cases with the PostgreSQL profile repository.
 Block 21.5 adds the authenticated React `Search Criteria` workspace, a strict
 runtime-validating client, the seven property types, bounded price/room inputs,
 the five-city checkbox disclosure, local validation, dirty/discard/save states,
-conflict reload, and session-expiry handling. Existing worker call sites still
-use compatibility exports and unchanged defaults; dynamic worker composition
-remains a later sub-block. Saving criteria will not call RentCast, delete stored
-listings, or immediately change the Listings snapshot; the next worker run will
-apply the revision through a silent baseline. See the
+conflict reload, and session-expiry handling. Block 21.6 projects the persisted
+property type, maximum price, bedroom, and bathroom bounds into one capped
+regional RentCast request while Domain retains city and minimum-price policy.
+Block 21.7 atomically applies an unapplied profile revision through a silent
+baseline. It refreshes matching inventory and already tracked below-floor
+addresses without creating alert events, advances `appliedRevision` only with
+the listing and observation writes, and then retries any older pending outbox
+events. Saving criteria still does not call RentCast, delete stored listings,
+or immediately change the Listings snapshot. See the
 [Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
 
 The API limits failed login responses to ten per 15 minutes per process before

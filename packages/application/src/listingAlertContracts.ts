@@ -89,6 +89,28 @@ export interface ListingAlertTransition extends ListingAlertBaselineEntry {
   event: ListingAlertEvent | null;
 }
 
+export interface ListingSearchRevisionBaselineCandidate
+  extends ListingAlertBaselineEntry {
+  isNewListingEligible: boolean;
+}
+
+export interface ApplyListingSearchRevisionBaselineInput {
+  expectedRevision: number;
+  expectedAppliedRevision: number;
+  candidates: readonly ListingSearchRevisionBaselineCandidate[];
+}
+
+export type ApplyListingSearchRevisionBaselineResult =
+  | { readonly status: "applied" }
+  | { readonly status: "already-applied" }
+  | { readonly status: "conflict" };
+
+export interface ListingSearchRevisionBaselineRepositoryPort {
+  applyListingSearchRevisionBaseline(
+    input: ApplyListingSearchRevisionBaselineInput,
+  ): Promise<ApplyListingSearchRevisionBaselineResult>;
+}
+
 export interface ListingAlertStateRepositoryPort {
   isPriceObservationBaselineInitialized(): Promise<boolean>;
   initializePriceObservationBaseline(
@@ -122,6 +144,13 @@ export class ListingAlertObservationConflictError extends Error {
   }
 }
 
+export class InvalidListingSearchRevisionBaselineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidListingSearchRevisionBaselineError";
+  }
+}
+
 export function safeParseListingPriceObservation(value: unknown) {
   return listingPriceObservationSchema.safeParse(value);
 }
@@ -148,6 +177,38 @@ export function assertValidListingAlertBaselineEntry(
     throw new InvalidListingAlertStateError(
       "A new price-observation baseline must be comparison ready",
     );
+  }
+}
+
+export function assertValidListingSearchRevisionBaselineInput(
+  input: ApplyListingSearchRevisionBaselineInput,
+): void {
+  if (
+    !Number.isSafeInteger(input.expectedRevision) ||
+    input.expectedRevision < 1 ||
+    !Number.isSafeInteger(input.expectedAppliedRevision) ||
+    input.expectedAppliedRevision < 1 ||
+    input.expectedAppliedRevision >= input.expectedRevision
+  ) {
+    throw new InvalidListingSearchRevisionBaselineError(
+      "Listing search revision baseline versions were invalid",
+    );
+  }
+
+  const seenAddresses = new Set<ListingAddressKey>();
+  for (const candidate of input.candidates) {
+    assertValidListingAlertBaselineEntry(candidate);
+    if (typeof candidate.isNewListingEligible !== "boolean") {
+      throw new InvalidListingSearchRevisionBaselineError(
+        "Listing search revision baseline eligibility was invalid",
+      );
+    }
+    if (seenAddresses.has(candidate.observation.addressKey)) {
+      throw new InvalidListingSearchRevisionBaselineError(
+        "Listing search revision baseline cannot repeat an address",
+      );
+    }
+    seenAddresses.add(candidate.observation.addressKey);
   }
 }
 

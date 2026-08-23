@@ -11,6 +11,7 @@ import {
   AmbiguousListingAddressObservationError,
   CheckListingAlerts,
   InvalidListingAlertClockError,
+  ListingSearchRevisionBaselineConflictError,
 } from "./checkListingAlerts.js";
 import type { ListingSourcePort } from "./checkNewListings.js";
 import {
@@ -516,6 +517,199 @@ describe("CheckListingAlerts", () => {
     expect(repository.observations[0]?.latestPrice).toBe(825000);
     expect(repository.events).toEqual([]);
   });
+
+  it("silently applies a criteria revision without tracking a new below-floor address", async () => {
+    const tracked = createListing({ price: 825000 });
+    const eligibleNew = createListing({
+      sourceListingId: "rentcast-eligible-new",
+      mlsNumber: "PW26181311",
+      formattedAddress: "100 Main St, Chino, CA 91710",
+      addressLine1: "100 Main St",
+      city: "Chino",
+      zipCode: "91710",
+      price: 830000,
+    });
+    const belowFloorNew = createListing({
+      sourceListingId: "rentcast-below-floor-new",
+      mlsNumber: "PW26181312",
+      formattedAddress: "200 Main St, Chino, CA 91710",
+      addressLine1: "200 Main St",
+      city: "Chino",
+      zipCode: "91710",
+      price: 770000,
+    });
+    const repository = new FakeListingAlertStateRepository({
+      baselineEntries: [
+        createBaselineEntry(tracked, "2026-08-20T15:00:00.000Z"),
+      ],
+      listingSearchRevision: 2,
+      listingSearchAppliedRevision: 1,
+    });
+    const notifications = new FakeListingAlertNotifications();
+
+    await createUseCase(
+      new MutableListingSource([
+        createListing({ price: 770000 }),
+        eligibleNew,
+        belowFloorNew,
+      ]),
+      repository,
+      notifications,
+      () => firstRunAt,
+      { revision: 2, appliedRevision: 1 },
+    ).execute();
+
+    expect(repository.listingSearchRevisions).toEqual({
+      revision: 2,
+      appliedRevision: 2,
+    });
+    expect(repository.observations).toMatchObject([
+      { sourceListingId: eligibleNew.sourceListingId, latestPrice: 830000 },
+      { sourceListingId: tracked.sourceListingId, latestPrice: 770000 },
+    ]);
+    expect(repository.observations).toHaveLength(2);
+    expect(repository.events).toEqual([]);
+    expect(notifications.calls).toEqual([]);
+    expect(repository.calls.map((call) => call.method)).toEqual([
+      "applyListingSearchRevisionBaseline",
+      "findPendingListingAlertEvents",
+    ]);
+  });
+
+  it("delivers an existing pending event after a successful revision baseline", async () => {
+    const source = new MutableListingSource([
+      createListing({ price: 810000 }),
+    ]);
+    const repository = new FakeListingAlertStateRepository({
+      baselineEntries: [
+        createBaselineEntry(
+          createListing({ price: 825000 }),
+          "2026-08-20T15:00:00.000Z",
+        ),
+      ],
+      listingSearchRevision: 2,
+      listingSearchAppliedRevision: 1,
+    });
+
+    await expect(
+      createUseCase(
+        source,
+        repository,
+        new FakeListingAlertNotifications({
+          failure: new Error("Telegram unavailable"),
+        }),
+        () => firstRunAt,
+      ).execute(),
+    ).rejects.toThrow("Telegram unavailable");
+
+    const notifications = new FakeListingAlertNotifications();
+    await createUseCase(
+      source,
+      repository,
+      notifications,
+      () => secondRunAt,
+      { revision: 2, appliedRevision: 1 },
+    ).execute();
+
+    expect(notifications.calls[0]).toMatchObject([
+      { kind: "price-drop", previousPrice: 825000, currentPrice: 810000 },
+    ]);
+    expect(repository.events[0]?.status).toBe("sent");
+    expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
+  });
+
+  it("retains new-listing and tracked below-floor price-drop behavior after applying a revision", async () => {
+    const tracked = createListing({ price: 825000 });
+    const source = new MutableListingSource([tracked]);
+    const repository = new FakeListingAlertStateRepository({
+      baselineInitialized: true,
+      listingSearchRevision: 2,
+      listingSearchAppliedRevision: 1,
+    });
+    const notifications = new FakeListingAlertNotifications();
+
+    await createUseCase(
+      source,
+      repository,
+      notifications,
+      () => firstRunAt,
+      { revision: 2, appliedRevision: 1 },
+    ).execute();
+
+    const newListing = createListing({
+      sourceListingId: "rentcast-new-after-revision",
+      mlsNumber: "PW26181313",
+      formattedAddress: "300 Main St, Corona, CA 92882",
+      addressLine1: "300 Main St",
+    });
+    source.listings = [createListing({ price: 770000 }), newListing];
+    await createUseCase(
+      source,
+      repository,
+      notifications,
+      () => secondRunAt,
+      { revision: 2, appliedRevision: 2 },
+    ).execute();
+
+    expect(notifications.calls).toHaveLength(1);
+    expect(notifications.calls[0]).toMatchObject([
+      {
+        kind: "new-listing",
+        previousPrice: null,
+        currentPrice: newListing.price,
+      },
+      { kind: "price-drop", previousPrice: 825000, currentPrice: 770000 },
+    ]);
+  });
+
+  it("fails closed when the profile changes during revision baseline", async () => {
+    const repository = new FakeListingAlertStateRepository({
+      baselineInitialized: true,
+      listingSearchRevision: 3,
+      listingSearchAppliedRevision: 1,
+    });
+    const notifications = new FakeListingAlertNotifications();
+
+    await expect(
+      createUseCase(
+        new MutableListingSource([createListing()]),
+        repository,
+        notifications,
+        () => firstRunAt,
+        { revision: 2, appliedRevision: 1 },
+      ).execute(),
+    ).rejects.toBeInstanceOf(ListingSearchRevisionBaselineConflictError);
+
+    expect(repository.observations).toEqual([]);
+    expect(repository.events).toEqual([]);
+    expect(notifications.calls).toEqual([]);
+  });
+
+  it("does not advance the revision or notify when revision baseline storage fails", async () => {
+    const repository = new FakeListingAlertStateRepository({
+      baselineInitialized: true,
+      listingSearchRevision: 2,
+      listingSearchAppliedRevision: 1,
+      failures: {
+        applyListingSearchRevisionBaseline: new Error("database unavailable"),
+      },
+    });
+    const notifications = new FakeListingAlertNotifications();
+
+    await expect(
+      createUseCase(
+        new MutableListingSource([createListing()]),
+        repository,
+        notifications,
+        () => firstRunAt,
+        { revision: 2, appliedRevision: 1 },
+      ).execute(),
+    ).rejects.toThrow("database unavailable");
+
+    expect(repository.listingSearchRevisions.appliedRevision).toBe(1);
+    expect(repository.observations).toEqual([]);
+    expect(notifications.calls).toEqual([]);
+  });
 });
 
 function createUseCase(
@@ -523,6 +717,7 @@ function createUseCase(
   repository: FakeListingAlertStateRepository,
   notifications: ListingAlertNotificationPort,
   now: () => Date,
+  revisionBaseline?: { revision: number; appliedRevision: number },
 ): CheckListingAlerts {
   return new CheckListingAlerts({
     source,
@@ -533,6 +728,14 @@ function createUseCase(
       matchesNewListingCriteria: matchesMvpSearchCriteria,
     },
     now,
+    ...(revisionBaseline === undefined
+      ? {}
+      : {
+          revisionBaseline: {
+            ...revisionBaseline,
+            repository,
+          },
+        }),
   });
 }
 

@@ -6,6 +6,7 @@ import type {
 import {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
+  assertValidListingSearchRevisionBaselineInput,
   InvalidListingAlertStateError,
   ListingAlertObservationConflictError,
   listingPriceObservationSchema,
@@ -17,6 +18,9 @@ import {
   type ListingAlertStateRepositoryPort,
   type ListingAlertTransition,
   type ListingPriceObservation,
+  type ApplyListingSearchRevisionBaselineInput,
+  type ApplyListingSearchRevisionBaselineResult,
+  type ListingSearchRevisionBaselineRepositoryPort,
 } from "./listingAlertContracts.js";
 
 export type FakeListingAlertStateRepositoryMethod =
@@ -25,7 +29,8 @@ export type FakeListingAlertStateRepositoryMethod =
   | "findPriceObservations"
   | "saveListingAlertTransitions"
   | "findPendingListingAlertEvents"
-  | "markListingAlertEventsSent";
+  | "markListingAlertEventsSent"
+  | "applyListingSearchRevisionBaseline";
 
 export type FakeListingAlertStateRepositoryCall =
   | { method: "isPriceObservationBaselineInitialized" }
@@ -45,6 +50,10 @@ export type FakeListingAlertStateRepositoryCall =
   | {
       method: "markListingAlertEventsSent";
       eventKeys: string[];
+    }
+  | {
+      method: "applyListingSearchRevisionBaseline";
+      input: ApplyListingSearchRevisionBaselineInput;
     };
 
 export interface FakeListingAlertStateRepositoryOptions {
@@ -52,15 +61,21 @@ export interface FakeListingAlertStateRepositoryOptions {
   baselineEntries?: readonly ListingAlertBaselineEntry[];
   observations?: readonly ListingPriceObservation[];
   events?: readonly ListingAlertEvent[];
+  listingSearchRevision?: number;
+  listingSearchAppliedRevision?: number;
   failures?: Partial<Record<FakeListingAlertStateRepositoryMethod, Error>>;
 }
 
 export class FakeListingAlertStateRepository
-  implements ListingAlertStateRepositoryPort
+  implements
+    ListingAlertStateRepositoryPort,
+    ListingSearchRevisionBaselineRepositoryPort
 {
   readonly calls: FakeListingAlertStateRepositoryCall[] = [];
 
   private baselineInitialized: boolean;
+  private listingSearchRevision: number;
+  private listingSearchAppliedRevision: number;
   private readonly observationsByAddress = new Map<
     ListingAddressKey,
     ListingPriceObservation
@@ -77,6 +92,9 @@ export class FakeListingAlertStateRepository
       (options.baselineEntries !== undefined ||
         options.observations !== undefined);
     this.failures = options.failures ?? {};
+    this.listingSearchRevision = options.listingSearchRevision ?? 1;
+    this.listingSearchAppliedRevision =
+      options.listingSearchAppliedRevision ?? 1;
 
     for (const entry of options.baselineEntries ?? []) {
       this.storeBaselineEntry(entry);
@@ -112,6 +130,16 @@ export class FakeListingAlertStateRepository
     return [...this.listingsByKey.entries()]
       .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
       .map(([, listing]) => cloneListing(listing));
+  }
+
+  get listingSearchRevisions(): {
+    revision: number;
+    appliedRevision: number;
+  } {
+    return {
+      revision: this.listingSearchRevision,
+      appliedRevision: this.listingSearchAppliedRevision,
+    };
   }
 
   async isPriceObservationBaselineInitialized(): Promise<boolean> {
@@ -249,6 +277,43 @@ export class FakeListingAlertStateRepository
     }
   }
 
+  async applyListingSearchRevisionBaseline(
+    input: ApplyListingSearchRevisionBaselineInput,
+  ): Promise<ApplyListingSearchRevisionBaselineResult> {
+    const clonedInput = cloneRevisionBaselineInput(input);
+    this.calls.push({
+      method: "applyListingSearchRevisionBaseline",
+      input: clonedInput,
+    });
+    this.throwConfiguredFailure("applyListingSearchRevisionBaseline");
+    assertValidListingSearchRevisionBaselineInput(clonedInput);
+
+    if (this.listingSearchRevision !== clonedInput.expectedRevision) {
+      return { status: "conflict" };
+    }
+    if (this.listingSearchAppliedRevision === clonedInput.expectedRevision) {
+      return { status: "already-applied" };
+    }
+    if (
+      this.listingSearchAppliedRevision !==
+      clonedInput.expectedAppliedRevision
+    ) {
+      return { status: "conflict" };
+    }
+
+    for (const candidate of clonedInput.candidates) {
+      if (
+        candidate.isNewListingEligible ||
+        this.observationsByAddress.has(candidate.observation.addressKey)
+      ) {
+        this.storeBaselineEntry(candidate);
+      }
+    }
+    this.baselineInitialized = true;
+    this.listingSearchAppliedRevision = clonedInput.expectedRevision;
+    return { status: "applied" };
+  }
+
   private storeBaselineEntry(entry: ListingAlertBaselineEntry): void {
     assertValidListingAlertBaselineEntry(entry);
     this.observationsByAddress.set(
@@ -342,6 +407,19 @@ function cloneTransition(
         ? null
         : cloneObservation(transition.expectedPreviousObservation),
     event: transition.event === null ? null : cloneEvent(transition.event),
+  };
+}
+
+function cloneRevisionBaselineInput(
+  input: ApplyListingSearchRevisionBaselineInput,
+): ApplyListingSearchRevisionBaselineInput {
+  return {
+    expectedRevision: input.expectedRevision,
+    expectedAppliedRevision: input.expectedAppliedRevision,
+    candidates: input.candidates.map((candidate) => ({
+      ...cloneBaselineEntry(candidate),
+      isNewListingEligible: candidate.isNewListingEligible,
+    })),
   };
 }
 

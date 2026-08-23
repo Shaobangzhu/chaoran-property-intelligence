@@ -3,8 +3,10 @@ export {
   AmbiguousListingAddressObservationError,
   CheckListingAlerts,
   InvalidListingAlertClockError,
+  ListingSearchRevisionBaselineConflictError,
   type CheckListingAlertsOptions,
   type ListingAlertCriteriaPort,
+  type ListingSearchRevisionBaselineContext,
 } from "./checkListingAlerts.js";
 export { createListingKey } from "./listingIdentity.js";
 export {
@@ -194,7 +196,9 @@ export {
 export {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
+  assertValidListingSearchRevisionBaselineInput,
   InvalidListingAlertStateError,
+  InvalidListingSearchRevisionBaselineError,
   ListingAlertObservationConflictError,
   LISTING_ALERT_LIMITS,
   listingAlertEventSchema,
@@ -212,6 +216,10 @@ export {
   type ListingAlertStatus,
   type ListingAlertTransition,
   type ListingPriceObservation,
+  type ApplyListingSearchRevisionBaselineInput,
+  type ApplyListingSearchRevisionBaselineResult,
+  type ListingSearchRevisionBaselineCandidate,
+  type ListingSearchRevisionBaselineRepositoryPort,
 } from "./listingAlertContracts.js";
 export {
   FakeListingAlertNotifications,

@@ -867,15 +867,27 @@ preserving durable pending events and stable listing records.
    source, or notification adapters. City and minimum price remain Domain
    filters, so one-city and five-city profiles both issue one regional request
    and tracked below-floor price drops remain eligible. Missing, malformed,
-   or temporarily unapplied profiles fail closed; Block 21.7 will replace the
-   unapplied-revision guard with atomic silent baseline. A total above the cap
+   profiles fail closed. At this checkpoint, an unapplied profile also failed
+   closed; Block 21.7 replaces that temporary guard with atomic silent baseline.
+   A total above the cap
    or an incomplete below-cap page fails before listing state or Telegram
    mutation. All 903 tests, full runtime/CDK typecheck, and the production
    build pass. No real provider, database, Telegram, deployment, schedule, or
    AWS operation occurred.
 8. `21.7` Implement atomic revision-aware silent baseline, preserve pending
    events, and add cross-layer tests for later new listings and tracked
-   below-floor price drops.
+   below-floor price drops. **Complete in code and offline verification:** the
+   Application workflow tags acquisition candidates without creating alert
+   transitions and handles typed `applied`, `already-applied`, and `conflict`
+   results. The PostgreSQL adapter locks the primary profile plus canonical
+   addresses, writes full-criteria inventory and already tracked below-floor
+   addresses, preserves outbox events, and advances `applied_revision` in the
+   same transaction. Provider coverage failure and database failure leave the
+   revision unapplied; successful baseline paths retry older pending events.
+   Cross-run tests prove that later eligible listings and tracked drops below
+   the minimum price still alert. All 914 tests, full runtime/CDK typecheck,
+   and the production build pass. No real provider, database, Telegram,
+   deployment, schedule, or AWS operation occurred.
 9. `21.8` Run the full suite, typecheck, build, disposable `001-006 -> 007`
    migration integration, local authenticated browser acceptance, fake-data
    two-revision smoke, runbook updates, and a separately confirmed AWS
