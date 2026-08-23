@@ -107,11 +107,14 @@ current production defaults, and parameterized acquisition/new-listing
 predicates. Block 21.2 bundles migration 007, application profile ports, and a
 transactional PostgreSQL adapter with strict row parsing, canonical no-op
 saves, and optimistic revision conflicts. The migration has not been run on a
-local or AWS database. Existing worker call sites still use compatibility
-exports and unchanged defaults; API, React, and dynamic worker composition
-remain later sub-blocks. Saving criteria will not call RentCast, delete stored
-listings, or immediately change the Listings snapshot; the next worker run
-will apply the revision through a silent baseline. See the
+local or AWS database. Block 21.3 adds strict Get/Update application use cases,
+bounded editable results, actor attribution, stable input/conflict errors,
+adapter-result validation, and a deterministic profile fake. Existing worker
+call sites still use compatibility exports and unchanged defaults; API, React,
+and dynamic worker composition remain later sub-blocks. Saving criteria will
+not call RentCast, delete stored listings, or immediately change the Listings
+snapshot; the next worker run will apply the revision through a silent
+baseline. See the
 [Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
 
 The API limits failed login responses to ten per 15 minutes per process before

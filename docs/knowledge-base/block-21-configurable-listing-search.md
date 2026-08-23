@@ -2,12 +2,12 @@
 
 ## Status
 
-Blocks 21.0 through 21.2 are complete. Domain exposes the strict version-1
-criteria value, and migration 007 plus the transactional PostgreSQL profile
-adapter are bundled. Existing worker composition continues to use the same
-defaults through compatibility exports. Migration 007 has not been executed
-against a local or Aurora database. No database state, RentCast quota, Telegram
-delivery, deployment, schedule, or AWS resource has been changed.
+Blocks 21.0 through 21.3 are complete. Domain exposes the strict version-1
+criteria value; migration 007 and the PostgreSQL adapter are bundled; and the
+strict Get/Update application use cases plus deterministic fake are available.
+Existing API and worker composition remain unchanged. Migration 007 has not
+been executed against a local or Aurora database. No database state, RentCast
+quota, Telegram delivery, deployment, schedule, or AWS resource has changed.
 
 ## Product Goal
 
@@ -178,7 +178,22 @@ Application owns:
 - `GetListingSearchCriteria`
 - `UpdateListingSearchCriteria`
 - invalid-input and stale-revision errors
-- criteria-revision baseline orchestration used by the worker
+- deterministic profile repository behavior for tests
+- planned criteria-revision baseline orchestration used by the worker
+
+Get returns only editable criteria, revision, and update timestamp. Update
+strictly accepts actor identity, expected revision, and the six editable fields.
+It injects `schemaVersion = 1`, `state = CA`, and `status = Active`, obtains a
+canonical UTC timestamp from its injected clock, and delegates one save to the
+repository. Canonical no-op returns retain existing revision and audit metadata;
+changed saves attribute the actor and leave appliedRevision behind for the
+future worker baseline.
+
+Stale state and simulated lost races map to
+`ListingSearchCriteriaChangedError`. Missing or malformed profiles and
+inconsistent adapter results fail closed through internal result errors. The
+application never returns actor identity, appliedRevision, fixed criteria,
+provider details, or persistence shapes to the API boundary.
 
 The authenticated API adds:
 
@@ -204,8 +219,9 @@ small bounded JSON parser and accepts only:
 }
 ```
 
-The API injects fixed state/status and returns a bounded DTO with editable
-criteria, revision, and update time. It never returns database JSON shape,
+The API supplies the authenticated actor while Application injects fixed
+state/status and returns a bounded DTO with editable criteria, revision, and
+update time. It never returns database JSON shape,
 `updatedByUserId`, provider credentials, Telegram values, or AWS metadata.
 
 Expected public failures are:
@@ -362,7 +378,13 @@ pending outbox delivery must still run on the baseline path.
    implemented. All 812 tests, full runtime/CDK typecheck, and the production
    build pass. No local or AWS database migration was executed.
 4. `21.3` Add get/update application use cases, canonical no-op behavior,
-   actor attribution, revision conflict, and deterministic fakes.
+   actor attribution, revision conflict, and deterministic fakes. **Complete:**
+   strict input normalization, fixed-value injection, bounded result
+   projection, stable errors, adapter-result validation, defensive call
+   recording, changed/no-op/conflict behavior, and failure injection are
+   implemented. All 837 tests, full runtime/CDK typecheck, and the production
+   build pass. No API, database, provider, Telegram, deployment, or AWS
+   operation occurred.
 5. `21.4` Add authenticated administrator GET/PUT API routes, strict DTOs,
    error mappings, composition, and security tests.
 6. `21.5` Add the React `Search Criteria` workspace, typed client, complete

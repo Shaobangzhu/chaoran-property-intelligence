@@ -14,7 +14,7 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
-Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.2 are
+Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.3 are
 complete. The repository currently contains:
 
 - a TypeScript and pnpm workspace
@@ -821,7 +821,16 @@ preserving durable pending events and stable listing records.
    executed against a local or AWS database.
 4. `21.3` Add application get/update use cases, administrator attribution,
    stale-revision handling, baseline orchestration contracts, and deterministic
-   fakes.
+   fakes. **Complete in code and offline verification:** Get returns only the
+   editable criteria, revision, and update timestamp. Update strictly rejects
+   unknown or fixed fields, injects trusted schema/CA/Active values, validates
+   actor UUID and clock, and maps stale or lost-race saves to one stable error.
+   Application validates every repository result before returning it. The fake
+   records defensive calls and implements changed, canonical no-op, conflict,
+   and injected-failure behavior while preserving appliedRevision. All 837
+   tests, full runtime/CDK typecheck, and the production build pass. No API
+   route, database operation, provider request, notification, deployment, or
+   AWS operation occurred.
 5. `21.4` Add administrator-only `GET` and `PUT`
    `/api/listing-search-criteria` routes, strict bounded DTOs, Origin and
    session enforcement, error mappings, composition, and security tests.

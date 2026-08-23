@@ -164,13 +164,33 @@ export type {
   StoredListing,
 } from "./checkNewListings.js";
 export {
+  InvalidListingSearchProfileContractError,
   PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+  normalizeListingSearchProfile,
   type ListingSearchProfile,
   type ListingSearchProfileQueryPort,
   type ListingSearchProfileRepositoryPort,
   type SaveListingSearchProfileInput,
   type SaveListingSearchProfileResult,
 } from "./listingSearchProfile.js";
+export {
+  GetListingSearchCriteria,
+  InvalidListingSearchCriteriaInputError,
+  InvalidListingSearchCriteriaResultError,
+  ListingSearchCriteriaChangedError,
+  ListingSearchProfileUnavailableError,
+  UpdateListingSearchCriteria,
+  type EditableListingSearchCriteria,
+  type ListingSearchCriteriaResult,
+  type UpdateListingSearchCriteriaInput,
+  type UpdateListingSearchCriteriaOptions,
+} from "./listingSearchCriteriaUseCases.js";
+export {
+  FakeListingSearchProfileRepository,
+  type FakeListingSearchProfileRepositoryCall,
+  type FakeListingSearchProfileRepositoryMethod,
+  type FakeListingSearchProfileRepositoryOptions,
+} from "./fakeListingSearchProfile.js";
 export {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
