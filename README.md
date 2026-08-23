@@ -125,7 +125,13 @@ baseline. It refreshes matching inventory and already tracked below-floor
 addresses without creating alert events, advances `appliedRevision` only with
 the listing and observation writes, and then retries any older pending outbox
 events. Saving criteria still does not call RentCast, delete stored listings,
-or immediately change the Listings snapshot. See the
+or immediately change the Listings snapshot. Block 21.8 has completed the
+disposable migration upgrade, authenticated local HTTP acceptance, React
+automated acceptance, two-revision fake worker smoke, user-confirmed browser
+visual acceptance, and the separately authorized AWS read-only precheck. The
+AWS inspection read metadata only and made no deployment, task, migration,
+schedule, Secret-value, RentCast, or Telegram operation.
+See the
 [Block 21 knowledge base](docs/knowledge-base/block-21-configurable-listing-search.md).
 
 The API limits failed login responses to ten per 15 minutes per process before
@@ -372,6 +378,7 @@ planned React/Express production boundary.
 - [AWS deployment runbook](docs/runbooks/aws-deployment.md)
 - [Production baseline runbook](docs/runbooks/production-baseline.md)
 - [Telegram production smoke-test runbook](docs/runbooks/telegram-production-smoke-test.md)
+- [Listing search criteria acceptance runbook](docs/runbooks/listing-search-criteria-acceptance.md)
 - [Weekly Showing List production runbook](docs/runbooks/showing-list-production.md)
 - [Blocks 16-18 feature knowledge base](docs/knowledge-base/blocks-16-18.md)
 - [Block 19 wildfire hazard overlay knowledge base](docs/knowledge-base/block-19-wildfire-hazard-overlay.md)

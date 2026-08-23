@@ -2,15 +2,17 @@
 
 ## Status
 
-Blocks 21.0 through 21.7 are complete. Domain exposes the strict version-1
+Blocks 21.0 through 21.8 are complete. Domain exposes the strict version-1
 criteria value; migration 007 and the PostgreSQL adapter are bundled; the
 strict Get/Update application use cases and administrator API are composed; and
 the authenticated React workspace is implemented with a runtime-validating
 client and complete form states. Production worker composition now loads the
 profile, projects one capped regional provider request, and atomically applies
-new revisions through a silent baseline. Migration 007 has not been executed
-against a local or Aurora database. No database state, RentCast quota, Telegram
-delivery, deployment, schedule, or AWS resource has changed.
+new revisions through a silent baseline. Migration 007 passed a disposable
+local PostgreSQL upgrade and idempotency check but has not been applied to
+Aurora or the existing local database. The final AWS precheck read metadata
+only; no RentCast quota, Telegram delivery, deployment, task, migration,
+schedule, Secret value, or AWS resource changed.
 
 ## Product Goal
 
@@ -481,7 +483,25 @@ Block 21.7 implements that boundary as follows:
    occurred.
 9. `21.8` Run full verification, disposable migration integration, local
    authenticated acceptance, fake-data two-revision smoke, runbook updates, and
-   an independently confirmed AWS read-only precheck.
+   an independently confirmed AWS read-only precheck. **Complete:** a
+   disposable `postgres:18` database upgraded from exactly migrations 001-006
+   to 007, retained one exact revision `1/1` seed, and passed an idempotent
+   retry. Real local Express/auth/PostgreSQL adapters passed login, read,
+   revision-2 save, reload, fixed-scope, actor-attribution, stale-409, logout,
+   and post-logout 401 checks using synthetic data. The 28 React
+   Search-Criteria/App tests and the fake-provider two-revision worker smoke
+   pass. The disposable database and session artifact were removed, and the
+   existing local PostgreSQL container remains healthy. The user completed and
+   confirmed the browser visual acceptance. The separately authorized AWS
+   metadata precheck found healthy CloudFormation, ECS, Aurora, EventBridge,
+   SNS, Budget, OIDC, Secret-metadata, and security-group boundaries. Daily
+   scheduling remains disabled, weekly scheduling remains undeployed, and no
+   ECS task is running or pending. A template-only CDK diff creates no change
+   set, keeps both synthesized schedules disabled, and contains no deletion or
+   database, VPC, or security-group change. The Scheduler policy action set is
+   unchanged and contains no wildcard; its added weekly grants are
+   resource-scoped. See the
+   [acceptance runbook](../runbooks/listing-search-criteria-acceptance.md).
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Provider calls, database mutations outside disposable/local test

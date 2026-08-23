@@ -14,8 +14,10 @@ features early.
 ## Current Status
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
-Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.3 are
-complete. The repository currently contains:
+Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
+complete. Block 21.8 closed its offline, disposable migration, authenticated
+HTTP, React automated, fake-worker, user-confirmed browser visual, and
+separately approved AWS metadata-only gates. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -891,7 +893,20 @@ preserving durable pending events and stable listing records.
 9. `21.8` Run the full suite, typecheck, build, disposable `001-006 -> 007`
    migration integration, local authenticated browser acceptance, fake-data
    two-revision smoke, runbook updates, and a separately confirmed AWS
-   read-only precheck.
+   read-only precheck. **Complete:** the disposable migration upgrade
+   and idempotent retry passed against PostgreSQL 18; synthetic local
+   authentication, criteria revision 1 read, revision 2 save/reload, fixed
+   CA/Active scope, actor attribution, stale conflict, logout, and 401 boundary
+   passed through real Express and PostgreSQL adapters. React's 28 focused tests
+   and the two-revision fake provider/Telegram worker smoke pass. Cleanup was
+   confirmed without changing the existing local PostgreSQL container. The
+   user confirmed the browser visual acceptance. The separately authorized AWS
+   precheck read metadata only and confirmed healthy stacks, disabled/absent
+   schedules, zero running or pending ECS tasks, available private encrypted
+   Aurora, enabled failure rules, confirmed SNS, guardrails, Secret metadata,
+   and a template-only CDK diff with no deletion or protected topology change.
+   Evidence and rerun instructions are in the
+   [acceptance runbook](runbooks/listing-search-criteria-acceptance.md).
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 21.0 does not change source code, connect to a database,

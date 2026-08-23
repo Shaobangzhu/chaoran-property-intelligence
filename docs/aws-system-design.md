@@ -18,22 +18,23 @@ Telegram, and worker-composition boundary.
 
 ## Deployment Status
 
-Last verified: 2026-08-20.
+Last verified: 2026-08-22.
 
 | Item | Verified state |
 | --- | --- |
 | AWS Region | `us-west-2` |
 | CDK bootstrap | `CDKToolkit`, bootstrap version 32, `CREATE_COMPLETE` |
 | Guardrails stack | `ChaoranPropertyIntelligenceGuardrails`, `CREATE_COMPLETE` |
-| Production stack | `ChaoranPropertyIntelligenceProduction`, `CREATE_COMPLETE` |
-| Scheduler | `cpi-daily-property-alert`, `DISABLED` |
+| Production stack | `ChaoranPropertyIntelligenceProduction`, `UPDATE_COMPLETE` |
+| Schedulers | Daily `DISABLED`; weekly not deployed |
 | Aurora | Available, private, encrypted, deletion-protected, 0-1 ACU |
 | Failure email | SNS subscription confirmed |
 | Application secret | Three required keys populated and verified without logging values |
 | Worker execution | Block 14 baseline complete: marker present, baseline 28, pending 0, sent 0 |
 | Telegram smoke test | Block 14.1 complete; one fixed message delivered and confirmed |
 | Block 20 worker code | Composition and offline verification complete; not deployed |
-| Template drift | Final post-deployment CDK diff reported no differences |
+| Block 21 precheck | Metadata-only; ECS running 0/pending 0 and no resource mutation |
+| Template drift | Guardrails clean; reviewed Production diff keeps both local schedules disabled |
 
 The AWS account ID, IAM Identity Center portal URL, alert email, and all secret
 values are intentionally excluded from the repository.
