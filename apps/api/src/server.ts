@@ -3,6 +3,7 @@ import {
   CreateManualListing,
   GetCurrentShowingListArtifact,
   GetCurrentShowingListDraft,
+  GetListingSearchCriteria,
   GetCurrentUser,
   ListListings,
   Login,
@@ -10,6 +11,7 @@ import {
   SaveCurrentShowingListDraft,
   ShowingListArtifactReaderUnavailableError,
   type ShowingListArtifactReaderPort,
+  UpdateListingSearchCriteria,
   UpdateManualListing,
 } from "@chaoran-property-intelligence/application";
 import {
@@ -20,6 +22,7 @@ import {
 import {
   createPostgresDatabase,
   PostgresListingQuery,
+  PostgresListingSearchProfileRepository,
   PostgresManualListingRepository,
   PostgresCurrentShowingListDraftRepository,
   PostgresUserRepository,
@@ -67,6 +70,15 @@ async function startApi(): Promise<void> {
 
     const listListings = new ListListings({
       query: new PostgresListingQuery(database),
+    });
+    const listingSearchProfileRepository =
+      new PostgresListingSearchProfileRepository(database);
+    const getListingSearchCriteria = new GetListingSearchCriteria(
+      listingSearchProfileRepository,
+    );
+    const updateListingSearchCriteria = new UpdateListingSearchCriteria({
+      repository: listingSearchProfileRepository,
+      now: () => new Date(),
     });
     const manualListingRepository = new PostgresManualListingRepository(database);
     const createManualListing = new CreateManualListing({
@@ -127,6 +139,7 @@ async function startApi(): Promise<void> {
       getCurrentUser,
       getCurrentShowingListArtifact,
       getCurrentShowingListDraft,
+      getListingSearchCriteria,
       httpSecurity: {
         deploymentMode: config.deploymentMode,
         publicOrigin: config.publicOrigin,
@@ -142,6 +155,7 @@ async function startApi(): Promise<void> {
       },
       markCurrentShowingListDraftReviewed,
       saveCurrentShowingListDraft,
+      updateListingSearchCriteria,
       updateManualListing,
     });
     const server = app.listen(config.port, config.host);

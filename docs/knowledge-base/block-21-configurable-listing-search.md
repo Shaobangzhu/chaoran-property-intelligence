@@ -203,7 +203,7 @@ PUT /api/listing-search-criteria
 ```
 
 Both routes require the existing session and administrator role. `PUT` uses a
-small bounded JSON parser and accepts only:
+strict 4 KiB JSON parser and accepts only:
 
 ```json
 {
@@ -223,6 +223,25 @@ The API supplies the authenticated actor while Application injects fixed
 state/status and returns a bounded DTO with editable criteria, revision, and
 update time. It never returns database JSON shape,
 `updatedByUserId`, provider credentials, Telegram values, or AWS metadata.
+
+Both successful routes return the same response envelope:
+
+```json
+{
+  "searchCriteria": {
+    "criteria": {
+      "propertyType": "Single Family",
+      "minimumPrice": 780000,
+      "maximumPrice": 850000,
+      "minimumBedrooms": 4,
+      "minimumBathrooms": 2.5,
+      "cities": ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"]
+    },
+    "revision": 1,
+    "updatedAt": "2026-08-22T20:00:00.000Z"
+  }
+}
+```
 
 Expected public failures are:
 
@@ -386,7 +405,16 @@ pending outbox delivery must still run on the baseline path.
    build pass. No API, database, provider, Telegram, deployment, or AWS
    operation occurred.
 5. `21.4` Add authenticated administrator GET/PUT API routes, strict DTOs,
-   error mappings, composition, and security tests.
+   error mappings, composition, and security tests. **Complete:** both routes
+   enforce the existing Origin, session, and administrator boundaries; PUT
+   authenticates before strict 4 KiB parsing, injects actor identity, and maps
+   invalid input and revision conflict without exposing values. The bounded
+   response omits fixed, audit, persistence, and infrastructure data. The API
+   server composes both application use cases with one PostgreSQL profile
+   repository. DTO, route, authorization-order, Origin, conflict, and fail-closed
+   tests are implemented. All 860 tests, full runtime/CDK typecheck, and the
+   production build pass. No migration, database, provider, Telegram,
+   deployment, or AWS operation occurred.
 6. `21.5` Add the React `Search Criteria` workspace, typed client, complete
    control states, accessibility, responsiveness, and component tests.
 7. `21.6` Parameterize the RentCast URL and production worker, enforce one

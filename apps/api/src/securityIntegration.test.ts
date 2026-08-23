@@ -66,6 +66,7 @@ describe("authentication security integration", () => {
       getCurrentUser: new GetCurrentUser({ repository, tokenService }),
       getCurrentShowingListArtifact: unusedShowingListUseCase(),
       getCurrentShowingListDraft: unusedShowingListUseCase(),
+      getListingSearchCriteria: unusedShowingListUseCase(),
       httpSecurity: {
         deploymentMode: "local",
         originVerificationSecret: null,
@@ -83,6 +84,7 @@ describe("authentication security integration", () => {
       now: () => now,
       requestIdFactory: () => requestId,
       saveCurrentShowingListDraft: unusedShowingListUseCase(),
+      updateListingSearchCriteria: unusedShowingListUseCase(),
       updateManualListing: {
         async execute() {
           throw new Error("Not used by this integration test");

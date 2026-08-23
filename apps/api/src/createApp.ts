@@ -4,10 +4,12 @@ import {
   CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
   type CreateManualListingInput,
+  InvalidListingSearchCriteriaInputError,
   InvalidManualListingPatchError,
   InvalidShowingListReviewInputError,
   InvalidCredentialsError,
   InvalidManualListingError,
+  ListingSearchCriteriaChangedError,
   ManualListingNotFoundError,
   ShowingListArtifactChangedError,
   ShowingListArtifactReaderInvalidResponseError,
@@ -16,6 +18,7 @@ import {
   type AuthenticatedUser,
   type GetCurrentUserInput,
   type ListingRecord,
+  type ListingSearchCriteriaResult,
   type LoginInput,
   type LoginResult,
   type ManualListingRecord,
@@ -23,6 +26,7 @@ import {
   type MarkCurrentShowingListDraftReviewedInput,
   type RenderedShowingListArtifact,
   type SaveCurrentShowingListDraftInput,
+  type UpdateListingSearchCriteriaInput,
 } from "@chaoran-property-intelligence/application";
 import { randomUUID } from "node:crypto";
 import express, {
@@ -38,6 +42,11 @@ import {
   type ListListingsResponse,
   toListingSummaryDto,
 } from "./listingDto.js";
+import {
+  InvalidListingSearchCriteriaRequestError,
+  parseUpdateListingSearchCriteriaRequest,
+  toListingSearchCriteriaResponse,
+} from "./listingSearchCriteriaDto.js";
 import {
   InvalidManualListingRequestError,
   parseManualListingDraftDto,
@@ -70,6 +79,7 @@ import {
 } from "./sessionCookie.js";
 
 const loginJsonBodyLimitBytes = 4_096;
+const listingSearchCriteriaJsonBodyLimitBytes = 4_096;
 const manualListingJsonBodyLimitBytes = 8_192;
 const showingListJsonBodyLimitBytes = 256 * 1_024;
 const requestIdHeaderName = "x-request-id";
@@ -120,6 +130,16 @@ export interface GetCurrentShowingListArtifactUseCase {
   execute(): Promise<RenderedShowingListArtifact>;
 }
 
+export interface GetListingSearchCriteriaUseCase {
+  execute(): Promise<ListingSearchCriteriaResult>;
+}
+
+export interface UpdateListingSearchCriteriaUseCase {
+  execute(
+    input: UpdateListingSearchCriteriaInput,
+  ): Promise<ListingSearchCriteriaResult>;
+}
+
 export interface CreateAppOptions {
   archiveManualListing: ArchiveManualListingUseCase;
   createManualListing: CreateManualListingUseCase;
@@ -128,6 +148,7 @@ export interface CreateAppOptions {
   getCurrentUser: GetCurrentUserUseCase;
   getCurrentShowingListArtifact: GetCurrentShowingListArtifactUseCase;
   getCurrentShowingListDraft: GetCurrentShowingListDraftUseCase;
+  getListingSearchCriteria: GetListingSearchCriteriaUseCase;
   httpSecurity: ApiHttpSecurityConfig;
   logger: ApiLogger;
   loginRateLimit?: LoginRateLimitConfig;
@@ -135,6 +156,7 @@ export interface CreateAppOptions {
   requestIdFactory?: () => string;
   markCurrentShowingListDraftReviewed: MarkCurrentShowingListDraftReviewedUseCase;
   saveCurrentShowingListDraft: SaveCurrentShowingListDraftUseCase;
+  updateListingSearchCriteria: UpdateListingSearchCriteriaUseCase;
   updateManualListing: UpdateManualListingUseCase;
 }
 
@@ -325,6 +347,38 @@ export function createApp(options: CreateAppOptions): Express {
     },
   );
 
+  app.get(
+    "/api/listing-search-criteria",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const result = await options.getListingSearchCriteria.execute();
+      response.status(200).json(toListingSearchCriteriaResponse(result));
+    },
+  );
+
+  app.put(
+    "/api/listing-search-criteria",
+    authenticate,
+    requireAdmin,
+    createListingSearchCriteriaJsonBodyParser(),
+    async (request, response) => {
+      const actor = readAuthenticatedUser(response.locals);
+      const input = parseUpdateListingSearchCriteriaRequest(request.body);
+      const result = await options.updateListingSearchCriteria.execute({
+        actorUserId: actor.id,
+        expectedRevision: input.expectedRevision,
+        criteria: input.criteria,
+      });
+
+      options.logger.info(
+        "api.listing_search_criteria.updated",
+        readLogContext(response.locals),
+      );
+      response.status(200).json(toListingSearchCriteriaResponse(result));
+    },
+  );
+
   app.post(
     "/api/listings/manual",
     authenticate,
@@ -438,6 +492,19 @@ export function createApp(options: CreateAppOptions): Express {
     }
 
     if (
+      error instanceof InvalidListingSearchCriteriaRequestError ||
+      error instanceof InvalidListingSearchCriteriaInputError
+    ) {
+      response.status(400).json({
+        error: {
+          code: "INVALID_LISTING_SEARCH_CRITERIA",
+          message: "Listing search criteria are invalid",
+        },
+      });
+      return;
+    }
+
+    if (
       error instanceof InvalidRequestBodyError ||
       error instanceof InvalidManualListingRequestError ||
       error instanceof InvalidManualListingPatchError ||
@@ -449,6 +516,16 @@ export function createApp(options: CreateAppOptions): Express {
         error: {
           code: "INVALID_REQUEST",
           message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof ListingSearchCriteriaChangedError) {
+      response.status(409).json({
+        error: {
+          code: "LISTING_SEARCH_CRITERIA_CHANGED",
+          message: "Listing search criteria changed; reload before continuing",
         },
       });
       return;
@@ -544,6 +621,19 @@ function createJsonBodyParser(limit: number): RequestHandler {
     strict: true,
     type: "application/json",
   });
+}
+
+function createListingSearchCriteriaJsonBodyParser(): RequestHandler {
+  const parser = createJsonBodyParser(listingSearchCriteriaJsonBodyLimitBytes);
+  return (request, response, next) => {
+    parser(request, response, (error?: unknown) => {
+      next(
+        error === undefined
+          ? undefined
+          : new InvalidListingSearchCriteriaRequestError(),
+      );
+    });
+  };
 }
 
 function createAdminAuthorizationMiddleware(): RequestHandler {

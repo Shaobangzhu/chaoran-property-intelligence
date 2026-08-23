@@ -9,10 +9,15 @@ import {
   type CreateManualListingInput,
   type CurrentShowingListDraft,
   InvalidCredentialsError,
+  InvalidListingSearchCriteriaInputError,
+  InvalidListingSearchCriteriaResultError,
   InvalidManualListingError,
+  ListingSearchCriteriaChangedError,
+  ListingSearchProfileUnavailableError,
   ManualListingNotFoundError,
   type AuthenticatedUser,
   type ListingRecord,
+  type ListingSearchCriteriaResult,
   type LoginInput,
   type LoginResult,
   type MarkCurrentShowingListDraftReviewedInput,
@@ -20,6 +25,7 @@ import {
   type RenderedShowingListArtifact,
   type SaveCurrentShowingListDraftInput,
   type UpdateManualListingInput,
+  type UpdateListingSearchCriteriaInput,
 } from "@chaoran-property-intelligence/application";
 import { describe, expect, it } from "vitest";
 
@@ -32,11 +38,13 @@ import {
   type GetCurrentUserUseCase,
   type GetCurrentShowingListArtifactUseCase,
   type GetCurrentShowingListDraftUseCase,
+  type GetListingSearchCriteriaUseCase,
   type ListListingsUseCase,
   type LoginUseCase,
   type MarkCurrentShowingListDraftReviewedUseCase,
   type SaveCurrentShowingListDraftUseCase,
   type UpdateManualListingUseCase,
+  type UpdateListingSearchCriteriaUseCase,
 } from "./createApp.js";
 
 const localOrigin = "http://127.0.0.1:5173";
@@ -566,6 +574,259 @@ describe("createApp", () => {
       ],
     });
     expect(listListings.calls).toBe(1);
+  });
+
+  it("protects and returns only the bounded listing search criteria DTO", async () => {
+    const result = createListingSearchCriteriaResult() as ListingSearchCriteriaResult & {
+      appliedRevision: number;
+      state: string;
+      updatedByUserId: string;
+    };
+    result.appliedRevision = 1;
+    result.state = "CA";
+    result.updatedByUserId = authenticatedUser.id;
+    const getListingSearchCriteria = new FakeGetListingSearchCriteria(result);
+    const app = createTestApp({ getListingSearchCriteria });
+
+    const unauthenticatedResponse = await request(
+      app,
+      "/api/listing-search-criteria",
+    );
+    expect(unauthenticatedResponse.status).toBe(401);
+    expect(getListingSearchCriteria.calls).toBe(0);
+
+    const response = await request(app, "/api/listing-search-criteria", {
+      headers: sessionHeaders(),
+    });
+
+    expect(response.status).toBe(200);
+    expect(getListingSearchCriteria.calls).toBe(1);
+    const body = await response.json();
+    expect(body).toEqual({
+      searchCriteria: createListingSearchCriteriaResult(),
+    });
+    expect(JSON.stringify(body)).not.toContain("appliedRevision");
+    expect(JSON.stringify(body)).not.toContain("updatedByUserId");
+    expect(JSON.stringify(body)).not.toContain('"state"');
+  });
+
+  it("updates listing search criteria with authenticated actor attribution", async () => {
+    const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria();
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ logger, updateListingSearchCriteria }),
+      "/api/listing-search-criteria",
+      {
+        body: JSON.stringify({
+          expectedRevision: 1,
+          criteria: {
+            ...createListingSearchCriteriaResult().criteria,
+            cities: ["Corona", "Chino"],
+          },
+        }),
+        headers: manualListingHeaders(),
+        method: "PUT",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateListingSearchCriteria.inputs).toEqual([
+      {
+        actorUserId: authenticatedUser.id,
+        expectedRevision: 1,
+        criteria: {
+          ...createListingSearchCriteriaResult().criteria,
+          cities: ["Chino", "Corona"],
+        },
+      },
+    ]);
+    await expect(response.json()).resolves.toEqual({
+      searchCriteria: createListingSearchCriteriaResult({ revision: 2 }),
+    });
+    expect(logger.infos).toContainEqual({
+      context: { requestId },
+      event: "api.listing_search_criteria.updated",
+    });
+  });
+
+  it("authenticates and authorizes criteria writes before parsing JSON", async () => {
+    const unauthenticatedUpdate = new FakeUpdateListingSearchCriteria();
+    const unauthenticated = await request(
+      createTestApp({ updateListingSearchCriteria: unauthenticatedUpdate }),
+      "/api/listing-search-criteria",
+      {
+        body: "{",
+        headers: jsonHeaders(localOrigin),
+        method: "PUT",
+      },
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(unauthenticatedUpdate.inputs).toEqual([]);
+
+    const nonAdminUpdate = new FakeUpdateListingSearchCriteria();
+    const nonAdminUser = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const forbidden = await request(
+      createTestApp({
+        getCurrentUser: new FakeGetCurrentUser(undefined, nonAdminUser),
+        updateListingSearchCriteria: nonAdminUpdate,
+      }),
+      "/api/listing-search-criteria",
+      {
+        body: "{",
+        headers: manualListingHeaders(),
+        method: "PUT",
+      },
+    );
+    expect(forbidden.status).toBe(403);
+    expect(nonAdminUpdate.inputs).toEqual([]);
+  });
+
+  it("enforces the unsafe-request Origin boundary before criteria updates", async () => {
+    const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria();
+    const response = await request(
+      createTestApp({ updateListingSearchCriteria }),
+      "/api/listing-search-criteria",
+      {
+        body: JSON.stringify(createListingSearchCriteriaUpdateBody()),
+        headers: {
+          ...sessionHeaders(),
+          ...jsonHeaders("https://attacker.example.com"),
+        },
+        method: "PUT",
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(updateListingSearchCriteria.inputs).toEqual([]);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "REQUEST_ORIGIN_REJECTED" },
+    });
+  });
+
+  it("rejects malformed, oversized, unknown, and fixed criteria fields", async () => {
+    const invalidBodies = [
+      "{",
+      JSON.stringify({
+        ...createListingSearchCriteriaUpdateBody(),
+        actorUserId: authenticatedUser.id,
+      }),
+      JSON.stringify({
+        ...createListingSearchCriteriaUpdateBody(),
+        criteria: {
+          ...createListingSearchCriteriaResult().criteria,
+          state: "CA",
+        },
+      }),
+      JSON.stringify({
+        ...createListingSearchCriteriaUpdateBody(),
+        criteria: {
+          ...createListingSearchCriteriaResult().criteria,
+          minimumPrice: 900000,
+          maximumPrice: 800000,
+        },
+      }),
+      JSON.stringify({
+        ...createListingSearchCriteriaUpdateBody(),
+        padding: "x".repeat(4_096),
+      }),
+    ];
+
+    for (const body of invalidBodies) {
+      const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria();
+      const response = await request(
+        createTestApp({ updateListingSearchCriteria }),
+        "/api/listing-search-criteria",
+        {
+          body,
+          headers: manualListingHeaders(),
+          method: "PUT",
+        },
+      );
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: {
+          code: "INVALID_LISTING_SEARCH_CRITERIA",
+          message: "Listing search criteria are invalid",
+        },
+      });
+      expect(updateListingSearchCriteria.inputs).toEqual([]);
+    }
+  });
+
+  it("maps application validation and revision conflicts to stable criteria errors", async () => {
+    const invalid = await request(
+      createTestApp({
+        updateListingSearchCriteria: new FakeUpdateListingSearchCriteria(
+          new InvalidListingSearchCriteriaInputError(),
+        ),
+      }),
+      "/api/listing-search-criteria",
+      {
+        body: JSON.stringify(createListingSearchCriteriaUpdateBody()),
+        headers: manualListingHeaders(),
+        method: "PUT",
+      },
+    );
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({
+      error: { code: "INVALID_LISTING_SEARCH_CRITERIA" },
+    });
+
+    const conflict = await request(
+      createTestApp({
+        updateListingSearchCriteria: new FakeUpdateListingSearchCriteria(
+          new ListingSearchCriteriaChangedError(),
+        ),
+      }),
+      "/api/listing-search-criteria",
+      {
+        body: JSON.stringify(createListingSearchCriteriaUpdateBody()),
+        headers: manualListingHeaders(),
+        method: "PUT",
+      },
+    );
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toEqual({
+      error: {
+        code: "LISTING_SEARCH_CRITERIA_CHANGED",
+        message: "Listing search criteria changed; reload before continuing",
+      },
+    });
+  });
+
+  it("fails closed without logging criteria or persistence details", async () => {
+    for (const failure of [
+      new ListingSearchProfileUnavailableError(),
+      new InvalidListingSearchCriteriaResultError(),
+    ]) {
+      const logger = new RecordingLogger();
+      const response = await request(
+        createTestApp({
+          getListingSearchCriteria: new FakeGetListingSearchCriteria(
+            undefined,
+            failure,
+          ),
+          logger,
+        }),
+        "/api/listing-search-criteria",
+        { headers: sessionHeaders() },
+      );
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Request could not be completed",
+        },
+      });
+      expect(logger.errors).toEqual([
+        { context: { requestId }, event: "api.request.failed" },
+      ]);
+      expect(JSON.stringify(logger.errors)).not.toContain("780000");
+    }
   });
 
   it("protects and returns only the bounded current Showing List review DTO", async () => {
@@ -1265,6 +1526,44 @@ class FakeListListings implements ListListingsUseCase {
   }
 }
 
+class FakeGetListingSearchCriteria
+  implements GetListingSearchCriteriaUseCase
+{
+  calls = 0;
+
+  constructor(
+    private readonly result: ListingSearchCriteriaResult =
+      createListingSearchCriteriaResult(),
+    private readonly failure?: Error,
+  ) {}
+
+  async execute(): Promise<ListingSearchCriteriaResult> {
+    this.calls += 1;
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return this.result;
+  }
+}
+
+class FakeUpdateListingSearchCriteria
+  implements UpdateListingSearchCriteriaUseCase
+{
+  readonly inputs: UpdateListingSearchCriteriaInput[] = [];
+
+  constructor(private readonly failure?: Error) {}
+
+  async execute(
+    input: UpdateListingSearchCriteriaInput,
+  ): Promise<ListingSearchCriteriaResult> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
+    return createListingSearchCriteriaResult({ revision: 2 });
+  }
+}
+
 class FakeCreateManualListing implements CreateManualListingUseCase {
   readonly inputs: CreateManualListingInput[] = [];
 
@@ -1429,6 +1728,7 @@ function createTestApp(
     getCurrentUser: new FakeGetCurrentUser(),
     getCurrentShowingListArtifact: new FakeGetCurrentShowingListArtifact(),
     getCurrentShowingListDraft: new FakeGetCurrentShowingListDraft(),
+    getListingSearchCriteria: new FakeGetListingSearchCriteria(),
     httpSecurity: localHttpSecurity,
     logger: new RecordingLogger(),
     now: () => now,
@@ -1436,6 +1736,7 @@ function createTestApp(
     markCurrentShowingListDraftReviewed:
       new FakeMarkCurrentShowingListDraftReviewed(),
     saveCurrentShowingListDraft: new FakeSaveCurrentShowingListDraft(),
+    updateListingSearchCriteria: new FakeUpdateListingSearchCriteria(),
     updateManualListing: new FakeUpdateManualListing(),
     ...overrides,
   });
@@ -1489,6 +1790,31 @@ function createListingRecord(): ListingRecord {
       lastSeenDate: "2026-08-19",
       firstDiscoveredAt: "2026-08-19T17:00:00.000Z",
     },
+  };
+}
+
+function createListingSearchCriteriaResult(
+  overrides: Partial<ListingSearchCriteriaResult> = {},
+): ListingSearchCriteriaResult {
+  return {
+    criteria: {
+      propertyType: "Single Family",
+      minimumPrice: 780000,
+      maximumPrice: 850000,
+      minimumBedrooms: 4,
+      minimumBathrooms: 2.5,
+      cities: ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
+    },
+    revision: 1,
+    updatedAt: "2026-08-20T20:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function createListingSearchCriteriaUpdateBody(): Record<string, unknown> {
+  return {
+    criteria: createListingSearchCriteriaResult().criteria,
+    expectedRevision: 1,
   };
 }
 

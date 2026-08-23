@@ -834,6 +834,15 @@ preserving durable pending events and stable listing records.
 5. `21.4` Add administrator-only `GET` and `PUT`
    `/api/listing-search-criteria` routes, strict bounded DTOs, Origin and
    session enforcement, error mappings, composition, and security tests.
+   **Complete in code and offline verification:** both routes require the
+   existing session and administrator boundary. PUT authenticates and
+   authorizes before its strict 4 KiB parser, rejects unknown and fixed fields,
+   injects the authenticated actor, and maps invalid input and stale revisions
+   to stable bounded errors. Responses omit fixed, audit, persistence, and
+   provider fields. The production API composes Get/Update with one PostgreSQL
+   profile repository. All 860 tests, full runtime/CDK typecheck, and the
+   production build pass. No migration, database connection, provider request,
+   notification, deployment, or AWS operation occurred.
 6. `21.5` Add the authenticated React `Search Criteria` workspace with one
    property-type select, price inputs, bedroom/bathroom selects, a five-city
    checkbox disclosure, complete form states, accessibility, responsive

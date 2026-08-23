@@ -7,6 +7,7 @@
   "dependencies": {
     "@chaoran-property-intelligence/application": "workspace:*",
     "@chaoran-property-intelligence/auth": "workspace:*",
+    "@chaoran-property-intelligence/domain": "workspace:*",
     "@chaoran-property-intelligence/postgres": "workspace:*",
     "@chaoran-property-intelligence/s3": "workspace:*",
     "cookie": "2.0.1",
