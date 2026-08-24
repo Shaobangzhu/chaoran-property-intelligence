@@ -10,9 +10,10 @@ describe("web document security policy", () => {
     expect(html).toContain("default-src 'self'");
     expect(html).not.toContain("tiles.openfreemap.org");
     expect(html).toContain(
-      "connect-src 'self' blob: https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com https://js.arcgis.com https://static.arcgis.com",
+      "connect-src 'self' blob: https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com https://elevation3d.arcgis.com https://js.arcgis.com https://static.arcgis.com",
     );
     expect(html).not.toContain("https://*.arcgis.com");
+    expect(html).not.toContain("https://elevation-api.arcgis.com");
     expect(html).toContain(
       "img-src 'self' data: blob: https://cdn.arcgis.com",
     );

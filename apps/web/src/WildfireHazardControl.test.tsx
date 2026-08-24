@@ -89,6 +89,34 @@ describe("WildfireHazardControl", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the classification-preserving disclosure only in visible terrain mode", () => {
+    const metadata = createMetadata();
+    const { rerender } = renderControl({
+      enabled: true,
+      state: { status: "ready", visible: true, metadata },
+      terrainContext: true,
+    });
+
+    expect(
+      screen.getByText(
+        "Terrain is visual context only. CAL FIRE classifications are unchanged.",
+      ),
+    ).toBeInTheDocument();
+
+    rerender(
+      <WildfireHazardControl
+        enabled={true}
+        onEnabledChange={() => undefined}
+        onRetry={() => undefined}
+        state={{ status: "ready", visible: true, metadata }}
+        terrainContext={false}
+      />,
+    );
+    expect(
+      screen.queryByText(/Terrain is visual context only/),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows a bounded error and retries without exposing private details", async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
@@ -112,11 +140,13 @@ function renderControl({
   onEnabledChange = () => undefined,
   onRetry = () => undefined,
   state = { status: "idle", visible: false },
+  terrainContext = false,
 }: {
   enabled?: boolean;
   onEnabledChange?: (enabled: boolean) => void;
   onRetry?: () => void;
   state?: WildfireHazardOverlayState;
+  terrainContext?: boolean;
 } = {}): ReturnType<typeof render> {
   return render(
     <WildfireHazardControl
@@ -124,6 +154,7 @@ function renderControl({
       onEnabledChange={onEnabledChange}
       onRetry={onRetry}
       state={state}
+      terrainContext={terrainContext}
     />,
   );
 }
