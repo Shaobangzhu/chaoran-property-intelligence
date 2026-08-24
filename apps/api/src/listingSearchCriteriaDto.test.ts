@@ -38,6 +38,18 @@ describe("listing search criteria DTO", () => {
     });
   });
 
+  it("accepts Stevenson Ranch as a schema-v1 product market", () => {
+    expect(
+      parseUpdateListingSearchCriteriaRequest({
+        expectedRevision: 7,
+        criteria: { ...validCriteria(), cities: ["Stevenson Ranch"] },
+      }),
+    ).toMatchObject({
+      expectedRevision: 7,
+      criteria: { cities: ["Stevenson Ranch"] },
+    });
+  });
+
   it.each([
     null,
     [],

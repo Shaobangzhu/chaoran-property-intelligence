@@ -2,8 +2,11 @@
 
 ## Status
 
-Accepted for Block 24 planning. Runtime implementation and real provider
-requests remain separately confirmed sub-blocks.
+Accepted. The Block 24.1B provider audit confirmed that ZIP `91381` listings
+are labeled `Valencia` by RentCast. The product decision keeps `Stevenson
+Ranch` as the selectable market, matches that market by ZIP, and preserves the
+provider city unchanged. Remaining runtime implementation is separately
+confirmed by sub-block.
 
 ## Context
 
@@ -35,6 +38,14 @@ silently rewriting existing profiles. The operator explicitly opts in by saving
 the sixth city; the existing search-revision baseline prevents historical
 inventory notifications.
 
+Treat the version-1 `cities` values as product-market labels for compatibility,
+not as an assertion that every provider listing has an identical `city` field.
+The original five markets continue to match by exact city. The `Stevenson
+Ranch` market matches ZIP `91381`; a matching RentCast listing keeps its
+provider city, currently `Valencia`, throughout normalization, persistence,
+notifications, API DTOs, and React display. Market selection and listing-city
+display are separate concerns.
+
 The additional area may double RentCast requests per worker run. Block 24 does
 not enable or change the disabled daily AWS schedule. Quota and cadence remain
 an operational gate.
@@ -48,6 +59,7 @@ Positive consequences:
 - request fan-out is per reviewed area, not per city
 - a future market can add a reviewed route without changing the HTTP client
 - partial provider failure cannot produce partial alerts
+- provider data is not rewritten to imitate the product-market label
 
 Tradeoffs:
 
@@ -55,6 +67,9 @@ Tradeoffs:
 - the source and coverage audit must report per-area completeness
 - a 50-request allowance supports at most 25 mixed runs before audits/retries
 - the map spans a larger region when both areas have listings
+- the legacy `cities` schema field now represents supported market labels, so
+  new matching rules must be explicit and tested rather than inferred from the
+  field name
 
 ## Rejected Alternatives
 
@@ -77,6 +92,11 @@ and discards the existing bounded regional strategy.
 Rejected because missing one selected region could silently alter alerts and
 price observations.
 
+### Rewrite RentCast city to Stevenson Ranch
+
+Rejected because normalization must preserve provider listing data. Product
+market eligibility is expressed by the reviewed ZIP mapping instead.
+
 ### Expand CAL FIRE coverage in the same block
 
 Rejected because provider listing acquisition and authoritative hazard-data
@@ -96,4 +116,3 @@ scope without separate authorization.
 Revert Block 24 and remove Stevenson Ranch from any explicitly saved profile.
 Schema version 1 and old five-city profiles remain valid, so no migration or
 data repair is required.
-

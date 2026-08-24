@@ -7,7 +7,10 @@ import {
   matchesPriceAlertAcquisitionCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
-import { normalizeListingSearchCriteria } from "./listingSearchCriteria.js";
+import {
+  defaultListingSearchCriteria,
+  normalizeListingSearchCriteria,
+} from "./listingSearchCriteria.js";
 
 describe("MVP listing search criteria", () => {
   const matchingListing: ListingCandidate = {
@@ -241,4 +244,69 @@ describe("configurable listing search criteria", () => {
     expect(matchesPriceAlertAcquisitionCriteria(condoInCorona)).toBe(false);
     expect(matchesMvpSearchCriteria(condoInCorona)).toBe(false);
   });
+
+  it("matches the Stevenson Ranch market by ZIP while preserving provider city", () => {
+    const criteria = normalizeListingSearchCriteria({
+      schemaVersion: 1,
+      state: "CA",
+      status: "Active",
+      propertyType: "Single Family",
+      minimumPrice: 780000,
+      maximumPrice: 850000,
+      minimumBedrooms: 4,
+      minimumBathrooms: 2.5,
+      cities: ["Stevenson Ranch"],
+    });
+    const providerListing: ListingCandidate = {
+      city: "Valencia",
+      zipCode: "91381",
+      state: "CA",
+      status: "Active",
+      propertyType: "Single Family",
+      price: 825000,
+      bedrooms: 4,
+      bathrooms: 3,
+    };
+
+    expect(matchesListingAcquisitionCriteria(providerListing, criteria)).toBe(
+      true,
+    );
+    expect(matchesNewListingCriteria(providerListing, criteria)).toBe(true);
+    expect(
+      matchesPriceAlertAcquisitionCriteria(
+        { ...providerListing, price: 575000 },
+        criteria,
+      ),
+    ).toBe(true);
+    expect(providerListing.city).toBe("Valencia");
+  });
+
+  it.each([
+    { city: "Valencia", zipCode: "91355" },
+    { city: "Stevenson Ranch", zipCode: "91355" },
+    { city: "Valencia", zipCode: null },
+  ] satisfies Partial<ListingCandidate>[])(
+    "rejects a listing outside the ZIP-defined Stevenson Ranch market: %o",
+    (override) => {
+      const criteria = normalizeListingSearchCriteria({
+        ...defaultListingSearchCriteria,
+        cities: ["Stevenson Ranch"],
+      });
+
+      expect(
+        matchesListingAcquisitionCriteria(
+          {
+            state: "CA",
+            status: "Active",
+            propertyType: "Single Family",
+            price: 825000,
+            bedrooms: 4,
+            bathrooms: 3,
+            ...override,
+          },
+          criteria,
+        ),
+      ).toBe(false);
+    },
+  );
 });

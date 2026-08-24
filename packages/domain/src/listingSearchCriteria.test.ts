@@ -41,8 +41,22 @@ function expectInvalid(
 }
 
 describe("listing search criteria", () => {
-  it("preserves the exact current production defaults", () => {
-    expect(defaultListingSearchCriteria).toEqual(validInput());
+  it("keeps an existing five-market schema-v1 profile valid and unchanged", () => {
+    expect(normalizeListingSearchCriteria(validInput())).toEqual(validInput());
+  });
+
+  it("adds Stevenson Ranch to new default profiles", () => {
+    expect(defaultListingSearchCriteria).toEqual({
+      ...validInput(),
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Stevenson Ranch",
+      ],
+    });
     expect(Object.isFrozen(defaultListingSearchCriteria)).toBe(true);
     expect(Object.isFrozen(defaultListingSearchCriteria.cities)).toBe(true);
   });
@@ -59,12 +73,27 @@ describe("listing search criteria", () => {
     ]);
   });
 
+  it("accepts Stevenson Ranch as a product-market label", () => {
+    expect(
+      normalizeListingSearchCriteria(
+        validInput({ cities: ["Stevenson Ranch"] }),
+      ).cities,
+    ).toEqual(["Stevenson Ranch"]);
+  });
+
   it("canonicalizes selected cities into the supported city order", () => {
     const criteria = normalizeListingSearchCriteria(
-      validInput({ cities: ["Jurupa Valley", "Chino", "Corona"] }),
+      validInput({
+        cities: ["Stevenson Ranch", "Jurupa Valley", "Chino", "Corona"],
+      }),
     );
 
-    expect(criteria.cities).toEqual(["Chino", "Corona", "Jurupa Valley"]);
+    expect(criteria.cities).toEqual([
+      "Chino",
+      "Corona",
+      "Jurupa Valley",
+      "Stevenson Ranch",
+    ]);
   });
 
   it("accepts the inclusive numeric boundaries", () => {

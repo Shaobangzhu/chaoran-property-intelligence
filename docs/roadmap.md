@@ -18,11 +18,13 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0, 24.1A, and 24.1B are complete on
+into `main`. Blocks 24.0, 24.1A, 24.1B, and 24.2 are complete on
 `feat/add-new-city-stevensonranch`. The controlled provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
-Ranch`. Production coverage implementation is paused before 24.2 for an
-explicit product/domain naming decision. Block 21.8
+Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
+while preserving provider city `Valencia`. Block 24.2 added the sixth
+version-1 product market and exact-city/or-ZIP Domain matcher without migrating
+existing five-market profiles; Block 24.3 is next. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1262,10 +1264,15 @@ Planned sub-block mapping:
    returned all 17 matching records in one complete page with 483 result slots
    remaining. ZIP, property type, status, and configured filters passed, but all
    17 city labels were `Valencia`; no retry occurred and no raw listing data was
-   retained. Pause before 24.2 until the supported-market contract explicitly
-   resolves the provider/product naming difference.
-3. `24.2` Add Stevenson Ranch to the version-1 Domain city set and prove
-   backward compatibility with existing five-city profiles.
+   retained. **Decision accepted:** retain `Stevenson Ranch` as the product
+   market, match it by ZIP `91381`, and preserve provider city `Valencia`.
+3. `24.2` Add Stevenson Ranch to the version-1 Domain market set, introduce the
+   explicit exact-city/or-ZIP market matcher, preserve provider city data, and
+   prove backward compatibility with existing five-city profiles. **Complete:**
+   the shared Domain matcher uses ZIP `91381` only for Stevenson Ranch, original
+   markets retain exact-city matching, legacy profiles do not auto-expand, and
+   Domain/API/React tests, all 1009 repository tests, root typecheck, and root
+   build pass without an external request.
 4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its
    strict URL, timeout, parser, key-header, and completeness contracts.
 5. `24.4` Implement conditional one/two-area source routing, sequential fetch,

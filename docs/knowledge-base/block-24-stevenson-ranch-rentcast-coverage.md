@@ -6,10 +6,14 @@ Block 24.0 is complete in documentation only on
 `feat/add-new-city-stevensonranch`. Block 24.1A and 24.1B are complete. The
 fixture-gated second audit proved that RentCast classifies every matching ZIP
 `91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
-therefore failed closed. Block 24.2 and all production implementation are
-paused for an explicit product/domain naming decision. No production RentCast
-source, persisted search profile, database, Telegram message, AWS resource,
-schedule, or deployment changed.
+therefore failed closed. The product/domain decision is now accepted:
+`Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
+and provider city `Valencia` remains unchanged. Block 24.2 is complete: the
+version-1 Domain market set now contains six choices, the shared matcher applies
+exact-city semantics to the original five markets and ZIP semantics to
+Stevenson Ranch, and existing five-market profiles remain unchanged. No
+production RentCast source, persisted search profile, database, Telegram
+message, AWS resource, schedule, or deployment changed.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -67,6 +71,12 @@ The public criteria schema remains version 1. Adding a supported enum value is
 backward-compatible with existing five-city JSON. No database migration or
 automatic persisted-profile rewrite is required.
 
+For schema-version compatibility, the existing `cities` JSON field and
+`ListingSearchCity` TypeScript name remain in place, but their values are
+product-market labels. They do not authorize rewriting a listing's provider
+city. The original five labels match exact city values; `Stevenson Ranch`
+matches ZIP `91381` while the listing continues to expose `Valencia`.
+
 New default profiles may include all six supported cities. An existing profile
 continues to contain its currently saved city selection until the operator
 explicitly selects `Stevenson Ranch` and saves. That save increments the search
@@ -121,10 +131,13 @@ application does not accept partial regional success.
 ### Provider and Domain filtering
 
 The ZIP request is an acquisition boundary, not final eligibility. Domain rules
-still require an exact selected city value, `CA`, `Active`, the selected
-property type, maximum price, minimum bedrooms, and minimum bathrooms. Minimum
-price remains a new-listing notification threshold rather than a provider
-acquisition floor so later price drops below that threshold remain observable.
+apply an explicit product-market matcher: the original five markets require an
+exact selected city value, while `Stevenson Ranch` requires ZIP `91381` and
+does not rewrite or require an identical provider city. State remains `CA`,
+status remains `Active`, and property type, maximum price, minimum bedrooms,
+and minimum bathrooms remain required. Minimum price remains a new-listing
+notification threshold rather than a provider acquisition floor so later
+price drops below that threshold remain observable.
 
 Block 24.1 must confirm with one separately authorized real request that
 RentCast returns the expected `city` value for ZIP `91381`. If the provider uses
@@ -317,27 +330,45 @@ result: RentCast represents ZIP `91381` with city `Valencia`. The command exited
 with code 1 as designed. It emitted no API key, request URL, raw response,
 street address, listing ID, or MLS data.
 
-Block 24.1 is complete as a controlled audit, but the feature compatibility
-gate is not accepted. Do not silently rewrite `Valencia` to `Stevenson Ranch`
-and do not begin Block 24.2 until the product/domain contract explicitly chooses
-one of these directions:
-
-1. keep `Stevenson Ranch` as the product market while defining a reviewed ZIP-
-   based provider mapping that preserves the original listing city, or
-2. expose a Valencia/Stevenson Ranch market label whose eligibility is
-   explicitly defined by ZIP `91381`, or
-3. stop Block 24 and retain the existing five-city coverage.
-
-No additional provider request is needed to make this naming decision.
+Block 24.1 is complete as a controlled audit. The accepted product decision
+keeps `Stevenson Ranch` as the market label, defines its eligibility by ZIP
+`91381`, and preserves `Valencia` as the RentCast listing city. This is an
+explicit market mapping, not a silent provider-data alias. No additional
+provider request is needed for this decision.
 
 ### Block 24.2: Domain and profile compatibility
 
-- append `Stevenson Ranch` to `listingSearchCities`
-- retain criteria schema version 1
-- verify old five-city JSON remains valid and canonical
-- verify one-to-six validation, duplicate rejection, default freezing, Domain
+**Complete.** The implementation:
+
+- appended `Stevenson Ranch` to `listingSearchCities`
+- retained criteria schema version 1
+- defined explicit product-market eligibility: exact city for the original five
+  markets and ZIP `91381` for Stevenson Ranch
+- retained the provider listing city without normalization or display rewriting
+- verified old five-city JSON remains valid and canonical
+- verified one-to-six validation, duplicate rejection, default freezing, Domain
   acquisition, and new-listing/price-drop semantics
-- add no migration and do not mutate an existing profile
+- added no migration and did not mutate an existing profile
+
+As built, the shared Domain matcher accepts a provider listing for the
+Stevenson Ranch market only when its untouched city is non-null and its ZIP is
+exactly `91381`. Listings in the original five markets continue to require an
+exact city match. Acquisition and price-drop filtering now pass both city and
+ZIP into that matcher, while downstream listing records continue to expose the
+provider city unchanged.
+
+The current API DTO accepts the sixth version-1 market, and the React criteria
+control renders all six choices with one-to-six selection copy. A saved legacy
+five-market profile still contains and selects only its original five values;
+there is no migration or implicit opt-in.
+
+Verification completed for this sub-block:
+
+- 120 targeted Domain, API DTO, and React tests passed
+- all 112 test files and all 1009 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production web bundle
+- no RentCast request or other external side effect occurred
 
 ### Block 24.3: Typed RentCast geography
 
@@ -414,7 +445,8 @@ Block 24 is complete only when:
 - mixed selections issue exactly two sequential requests
 - each page independently passes the 500-result completeness gate
 - one required-area failure produces no partial transitions or Telegram send
-- final Domain eligibility requires exact selected city, CA, and Active status
+- final Domain eligibility requires an exact selected market match (city for
+  the original five or ZIP `91381` for Stevenson Ranch), CA, and Active status
 - revision baseline prevents historical Stevenson Ranch notification noise
 - React retains one listing record per canonical address
 - ArcGIS renders the broader listing extent without changing CAL FIRE semantics

@@ -16,6 +16,7 @@ export const listingSearchCities = Object.freeze([
   "Eastvale",
   "Corona",
   "Jurupa Valley",
+  "Stevenson Ranch",
 ] as const);
 
 export type ListingSearchCity = (typeof listingSearchCities)[number];

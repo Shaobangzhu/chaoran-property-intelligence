@@ -36,6 +36,23 @@ describe("SearchCriteriaScreen", () => {
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
   });
 
+  it("keeps a five-market profile unchanged while offering Stevenson Ranch", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    expect(
+      await screen.findByRole("button", { name: "5 cities selected" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Select between one and six cities."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "5 cities selected" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Stevenson Ranch" }),
+    ).not.toBeChecked();
+  });
+
   it("retries an unavailable initial load", async () => {
     const user = userEvent.setup();
     const loadCriteria = vi
