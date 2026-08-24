@@ -7,6 +7,7 @@ verifyDepsBeforeRun: false
 injectWorkspacePackages: true
 
 allowBuilds:
+  '@vaadin/vaadin-usage-statistics': false
   argon2: true
   esbuild: true
 

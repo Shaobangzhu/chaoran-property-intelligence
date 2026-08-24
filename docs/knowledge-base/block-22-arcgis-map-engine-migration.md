@@ -2,15 +2,18 @@
 
 ## Status
 
-Block 22.0 is complete in documentation only. The parity contract, target
-adapter architecture, security boundary, implementation sequence, rollback
-strategy, and acceptance gates are frozen. No dependency was installed, no
-runtime source was changed, no ArcGIS request was made, and no AWS operation or
-deployment occurred.
+Blocks 22.0 and 22.1 are complete. The parity contract, target adapter
+architecture, security boundary, implementation sequence, rollback strategy,
+and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
+basemap-key configuration, a component-registration runtime entry, React 19
+types, and offline tests are present. The runtime entry is not imported by
+`main.tsx` or the current map, so MapLibre remains the user-visible engine and
+the production bundle contains no ArcGIS runtime or API key.
 
-Blocks 22.1 through 22.6 remain planned and separately confirmed. The work is
+Blocks 22.2 through 22.6 remain planned and separately confirmed. The work is
 isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate.
+only after the final acceptance gate. Block 22.1 made no ArcGIS request,
+backend call, database operation, deployment, or AWS operation.
 
 ## Objective
 
@@ -316,7 +319,23 @@ Complete in this change:
   default map
 - verify typecheck, focused tests, and production build
 
-No user-visible engine cutover occurs in 22.1.
+**Complete in code and offline verification:** the web package pins
+`@arcgis/core@5.1.20`, `@arcgis/map-components@5.1.20`, and
+`@esri/calcite-components@5.1.2`, matching the component peer ranges. React 19
+uses the official custom-element types and does not install the deprecated
+React wrapper. `arcgisRuntime.ts` registers only `arcgis-map` and `arcgis-zoom`
+and delegates to a strict configuration boundary that writes only
+`esriConfig.apiKeys.basemapStyles`. Missing, non-string, whitespace-bearing,
+and overlong values fail with one credential-free error.
+
+The workspace explicitly denies the indirect
+`@vaadin/vaadin-usage-statistics` build script. Thirteen new tests, 31 focused
+map/security tests, all 927 repository tests, full runtime/CDK typecheck, and
+the production build pass. A credential scan found no local key in 47
+source/build/configuration files. The production build still contains only the
+existing MapLibre worker and OpenFreeMap CSP/network boundary; no ArcGIS runtime
+module or API key is bundled. No user-visible engine cutover or ArcGIS request
+occurred in 22.1.
 
 ### Block 22.2: ArcGIS listing-map driver
 

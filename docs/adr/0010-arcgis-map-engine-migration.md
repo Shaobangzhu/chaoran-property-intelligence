@@ -2,11 +2,12 @@
 
 ## Status
 
-Accepted for Block 22 implementation. Block 22.0 records the migration
-architecture and parity contract only. It does not authorize dependency
-installation, runtime code changes, external requests, deployment, or AWS
-operations. Each executable sub-block requires a fresh review and explicit
-confirmation.
+Accepted. Block 22.0 recorded the migration architecture and parity contract.
+Block 22.1 installed exact ArcGIS 5.1 dependencies and added the isolated
+basemap-key configuration, component-registration runtime entry, React 19 type
+support, and offline tests. The runtime entry is not imported by the current
+application, so MapLibre remains the production map and no ArcGIS request is
+made. Blocks 22.2 through 22.6 remain separately reviewed and confirmed.
 
 ## Context
 
@@ -67,6 +68,13 @@ Use compatible, exact-pinned 5.1 releases of:
   renderers, and reactive utilities
 - `@esri/calcite-components` only as required by the selected ArcGIS component
   release
+
+Block 22.1 pins `@arcgis/core@5.1.20`,
+`@arcgis/map-components@5.1.20`, and
+`@esri/calcite-components@5.1.2`. The map-components peer contract is Core
+`^5.1.0` and Calcite `^5.1.1`. The deprecated React wrapper is not installed.
+The indirect `@vaadin/vaadin-usage-statistics` build script is explicitly
+denied by the workspace build allowlist.
 
 Create an `arcgis-map` host inside the existing map container and add an
 `arcgis-zoom` component in the current top-right control position. Do not add a

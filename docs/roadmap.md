@@ -15,8 +15,8 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Block 22.0 is complete in documentation only; Blocks 22.1-22.6 are
-planned on `refactor/arcgis-migration` and remain separately confirmed. Block
+complete. Blocks 22.0-22.1 are complete; Blocks 22.2-22.6 are planned on
+`refactor/arcgis-migration` and remain separately confirmed. Block
 21.8 closed its offline, disposable migration, authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
 AWS metadata-only gates. The repository currently contains:
@@ -953,6 +953,15 @@ Planned sub-block mapping:
 2. `22.1` Add exact compatible ArcGIS 5.1 packages, component registration,
    basemap-key configuration, and missing/invalid-key tests. Keep MapLibre as
    the user-visible default and make no real ArcGIS request in automated tests.
+   **Complete in code and offline verification:** exact Core 5.1.20,
+   map-components 5.1.20, and Calcite 5.1.2 dependencies are pinned. The
+   isolated runtime registers only the map and zoom components, applies a
+   strictly validated key only to `apiKeys.basemapStyles`, and includes React
+   19 JSX types. The indirect Vaadin usage-statistics build script is denied.
+   Thirteen new tests, 31 focused tests, all 927 repository tests, full
+   typecheck, and production builds pass. The current bundle and CSP remain
+   MapLibre/OpenFreeMap-only, and no ArcGIS request or credential exposure
+   occurred.
 3. `22.2` Implement the ArcGIS listing-map driver with the navigation basemap,
    listing graphics, selection hit testing, fit/focus behavior, resize,
    bounded startup failure, retry, and idempotent teardown. Do not cut over the
