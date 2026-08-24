@@ -15,10 +15,11 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.6 are complete on `refactor/arcgis-migration`; the
-ArcGIS migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance and is ready for the repository owner to
-merge into `main`. Block 21.8 closed its offline, disposable migration,
+complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
+migration passed automated, desktop/mobile, CAL FIRE, Console, network,
+credential, and bundle acceptance. Block 23.0 is complete in documentation on
+`feature/3d-fire-terrain`; Block 23.1 remains separately gated. Block 21.8
+closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
 AWS metadata-only gates. The repository currently contains:
@@ -1071,3 +1072,67 @@ See the
 [Block 22 ArcGIS Map-Engine Migration Knowledge Base](knowledge-base/block-22-arcgis-map-engine-migration.md)
 and
 [ADR 0010: ArcGIS Map-Engine Migration](adr/0010-arcgis-map-engine-migration.md).
+
+### Block 23: 3D Fire Terrain Context
+
+Add an optional `3D Terrain` mode to the authenticated Listings map. The mode
+will render the existing residential listings and the existing CAL FIRE Fire
+Hazard Severity Zone release against ArcGIS real-world terrain/elevation so an
+operator can visually understand the surrounding topography.
+
+This is contextual visualization, not a new fire-risk model. The same tracked,
+strictly validated CAL FIRE artifact remains authoritative. Its `moderate`,
+`high`, and `very-high` values are rendered without reclassification,
+interpolation, elevation adjustment, slope scoring, buffering, or prediction.
+Terrain does not change whether a property is inside, near, or outside a hazard
+polygon, and the application does not produce a property risk score.
+
+The accepted product direction keeps 2D as the default and adds one explicit
+2D/3D mode control. Only one ArcGIS view may be active at a time. The 3D mode is
+read-only for map exploration; starting or resuming manual listing placement
+uses the existing 2D workflow. No API, database, worker, alert, RentCast,
+Telegram, Showing List, authentication, or AWS contract changes.
+
+Planned sub-block mapping:
+
+1. `23.0` Freeze the product semantics, authority boundary, single-view
+   architecture, security/cost gates, failure behavior, rollback, tests, and
+   acceptance criteria. **Complete in documentation only:** ADR 0011 and the
+   Block 23 knowledge base are accepted. No runtime source, dependency,
+   credential, network service, database, or AWS resource changed.
+2. `23.1` Run a provider and browser capability precheck for `arcgis-scene`,
+   `world-elevation`, API-key privileges/referrers, exact network origins, CSP,
+   attribution, service terms, and expected usage/cost. Any credentialed ArcGIS
+   request requires fresh confirmation and must not print the key.
+3. `23.2` Add the mode-neutral 2D/3D controller seam and accessible mode control
+   with injected fake drivers. Preserve React-owned listings, selection,
+   wildfire visibility, retries, and one-active-view lifecycle. Keep the real
+   3D implementation non-default.
+4. `23.3` Add the non-default ArcGIS local-scene adapter with World Elevation,
+   current-basemap continuity, terrain-aware listing graphics, camera fit,
+   focus, selection hit testing, resize, capability failure, and idempotent
+   teardown. Do not add CAL FIRE rendering yet.
+5. `23.4` Drape the same validated CAL FIRE `GeoJSONLayer` on terrain with the
+   existing three severity classes, colors, opacity hierarchy, provenance,
+   lazy loading, retry, layer ordering, and no extrusion or derived analysis.
+6. `23.5` Enable the user-visible mode switch and complete draft-mode routing,
+   2D fallback, terrain-context disclosure, keyboard/accessibility behavior,
+   responsive layouts, and state replay across mode changes.
+7. `23.6` Complete the least-privilege API-key/CSP integration, provider network
+   audit, bundle delta, WebGL-context and memory audit, automatic ArcGIS quality
+   behavior, and supported-device fallback. Do not broaden origins or privileges
+   beyond observed need.
+8. `23.7` Run full tests, typecheck, builds, desktop/mobile visual acceptance,
+   screenshot and nonblank WebGL/canvas checks, camera interaction, Console and
+   Network inspection, CAL FIRE semantic parity, security review, and rollback
+   verification. Update as-built documentation and leave the merge into
+   `main` to the repository owner.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 23 does not call RentCast, connect to PostgreSQL, send
+Telegram, mutate AWS resources, enable a schedule, or deploy.
+
+See the
+[Block 23 3D Fire Terrain Knowledge Base](knowledge-base/block-23-3d-fire-terrain.md)
+and
+[ADR 0011: Optional 3D Fire Terrain Context](adr/0011-3d-fire-terrain-context.md).
