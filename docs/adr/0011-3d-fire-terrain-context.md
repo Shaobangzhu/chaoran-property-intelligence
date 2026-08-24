@@ -2,10 +2,11 @@
 
 ## Status
 
-Accepted for implementation planning. Block 23.0 records the product,
-authority, rendering, lifecycle, security, cost, and acceptance boundaries.
-Executable work begins only after a separately confirmed Block 23.1 provider
-and browser precheck.
+Accepted. Block 23.0 records the product, authority, rendering, lifecycle,
+security, cost, and acceptance boundaries. Block 23.1 completed the separately
+approved provider/browser precheck and confirmed the proposed ArcGIS local
+scene plus World Elevation path on the target development device. Block 23.2
+remains separately gated.
 
 ## Context
 
@@ -127,21 +128,33 @@ semantics.
 
 ### Gate credentials, network, cost, and browser capability
 
-Block 23.1 must verify the exact ArcGIS privilege required for World Elevation,
-the current account entitlement and usage model, approved referrers, visible
-attribution, and all requested origins before implementation is enabled.
+Block 23.1 verified that `arcgis-scene` can load World Elevation while the
+existing browser key remains configured only in
+`esriConfig.apiKeys.basemapStyles`. The scene path does not call the separate
+numeric ArcGIS Elevation API and does not require the
+`premium:user:elevation` privilege for this implementation. Existing approved
+basemap referrers continue to protect the browser credential.
 
 Continue to treat `VITE_ARCGIS_API_KEY` as a browser credential, not a hidden
-secret. Prefer one least-privilege, referrer-restricted browser key with only
-the basemap and elevation privileges actually required. Do not add a second key
-or set a global ArcGIS credential by default. The exact SDK configuration is a
-Block 23.1 decision because the current runtime deliberately scopes the key to
-basemap styles.
+secret. Keep one least-privilege, referrer-restricted browser key with the
+existing basemap privilege. Do not add an elevation privilege, a second key, or
+a global ArcGIS credential for Block 23. The current runtime deliberately
+scopes the key to basemap styles.
 
-Update Content Security Policy only from observed requests. Add exact elevation
-or scene origins as needed; do not add `*.arcgis.com`, a permissive wildcard,
-or an unreviewed portal/analytics origin. Never log the key or include it in UI
-errors, tests, screenshots, documentation, or build reports.
+Update Content Security Policy only from observed requests. The accepted
+candidate adds `https://elevation3d.arcgis.com` to `connect-src` and changes no
+other directive. Do not add `elevation-api.arcgis.com`, `*.arcgis.com`,
+`'unsafe-eval'`, a permissive wildcard, or an unreviewed portal/analytics
+origin. Never log the key or include it in UI errors, tests, screenshots,
+documentation, or build reports. Block 23.6 applies and rechecks the production
+policy after the non-default scene exists.
+
+The ArcGIS numeric Elevation API publishes a separate per-returned-point price.
+Block 23 does not call it, so that transaction category is not part of this
+feature. Terrain3D tile transfer and existing basemap usage remain subject to
+the applicable ArcGIS account terms and will be reviewed against provider usage
+reporting in Block 23.6; this ADR does not claim that external map traffic is
+universally free.
 
 ### Preserve operational boundaries
 
@@ -195,6 +208,7 @@ valid; no data migration or cloud rollback is required.
 ## References
 
 - [ArcGIS scene component](https://developers.arcgis.com/javascript/latest/references/map-components/components/arcgis-scene/)
+- [Display a scene tutorial](https://developers.arcgis.com/javascript/latest/tutorials/display-a-scene/)
 - [Introduction to 3D visualization](https://developers.arcgis.com/javascript/latest/scenes-3d/)
 - [SceneView](https://developers.arcgis.com/javascript/latest/references/core/views/SceneView/)
 - [Ground](https://developers.arcgis.com/javascript/latest/references/core/Ground/)
@@ -203,5 +217,6 @@ valid; no data migration or cloud rollback is required.
 - [ArcGIS Maps SDK FAQ and WebGL guidance](https://developers.arcgis.com/javascript/latest/faq/)
 - [API key authentication](https://developers.arcgis.com/documentation/security-and-authentication/api-key-authentication/)
 - [Create an API key with elevation privileges](https://developers.arcgis.com/documentation/security-and-authentication/api-key-authentication/tutorials/create-an-api-key/location-platform/)
+- [Numeric ArcGIS Elevation service and pricing](https://developers.arcgis.com/rest/elevation/)
 - [ADR 0007: Wildfire Hazard Overlay](0007-wildfire-hazard-overlay.md)
 - [ADR 0010: ArcGIS Map-Engine Migration](0010-arcgis-map-engine-migration.md)

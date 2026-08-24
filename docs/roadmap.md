@@ -17,8 +17,8 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Block 23.0 is complete in documentation on
-`feature/3d-fire-terrain`; Block 23.1 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.1 are complete on
+`feature/3d-fire-terrain`; Block 23.2 remains separately gated. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1103,7 +1103,20 @@ Planned sub-block mapping:
 2. `23.1` Run a provider and browser capability precheck for `arcgis-scene`,
    `world-elevation`, API-key privileges/referrers, exact network origins, CSP,
    attribution, service terms, and expected usage/cost. Any credentialed ArcGIS
-   request requires fresh confirmation and must not print the key.
+   request requires fresh confirmation and must not print the key. **Complete
+   in a controlled local/provider audit:** exact ArcGIS 5.1.20 dependencies
+   remain compatible; the M4/16 GB/Chrome 151 test device reports WebGL2 and a
+   ready local scene with one real World Elevation ground layer and no runtime
+   error. Authorized Terrain3D metadata and one Corona-area LERC tile returned
+   HTTP 200 without exposing the key. The browser succeeded while the key
+   remained scoped only to basemap styles, so no elevation privilege, second
+   key, or numeric Elevation API is required. The only new CSP origin candidate
+   is `https://elevation3d.arcgis.com` in `connect-src`; a production-equivalent
+   probe passed without a wildcard or `'unsafe-eval'`. One nonfatal ArcGIS
+   config-bundle `eval` attempt remained blocked during Vite development and is
+   retained as a Block 23.6 production-build regression check. No committed
+   runtime source, credential, CSP, dependency, backend, database, or AWS
+   resource changed.
 3. `23.2` Add the mode-neutral 2D/3D controller seam and accessible mode control
    with injected fake drivers. Preserve React-owned listings, selection,
    wildfire visibility, retries, and one-active-view lifecycle. Keep the real

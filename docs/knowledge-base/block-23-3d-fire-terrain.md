@@ -2,16 +2,17 @@
 
 ## Status
 
-Block 23.0 is complete in documentation only on
-`feature/3d-fire-terrain`. The product semantics, authority boundary,
-architecture, provider/security gates, implementation sequence, test strategy,
-rollback, and acceptance criteria are frozen. Block 23.1 requires a fresh
-explanation and explicit confirmation before any credentialed ArcGIS request
-or runtime change.
+Blocks 23.0 and 23.1 are complete on `feature/3d-fire-terrain`. The product
+semantics, authority boundary, architecture, provider/security decisions,
+implementation sequence, test strategy, rollback, and acceptance criteria are
+frozen. The separately approved 23.1 provider/browser precheck passed. Block
+23.2 requires a fresh explanation and explicit confirmation before runtime
+implementation.
 
-No source code, dependency, browser credential, Content Security Policy,
-network service, database, AWS resource, schedule, RentCast quota, or Telegram
-delivery changed in Block 23.0.
+No committed source code, dependency, browser credential, Content Security
+Policy, database, AWS resource, schedule, RentCast quota, or Telegram delivery
+changed in Blocks 23.0-23.1. Temporary local probe files and services were
+removed after evidence collection.
 
 ## Product Question
 
@@ -268,20 +269,24 @@ only for basemap styles. It is a public browser credential protected by
 least-privilege service permissions, approved HTTP referrers, rotation, and
 monitoring.
 
-Block 23.1 must determine and record:
+Block 23.1 determined and recorded:
 
-- whether the current credential has the ArcGIS elevation privilege
-- the exact SDK configuration needed to authorize World Elevation without
-  broadening the key to unrelated services
+- the scene can load World Elevation while the current credential remains
+  scoped only to Basemap Styles
+- no numeric Elevation API call or `premium:user:elevation` privilege is needed
+  for the accepted terrain-visualization path
+- the exact SDK credential boundary remains
+  `esriConfig.apiKeys.basemapStyles`; it is not broadened globally
 - approved local and production referrers
-- the applicable account entitlement, usage accounting, free allowance, and
-  expected cost for scene terrain tiles
-- whether a separate browser key is materially safer than one key with two
-  minimum privileges
+- the numeric ArcGIS Elevation API has a separate returned-point price category
+  that does not apply because Block 23 never calls that API
+- Terrain3D tile traffic and existing basemap usage remain subject to account
+  terms and receive a provider usage-dashboard review in Block 23.6
+- a second browser key is unnecessary for this feature
 
-The default is one restricted browser key. Do not add a second environment
-variable, change `.env.local`, update GitHub configuration, or change AWS
-Secrets Manager during Block 23.0.
+Keep one restricted browser key. Do not add a second environment variable,
+change `.env.local`, update GitHub configuration, or change AWS Secrets Manager
+for Block 23.
 
 ### Network and CSP
 
@@ -300,6 +305,19 @@ The Block 23.1/23.6 browser audit must:
   value, or backend secret is sent to ArcGIS
 - confirm the browser key is never printed in logs or committed evidence
 
+Block 23.1 accepted one new external origin candidate:
+
+```text
+connect-src https://elevation3d.arcgis.com
+```
+
+The temporary production-equivalent CSP probe loaded the scene and terrain
+without any ArcGIS wildcard, `elevation-api.arcgis.com`, or `'unsafe-eval'`.
+One `script-src: eval` attempt from the local Vite-optimized ArcGIS config
+bundle was blocked; the scene still became ready with no runtime error. The
+policy will not be weakened for this optional code path. Block 23.6 repeats the
+check against production assets.
+
 Terrain requests necessarily reveal the viewed geographic extent to the map
 provider. They do not need listing payloads or user identity.
 
@@ -308,9 +326,62 @@ provider. They do not need listing payloads or user identity.
 Automated tests use injected fakes and local fixtures. They make no ArcGIS,
 CAL FIRE upstream, RentCast, Telegram, PostgreSQL, or AWS request.
 
-Any credentialed Block 23.1 provider probe requires a fresh explanation and
-explicit approval immediately before execution. Evidence records status,
-origin, privilege outcome, and request count without recording the token.
+The credentialed Block 23.1 provider probe received explicit approval before
+execution. Evidence records status, origin, privilege outcome, and request
+count without recording the token. Future credentialed or production probes
+still require a fresh explanation and approval.
+
+## Block 23.1 Evidence
+
+### Official capability review
+
+- `arcgis-scene` 5.1 supports a scene created without a WebScene item, a local
+  viewing mode, `ground="world-elevation"`, camera attributes, and core layers.
+- World Elevation resolves to the Terrain3D tiled elevation service used by
+  SceneView ground.
+- ArcGIS 5.1 requires a supported 64-bit WebGL2 browser, at least 8 GB desktop
+  memory, and recommends automatic SceneView quality selection.
+- each `MapView` or `SceneView` consumes one WebGL2 context, validating the
+  one-active-view design.
+
+### Local capability audit
+
+The 2026-08-24 development device has an Apple M4 GPU, 16 GB memory, macOS
+26.6.2, and Chrome 151. The controlled page reported:
+
+```text
+sceneReady: true
+viewingMode: local
+webgl2: true
+groundLayerCount: 1
+errorCount: 0
+```
+
+User-provided visual evidence confirmed a nonblank oblique scene, nonflat
+terrain around Chino Hills/Pomona/Ontario, a legible navigation basemap, and
+working zoom controls.
+
+### Provider audit
+
+The approved service-level probe sent the existing browser credential only in
+an authorization header and never printed it:
+
+| Request | Result |
+| --- | --- |
+| Terrain3D ImageServer metadata | HTTP 200, ArcGIS Server 11.5, `Image,Tilemap,Mensuration` |
+| Corona-area Terrain3D tile, level 10 | HTTP 200, `application/octet-stream`, 80,624 bytes |
+
+The browser then loaded the same ground while application code configured the
+key only for basemap styles. This proves the accepted rendering path does not
+need a global key, a second key, or a numeric Elevation API request.
+
+### Deferred confirmations
+
+- final ArcGIS attribution placement is verified in the integrated responsive
+  scene during Blocks 23.5 and 23.7
+- production-build CSP/eval behavior, exact request inventory, asset delta,
+  repeated-view memory, and provider usage dashboard are Block 23.6 gates
+- CAL FIRE terrain draping is not part of 23.1 and remains Block 23.4
 
 ## Performance and Compatibility
 
@@ -442,6 +513,17 @@ Complete in this change:
   behavior
 - make no user-visible feature cutover
 
+**Complete:** official 5.1 capability and system requirements were reviewed;
+the target M4/16 GB/Chrome 151 device passed WebGL2 and rendered one ready local
+scene over real Terrain3D ground. Authorized metadata and one terrain tile
+returned HTTP 200 without exposing the key. The existing basemap-only key scope
+is sufficient for the chosen scene path; no numeric Elevation API, elevation
+privilege, second key, or new environment variable is required. The only new
+CSP candidate is exact `https://elevation3d.arcgis.com` in `connect-src`.
+Temporary probe files and localhost services were removed. No user-visible
+feature, committed runtime source, credential, production policy, dependency,
+backend, database, or AWS resource changed.
+
 ### Block 23.2: Mode and lifecycle seam
 
 - add the `2D` / `3D Terrain` state and accessible control
@@ -527,6 +609,7 @@ or cloud resource change.
 ## Sources
 
 - [ArcGIS scene component](https://developers.arcgis.com/javascript/latest/references/map-components/components/arcgis-scene/)
+- [Display a scene tutorial](https://developers.arcgis.com/javascript/latest/tutorials/display-a-scene/)
 - [Introduction to 3D visualization](https://developers.arcgis.com/javascript/latest/scenes-3d/)
 - [SceneView](https://developers.arcgis.com/javascript/latest/references/core/views/SceneView/)
 - [Ground and World Elevation](https://developers.arcgis.com/javascript/latest/references/core/Ground/)
@@ -535,5 +618,6 @@ or cloud resource change.
 - [ArcGIS Maps SDK FAQ](https://developers.arcgis.com/javascript/latest/faq/)
 - [API key authentication](https://developers.arcgis.com/documentation/security-and-authentication/api-key-authentication/)
 - [API key elevation privilege tutorial](https://developers.arcgis.com/documentation/security-and-authentication/api-key-authentication/tutorials/create-an-api-key/location-platform/)
+- [Numeric ArcGIS Elevation service and pricing](https://developers.arcgis.com/rest/elevation/)
 - [Block 19 Wildfire Hazard Overlay](block-19-wildfire-hazard-overlay.md)
 - [Block 22 ArcGIS Map-Engine Migration](block-22-arcgis-map-engine-migration.md)
