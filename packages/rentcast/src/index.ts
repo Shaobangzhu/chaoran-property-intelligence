@@ -1,11 +1,15 @@
 export {
+  defaultRentCastSaleListingsSearchArea,
   defaultRentCastSaleListingsSearchCriteria,
   rentCastSaleListingPropertyTypes,
   RentCastSaleListingsClient,
   type RentCastListingsPort,
+  type RentCastRadiusSearchArea,
   type RentCastSaleListingsCoveragePage,
   type RentCastSaleListingsPage,
+  type RentCastSaleListingsSearchArea,
   type RentCastSaleListingsSearchCriteria,
   type RentCastSaleListing,
   type RentCastSaleListingPropertyType,
+  type RentCastZipSearchArea,
 } from "./rentCastSaleListingsClient.js";

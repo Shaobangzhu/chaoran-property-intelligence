@@ -8,12 +8,14 @@ fixture-gated second audit proved that RentCast classifies every matching ZIP
 `91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
 therefore failed closed. The product/domain decision is now accepted:
 `Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
-and provider city `Valencia` remains unchanged. Block 24.2 is complete: the
-version-1 Domain market set now contains six choices, the shared matcher applies
-exact-city semantics to the original five markets and ZIP semantics to
-Stevenson Ranch, and existing five-market profiles remain unchanged. No
-production RentCast source, persisted search profile, database, Telegram
-message, AWS resource, schedule, or deployment changed.
+and provider city `Valencia` remains unchanged. Blocks 24.2 and 24.3 are
+complete: the version-1 Domain market set now contains six choices, the shared
+matcher applies exact-city semantics to the original five markets and ZIP
+semantics to Stevenson Ranch, and the RentCast client now accepts typed radius
+or ZIP search areas. Existing five-market profiles and the default Brea
+production geography remain unchanged. No conditional production source
+routing, persisted search profile, database, Telegram message, AWS resource,
+schedule, or deployment changed.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -372,11 +374,34 @@ Verification completed for this sub-block:
 
 ### Block 24.3: Typed RentCast geography
 
-- add the radius/ZIP search-area union to `packages/rentcast`
-- remove the hidden hard-coded geography from URL construction
-- create exact radius and ZIP query parameters through `URLSearchParams`
-- preserve filters, 500 limit, total count, timeout, parser, and key header
-- add URL, validation, timeout, HTTP, and response tests without a real request
+**Complete.** The implementation:
+
+- added and exported discriminated radius/ZIP search-area types from
+  `packages/rentcast`
+- exported the existing Brea address and 20-mile radius as the frozen default
+  area, preserving all existing callers and production request geography
+- moved geography projection out of hidden URL literals and into the typed
+  request contract
+- emits only `address` and `radius` for radius areas, or only `zipCode` for ZIP
+  areas
+- rejects blank radius addresses, non-positive or non-integer radii, malformed
+  ZIP values, unknown area kinds, and non-object areas before `fetch`
+- preserved CA, Active, property filters, 500 limit, total-count header,
+  timeout, response parser, response-size accounting, and `X-Api-Key` behavior
+
+The regular client and isolated coverage-audit method both accept an optional
+typed area after their existing criteria argument. Omitting it resolves to the
+exported Brea default. This compatibility boundary lets Block 24.4 pass one or
+two explicit areas without changing the HTTP client again.
+
+Verification completed for this sub-block:
+
+- 32 RentCast client tests passed, including 10 new geography-contract tests
+- 42 targeted RentCast and directly dependent worker/integration tests passed
+- all 112 test files and all 1019 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production web bundle
+- no real RentCast request or other external side effect occurred
 
 ### Block 24.4: Conditional multi-area source
 

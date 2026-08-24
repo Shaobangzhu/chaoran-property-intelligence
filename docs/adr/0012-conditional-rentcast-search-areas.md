@@ -5,8 +5,9 @@
 Accepted. The Block 24.1B provider audit confirmed that ZIP `91381` listings
 are labeled `Valencia` by RentCast. The product decision keeps `Stevenson
 Ranch` as the selectable market, matches that market by ZIP, and preserves the
-provider city unchanged. Remaining runtime implementation is separately
-confirmed by sub-block.
+provider city unchanged. Block 24.3 implements the typed radius/ZIP client
+contract and exports the existing Brea radius as its compatible default.
+Conditional source routing remains separately confirmed by sub-block.
 
 ## Context
 
@@ -27,6 +28,11 @@ Keep the existing Brea radius for the original five cities and add ZIP `91381`
 for Stevenson Ranch. Select required areas from the persisted Domain cities:
 one request for either area alone and two sequential requests for a mixed
 profile.
+
+The RentCast client accepts the typed area independently from its property
+criteria. Radius requests emit only `address` and `radius`; ZIP requests emit
+only `zipCode`. Both retain the existing California, Active, property filter,
+500-result, total-count, timeout, parser, and API-key-header contracts.
 
 Validate every area independently against the 500-result completeness gate.
 Do not pass partial success into the application workflow. Flatten results only

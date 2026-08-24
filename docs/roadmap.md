@@ -18,13 +18,14 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0, 24.1A, 24.1B, and 24.2 are complete on
+into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, and 24.3 are complete on
 `feat/add-new-city-stevensonranch`. The controlled provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
 while preserving provider city `Valencia`. Block 24.2 added the sixth
 version-1 product market and exact-city/or-ZIP Domain matcher without migrating
-existing five-market profiles; Block 24.3 is next. Block 21.8
+existing five-market profiles. Block 24.3 added typed radius/ZIP RentCast
+geography while preserving the Brea default; Block 24.4 is next. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1275,6 +1276,10 @@ Planned sub-block mapping:
    build pass without an external request.
 4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its
    strict URL, timeout, parser, key-header, and completeness contracts.
+   **Complete:** the client accepts validated, mutually exclusive radius/ZIP
+   areas, exports the current Brea radius as its compatible default, and passes
+   42 targeted tests, all 1019 repository tests, root typecheck, and root build
+   without a real provider request.
 5. `24.4` Implement conditional one/two-area source routing, sequential fetch,
    all-or-nothing failure, and existing canonical-address reconciliation.
 6. `24.5` Wire persisted criteria into production acquisition areas and update
