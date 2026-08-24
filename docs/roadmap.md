@@ -17,9 +17,10 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.7 are complete on
-`feature/3d-fire-terrain`; Block 23 is merge-ready and the repository owner
-retains the merge into `main`. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
+into `main`. Block 24.0 is complete in documentation only on
+`feat/add-new-city-stevensonranch`; executable implementation and provider
+requests remain separately confirmed. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1214,3 +1215,55 @@ See the
 [Block 23 3D Fire Terrain Knowledge Base](knowledge-base/block-23-3d-fire-terrain.md)
 and
 [ADR 0011: Optional 3D Fire Terrain Context](adr/0011-3d-fire-terrain-context.md).
+
+### Block 24: Stevenson Ranch RentCast Coverage
+
+Add `Stevenson Ranch`, California `91381` as a sixth selectable listing market
+without weakening the existing RentCast page-completeness, Domain eligibility,
+price-drop, revision-baseline, or notification guarantees.
+
+The current Brea 20-mile request remains the acquisition area for Chino, Chino
+Hills, Eastvale, Corona, and Jurupa Valley. A separately bounded ZIP `91381`
+request covers Stevenson Ranch. Existing-only or Stevenson-only profiles issue
+one provider request; mixed profiles issue two sequential requests. Every page
+must independently remain below the 500-result cap, and one failed area fails
+the whole source read before persistence or Telegram delivery.
+
+The criteria schema remains version 1. Existing profiles are not silently
+rewritten; the operator opts in by selecting Stevenson Ranch and saving. The
+search-revision baseline prevents historical inventory from becoming new-
+listing notifications. The additional area can double requests per worker run,
+so quota and future schedule cadence remain explicit operational gates.
+
+Block 24 does not expand the tracked five-city CAL FIRE artifact, create a new
+hazard model, migrate the database, alter AWS, enable a schedule, deploy, send
+Telegram, or mutate the production profile.
+
+Planned sub-block mapping:
+
+1. `24.0` Freeze product, provider-area, quota, compatibility, failure,
+   security, rollout, rollback, test, and acceptance boundaries. **Complete in
+   documentation only:** ADR 0012 and the Block 24 knowledge base are accepted.
+   No runtime source or external system changed.
+2. `24.1` Verify the official ZIP query contract and, after separate approval,
+   execute exactly one real aggregate-only RentCast coverage audit for `91381`.
+3. `24.2` Add Stevenson Ranch to the version-1 Domain city set and prove
+   backward compatibility with existing five-city profiles.
+4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its
+   strict URL, timeout, parser, key-header, and completeness contracts.
+5. `24.4` Implement conditional one/two-area source routing, sequential fetch,
+   all-or-nothing failure, and existing canonical-address reconciliation.
+6. `24.5` Wire persisted criteria into production acquisition areas and update
+   per-area/combined coverage audit reporting without changing AWS or schedule.
+7. `24.6` Expose the sixth city through the existing API and React criteria UI,
+   preserving revision, accessibility, responsive, and conflict behavior.
+8. `24.7` Run fake multi-area integration, full automated/browser acceptance,
+   quota and security review, as-built documentation, and the final merge gate.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation.
+
+See the
+[Block 24 Stevenson Ranch RentCast Coverage Knowledge Base](knowledge-base/block-24-stevenson-ranch-rentcast-coverage.md)
+and
+[ADR 0012: Conditional RentCast Search Areas](adr/0012-conditional-rentcast-search-areas.md).
