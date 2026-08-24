@@ -15,9 +15,11 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.5 are complete; Block 22.6 is planned on
-`refactor/arcgis-migration` and remains separately confirmed. Block
-21.8 closed its offline, disposable migration, authenticated HTTP, React
+complete. Blocks 22.0-22.6 are complete on `refactor/arcgis-migration`; the
+ArcGIS migration passed automated, desktop/mobile, CAL FIRE, Console, network,
+credential, and bundle acceptance and is ready for the repository owner to
+merge into `main`. Block 21.8 closed its offline, disposable migration,
+authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
 AWS metadata-only gates. The repository currently contains:
 
@@ -1040,7 +1042,25 @@ Planned sub-block mapping:
 7. `22.6` Run full tests, typecheck, builds, desktop/mobile browser acceptance,
    WebGL/canvas and network inspection, API-key restriction review, and bundle
    delta recording. Update as-built documentation and leave the merge into
-   `main` to the repository owner after acceptance.
+   `main` to the repository owner after acceptance. **Complete:** all 950 tests
+   across 107 files, full runtime/CDK typecheck, and a synthetic-key production
+   build pass. User-confirmed desktop/mobile acceptance preserves the ArcGIS
+   basemap, listing selection and framing, manual draft workflow, CAL FIRE
+   three-severity overlay, provenance, disclosures, and responsive layout. The
+   browser audit exposed and closed two least-privilege CSP gaps: exact ArcGIS
+   SDK/static/CDN origins and `connect-src blob:` for the validated local
+   `GeoJSONLayer`. It contains no wildcard or OpenFreeMap origin. A React
+   StrictMode teardown race was reproduced with a regression test and fixed by
+   waiting for `componentOnReady()` before destroying an unmounted component;
+   the user confirmed a clean Console after hard refresh. The observed Network
+   panel contains the expected ArcGIS and same-origin artifact requests and no
+   OpenFreeMap request. The final 1,090-asset build has a 1,438.27 kB raw /
+   360.43 kB gzip main asset and 303 preload links; the known large-chunk
+   advisory remains. Approved and rejected referrer probes returned HTTP 200
+   and HTTP 401/ArcGIS 498 respectively, no real key was logged, and a
+   synthetic-key audit found no real local key in the build. No backend,
+   database, RentCast, Telegram, AWS, schedule, or deployment operation
+   occurred.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 22 does not call RentCast, connect to PostgreSQL, send

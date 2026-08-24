@@ -369,8 +369,14 @@ export function createArcgisListingsMapWithDependencies(
       draftLayer.removeAll();
       graphicsByListingId.clear();
       draftGraphic = null;
+      const componentReady = mapElement.componentOnReady();
       mapElement.remove();
-      void mapElement.destroy().catch(() => undefined);
+      void componentReady
+        .then(
+          () => mapElement.destroy(),
+          () => mapElement.destroy(),
+        )
+        .catch(() => undefined);
     },
   };
 

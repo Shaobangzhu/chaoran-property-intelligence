@@ -16,8 +16,9 @@ CAL FIRE lifecycle from renderer ownership and adds a tested Blob-backed ArcGIS
 rollback, retry, Abort, and layer-order parity. Block 22.5 switches the default
 factory to ArcGIS, removes MapLibre/OpenFreeMap and their browser artifacts,
 and restricts CSP to the observed ArcGIS style, tile/glyph, and sprite origins.
-ArcGIS is now the sole production map engine. Block 22.6 remains separately
-reviewed and confirmed as the browser acceptance and merge gate.
+ArcGIS is now the sole production map engine. Block 22.6 passed full automated,
+desktop/mobile, CAL FIRE, Console, network, API-key restriction, and production
+bundle acceptance. The migration branch is ready for its owner to merge.
 
 ## Context
 
@@ -164,8 +165,11 @@ runtime.
 Remove the OpenFreeMap origin only at cutover. Update the web Content Security
 Policy from observed ArcGIS 5.1 browser requests, not from a broad wildcard.
 ArcGIS WebAssembly requires `'wasm-unsafe-eval'` in `script-src`, and workers
-require the existing `blob:` allowance. Preserve same-origin API, hazard
-artifact, and session behavior.
+require the existing `blob:` allowance. The accepted policy names the ArcGIS
+style, basemap, SDK, static-asset, and CDN origins explicitly and permits
+`connect-src blob:` for the validated local `GeoJSONLayer`; it contains no
+ArcGIS wildcard. Preserve same-origin API, hazard artifact, and session
+behavior.
 
 Keep ArcGIS attribution visible. The acceptance audit must confirm that no
 OpenFreeMap request remains, that only expected ArcGIS asset and basemap origins
@@ -177,7 +181,10 @@ appears in logs or error messages.
 Every SDK event handle, reactive watcher, object URL, layer, component, and DOM
 node created by the adapter has one teardown owner. `destroy()` is idempotent
 and must prevent stale async completion from mutating an unmounted or retried
-map.
+map. Because ArcGIS map components load lazily, unmount removes the host from
+the DOM immediately but waits for `componentOnReady()` to settle before calling
+the component's `destroy()`. This avoids destroying Lumina controllers while a
+late `loaded()` callback is still binding properties under React StrictMode.
 
 Keep MapLibre available while the ArcGIS adapter reaches automated and manual
 parity. After the parity gate passes, switch the default factory and remove the
@@ -196,8 +203,9 @@ a permanent runtime flag or dual-engine compatibility layer.
 - The static same-origin CAL FIRE publication model remains reproducible and
   independent from ArcGIS hosted GIS data services.
 - Bundle size and network origins will change. Block 22 records the final delta
-  and treats unexplained or excessive growth as an acceptance failure rather
-  than silently relaxing the budget.
+  as a 1,438.27 kB raw / 360.43 kB gzip main asset, approximately 16.7% raw and
+  9.0% gzip above the pre-cutover main asset. The known Vite large-chunk
+  advisory remains visible rather than silently relaxing the budget.
 - ArcGIS and OpenFreeMap basemaps are not pixel identical, so acceptance is
   based on behavior, readability, hierarchy, and established visual tokens.
 - Rollback is the branch or merge revert. The application does not carry two
@@ -205,7 +213,7 @@ a permanent runtime flag or dual-engine compatibility layer.
 
 ## Supersession
 
-With Block 22.5 complete, this ADR supersedes the MapLibre GL JS and OpenFreeMap
+With Block 22 complete, this ADR supersedes the MapLibre GL JS and OpenFreeMap
 implementation choice in ADR 0003 and the MapLibre-specific rendering details
 in ADR 0007. All product, data, security, and operational decisions in those
 ADRs remain in force unless explicitly restated here.

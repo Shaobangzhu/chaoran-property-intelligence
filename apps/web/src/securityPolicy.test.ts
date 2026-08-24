@@ -10,10 +10,15 @@ describe("web document security policy", () => {
     expect(html).toContain("default-src 'self'");
     expect(html).not.toContain("tiles.openfreemap.org");
     expect(html).toContain(
-      "connect-src 'self' https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com",
+      "connect-src 'self' blob: https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com https://js.arcgis.com https://static.arcgis.com",
     );
     expect(html).not.toContain("https://*.arcgis.com");
-    expect(html).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(html).toContain(
+      "img-src 'self' data: blob: https://cdn.arcgis.com",
+    );
+    expect(html).toContain(
+      "script-src 'self' 'wasm-unsafe-eval' https://js.arcgis.com",
+    );
     expect(html).toContain("object-src 'none'");
     expect(html).toContain("base-uri 'none'");
     expect(html).not.toContain("script-src 'unsafe-inline'");

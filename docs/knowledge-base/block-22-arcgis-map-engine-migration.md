@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 22.0 through 22.5 are complete. The parity contract, target adapter
+Blocks 22.0 through 22.6 are complete. The parity contract, target adapter
 architecture, security boundary, implementation sequence, rollback strategy,
 and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
 basemap-key configuration, a component-registration runtime entry, React 19
@@ -11,10 +11,10 @@ parity, CAL FIRE ArcGIS renderer, and offline tests are present. ArcGIS is now
 the only production map engine. The browser entry registers its components,
 while the reusable runtime and driver remain independently testable.
 
-Block 22.6 remains planned and separately confirmed. The work is
-isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate. Block 22.5 made no backend call, database
-operation, deployment, or AWS operation.
+The final automated and user-confirmed browser acceptance gate passed. The work
+remains isolated on `refactor/arcgis-migration`; the owner will merge it into
+`main`. Block 22 made no backend call, database operation, RentCast request,
+Telegram delivery, deployment, schedule change, or AWS operation.
 
 ## Objective
 
@@ -521,18 +521,41 @@ and 22.6 bundle review.
 
 ### Block 22.6: Acceptance and merge gate
 
-- run full tests, runtime and infrastructure typecheck, and production builds
-- run desktop and mobile browser acceptance against local API/web services
-- inspect the WebGL/canvas output and network requests
-- record final bundle and network-origin deltas
-- verify API-key restrictions and absence from logs/errors
-- update ADR/knowledge base/runbook status with as-built evidence
-- leave merge to the owner after acceptance
+**Status: complete. The branch is ready for its owner to merge.**
 
-The asset count, module-preload count, main-chunk delta, and user-observed map
-behavior require an explicit Block 22.6 decision before merge. Block 22.6 does
-not deploy to AWS unless a later, separate deployment operation
-is explained and explicitly confirmed.
+- Full verification passes: 107 test files with 950 tests, runtime and CDK
+  typecheck, and a synthetic-key production web build.
+- User-confirmed desktop and mobile acceptance covers the nonblank ArcGIS
+  basemap, attribution, list/point selection, fit/focus behavior, responsive
+  framing, manual draft placement/editing, and the CAL FIRE overlay's three
+  severity classes, layer order, metadata, disclosure, and toggle behavior.
+- Browser evidence identified the exact additional ArcGIS 5.1 runtime
+  boundaries. CSP now allows `js.arcgis.com` and `static.arcgis.com` for SDK
+  assets, `cdn.arcgis.com` for images, and `blob:` in `connect-src` for the
+  validated same-origin CAL FIRE `GeoJSONLayer`. Basemap style/tile origins,
+  `'wasm-unsafe-eval'`, and Blob workers remain explicit. There is no ArcGIS
+  wildcard and no OpenFreeMap origin.
+- The observed Network panel contains ArcGIS provider assets and same-origin
+  API/CAL FIRE requests, with no OpenFreeMap request. The browser never queries
+  a CAL FIRE ArcGIS FeatureServer.
+- A repeated `Cannot read properties of undefined (reading 'A')` Console error
+  was traced to React StrictMode unmounting a lazy ArcGIS component before its
+  Lumina lifecycle settled. Teardown now removes the host immediately but
+  defers `destroy()` until `componentOnReady()` settles. A red-green regression
+  test covers early unmount and idempotent destruction, and the user confirmed
+  a clean Console after a hard refresh.
+- The approved local referrer receives HTTP 200 from the navigation basemap
+  style endpoint. An unapproved referrer receives HTTP 401 with ArcGIS code
+  498. The key value was not printed or added to documentation.
+- The final synthetic-key build emits 1,090 JavaScript assets and 303 preload
+  links. Its main asset is 1,438.27 kB raw and 360.43 kB gzip, approximately
+  205.35 kB raw (16.7%) and 29.84 kB gzip (9.0%) above the recorded pre-cutover
+  main asset. The known Vite large-chunk advisory remains. The build contains
+  no MapLibre/OpenFreeMap marker; the synthetic key appears once and the real
+  local key is absent.
+- ArcGIS imports remain confined to `apps/web` behind the engine-neutral map
+  driver. No backend, database, provider, notification, AWS, schedule, or
+  deployment behavior changed.
 
 ## Automated Test Matrix
 
@@ -579,7 +602,7 @@ is explained and explicitly confirmed.
 
 ## Manual Acceptance Checklist
 
-Desktop and mobile acceptance must confirm:
+Desktop and mobile acceptance confirmed:
 
 1. The map is nonblank, correctly framed, and responsive.
 2. ArcGIS attribution is visible and not covered by product controls.

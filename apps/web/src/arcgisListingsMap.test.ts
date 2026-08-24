@@ -653,7 +653,7 @@ describe("ArcGIS listings map driver", () => {
     );
   });
 
-  it("destroys idempotently and ignores late ready completion", async () => {
+  it("defers idempotent destruction until the component lifecycle settles", async () => {
     const harness = createArcgisHarness();
     const driver = createArcgisListingsMapWithDependencies(
       harness.options,
@@ -662,6 +662,10 @@ describe("ArcGIS listings map driver", () => {
 
     driver.destroy();
     driver.destroy();
+    expect(harness.destroyElement).not.toHaveBeenCalled();
+    expect(harness.container.children).toHaveLength(0);
+
+    harness.componentReady.resolve();
     harness.ready.resolve();
     await settlePromises();
 
@@ -705,6 +709,7 @@ function createArcgisHarness(): ArcgisHarness {
   const rawMapElement = document.createElement("div");
   const rawZoomElement = document.createElement("div");
   const viewContainer = document.createElement("div");
+  const componentReady = createDeferred<void>();
   const ready = createDeferred<void>();
   const initializeRuntime = vi.fn();
   const mapAdd = vi.fn();
@@ -730,6 +735,7 @@ function createArcgisHarness(): ArcgisHarness {
   );
 
   Object.assign(rawMapElement, {
+    componentOnReady: vi.fn(() => componentReady.promise),
     destroy: destroyElement,
     goTo,
     hitTest,
@@ -767,6 +773,7 @@ function createArcgisHarness(): ArcgisHarness {
   };
 
   return {
+    componentReady,
     container,
     createWildfireHazardOverlay,
     dependencies,
@@ -798,6 +805,7 @@ function createArcgisHarness(): ArcgisHarness {
 }
 
 interface ArcgisHarness {
+  componentReady: Deferred<void>;
   container: HTMLElement;
   createWildfireHazardOverlay: ReturnType<typeof vi.fn>;
   dependencies: ArcgisListingsMapDependencies;
