@@ -17,9 +17,9 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.6 are complete on
-`feature/3d-fire-terrain`; Block 23.7 remains the final acceptance and merge
-gate. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.7 are complete on
+`feature/3d-fire-terrain`; Block 23 is merge-ready and the repository owner
+retains the merge into `main`. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1196,7 +1196,15 @@ Planned sub-block mapping:
    screenshot and nonblank WebGL/canvas checks, camera interaction, Console and
    Network inspection, CAL FIRE semantic parity, security review, and rollback
    verification. Update as-built documentation and leave the merge into
-   `main` to the repository owner.
+   `main` to the repository owner. **Complete:** the final branch audit contains
+   only `apps/web` and documentation changes. All 973 tests, root typecheck,
+   runtime/web/infrastructure builds, and 9 CAL FIRE artifact tests pass. The
+   production preview returns HTTP 200, retains the exact least-privilege CSP,
+   and does not preload the on-demand scene chunk. The operator confirmed both
+   desktop and mobile browser acceptance, including nonblank terrain, listing
+   selection, CAL FIRE draping, disclosure, attribution, responsive behavior,
+   lifecycle, Console, Network, and fallback criteria. Rollback requires no
+   data or cloud repair. Block 23 is ready for owner-controlled merge.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Block 23 does not call RentCast, connect to PostgreSQL, send

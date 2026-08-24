@@ -15,7 +15,10 @@ draft editing, and added bounded retry/return behavior. Block 23.6 applies the
 exact CSP origin, enforces dynamic scene loading, and passes its automated
 security, bundle, lifecycle, referrer, type, test, and build gates. The operator
 subsequently confirmed that the integrated browser/runtime acceptance criteria
-were met, completing Block 23.6.
+were met, completing Block 23.6. Block 23.7 then passed the final full test,
+typecheck, build, CAL FIRE artifact, production-preview, security, rollback,
+desktop, and operator-confirmed mobile gates. Block 23 is accepted and
+merge-ready; the repository owner retains the merge into `main`.
 
 ## Context
 

@@ -2,7 +2,8 @@
 
 ## Status
 
-Blocks 23.0-23.6 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0-23.7 are complete on `feature/3d-fire-terrain`; Block 23 is
+merge-ready. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
 frozen. The separately approved 23.1 provider/browser precheck passed, and the
@@ -12,6 +13,8 @@ and Block 23.4 added the terrain-draped CAL FIRE renderer and context-only
 disclosure. Block 23.5 connected the reviewed scene adapter to the user-visible
 mode control and completed draft and failure routing. Block 23.6 completed the
 security, network, bundle, lifecycle, and operator-confirmed browser gates.
+Block 23.7 completed the final automated, security, rollback, desktop, and
+mobile acceptance gates. The repository owner retains the merge into `main`.
 
 Blocks 23.3-23.5 registered the exact-pinned SDK's `arcgis-scene` component and
 added tested scene, listing, and CAL FIRE terrain adapters plus the conditional
@@ -775,6 +778,38 @@ and [SceneView performance and quality](https://developers.arcgis.com/javascript
 - compare 2D behavior and CAL FIRE semantics with the frozen baseline
 - update roadmap, ADR, knowledge base, and operator evidence as built
 - leave the branch-to-`main` merge to the repository owner
+
+**Complete:** the final branch audit found 19 changed paths relative to `main`,
+all confined to `apps/web` and `docs`. There is no dependency or lockfile,
+backend, database migration, infrastructure, workflow, environment-file,
+RentCast, Telegram, schedule, or deployment change. `git diff --check` passes,
+and rollback remains either discarding the unmerged feature branch or reverting
+Block 23 after merge; no data or cloud repair is required.
+
+The final accepted run passes all 110 test files and 973 tests, root runtime and
+CDK typecheck, the complete runtime/web/infrastructure production build, and
+all 9 CAL FIRE published-artifact tests. The real-key production build retains
+1,382 JavaScript assets and 312 preloads. Its main asset is 1,455.21 kB raw /
+366.15 kB gzip, while the single on-demand `arcgis-scene` chunk is 1,069.54 kB
+raw / 283.57 kB gzip. The known large-chunk advisory remains visible and was
+not hidden or relaxed.
+
+Read-only production-preview probes returned HTTP 200 for `/` and
+`/api/health`; a preview-origin `/api/auth/me` request without a cookie reached
+authentication and returned the expected HTTP 401. The served policy contains
+the exact Terrain3D origin, no ArcGIS wildcard, no numeric Elevation API origin,
+and no ordinary `unsafe-eval`. The initial HTML does not preload the scene
+chunk, confirming that 3D remains operator-initiated.
+
+The browser-control surface was unavailable for automated screenshots, so no
+browser observation was inferred from source or unit tests. The operator
+confirmed the desktop acceptance during Block 23.6 and separately confirmed
+the mobile acceptance on August 24, 2026. Together those manual gates cover the
+nonblank 2D default, explicit 3D terrain mode, readable listing selection,
+terrain-draped CAL FIRE overlay, source and context-only disclosures,
+attribution, responsive layout, mode lifecycle, Console, Network, and fallback
+behavior. Block 23 therefore satisfies the frozen completion criteria without
+changing CAL FIRE classifications or creating a new hazard model.
 
 ## Completion Criteria
 
