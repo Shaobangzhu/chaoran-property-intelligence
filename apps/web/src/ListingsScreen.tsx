@@ -48,7 +48,10 @@ export interface ListingsScreenProps {
   updateListing?: ManualListingUpdater;
 }
 
-export type ListingsMapViewProps = Omit<ListingsMapProps, "createMap">;
+export type ListingsMapViewProps = Omit<
+  ListingsMapProps,
+  "createMap" | "createTerrainMap"
+>;
 
 type ListingsState =
   | { status: "loading" }

@@ -2,16 +2,18 @@
 
 ## Status
 
-Blocks 23.0 and 23.1 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0, 23.1, and 23.2 are complete on `feature/3d-fire-terrain`. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
-frozen. The separately approved 23.1 provider/browser precheck passed. Block
-23.2 requires a fresh explanation and explicit confirmation before runtime
-implementation.
+frozen. The separately approved 23.1 provider/browser precheck passed, and the
+separately approved 23.2 mode/lifecycle seam passed focused tests and web
+typecheck. Block 23.3 requires a fresh explanation and explicit confirmation.
 
-No committed source code, dependency, browser credential, Content Security
-Policy, database, AWS resource, schedule, RentCast quota, or Telegram delivery
-changed in Blocks 23.0-23.1. Temporary local probe files and services were
+Block 23.2 changed only frontend controller, tests, styles, and documentation.
+No real scene is connected to production, so the existing 2D workspace remains
+the only user-visible mode. No dependency, browser credential, Content Security
+Policy, external request, database, AWS resource, schedule, RentCast quota, or
+Telegram delivery changed. Temporary Block 23.1 probe files and services were
 removed after evidence collection.
 
 ## Product Question
@@ -531,6 +533,28 @@ backend, database, or AWS resource changed.
 - enforce one active driver and generation-safe state replay
 - preserve 2D as default and keep the real 3D adapter unavailable to users
 - add rapid-switch, retry, selection, overlay-desire, and teardown tests
+
+**Complete:** `ListingsMap` owns a session-only mode and selects between the
+existing 2D factory and an optional injected terrain factory. The control uses
+visible `2D` and `3D Terrain` labels, Lucide map/terrain icons, native buttons,
+`aria-pressed`, a labelled group, and stable responsive dimensions. It is
+rendered only when the optional terrain capability exists; production still
+passes no terrain factory and therefore exposes no unfinished control.
+
+The lifecycle effect has one active driver and destroys it before React starts
+the replacement generation. Initial listings and draft presentation are sent
+to every new driver. Readiness replays fit, selected-listing focus, and desired
+CAL FIRE visibility. Desired overlay visibility survives driver replacement,
+while renderer-owned loading state resets. Guards ignore every callback from an
+inactive generation, including selection, draft coordinates, overlay state,
+ready, and error.
+
+Focused `ListingsMap` tests prove the production default, both mode-switch
+directions, exact teardown/create ordering, state replay, stale-callback
+isolation, and retry against the currently selected factory. The focused suite
+passes seven tests and the web TypeScript check passes. No ArcGIS scene module,
+terrain request, provider privilege, CSP origin, dependency, backend, database,
+or AWS resource was added in this block.
 
 ### Block 23.3: Non-default 3D listing scene
 

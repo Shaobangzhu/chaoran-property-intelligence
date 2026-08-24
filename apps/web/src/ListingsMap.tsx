@@ -1,4 +1,11 @@
-import { AlertCircle, Check, MapPin, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  Map as MapIcon,
+  MapPin,
+  Mountain,
+  RefreshCw,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { createArcgisListingsMap } from "./arcgisListingsMap.js";
@@ -26,7 +33,10 @@ export interface ListingsMapProps {
   selectedListingId: string | null;
   onSelect: (listingId: string) => void;
   createMap?: CreateListingsMap;
+  createTerrainMap?: CreateListingsMap;
 }
+
+export type ListingsMapMode = "2d" | "terrain-3d";
 
 export interface DraftMarkerController extends DraftMarkerPresentation {
   onConfirm: () => void;
@@ -39,6 +49,7 @@ export function ListingsMap({
   selectedListingId,
   onSelect,
   createMap = createArcgisListingsMap,
+  createTerrainMap,
 }: ListingsMapProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const driverRef = useRef<ListingsMapDriver | null>(null);
@@ -46,7 +57,9 @@ export function ListingsMap({
   const selectedListingIdRef = useRef(selectedListingId);
   const onSelectRef = useRef(onSelect);
   const draftMarkerRef = useRef(draftMarker);
+  const wildfireHazardEnabledRef = useRef(false);
   const [attempt, setAttempt] = useState(0);
+  const [mode, setMode] = useState<ListingsMapMode>("2d");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -61,6 +74,10 @@ export function ListingsMap({
   selectedListingIdRef.current = selectedListingId;
   onSelectRef.current = onSelect;
   draftMarkerRef.current = draftMarker;
+  const activeCreateMap =
+    mode === "terrain-3d" && createTerrainMap !== undefined
+      ? createTerrainMap
+      : createMap;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -71,27 +88,46 @@ export function ListingsMap({
     let active = true;
     let driver: ListingsMapDriver | null = null;
     setStatus("loading");
-    setWildfireHazardEnabled(false);
     setWildfireHazardState({ status: "idle", visible: false });
 
     try {
-      driver = createMap({
+      driver = activeCreateMap({
         container,
-        onDraftCoordinatesChange: (coordinates) =>
-          draftMarkerRef.current?.onCoordinatesChange(coordinates),
+        onDraftCoordinatesChange: (coordinates) => {
+          if (active) {
+            draftMarkerRef.current?.onCoordinatesChange(coordinates);
+          }
+        },
         onWildfireHazardStateChange: (state) => {
           if (active) {
             setWildfireHazardState(state);
             if (state.status === "error") {
+              wildfireHazardEnabledRef.current = false;
               setWildfireHazardEnabled(false);
             }
           }
         },
-        onSelect: (listingId) => onSelectRef.current(listingId),
+        onSelect: (listingId) => {
+          if (active) {
+            onSelectRef.current(listingId);
+          }
+        },
         onReady: () => {
           if (active) {
             setStatus("ready");
-            driver?.fitToListings(listingsRef.current);
+            const currentListings = listingsRef.current;
+            driver?.fitToListings(currentListings);
+
+            const currentSelection = currentListings.find(
+              (listing) => listing.id === selectedListingIdRef.current,
+            );
+            if (currentSelection !== undefined) {
+              driver?.focusListing(currentSelection);
+            }
+
+            if (wildfireHazardEnabledRef.current) {
+              void driver?.setWildfireHazardVisible(true);
+            }
           }
         },
         onError: () => {
@@ -127,13 +163,14 @@ export function ListingsMap({
         driverRef.current = null;
       }
     };
-  }, [attempt, createMap]);
+  }, [activeCreateMap, attempt]);
 
   useEffect(() => {
     driverRef.current?.updateListings(listings, selectedListingId);
   }, [listings, selectedListingId]);
 
   const setWildfireHazardVisibility = (visible: boolean): void => {
+    wildfireHazardEnabledRef.current = visible;
     setWildfireHazardEnabled(visible);
     void driverRef.current?.setWildfireHazardVisible(visible);
   };
@@ -179,13 +216,41 @@ export function ListingsMap({
           </button>
         </div>
       ) : null}
-      {status === "ready" ? (
-        <WildfireHazardControl
-          enabled={wildfireHazardEnabled}
-          state={wildfireHazardState}
-          onEnabledChange={setWildfireHazardVisibility}
-          onRetry={() => setWildfireHazardVisibility(true)}
-        />
+      {createTerrainMap !== undefined || status === "ready" ? (
+        <div className="map-primary-controls">
+          {createTerrainMap !== undefined ? (
+            <div
+              className="map-mode-control"
+              role="group"
+              aria-label="Map view"
+            >
+              <button
+                type="button"
+                aria-pressed={mode === "2d"}
+                onClick={() => setMode("2d")}
+              >
+                <MapIcon aria-hidden="true" size={15} strokeWidth={1.9} />
+                2D
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "terrain-3d"}
+                onClick={() => setMode("terrain-3d")}
+              >
+                <Mountain aria-hidden="true" size={15} strokeWidth={1.9} />
+                3D Terrain
+              </button>
+            </div>
+          ) : null}
+          {status === "ready" ? (
+            <WildfireHazardControl
+              enabled={wildfireHazardEnabled}
+              state={wildfireHazardState}
+              onEnabledChange={setWildfireHazardVisibility}
+              onRetry={() => setWildfireHazardVisibility(true)}
+            />
+          ) : null}
+        </div>
       ) : null}
       {status === "ready" && draftMarker !== undefined ? (
         <div className="draft-marker-controls" aria-live="polite">

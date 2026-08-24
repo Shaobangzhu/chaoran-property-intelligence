@@ -556,13 +556,73 @@ a:focus-visible {
   font-weight: 680;
 }
 
-.wildfire-hazard-control {
+.map-primary-controls {
   position: absolute;
   z-index: 3;
   top: 12px;
   left: 12px;
+  display: grid;
   width: min(276px, calc(100% - 76px));
   max-height: calc(100% - 112px);
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-primary-controls > * {
+  pointer-events: auto;
+}
+
+.map-mode-control {
+  display: grid;
+  min-height: 38px;
+  grid-template-columns: minmax(64px, 0.8fr) minmax(118px, 1.2fr);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(183, 192, 200, 0.94);
+  border-radius: 6px;
+  background: rgba(245, 247, 248, 0.97);
+  box-shadow: 0 4px 14px rgba(23, 33, 43, 0.14);
+}
+
+.map-mode-control button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #52606c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.2;
+}
+
+.map-mode-control button:hover {
+  background: #e8edef;
+  color: #17212b;
+}
+
+.map-mode-control button[aria-pressed="true"] {
+  background: #ffffff;
+  color: #17212b;
+  box-shadow: 0 1px 3px rgba(23, 33, 43, 0.18);
+}
+
+.map-mode-control button:focus-visible {
+  outline: 3px solid rgba(13, 110, 110, 0.32);
+  outline-offset: 1px;
+}
+
+.wildfire-hazard-control {
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
   overflow-y: auto;
   border: 1px solid rgba(183, 192, 200, 0.94);
   border-radius: 6px;
@@ -1426,11 +1486,15 @@ a:focus-visible {
 }
 
 @media (max-width: 620px) {
-  .wildfire-hazard-control {
+  .map-primary-controls {
     top: 10px;
     left: 10px;
     width: min(258px, calc(100% - 64px));
     max-height: calc(100% - 154px);
+  }
+
+  .wildfire-hazard-control {
+    width: 100%;
   }
 
   .wildfire-hazard-toggle {

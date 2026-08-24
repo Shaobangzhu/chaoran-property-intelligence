@@ -17,8 +17,8 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.1 are complete on
-`feature/3d-fire-terrain`; Block 23.2 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.2 are complete on
+`feature/3d-fire-terrain`; Block 23.3 remains separately gated. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1120,7 +1120,18 @@ Planned sub-block mapping:
 3. `23.2` Add the mode-neutral 2D/3D controller seam and accessible mode control
    with injected fake drivers. Preserve React-owned listings, selection,
    wildfire visibility, retries, and one-active-view lifecycle. Keep the real
-   3D implementation non-default.
+   3D implementation non-default. **Complete:** `ListingsMap` now owns the
+   session-only `2d` / `terrain-3d` mode, accepts an optional injected terrain
+   factory, destroys the active driver before replacement, and replays
+   listings, draft presentation, selection focus, and desired CAL FIRE
+   visibility after readiness. Lifecycle guards reject stale selection, draft,
+   overlay, ready, and error callbacks. The accessible segmented control is
+   capability-gated and therefore remains absent from the production workspace
+   until a real factory is deliberately wired in Block 23.5. Focused tests prove
+   both switch directions, retry ownership, teardown order, and stale-callback
+   isolation without an ArcGIS or network request. No real scene, terrain
+   request, credential, CSP, dependency, backend, database, or AWS change was
+   added.
 4. `23.3` Add the non-default ArcGIS local-scene adapter with World Elevation,
    current-basemap continuity, terrain-aware listing graphics, camera fit,
    focus, selection hit testing, resize, capability failure, and idempotent

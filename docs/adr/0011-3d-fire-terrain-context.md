@@ -6,7 +6,8 @@ Accepted. Block 23.0 records the product, authority, rendering, lifecycle,
 security, cost, and acceptance boundaries. Block 23.1 completed the separately
 approved provider/browser precheck and confirmed the proposed ArcGIS local
 scene plus World Elevation path on the target development device. Block 23.2
-remains separately gated.
+implemented the mode-neutral React controller and injected-factory seam with
+fake-driver lifecycle tests. Block 23.3 remains separately gated.
 
 ## Context
 
@@ -49,6 +50,13 @@ fit/focus, manual draft presentation, CAL FIRE visibility, resize, and destroy.
 Implement separate 2D-map and 3D-scene factories behind the same interface.
 ArcGIS objects remain private to the adapters.
 
+Block 23.2 implements the second factory as an optional capability. When no
+terrain factory is supplied, the production workspace constructs the existing
+2D ArcGIS driver and does not render a nonfunctional 3D control. Injected test
+factories expose the accessible segmented control and prove both switch
+directions. The real scene factory remains disconnected until the later
+user-visible integration block.
+
 React remains the source of truth for:
 
 - listings and stable listing IDs
@@ -59,6 +67,13 @@ React remains the source of truth for:
 
 Mode changes must not fetch listings again, mutate listing records, change the
 selected card, or alter the Search Criteria profile.
+
+Driver replacement resets only renderer-owned loading state. After the new
+driver reports ready, the controller replays listing fit, selected-listing
+focus, and desired CAL FIRE visibility. Listing data and draft presentation are
+sent during driver construction. Every callback from an inactive generation,
+including selection, draft coordinates, overlay state, ready, and error, is
+ignored.
 
 ### Use a local ArcGIS scene with real terrain
 
