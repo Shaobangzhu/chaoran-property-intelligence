@@ -10,7 +10,9 @@ implemented the mode-neutral React controller and injected-factory seam with
 fake-driver lifecycle tests. Block 23.3 implemented the separately approved,
 non-default local-scene adapter and its offline lifecycle tests. Block 23.4
 implemented the terrain-draped CAL FIRE adapter and conditional context-only
-disclosure. Block 23.5 remains separately gated.
+disclosure. Block 23.5 connected the production mode control, enforced 2D
+draft editing, and added bounded retry/return behavior. Block 23.6 remains
+separately gated.
 
 ## Context
 
@@ -57,8 +59,9 @@ Block 23.2 implements the second factory as an optional capability. When no
 terrain factory is supplied, the production workspace constructs the existing
 2D ArcGIS driver and does not render a nonfunctional 3D control. Injected test
 factories expose the accessible segmented control and prove both switch
-directions. The real scene factory remains disconnected until the later
-user-visible integration block.
+directions. Block 23.5 supplies the reviewed real scene factory from the
+production map shell while retaining 2D as the initial mode. The factory is not
+invoked until the operator explicitly selects `3D Terrain`.
 
 React remains the source of truth for:
 
@@ -110,8 +113,9 @@ This offset is not stored, displayed, or interpreted as property elevation.
 WebGL2 capability, ground failure, stable graphic reconciliation, layer-scoped
 hit testing, stale asynchronous work, bounded navigation, and idempotent
 teardown are covered by injected-dependency tests. The production entry point
-and map shell do not yet import this factory; CAL FIRE draping and user-visible
-wiring remain Blocks 23.4 and 23.5.
+did not import this factory at the end of Block 23.3. Blocks 23.4 and 23.5 then
+completed CAL FIRE draping and the user-visible connection without changing
+the scene's bounded camera or ground-readiness contract.
 
 ### Terrain is context only
 
@@ -158,8 +162,8 @@ replays desired visibility, forwards renderer state, and destroys the
 controller before removing listing graphics and the scene host. Overlay failure
 remains independent from scene readiness. The shared legend adds the frozen
 terrain-context statement only when the terrain overlay is visible; the 2D
-legend remains unchanged. The terrain factory is still not connected to the
-production map shell.
+legend remains unchanged. Block 23.5 connects this factory to the production
+map shell but preserves lazy creation behind the explicit mode choice.
 
 The immutable validated CAL FIRE release may be cached across a 2D/3D mode
 change after one successful load. Each renderer owns only its ArcGIS layer,
@@ -176,6 +180,13 @@ elevation field is added.
 
 This preserves all existing behavior without introducing ambiguous 3D editing
 semantics.
+
+Block 23.5 enforces this in the React shell: an active draft makes 2D the
+effective mode immediately, tears down an active scene through the existing
+driver lifecycle, disables the terrain choice, and leaves the workspace in 2D
+after the draft closes. A failed terrain initialization exposes retry and
+return actions; returning to 2D restores mode-control focus and replays the
+React-owned CAL FIRE visibility intent after the 2D driver becomes ready.
 
 ### Gate credentials, network, cost, and browser capability
 

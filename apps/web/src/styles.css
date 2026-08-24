@@ -609,6 +609,11 @@ a:focus-visible {
   color: #17212b;
 }
 
+.map-mode-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .map-mode-control button[aria-pressed="true"] {
   background: #ffffff;
   color: #17212b;
@@ -1121,7 +1126,20 @@ a:focus-visible {
 }
 
 .map-retry-button {
+  margin-top: 0;
+}
+
+.map-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   margin-top: 6px;
+}
+
+.map-return-button {
+  min-height: 38px;
+  padding: 0 14px;
 }
 
 .message-state {
@@ -1505,6 +1523,14 @@ a:focus-visible {
 
   .wildfire-hazard-legend {
     padding: 9px;
+  }
+
+  .map-error-actions {
+    width: min(260px, calc(100% - 32px));
+  }
+
+  .map-error-actions button {
+    flex: 1 1 116px;
   }
 
   .app-header {

@@ -17,8 +17,8 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.4 are complete on
-`feature/3d-fire-terrain`; Block 23.5 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.5 are complete on
+`feature/3d-fire-terrain`; Block 23.6 remains separately gated. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1160,7 +1160,19 @@ Planned sub-block mapping:
    unchanged.
 6. `23.5` Enable the user-visible mode switch and complete draft-mode routing,
    2D fallback, terrain-context disclosure, keyboard/accessibility behavior,
-   responsive layouts, and state replay across mode changes.
+   responsive layouts, and state replay across mode changes. **Complete:** the
+   production map shell now supplies the reviewed terrain scene factory while
+   retaining 2D as the default and deferring scene creation until explicit user
+   selection. Mode changes destroy the active driver and replay listings,
+   selection focus, bounded camera fit, and desired CAL FIRE visibility. Add/Edit
+   drafts immediately use 2D, disable terrain, and remain on 2D after closing.
+   Terrain loading and failure have specific bounded states with `Retry 3D` and
+   `Return to 2D`; return restores keyboard focus and safely recreates the 2D
+   driver. Fifty focused shell, adapter, overlay, boundary, screen, and workflow
+   tests pass; the repository-wide suite passes all 968 tests, root typecheck
+   passes, and runtime/web/infrastructure production builds pass. Key/CSP/network,
+   request, memory, and bundle audits remain 23.6; backend, database, AWS, and
+   deployment are unchanged.
 7. `23.6` Complete the least-privilege API-key/CSP integration, provider network
    audit, bundle delta, WebGL-context and memory audit, automatic ArcGIS quality
    behavior, and supported-device fallback. Do not broaden origins or privileges

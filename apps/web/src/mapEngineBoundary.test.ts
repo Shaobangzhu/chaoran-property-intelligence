@@ -36,7 +36,8 @@ describe("production map-engine boundary", () => {
     );
     expect(mapShell).not.toContain("maplibre-gl");
     expect(mapShell).not.toContain("OpenFreeMap");
-    expect(mapShell).not.toContain("arcgisTerrainListingsScene");
+    expect(mapShell).toContain("createArcgisTerrainListingsScene");
+    expect(mapShell).toContain('from "./arcgisTerrainListingsScene.js"');
     expect(styles).not.toContain(".maplibregl-");
     expect(viteConfig).toContain('envDir: "../.."');
   });

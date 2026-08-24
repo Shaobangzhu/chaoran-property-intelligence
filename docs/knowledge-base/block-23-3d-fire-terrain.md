@@ -2,23 +2,24 @@
 
 ## Status
 
-Blocks 23.0-23.4 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0-23.5 are complete on `feature/3d-fire-terrain`. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
 frozen. The separately approved 23.1 provider/browser precheck passed, and the
 separately approved 23.2 mode/lifecycle seam passed focused tests and web
 typecheck. Block 23.3 added and verified the non-default terrain-scene adapter,
 and Block 23.4 added the terrain-draped CAL FIRE renderer and context-only
-disclosure. Block 23.5 requires a fresh explanation and explicit confirmation.
+disclosure. Block 23.5 connected the reviewed scene adapter to the user-visible
+mode control and completed draft and failure routing. Block 23.6 requires a
+fresh explanation and explicit confirmation.
 
-Blocks 23.3-23.4 registered the exact-pinned SDK's `arcgis-scene` component and
+Blocks 23.3-23.5 registered the exact-pinned SDK's `arcgis-scene` component and
 added tested scene, listing, and CAL FIRE terrain adapters plus the conditional
-disclosure. The scene adapter is not imported
-by the production entry point or Listings map shell, so the existing 2D
-workspace remains the only user-visible mode and no terrain request is made by
-the application. No dependency, browser credential, Content Security Policy,
-database, AWS resource, schedule, RentCast quota, or Telegram delivery changed.
-Temporary Block 23.1 probe files and services remain removed.
+disclosure. The Listings map shell now supplies the real scene factory while
+retaining 2D as the default; terrain is instantiated only after the operator
+chooses `3D Terrain`. No dependency, browser credential, Content Security
+Policy, database, AWS resource, schedule, RentCast quota, or Telegram delivery
+changed. Temporary Block 23.1 probe files and services remain removed.
 
 ## Product Question
 
@@ -641,6 +642,34 @@ backend, database, or AWS contract.
 - route Add/Edit to 2D and disable 3D during a draft
 - complete responsive, keyboard, focus, loading, error, and Return to 2D states
 - run focused offline regression tests and production build
+
+**Complete:** `ListingsMap` now imports the reviewed terrain scene factory as
+the production 3D capability while preserving `2D` as its initial mode. Merely
+rendering or loading the authenticated Listings workspace still constructs the
+existing 2D driver; the scene and World Elevation path begin only after an
+explicit `3D Terrain` selection. Driver replacement retains React-owned
+listings, stable selection, bounded fit/focus replay, and desired CAL FIRE
+visibility while stale callbacks remain generation-scoped and ignored.
+
+Opening an Add/Edit draft immediately makes 2D the effective renderer, destroys
+an active terrain scene, and disables the `3D Terrain` control until the draft
+closes. The existing 2D marker placement, dragging, confirmation, and
+coordinate contract remain unchanged; closing the draft leaves the workspace
+in 2D rather than unexpectedly recreating terrain.
+
+The mode control retains native button keyboard behavior, `aria-pressed`,
+visible focus, and stable responsive sizing. Loading distinguishes `Loading 3D
+terrain` from the existing 2D state. A bounded 3D initialization failure offers
+`Retry 3D` and `Return to 2D`; returning destroys the failed driver, restores
+focus to the 2D mode button, and replays desired CAL FIRE visibility when 2D is
+ready. The 2D error contract remains `Map unavailable` / `Retry map`.
+
+Fifty focused shell, scene, overlay, boundary, screen, and manual-listing tests
+pass. The repository-wide suite passes all 968 tests, and root typecheck plus
+the runtime, web production, and infrastructure builds pass. The provider key
+privilege, exact CSP/network origins, request and memory audit, and bundle-delta
+record remain Block 23.6. This block changed no backend, database,
+provider-alert, Telegram, AWS, schedule, or deployment contract.
 
 ### Block 23.6: Security, network, and performance gate
 
