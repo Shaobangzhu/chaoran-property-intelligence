@@ -18,9 +18,10 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Block 24.0 is complete in documentation only on
-`feat/add-new-city-stevensonranch`; executable implementation and provider
-requests remain separately confirmed. Block 21.8
+into `main`. Block 24.0 and the no-network Block 24.1A audit tooling are
+complete on `feat/add-new-city-stevensonranch`. The first Block 24.1 provider
+audit was inconclusive; a second request remains a separately authorized
+24.1B operation. Production coverage implementation has not started. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1247,6 +1248,16 @@ Planned sub-block mapping:
    No runtime source or external system changed.
 2. `24.1` Verify the official ZIP query contract and, after separate approval,
    execute exactly one real aggregate-only RentCast coverage audit for `91381`.
+   **Inconclusive:** the one authorized request returned a successful 2xx JSON
+   array, but an over-escaped local total-count regular expression stopped the
+   aggregate validator before it retained totals or city labels. No retry was
+   made. Local fixture gates and a new explicit authorization are required
+   before a second real request; production wiring remains unchanged.
+   **24.1A complete:** an isolated aggregate-only audit runner, explicit
+   one-request CLI guard, safe default command, and deterministic fixtures now
+   prove the ZIP URL, strict decimal header, complete-page, expected-city/ZIP,
+   filter, schema, no-retry, and redaction gates without provider access.
+   **24.1B pending:** execute the tested command only after new authorization.
 3. `24.2` Add Stevenson Ranch to the version-1 Domain city set and prove
    backward compatibility with existing five-city profiles.
 4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its

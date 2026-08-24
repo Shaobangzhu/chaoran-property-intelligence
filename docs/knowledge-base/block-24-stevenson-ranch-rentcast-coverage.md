@@ -3,10 +3,13 @@
 ## Status
 
 Block 24.0 is complete in documentation only on
-`feat/add-new-city-stevensonranch`. The product boundary, provider acquisition
-model, quota impact, compatibility rules, failure behavior, implementation
-sequence, and acceptance gates are planned. No runtime source, persisted search
-profile, database, provider request, Telegram message, AWS resource, schedule,
+`feat/add-new-city-stevensonranch`. Block 24.1 verified the official provider
+contract and consumed its one authorized real request, but the audit result is
+inconclusive because the local aggregate validator failed before retaining the
+required totals and city labels. Block 24.1A is complete: the replacement
+aggregate-only audit entrypoint and its no-network fixture gates are ready for
+a separately authorized 24.1B request. No production RentCast source,
+persisted search profile, database, Telegram message, AWS resource, schedule,
 or deployment changed.
 
 Every executable sub-block requires a fresh explanation and explicit
@@ -194,6 +197,99 @@ coverage requires a separate data-provenance block.
   city labels, and bounded property-type/status counts
 - stop if the page is incomplete or the city label is incompatible
 
+#### Audit record: 2026-08-24
+
+The official RentCast sale-listings reference was checked immediately before
+execution. It documents `zipCode` as a five-digit ZIP search parameter and
+supports the selected sale-listing filters and numeric ranges used by this
+project.
+
+After explicit authorization, one request was sent with this bounded profile:
+
+```text
+zipCode=91381
+state=CA
+status=Active
+propertyType=Single Family
+price=*:850000
+bedrooms=4:
+bathrooms=2.5:
+limit=500
+includeTotalCount=true
+```
+
+The request returned a successful 2xx response and a JSON array that parsed
+successfully. The aggregate-only validator then stopped while validating
+`X-Total-Count`: its numeric regular expression was over-escaped and matched a
+literal `\d` sequence instead of decimal digits. The process intentionally did
+not persist the raw response, so totals, response bytes, latency, city labels,
+property-type counts, and status counts cannot be reconstructed.
+
+This is an audit-tool failure, not evidence that the provider omitted the
+header or returned an incompatible city. The result is **inconclusive** and
+Block 24.1 is not complete. Exactly one provider request was consumed, no retry
+was made, and no API key, request header, raw response, listing identifier, MLS
+number, or street address was logged or stored.
+
+A second real request requires a new explanation and explicit authorization.
+Before any second request, the corrected aggregate validator must pass local
+fixtures for numeric total-count headers, zero results, incompatible city
+labels, incomplete pages, and successful Stevenson Ranch coverage. Production
+wiring remains unchanged.
+
+#### Block 24.1A: Fixture-gated audit tool
+
+Block 24.1A adds an isolated maintenance entrypoint under `apps/alert-worker`.
+It is compiled with the worker package but is not imported by the production
+worker, API, or scheduled composition. Its URL is built through
+`URLSearchParams`, uses only the bounded profile above, sends the API key only
+in `X-Api-Key`, applies a 30-second Abort timeout, and has no retry path.
+
+The command refuses execution unless its only argument is
+`--execute-one-request`. The safe no-flag entrypoint is:
+
+```bash
+pnpm rentcast:stevenson-ranch-coverage-audit
+```
+
+The separately controlled real-request entrypoint is reserved for Block 24.1B:
+
+```bash
+pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
+```
+
+The aggregate parser reads only the fields needed to prove ZIP, city, state,
+status, property type, price, bedroom, and bathroom compatibility. Output is
+limited to counts, completeness flags, response bytes, and elapsed time. It
+does not emit the request URL, API key, raw response, address, listing ID, or
+MLS data.
+
+The no-network fixture suite proves:
+
+- the exact ZIP request and absence of radius/address and minimum-price inputs
+- decimal `X-Total-Count` acceptance and malformed/missing-header rejection
+- fail-closed zero-result, incompatible-city, incompatible-ZIP, incomplete-page,
+  500-result, filter-drift, and schema behavior
+- successful aggregate counts without raw listing disclosure
+- configuration validation before fetch
+- explicit CLI authorization, exactly-one-fetch behavior, no retry, and API-key
+  redaction
+
+Block 24.1A does not make a provider request and does not change the production
+request profile. Block 24.1 remains incomplete until a separately authorized
+24.1B execution confirms the actual returned city label and completeness gate.
+
+Verification completed on 2026-08-24:
+
+- 23 targeted audit runner/command fixtures passed
+- the full repository suite passed: 112 files and 996 tests
+- root typecheck passed
+- the alert-worker production build passed
+- the built CLI rejected a no-flag invocation before configuration or fetch
+- `git diff --check` passed
+- the security diff found no environment-file, production composition, worker
+  entrypoint, database, AWS, Telegram, or existing RentCast client change
+
 ### Block 24.2: Domain and profile compatibility
 
 - append `Stevenson Ranch` to `listingSearchCities`
@@ -293,4 +389,3 @@ Before deployment, discard or revert Block 24. After a code deployment, revert
 Block 24 and save a profile without Stevenson Ranch if it had been selected.
 The criteria schema remains version 1, so old five-city JSON requires no data
 repair. No cloud resource or database migration is part of this feature.
-
