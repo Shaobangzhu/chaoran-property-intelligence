@@ -2,20 +2,19 @@
 
 ## Status
 
-Blocks 22.0 through 22.4 are complete. The parity contract, target adapter
+Blocks 22.0 through 22.5 are complete. The parity contract, target adapter
 architecture, security boundary, implementation sequence, rollback strategy,
 and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
 basemap-key configuration, a component-registration runtime entry, React 19
 types, an engine-neutral map port, the ArcGIS listing-map adapter, manual draft
-parity, CAL FIRE ArcGIS renderer, and offline tests are present. The adapter is
-not imported by `main.tsx` or the current map, so MapLibre remains the
-user-visible engine and the production bundle contains no ArcGIS runtime or API
-key.
+parity, CAL FIRE ArcGIS renderer, and offline tests are present. ArcGIS is now
+the only production map engine. The browser entry registers its components,
+while the reusable runtime and driver remain independently testable.
 
-Blocks 22.5 through 22.6 remain planned and separately confirmed. The work is
+Block 22.6 remains planned and separately confirmed. The work is
 isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate. Block 22.4 made no real ArcGIS request,
-backend call, database operation, deployment, or AWS operation.
+only after the final acceptance gate. Block 22.5 made no backend call, database
+operation, deployment, or AWS operation.
 
 ## Objective
 
@@ -489,12 +488,36 @@ and 22.6 bundle review.
 
 ### Block 22.5: Production factory cutover and cleanup
 
-- make the ArcGIS driver the default factory
-- update CSP from an observed local browser network audit
-- remove MapLibre, OpenFreeMap, the bundled worker, dead helper code, and
-  engine-specific CSS/tests
-- confirm the final runtime contains one map engine and one map host
-- run focused and full offline verification
+**Status: complete in code and offline verification.**
+
+- `ListingsMap` defaults to `createArcgisListingsMap`; its injected driver port
+  remains available for isolated React tests.
+- `main.tsx` owns browser-only map/zoom component registration. Core runtime
+  configuration no longer imports component CSS during Node tests.
+- MapLibre, OpenFreeMap, the bundled worker, MapLibre-only listing GeoJSON
+  helper/tests, renderer adapter, CSS selectors, dependency, and lock entries
+  are removed. No dual-engine flag remains.
+- Vite sets `envDir: "../.."`, making the documented root `.env.local` the
+  explicit local source for `VITE_ARCGIS_API_KEY`.
+- A credentialed navigation-style request using the local-development referrer
+  returned HTTP 200 without printing the key. Its style document requires the
+  SDK style endpoint, `basemaps-api.arcgis.com` vector tiles/glyphs, and
+  `cdn.arcgis.com` sprites. CSP permits exactly these three network origins,
+  adds `'wasm-unsafe-eval'` for the SDK WebAssembly runtime, and retains Blob
+  worker support. It contains no OpenFreeMap origin or wildcard.
+- Fifty-nine focused tests pass. The full repository passes 950 tests across
+  107 files, full runtime/CDK typecheck passes, and production builds pass.
+- A synthetic-key production build emits 1,090 JavaScript assets. Its main
+  asset is 1,438.21 kB raw and 360.38 kB gzip, compared with the recorded
+  1,232.92 kB raw and 330.59 kB gzip pre-cutover main asset. Vite emits 303
+  module-preload links and retains the large-chunk advisory. The build contains
+  no MapLibre/OpenFreeMap marker; the synthetic key appears only where expected
+  in the browser runtime, and the real local key is absent from this artifact.
+- Browser control did not expose the already-open local tab. Therefore 22.5
+  records the provider/style-origin audit but does not claim visual, WebGL, or
+  browser Network-panel acceptance. Those checks remain mandatory in 22.6.
+- No API/backend, database, CAL FIRE publication, RentCast, Telegram, AWS, or
+  deployment behavior changed.
 
 ### Block 22.6: Acceptance and merge gate
 
@@ -506,7 +529,9 @@ and 22.6 bundle review.
 - update ADR/knowledge base/runbook status with as-built evidence
 - leave merge to the owner after acceptance
 
-Block 22.6 does not deploy to AWS unless a later, separate deployment operation
+The asset count, module-preload count, main-chunk delta, and user-observed map
+behavior require an explicit Block 22.6 decision before merge. Block 22.6 does
+not deploy to AWS unless a later, separate deployment operation
 is explained and explicitly confirmed.
 
 ## Automated Test Matrix

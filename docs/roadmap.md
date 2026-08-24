@@ -15,8 +15,8 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.4 are complete; Blocks 22.5-22.6 are planned on
-`refactor/arcgis-migration` and remain separately confirmed. Block
+complete. Blocks 22.0-22.5 are complete; Block 22.6 is planned on
+`refactor/arcgis-migration` and remains separately confirmed. Block
 21.8 closed its offline, disposable migration, authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
 AWS metadata-only gates. The repository currently contains:
@@ -1018,7 +1018,25 @@ Planned sub-block mapping:
 6. `22.5` Switch the production factory to ArcGIS, update CSP from an observed
    least-privilege network audit, and remove MapLibre, OpenFreeMap, the bundled
    worker, dead helpers, and engine-specific selectors. The final runtime has
-   one map engine and no permanent compatibility flag.
+   one map engine and no permanent compatibility flag. **Complete in code and
+   offline verification:** `ListingsMap` now defaults to the ArcGIS driver, and
+   browser-only component registration is isolated in the web entry point.
+   MapLibre, OpenFreeMap, their worker, GeoJSON helper, dependency, selectors,
+   and lockfile entries are removed. Vite now reads the repository-root browser
+   environment explicitly. A credentialed request using the approved local
+   referrer returned the ArcGIS navigation style successfully and identified
+   only `basemapstyles-api.arcgis.com`, `basemaps-api.arcgis.com`, and
+   `cdn.arcgis.com`; the key value was never printed. CSP is restricted to
+   those origins plus the SDK's WebAssembly and Blob-worker requirements.
+   Fifty-nine focused tests, all 950 repository tests across 107 files, full
+   runtime/CDK typecheck, and production builds pass. The synthetic-key bundle
+   has 1,090 JavaScript assets and a 1,438.21 kB raw/360.38 kB gzip main asset;
+   it contains no MapLibre/OpenFreeMap marker and does contain the expected
+   synthetic key injection. The real local key is absent from that artifact.
+   Browser control could not attach to the open local tab, so visual, WebGL,
+   and browser Network-panel acceptance are deliberately not claimed here and
+   remain the Block 22.6 merge gate. No backend, database, AWS, RentCast,
+   Telegram, or deployment operation occurred.
 7. `22.6` Run full tests, typecheck, builds, desktop/mobile browser acceptance,
    WebGL/canvas and network inspection, API-key restriction review, and bundle
    delta recording. Update as-built documentation and leave the merge into

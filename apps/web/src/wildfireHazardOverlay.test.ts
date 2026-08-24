@@ -5,19 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WildfireHazardMetadata } from "./wildfireHazardMetadata.js";
 import {
   WILDFIRE_HAZARD_ARTIFACT_URL,
-  WILDFIRE_HAZARD_FILL_LAYER_ID,
-  WILDFIRE_HAZARD_LAYER_IDS,
-  WILDFIRE_HAZARD_OUTLINE_LAYER_IDS,
-  WILDFIRE_HAZARD_SOURCE_ID,
-  createWildfireHazardOverlayController,
+  WILDFIRE_HAZARD_SEVERITY_STYLES,
+  createWildfireHazardOverlayLifecycle,
   loadWildfireHazardArtifact,
   parseWildfireHazardArtifact,
-  type WildfireHazardLayer,
-  type WildfireHazardMap,
+  type WildfireHazardFeatureCollection,
+  type WildfireHazardOverlayRenderer,
   type WildfireHazardOverlayState,
 } from "./wildfireHazardOverlay.js";
-
-const listingsLayerId = "stored-listing-points";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -78,337 +73,217 @@ describe("wildfire hazard artifact validation", () => {
   });
 });
 
-describe("wildfire hazard overlay controller", () => {
-  it("loads once, installs hidden layers below listings, and toggles visibility", async () => {
-    const map = new FakeWildfireHazardMap();
-    const loadArtifact = vi.fn(async () =>
-      parseWildfireHazardArtifact(createArtifact()),
-    );
-    const loadMetadata = vi.fn(async () => createMetadata());
-    const states: WildfireHazardOverlayState[] = [];
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact,
-      loadMetadata,
-      map,
-      onStateChange: (state) => states.push(state),
-    });
+describe("wildfire hazard overlay lifecycle", () => {
+  it("loads once, installs once, and toggles renderer visibility", async () => {
+    const harness = createHarness();
+    const controller = harness.createController();
 
-    expect(loadArtifact).not.toHaveBeenCalled();
-    expect(loadMetadata).not.toHaveBeenCalled();
-    expect(map.sources.size).toBe(0);
+    expect(harness.loadArtifact).not.toHaveBeenCalled();
+    expect(harness.loadMetadata).not.toHaveBeenCalled();
+    expect(harness.renderer.install).not.toHaveBeenCalled();
 
     await controller.setVisible(true);
 
-    expect(loadArtifact).toHaveBeenCalledOnce();
-    expect(loadMetadata).toHaveBeenCalledOnce();
-    expect(map.sources.get(WILDFIRE_HAZARD_SOURCE_ID)).toMatchObject({
-      type: "geojson",
+    expect(harness.loadArtifact).toHaveBeenCalledOnce();
+    expect(harness.loadMetadata).toHaveBeenCalledOnce();
+    expect(harness.renderer.install).toHaveBeenCalledWith(
+      harness.artifact,
+      expect.any(AbortSignal),
+    );
+    expect(harness.renderer.setVisible).toHaveBeenLastCalledWith(true);
+    expect(harness.states.at(-1)).toEqual({
+      metadata: harness.metadata,
+      status: "ready",
+      visible: true,
     });
-    expect(map.layers.map(({ layer }) => layer.id)).toEqual(
-      WILDFIRE_HAZARD_LAYER_IDS,
-    );
-    expect(map.layers.every(({ beforeId }) => beforeId === listingsLayerId)).toBe(
-      true,
-    );
-    expect(
-      map.layers.every(({ initialVisibility }) => initialVisibility === "none"),
-    ).toBe(true);
-    expect(currentVisibilities(map)).toEqual(
-      WILDFIRE_HAZARD_LAYER_IDS.map(() => "visible"),
-    );
-    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
 
     await controller.setVisible(false);
-    expect(currentVisibilities(map)).toEqual(
-      WILDFIRE_HAZARD_LAYER_IDS.map(() => "none"),
-    );
-    expect(states.at(-1)).toMatchObject({ status: "ready", visible: false });
-
-    await controller.setVisible(true);
-    expect(loadArtifact).toHaveBeenCalledOnce();
-    expect(map.addSourceCalls).toBe(1);
-    expect(map.layers).toHaveLength(4);
-  });
-
-  it("uses monotonic red fills and severity-specific outlines", async () => {
-    const map = new FakeWildfireHazardMap();
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
-      loadMetadata: async () => createMetadata(),
-      map,
-    });
-
     await controller.setVisible(true);
 
-    const fill = map.getLayer(WILDFIRE_HAZARD_FILL_LAYER_ID);
-    expect(fill?.paint).toMatchObject({
-      "fill-color": [
-        "match",
-        ["get", "severity"],
-        "moderate",
-        "#f8b4ad",
-        "high",
-        "#e85d55",
-        "very-high",
-        "#a61b1b",
-        "rgba(0, 0, 0, 0)",
-      ],
-      "fill-opacity": [
-        "match",
-        ["get", "severity"],
-        "moderate",
-        0.16,
-        "high",
-        0.22,
-        "very-high",
-        0.28,
-        0,
-      ],
-    });
-
-    expect(
-      Object.entries(WILDFIRE_HAZARD_OUTLINE_LAYER_IDS).map(
-        ([severity, id]) => [
-          severity,
-          map.getLayer(id)?.filter,
-          map.getLayer(id)?.paint,
-        ],
-      ),
-    ).toEqual([
-      [
-        "moderate",
-        ["==", ["get", "severity"], "moderate"],
-        {
-          "line-color": "#d9776d",
-          "line-opacity": 0.55,
-          "line-width": 0.7,
-        },
-      ],
-      [
-        "high",
-        ["==", ["get", "severity"], "high"],
-        {
-          "line-color": "#c43c32",
-          "line-opacity": 0.65,
-          "line-width": 0.9,
-        },
-      ],
-      [
-        "very-high",
-        ["==", ["get", "severity"], "very-high"],
-        {
-          "line-color": "#7f1d1d",
-          "line-opacity": 0.75,
-          "line-width": 1.1,
-        },
-      ],
-    ]);
+    expect(harness.loadArtifact).toHaveBeenCalledOnce();
+    expect(harness.loadMetadata).toHaveBeenCalledOnce();
+    expect(harness.renderer.install).toHaveBeenCalledOnce();
+    expect(harness.renderer.setVisible).toHaveBeenNthCalledWith(2, false);
+    expect(harness.renderer.setVisible).toHaveBeenNthCalledWith(3, true);
   });
 
-  it("honors a disable request that arrives while the artifact is loading", async () => {
-    const map = new FakeWildfireHazardMap();
-    let resolveArtifact:
-      | ((artifact: ReturnType<typeof parseWildfireHazardArtifact>) => void)
-      | undefined;
-    const loadArtifact = vi.fn(
-      () =>
-        new Promise<ReturnType<typeof parseWildfireHazardArtifact>>(
-          (resolve) => {
-            resolveArtifact = resolve;
-          },
-        ),
-    );
-    const states: WildfireHazardOverlayState[] = [];
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact,
-      loadMetadata: async () => createMetadata(),
-      map,
-      onStateChange: (state) => states.push(state),
+  it("keeps the reviewed severity palette engine-neutral", () => {
+    expect(WILDFIRE_HAZARD_SEVERITY_STYLES).toEqual({
+      moderate: {
+        fillColor: "#f8b4ad",
+        fillOpacity: 0.16,
+        outlineColor: "#d9776d",
+        outlineOpacity: 0.55,
+        outlineWidth: 0.7,
+      },
+      high: {
+        fillColor: "#e85d55",
+        fillOpacity: 0.22,
+        outlineColor: "#c43c32",
+        outlineOpacity: 0.65,
+        outlineWidth: 0.9,
+      },
+      "very-high": {
+        fillColor: "#a61b1b",
+        fillOpacity: 0.28,
+        outlineColor: "#7f1d1d",
+        outlineOpacity: 0.75,
+        outlineWidth: 1.1,
+      },
     });
+  });
+
+  it("honors a disable request while loading", async () => {
+    const harness = createHarness();
+    const artifactLoad = createDeferred<WildfireHazardFeatureCollection>();
+    harness.loadArtifact.mockReturnValueOnce(artifactLoad.promise);
+    const controller = harness.createController();
 
     const pendingLoad = controller.setVisible(true);
     await Promise.resolve();
     await controller.setVisible(false);
-    resolveArtifact?.(parseWildfireHazardArtifact(createArtifact()));
+    artifactLoad.resolve(harness.artifact);
     await pendingLoad;
 
-    expect(states.at(-1)).toMatchObject({ status: "ready", visible: false });
-    expect(currentVisibilities(map)).toEqual(
-      WILDFIRE_HAZARD_LAYER_IDS.map(() => "none"),
-    );
-
-    await controller.setVisible(true);
-    expect(loadArtifact).toHaveBeenCalledOnce();
-    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
+    expect(harness.renderer.setVisible).toHaveBeenLastCalledWith(false);
+    expect(harness.states.at(-1)).toEqual({
+      metadata: harness.metadata,
+      status: "ready",
+      visible: false,
+    });
   });
 
-  it("rolls back partial installation and reports a bounded overlay error", async () => {
-    const map = new FakeWildfireHazardMap();
-    map.failLayerId = WILDFIRE_HAZARD_OUTLINE_LAYER_IDS.high;
-    const states: WildfireHazardOverlayState[] = [];
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
-      loadMetadata: async () => createMetadata(),
-      map,
-      onStateChange: (state) => states.push(state),
-    });
+  it("rolls back a partial renderer installation with a bounded error", async () => {
+    const harness = createHarness();
+    harness.renderer.install.mockRejectedValueOnce(
+      new Error("private renderer detail"),
+    );
+    const controller = harness.createController();
 
     await expect(controller.setVisible(true)).resolves.toBeUndefined();
 
-    expect(map.sources.size).toBe(0);
-    expect(map.layers).toHaveLength(0);
-    expect(states.at(-1)).toEqual({ status: "error", visible: false });
+    expect(harness.renderer.rollback).toHaveBeenCalled();
+    expect(harness.states.at(-1)).toEqual({
+      status: "error",
+      visible: false,
+    });
   });
 
-  it("does not install hazard geometry without reviewed attribution", async () => {
-    const map = new FakeWildfireHazardMap();
-    const states: WildfireHazardOverlayState[] = [];
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
-      loadMetadata: async () => {
-        throw new Error("missing provenance");
-      },
-      map,
-      onStateChange: (state) => states.push(state),
-    });
+  it("does not install geometry without reviewed metadata", async () => {
+    const harness = createHarness();
+    harness.loadMetadata.mockRejectedValueOnce(new Error("missing provenance"));
+    const controller = harness.createController();
 
     await controller.setVisible(true);
 
-    expect(map.sources.size).toBe(0);
-    expect(map.layers).toHaveLength(0);
-    expect(states.at(-1)).toEqual({ status: "error", visible: false });
+    expect(harness.renderer.install).not.toHaveBeenCalled();
+    expect(harness.states.at(-1)).toEqual({
+      status: "error",
+      visible: false,
+    });
   });
 
-  it("can retry after a failed load without retaining partial state", async () => {
-    const map = new FakeWildfireHazardMap();
-    const loadArtifact = vi
-      .fn<(signal: AbortSignal) => Promise<ReturnType<typeof parseWildfireHazardArtifact>>>()
-      .mockRejectedValueOnce(new Error("private provider detail"))
-      .mockResolvedValueOnce(parseWildfireHazardArtifact(createArtifact()));
-    const states: WildfireHazardOverlayState[] = [];
-    const controller = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact,
-      loadMetadata: async () => createMetadata(),
-      map,
-      onStateChange: (state) => states.push(state),
+  it("retries from a clean state after a failed load", async () => {
+    const harness = createHarness();
+    harness.loadArtifact.mockRejectedValueOnce(
+      new Error("private provider detail"),
+    );
+    const controller = harness.createController();
+
+    await controller.setVisible(true);
+    expect(harness.states.at(-1)).toEqual({
+      status: "error",
+      visible: false,
     });
 
     await controller.setVisible(true);
-    expect(states.at(-1)).toEqual({ status: "error", visible: false });
-
-    await controller.setVisible(true);
-    expect(loadArtifact).toHaveBeenCalledTimes(2);
-    expect(states.at(-1)).toMatchObject({ status: "ready", visible: true });
-    expect(map.layers).toHaveLength(4);
+    expect(harness.loadArtifact).toHaveBeenCalledTimes(2);
+    expect(harness.renderer.install).toHaveBeenCalledOnce();
+    expect(harness.states.at(-1)).toMatchObject({
+      status: "ready",
+      visible: true,
+    });
   });
 
-  it("aborts pending loading and removes installed resources on destroy", async () => {
-    const pendingMap = new FakeWildfireHazardMap();
-    let capturedSignal: AbortSignal | undefined;
-    const pendingController = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact: (signal) => {
-        capturedSignal = signal;
-        return new Promise((resolve, reject) => {
-          signal.addEventListener("abort", () => reject(signal.reason));
-        });
-      },
-      loadMetadata: async () => createMetadata(),
-      map: pendingMap,
+  it("aborts pending work and destroys renderer resources idempotently", async () => {
+    const harness = createHarness();
+    let signal: AbortSignal | undefined;
+    harness.loadArtifact.mockImplementationOnce((currentSignal) => {
+      signal = currentSignal;
+      return new Promise((_resolve, reject) => {
+        currentSignal.addEventListener("abort", () =>
+          reject(currentSignal.reason),
+        );
+      });
     });
-
-    const pendingLoad = pendingController.setVisible(true);
+    const controller = harness.createController();
+    const pendingLoad = controller.setVisible(true);
     await Promise.resolve();
-    pendingController.destroy();
+
+    controller.destroy();
+    controller.destroy();
     await expect(pendingLoad).resolves.toBeUndefined();
-    expect(capturedSignal?.aborted).toBe(true);
 
-    const installedMap = new FakeWildfireHazardMap();
-    const installedController = createWildfireHazardOverlayController({
-      beforeLayerId: listingsLayerId,
-      loadArtifact: async () => parseWildfireHazardArtifact(createArtifact()),
-      loadMetadata: async () => createMetadata(),
-      map: installedMap,
-    });
-    await installedController.setVisible(true);
-    installedController.destroy();
-
-    expect(installedMap.layers).toHaveLength(0);
-    expect(installedMap.sources.size).toBe(0);
+    expect(signal?.aborted).toBe(true);
+    expect(harness.renderer.destroy).toHaveBeenCalledOnce();
   });
 });
 
-class FakeWildfireHazardMap implements WildfireHazardMap {
-  readonly sources = new Map<string, unknown>();
-  readonly layers: Array<{
-    beforeId: string | undefined;
-    initialVisibility: unknown;
-    layer: WildfireHazardLayer;
-  }> = [];
-  readonly visibilities = new Map<string, unknown>();
-  addSourceCalls = 0;
-  failLayerId: string | undefined;
+function createHarness(): WildfireLifecycleHarness {
+  const artifact = parseWildfireHazardArtifact(createArtifact());
+  const metadata = createMetadata();
+  const states: WildfireHazardOverlayState[] = [];
+  const renderer: {
+    destroy: ReturnType<typeof vi.fn>;
+    install: ReturnType<typeof vi.fn>;
+    rollback: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
+  } = {
+    destroy: vi.fn(),
+    install: vi.fn(async () => undefined),
+    rollback: vi.fn(),
+    setVisible: vi.fn(),
+  };
+  const loadArtifact = vi.fn(async (_signal: AbortSignal) => artifact);
+  const loadMetadata = vi.fn(async (_signal: AbortSignal) => metadata);
 
-  addSource(id: string, source: unknown): void {
-    this.addSourceCalls += 1;
-    this.sources.set(id, source);
-  }
-
-  getSource(id: string): unknown {
-    return this.sources.get(id);
-  }
-
-  removeSource(id: string): void {
-    this.sources.delete(id);
-  }
-
-  addLayer(layer: WildfireHazardLayer, beforeId?: string): void {
-    if (layer.id === this.failLayerId) {
-      throw new Error("simulated MapLibre layer failure");
-    }
-    this.layers.push({
-      beforeId,
-      initialVisibility: layer.layout?.visibility,
-      layer,
-    });
-    this.visibilities.set(layer.id, layer.layout?.visibility);
-  }
-
-  getLayer(id: string): WildfireHazardLayer | undefined {
-    return this.layers.find(({ layer }) => layer.id === id)?.layer;
-  }
-
-  removeLayer(id: string): void {
-    const index = this.layers.findIndex(({ layer }) => layer.id === id);
-    if (index >= 0) {
-      this.layers.splice(index, 1);
-    }
-    this.visibilities.delete(id);
-  }
-
-  setLayoutProperty(id: string, property: string, value: unknown): void {
-    if (property === "visibility") {
-      this.visibilities.set(id, value);
-    }
-  }
+  return {
+    artifact,
+    createController: () =>
+      createWildfireHazardOverlayLifecycle({
+        loadArtifact,
+        loadMetadata,
+        onStateChange: (state) => states.push(state),
+        renderer: renderer as WildfireHazardOverlayRenderer,
+      }),
+    loadArtifact,
+    loadMetadata,
+    metadata,
+    renderer,
+    states,
+  };
 }
 
-function currentVisibilities(map: FakeWildfireHazardMap): unknown[] {
-  return WILDFIRE_HAZARD_LAYER_IDS.map((id) => map.visibilities.get(id));
+interface WildfireLifecycleHarness {
+  artifact: WildfireHazardFeatureCollection;
+  createController: () => ReturnType<
+    typeof createWildfireHazardOverlayLifecycle
+  >;
+  loadArtifact: ReturnType<typeof vi.fn>;
+  loadMetadata: ReturnType<typeof vi.fn>;
+  metadata: WildfireHazardMetadata;
+  renderer: {
+    destroy: ReturnType<typeof vi.fn>;
+    install: ReturnType<typeof vi.fn>;
+    rollback: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
+  };
+  states: WildfireHazardOverlayState[];
 }
 
 function createArtifact(): {
   features: Array<{
-    geometry: {
-      coordinates: number[][][];
-      type: "Polygon";
-    };
+    geometry: { coordinates: number[][][]; type: "Polygon" };
     properties: {
       designationStatus: string;
       responsibilityArea: string;
@@ -451,10 +326,7 @@ function createMetadata(): WildfireHazardMetadata {
     sourceName: "CAL FIRE / Office of the State Fire Marshal",
     sourceUrl:
       "https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones",
-    sourceVersions: {
-      lra: "FHSZLRA25_1",
-      sra: "FHSZSRA_23_3",
-    },
+    sourceVersions: { lra: "FHSZLRA25_1", sra: "FHSZSRA_23_3" },
     jurisdictions: [
       { name: "Chino", status: "locally-adopted" },
       { name: "Chino Hills", status: "locally-adopted" },
@@ -462,5 +334,19 @@ function createMetadata(): WildfireHazardMetadata {
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "locally-adopted" },
     ],
+  };
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolvePromise: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return {
+    promise,
+    resolve: (value) => resolvePromise?.(value),
   };
 }

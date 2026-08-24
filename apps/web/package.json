@@ -15,7 +15,6 @@
     "@chaoran-property-intelligence/domain": "workspace:*",
     "@esri/calcite-components": "5.1.2",
     "lucide-react": "^1.33.0",
-    "maplibre-gl": "^6.4.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -3,14 +3,17 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("web document security policy", () => {
-  it("ships a restrictive CSP that permits only the selected map service", async () => {
+  it("ships a restrictive CSP for the ArcGIS map runtime", async () => {
     const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
     expect(html).toContain('http-equiv="Content-Security-Policy"');
     expect(html).toContain("default-src 'self'");
+    expect(html).not.toContain("tiles.openfreemap.org");
     expect(html).toContain(
-      "connect-src 'self' https://tiles.openfreemap.org",
+      "connect-src 'self' https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com",
     );
+    expect(html).not.toContain("https://*.arcgis.com");
+    expect(html).toContain("script-src 'self' 'wasm-unsafe-eval'");
     expect(html).toContain("object-src 'none'");
     expect(html).toContain("base-uri 'none'");
     expect(html).not.toContain("script-src 'unsafe-inline'");

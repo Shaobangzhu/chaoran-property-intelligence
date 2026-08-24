@@ -13,15 +13,16 @@ graphics layer, local anchored symbol, background placement, draft-only drag,
 confirmation styling, and stale-async guards. Block 22.4 extracts the existing
 CAL FIRE lifecycle from renderer ownership and adds a tested Blob-backed ArcGIS
 `GeoJSONLayer` with exact severity rendering, one-fetch visibility reuse,
-rollback, retry, Abort, and layer-order parity. The adapter is not imported by
-the current application, so MapLibre remains the production map and no real
-ArcGIS request is made. Blocks 22.5 through 22.6 remain separately reviewed and
-confirmed.
+rollback, retry, Abort, and layer-order parity. Block 22.5 switches the default
+factory to ArcGIS, removes MapLibre/OpenFreeMap and their browser artifacts,
+and restricts CSP to the observed ArcGIS style, tile/glyph, and sprite origins.
+ArcGIS is now the sole production map engine. Block 22.6 remains separately
+reviewed and confirmed as the browser acceptance and merge gate.
 
 ## Context
 
-The authenticated Listings workspace currently uses MapLibre GL JS with the
-OpenFreeMap Liberty style. The map adapter renders stored listing points,
+Before this migration, the authenticated Listings workspace used MapLibre GL
+JS with the OpenFreeMap Liberty style. The map adapter renders stored listing points,
 synchronizes selection with the listing panel, fits and focuses the viewport,
 supports a draggable manual-listing draft marker, and lazily renders the
 same-origin CAL FIRE Fire Hazard Severity Zone artifact.
@@ -204,10 +205,10 @@ a permanent runtime flag or dual-engine compatibility layer.
 
 ## Supersession
 
-This ADR supersedes the MapLibre GL JS and OpenFreeMap implementation choice in
-ADR 0003 and the MapLibre-specific rendering details in ADR 0007 only after
-Block 22.5 completes the cutover. All product, data, security, and operational
-decisions in those ADRs remain in force unless explicitly restated here.
+With Block 22.5 complete, this ADR supersedes the MapLibre GL JS and OpenFreeMap
+implementation choice in ADR 0003 and the MapLibre-specific rendering details
+in ADR 0007. All product, data, security, and operational decisions in those
+ADRs remain in force unless explicitly restated here.
 
 ## References
 

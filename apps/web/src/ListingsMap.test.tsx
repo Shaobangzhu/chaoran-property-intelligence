@@ -4,8 +4,13 @@ import "@testing-library/jest-dom/vitest";
 
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { getWorkerUrl } from "maplibre-gl";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { createArcgisListingsMap } = vi.hoisted(() => ({
+  createArcgisListingsMap: vi.fn(),
+}));
+
+vi.mock("./arcgisListingsMap.js", () => ({ createArcgisListingsMap }));
 
 import {
   ListingsMap,
@@ -18,8 +23,23 @@ import type { WildfireHazardMetadata } from "./wildfireHazardMetadata.js";
 afterEach(cleanup);
 
 describe("ListingsMap", () => {
-  it("configures MapLibre to use the Vite-bundled worker", () => {
-    expect(getWorkerUrl()).toContain("maplibre-gl-worker");
+  it("uses the ArcGIS driver as the production default", () => {
+    const harness = createDriverHarness();
+    createArcgisListingsMap.mockImplementationOnce(harness.createMap);
+
+    render(
+      <ListingsMap
+        listings={[eastvaleListing]}
+        onSelect={() => undefined}
+        selectedListingId={null}
+      />,
+    );
+
+    expect(createArcgisListingsMap).toHaveBeenCalledOnce();
+    expect(harness.driver.updateListings).toHaveBeenCalledWith(
+      [eastvaleListing],
+      null,
+    );
   });
 
   it("creates, updates, focuses, resizes, and destroys one map driver", () => {

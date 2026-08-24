@@ -8,8 +8,6 @@ const { esriConfig } = vi.hoisted(() => ({
 }));
 
 vi.mock("@arcgis/core/config.js", () => ({ default: esriConfig }));
-vi.mock("@arcgis/map-components/components/arcgis-map", () => ({}));
-vi.mock("@arcgis/map-components/components/arcgis-zoom", () => ({}));
 
 import { ArcgisConfigurationError } from "./arcgisConfig.js";
 import { initializeArcgisRuntime } from "./arcgisRuntime.js";
