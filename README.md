@@ -86,9 +86,9 @@ Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the loopback API a
 The React application checks the current session before mounting protected
 content and provides login, logout, bounded recovery, and automatic sign-out on
 an expired listings session. It renders loading, empty, error, retry, and
-listing content states alongside a MapLibre map using the OpenFreeMap Liberty
-style. Listings are converted to a minimal client-side GeoJSON point source,
-and selecting a listing or marker keeps the two views synchronized. An
+listing content states alongside an ArcGIS navigation map. Listings are
+rendered in an isolated ArcGIS `GraphicsLayer`, and selecting a listing or
+marker keeps the two views synchronized. An
 authenticated administrator can also enter a manual listing, place or drag its
 draft marker, explicitly confirm the coordinates, and submit it through the
 protected API. Moving the marker clears confirmation, and successful creation
@@ -137,12 +137,20 @@ See the
 The API limits failed login responses to ten per 15 minutes per process before
 password verification, emits only request-ID-based security events, and requires
 explicit admin authorization for listings. API responses use Helmet security
-headers. The web document CSP permits the selected OpenFreeMap tile service but
-does not permit inline scripts or eval.
+headers. The web document CSP permits only the observed ArcGIS 5.1 asset and
+basemap origins, plus the required WebAssembly and Blob worker/layer boundaries;
+it contains no wildcard or OpenFreeMap origin. `VITE_ARCGIS_API_KEY` is a
+browser credential, not a server secret, and must retain minimum basemap
+privileges and strict referrer restrictions. Map-driver tests use injected
+components and make no provider request.
 
-OpenFreeMap requires no browser API key, but its public service is an external
-development dependency without a project-specific availability guarantee. Map
-driver tests use fakes and never contact the style or tile service.
+Block 22 migrated the authenticated map from MapLibre/OpenFreeMap to exact-pinned
+ArcGIS Maps SDK 5.1 packages without changing React state, API/backend contracts,
+listing identity, manual drafts, or the same-origin CAL FIRE pipeline. Full
+automated and user-confirmed desktop/mobile acceptance is complete on
+`refactor/arcgis-migration`; the repository owner retains the merge into `main`.
+See the
+[Block 22 knowledge base](docs/knowledge-base/block-22-arcgis-map-engine-migration.md).
 
 The approved production target is AWS: CloudFront serves the React/Vite build
 from a private S3 origin and routes `/api/*` under the same HTTPS origin to an

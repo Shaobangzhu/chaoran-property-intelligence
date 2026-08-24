@@ -30,8 +30,8 @@ pnpm build
 git diff --check
 ```
 
-The Vite build may retain the known advisory that its MapLibre application
-chunk is larger than 500 kB. Any test, type, or build error is blocking.
+The Vite build may retain the known advisory that its ArcGIS application chunk
+is larger than 500 kB. Any test, type, or build error is blocking.
 
 ## Disposable Migration Gate
 

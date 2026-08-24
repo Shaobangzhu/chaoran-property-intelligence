@@ -1,30 +1,24 @@
 import { AlertCircle, Check, MapPin, RefreshCw } from "lucide-react";
-import {
-  GeoJSONSource,
-  LngLatBounds,
-  Map as MapLibreMap,
-  Marker,
-  NavigationControl,
-  setWorkerUrl,
-} from "maplibre-gl";
-import mapLibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef, useState } from "react";
 
-import { listingsToFeatureCollection } from "./listingGeoJson.js";
+import { createArcgisListingsMap } from "./arcgisListingsMap.js";
 import type { ListingSummary } from "./listingsApi.js";
+import type {
+  CreateListingsMap,
+  DraftMarkerPresentation,
+  ListingCoordinates,
+  ListingsMapDriver,
+} from "./listingsMapDriver.js";
 import { WildfireHazardControl } from "./WildfireHazardControl.js";
-import {
-  createMapLibreWildfireHazardMapAdapter,
-  createWildfireHazardOverlayController,
-  type WildfireHazardOverlayController,
-  type WildfireHazardOverlayState,
-} from "./wildfireHazardOverlay.js";
+import type { WildfireHazardOverlayState } from "./wildfireHazardOverlay.js";
 
-const LISTINGS_SOURCE_ID = "stored-listings";
-const LISTINGS_LAYER_ID = "stored-listing-points";
-const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-
-setWorkerUrl(mapLibreWorkerUrl);
+export type {
+  CreateListingsMap,
+  CreateListingsMapOptions,
+  DraftMarkerPresentation,
+  ListingCoordinates,
+  ListingsMapDriver,
+} from "./listingsMapDriver.js";
 
 export interface ListingsMapProps {
   draftMarker?: DraftMarkerController;
@@ -34,55 +28,17 @@ export interface ListingsMapProps {
   createMap?: CreateListingsMap;
 }
 
-export interface ListingCoordinates {
-  latitude: number;
-  longitude: number;
-}
-
 export interface DraftMarkerController extends DraftMarkerPresentation {
   onConfirm: () => void;
   onCoordinatesChange: (coordinates: ListingCoordinates) => void;
 }
-
-export interface DraftMarkerPresentation {
-  confirmed: boolean;
-  coordinates: ListingCoordinates | null;
-}
-
-export interface ListingsMapDriver {
-  updateListings: (
-    listings: ListingSummary[],
-    selectedListingId: string | null,
-  ) => void;
-  fitToListings: (listings: ListingSummary[]) => void;
-  focusListing: (listing: ListingSummary) => void;
-  updateDraftMarker: (draftMarker: DraftMarkerPresentation | null) => void;
-  setWildfireHazardVisible: (visible: boolean) => Promise<void>;
-  resize: () => void;
-  destroy: () => void;
-}
-
-interface CreateListingsMapOptions {
-  container: HTMLElement;
-  onSelect: (listingId: string) => void;
-  onDraftCoordinatesChange: (coordinates: ListingCoordinates) => void;
-  onWildfireHazardStateChange: (
-    state: WildfireHazardOverlayState,
-  ) => void;
-  onReady: () => void;
-  onError: (error: unknown) => void;
-}
-
-export type CreateListingsMap = (
-  options: CreateListingsMapOptions,
-) => ListingsMapDriver;
 
 export function ListingsMap({
   draftMarker,
   listings,
   selectedListingId,
   onSelect,
-  createMap = createMapLibreListingsMap,
+  createMap = createArcgisListingsMap,
 }: ListingsMapProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const driverRef = useRef<ListingsMapDriver | null>(null);
@@ -255,199 +211,6 @@ export function ListingsMap({
     </section>
   );
 }
-
-export const createMapLibreListingsMap: CreateListingsMap = ({
-  container,
-  onDraftCoordinatesChange,
-  onSelect,
-  onWildfireHazardStateChange,
-  onReady,
-  onError,
-}) => {
-  let ready = false;
-  let collection = listingsToFeatureCollection([], null);
-  let draftMarkerState: DraftMarkerPresentation | null = null;
-  let draftMarker: Marker | null = null;
-  let wildfireHazardOverlay: WildfireHazardOverlayController | null = null;
-  let wildfireHazardVisible = false;
-  const map = new MapLibreMap({
-    center: [-117.58, 33.94],
-    container,
-    style: OPEN_FREE_MAP_STYLE,
-    zoom: 10,
-  });
-
-  map.addControl(new NavigationControl({ showCompass: false }), "top-right");
-
-  map.on("load", () => {
-    map.addSource(LISTINGS_SOURCE_ID, {
-      type: "geojson",
-      data: collection,
-    });
-    map.addLayer({
-      id: LISTINGS_LAYER_ID,
-      type: "circle",
-      source: LISTINGS_SOURCE_ID,
-      paint: {
-        "circle-color": [
-          "case",
-          ["boolean", ["get", "selected"], false],
-          "#a24f2a",
-          "#0d6e6e",
-        ],
-        "circle-radius": [
-          "case",
-          ["boolean", ["get", "selected"], false],
-          9,
-          7,
-        ],
-        "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": 2,
-      },
-    });
-
-    wildfireHazardOverlay = createWildfireHazardOverlayController({
-      beforeLayerId: LISTINGS_LAYER_ID,
-      map: createMapLibreWildfireHazardMapAdapter(map),
-      onStateChange: onWildfireHazardStateChange,
-    });
-    if (wildfireHazardVisible) {
-      void wildfireHazardOverlay.setVisible(true);
-    }
-
-    map.on("click", LISTINGS_LAYER_ID, (event) => {
-      const listingId = event.features?.[0]?.properties.id;
-      if (typeof listingId === "string") {
-        onSelect(listingId);
-      }
-    });
-    map.on("mouseenter", LISTINGS_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", LISTINGS_LAYER_ID, () => {
-      updateCanvasCursor();
-    });
-
-    map.on("click", (event) => {
-      if (draftMarkerState === null) {
-        return;
-      }
-      const listingFeatures = map.queryRenderedFeatures(event.point, {
-        layers: [LISTINGS_LAYER_ID],
-      });
-      if (listingFeatures.length > 0) {
-        return;
-      }
-      onDraftCoordinatesChange({
-        latitude: event.lngLat.lat,
-        longitude: event.lngLat.lng,
-      });
-    });
-
-    ready = true;
-    renderDraftMarker();
-    updateCanvasCursor();
-    onReady();
-  });
-
-  map.on("error", (event) => {
-    if (!ready) {
-      onError(event.error);
-    }
-  });
-
-  return {
-    updateListings: (listings, selectedListingId) => {
-      collection = listingsToFeatureCollection(listings, selectedListingId);
-      if (ready) {
-        const source = map.getSource(LISTINGS_SOURCE_ID);
-        if (source instanceof GeoJSONSource) {
-          source.setData(collection);
-        }
-      }
-    },
-    fitToListings: (listings) => {
-      if (listings.length === 0) {
-        return;
-      }
-      if (listings.length === 1) {
-        const listing = listings[0];
-        if (listing !== undefined) {
-          map.easeTo({
-            center: [listing.longitude, listing.latitude],
-            duration: 0,
-            zoom: 12.5,
-          });
-        }
-        return;
-      }
-
-      const bounds = new LngLatBounds();
-      for (const listing of listings) {
-        bounds.extend([listing.longitude, listing.latitude]);
-      }
-      map.fitBounds(bounds, { duration: 0, maxZoom: 13, padding: 56 });
-    },
-    focusListing: (listing) => {
-      map.easeTo({
-        center: [listing.longitude, listing.latitude],
-        duration: 450,
-        zoom: Math.max(map.getZoom(), 12.5),
-      });
-    },
-    updateDraftMarker: (nextDraftMarker) => {
-      draftMarkerState = nextDraftMarker;
-      if (ready) {
-        renderDraftMarker();
-        updateCanvasCursor();
-      }
-    },
-    setWildfireHazardVisible: async (visible) => {
-      wildfireHazardVisible = visible;
-      await wildfireHazardOverlay?.setVisible(visible);
-    },
-    resize: () => map.resize(),
-    destroy: () => {
-      wildfireHazardOverlay?.destroy();
-      draftMarker?.remove();
-      map.remove();
-    },
-  };
-
-  function renderDraftMarker(): void {
-    const coordinates = draftMarkerState?.coordinates;
-    if (coordinates === undefined || coordinates === null) {
-      draftMarker?.remove();
-      draftMarker = null;
-      return;
-    }
-
-    if (draftMarker === null) {
-      draftMarker = new Marker({ color: "#a24f2a", draggable: true })
-        .setLngLat([coordinates.longitude, coordinates.latitude])
-        .addTo(map);
-      draftMarker.on("dragend", () => {
-        const position = draftMarker?.getLngLat();
-        if (position !== undefined) {
-          onDraftCoordinatesChange({
-            latitude: position.lat,
-            longitude: position.lng,
-          });
-        }
-      });
-    } else {
-      draftMarker.setLngLat([coordinates.longitude, coordinates.latitude]);
-    }
-    draftMarker
-      .getElement()
-      .classList.toggle("is-confirmed", draftMarkerState?.confirmed === true);
-  }
-
-  function updateCanvasCursor(): void {
-    map.getCanvas().style.cursor =
-      draftMarkerState === null ? "" : "crosshair";
-  }
-};
 
 function toDraftMarkerPresentation(
   draftMarker: DraftMarkerController | undefined,

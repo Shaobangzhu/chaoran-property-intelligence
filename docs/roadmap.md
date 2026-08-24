@@ -15,9 +15,13 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Block 21.8 closed its offline, disposable migration, authenticated
-HTTP, React automated, fake-worker, user-confirmed browser visual, and
-separately approved AWS metadata-only gates. The repository currently contains:
+complete. Blocks 22.0-22.6 are complete on `refactor/arcgis-migration`; the
+ArcGIS migration passed automated, desktop/mobile, CAL FIRE, Console, network,
+credential, and bundle acceptance and is ready for the repository owner to
+merge into `main`. Block 21.8 closed its offline, disposable migration,
+authenticated HTTP, React
+automated, fake-worker, user-confirmed browser visual, and separately approved
+AWS metadata-only gates. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -917,3 +921,153 @@ See the
 [Block 21 Configurable Listing Search Knowledge Base](knowledge-base/block-21-configurable-listing-search.md)
 and
 [ADR 0009: Persisted Listing Search Criteria](adr/0009-persisted-listing-search-criteria.md).
+
+### Block 22: ArcGIS Map-Engine Migration
+
+Migrate only the authenticated browser map from MapLibre GL JS and OpenFreeMap
+to ArcGIS Maps SDK for JavaScript. Preserve the existing React/TypeScript
+architecture, injected `ListingsMapDriver`, workspace layout, listing and
+selection behavior, manual-listing draft workflow, CAL FIRE pipeline and UX,
+API/backend contracts, authentication, Search Criteria, Showing List, and AWS
+topology.
+
+The accepted target uses ArcGIS 5.1 map components for view/UI lifecycle and
+core `GraphicsLayer`/`GeoJSONLayer` APIs behind the current driver boundary.
+The CAL FIRE artifact remains a validated same-origin static GeoJSON release;
+the browser does not add an ArcGIS FeatureServer dependency. The
+`VITE_ARCGIS_API_KEY` browser credential is limited to required basemap
+privileges and approved referrers. It is never treated as a hidden server
+secret.
+
+This block is a migration, not a redesign or feature expansion. It does not add
+ArcGIS login, portal items, hosted layers, search, geocoding, routing, popups,
+clustering, 3D, PostGIS, new API routes, database migrations, or cloud
+deployment.
+
+Planned sub-block mapping:
+
+1. `22.0` Freeze feature parity, architecture, security, lifecycle, bundle
+   baseline, rollback, and acceptance contracts. **Complete in documentation
+   only:** ADR 0010 and the Block 22 knowledge base are accepted. Four focused
+   baseline files with 18 tests and the production web build pass. The current
+   MapLibre web asset baseline is 1,815,958 raw bytes and 473,971 gzip bytes.
+   No dependency, runtime source, network service, or AWS resource changed.
+2. `22.1` Add exact compatible ArcGIS 5.1 packages, component registration,
+   basemap-key configuration, and missing/invalid-key tests. Keep MapLibre as
+   the user-visible default and make no real ArcGIS request in automated tests.
+   **Complete in code and offline verification:** exact Core 5.1.20,
+   map-components 5.1.20, and Calcite 5.1.2 dependencies are pinned. The
+   isolated runtime registers only the map and zoom components, applies a
+   strictly validated key only to `apiKeys.basemapStyles`, and includes React
+   19 JSX types. The indirect Vaadin usage-statistics build script is denied.
+   Thirteen new tests, 31 focused tests, all 927 repository tests, full
+   typecheck, and production builds pass. The current bundle and CSP remain
+   MapLibre/OpenFreeMap-only, and no ArcGIS request or credential exposure
+   occurred.
+3. `22.2` Implement the ArcGIS listing-map driver with the navigation basemap,
+   listing graphics, selection hit testing, fit/focus behavior, resize,
+   bounded startup failure, retry, and idempotent teardown. Do not cut over the
+   default factory yet. **Complete in code and offline verification:** an
+   engine-neutral port preserves existing imports, and the non-default ArcGIS
+   adapter creates one navigation map, one top-right zoom component, and one
+   stable-ID `GraphicsLayer`. It preserves marker tokens, layer-scoped
+   selection and pointer behavior, fit/focus constraints, bounded errors,
+   stale-async guards, automatic host resize, and idempotent cleanup. Nine new
+   adapter tests, 27 focused tests, all 936 repository tests, full typecheck,
+   and production builds pass. The production bundle remains
+   MapLibre/OpenFreeMap-only and contains neither the ArcGIS listing runtime nor
+   the local API key. Draft and CAL FIRE hooks remain deferred to 22.3 and
+   22.4.
+4. `22.3` Reproduce manual-listing background placement, listing-hit
+   suppression, draft dragging, coordinate callbacks, confirmation state, and
+   create/edit integration without adding ArcGIS editing UI. **Complete in
+   code and offline verification:** the non-default ArcGIS adapter installs a
+   separate topmost draft `GraphicsLayer`, reconciles one stable point graphic,
+   and renders an anchored local data-URI pin with rust editable and teal-halo
+   confirmed states. Layer-scoped hit tests preserve listing selection,
+   background-only placement, draft-hit suppression, crosshair/pointer/grab
+   feedback, and map navigation outside the draft. Dragging stops map
+   propagation only after the draft is hit, updates geometry during movement,
+   and emits bounded coordinates only on drag end. Async generations prevent
+   late click or drag results from writing after cancel or destroy. The ArcGIS
+   adapter remains non-default; no backend, database, wildfire, network, CSP,
+   or AWS behavior changed. Fifteen adapter tests, 34 focused ArcGIS/React
+   workflow tests, all 942 repository tests across 106 files, full typecheck,
+   and production builds pass. Production JavaScript remains
+   MapLibre/OpenFreeMap-only and contains neither ArcGIS adapter runtime markers
+   nor the local browser key.
+5. `22.4` Migrate the existing strict CAL FIRE state machine to a validated,
+   Blob-backed ArcGIS `GeoJSONLayer` with severity rendering, preserved layer
+   order, lazy loading, one-fetch toggles, rollback, retry, and cleanup.
+   **Complete in code and offline verification:** the existing artifact and
+   metadata loaders, strict parser, state transitions, desired visibility,
+   one-fetch cache, retry, and Abort behavior now run through one
+   engine-neutral lifecycle with renderer-owned installation and rollback.
+   MapLibre retains its existing source/four-layer renderer. The non-default
+   ArcGIS adapter creates one validated Blob-backed `GeoJSONLayer`, applies the
+   accepted three-class `UniqueValueRenderer`, and installs it at map index `0`
+   below stored listings and the draft marker. Disable/enable changes only
+   `visible`; failure removes and destroys the layer, revokes its object URL,
+   and remains retryable. Overlay state is forwarded to the existing React
+   control, while construction or load failure never invokes the base-map error
+   boundary. No real provider request, default-engine cutover, CSP change,
+   backend operation, database operation, deployment, or AWS operation
+   occurred. Seven new ArcGIS overlay tests, 74 focused ArcGIS/CAL FIRE/React
+   tests, all 951 repository tests across 107 files, full typecheck, and
+   production builds pass. Production JavaScript remains
+   MapLibre/OpenFreeMap-only and contains neither ArcGIS overlay runtime markers
+   nor the configured local browser key.
+6. `22.5` Switch the production factory to ArcGIS, update CSP from an observed
+   least-privilege network audit, and remove MapLibre, OpenFreeMap, the bundled
+   worker, dead helpers, and engine-specific selectors. The final runtime has
+   one map engine and no permanent compatibility flag. **Complete in code and
+   offline verification:** `ListingsMap` now defaults to the ArcGIS driver, and
+   browser-only component registration is isolated in the web entry point.
+   MapLibre, OpenFreeMap, their worker, GeoJSON helper, dependency, selectors,
+   and lockfile entries are removed. Vite now reads the repository-root browser
+   environment explicitly. A credentialed request using the approved local
+   referrer returned the ArcGIS navigation style successfully and identified
+   only `basemapstyles-api.arcgis.com`, `basemaps-api.arcgis.com`, and
+   `cdn.arcgis.com`; the key value was never printed. CSP is restricted to
+   those origins plus the SDK's WebAssembly and Blob-worker requirements.
+   Fifty-nine focused tests, all 950 repository tests across 107 files, full
+   runtime/CDK typecheck, and production builds pass. The synthetic-key bundle
+   has 1,090 JavaScript assets and a 1,438.21 kB raw/360.38 kB gzip main asset;
+   it contains no MapLibre/OpenFreeMap marker and does contain the expected
+   synthetic key injection. The real local key is absent from that artifact.
+   Browser control could not attach to the open local tab, so visual, WebGL,
+   and browser Network-panel acceptance are deliberately not claimed here and
+   remain the Block 22.6 merge gate. No backend, database, AWS, RentCast,
+   Telegram, or deployment operation occurred.
+7. `22.6` Run full tests, typecheck, builds, desktop/mobile browser acceptance,
+   WebGL/canvas and network inspection, API-key restriction review, and bundle
+   delta recording. Update as-built documentation and leave the merge into
+   `main` to the repository owner after acceptance. **Complete:** all 950 tests
+   across 107 files, full runtime/CDK typecheck, and a synthetic-key production
+   build pass. User-confirmed desktop/mobile acceptance preserves the ArcGIS
+   basemap, listing selection and framing, manual draft workflow, CAL FIRE
+   three-severity overlay, provenance, disclosures, and responsive layout. The
+   browser audit exposed and closed two least-privilege CSP gaps: exact ArcGIS
+   SDK/static/CDN origins and `connect-src blob:` for the validated local
+   `GeoJSONLayer`. It contains no wildcard or OpenFreeMap origin. A React
+   StrictMode teardown race was reproduced with a regression test and fixed by
+   waiting for `componentOnReady()` before destroying an unmounted component;
+   the user confirmed a clean Console after hard refresh. The observed Network
+   panel contains the expected ArcGIS and same-origin artifact requests and no
+   OpenFreeMap request. The final 1,090-asset build has a 1,438.27 kB raw /
+   360.43 kB gzip main asset and 303 preload links; the known large-chunk
+   advisory remains. Approved and rejected referrer probes returned HTTP 200
+   and HTTP 401/ArcGIS 498 respectively, no real key was logged, and a
+   synthetic-key audit found no real local key in the build. No backend,
+   database, RentCast, Telegram, AWS, schedule, or deployment operation
+   occurred.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 22 does not call RentCast, connect to PostgreSQL, send
+Telegram, mutate AWS resources, enable a schedule, or deploy unless a separate
+operation is reviewed and approved.
+
+See the
+[Block 22 ArcGIS Map-Engine Migration Knowledge Base](knowledge-base/block-22-arcgis-map-engine-migration.md)
+and
+[ADR 0010: ArcGIS Map-Engine Migration](adr/0010-arcgis-map-engine-migration.md).
