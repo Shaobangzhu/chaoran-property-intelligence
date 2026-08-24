@@ -17,8 +17,8 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.3 are complete on
-`feature/3d-fire-terrain`; Block 23.4 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.4 are complete on
+`feature/3d-fire-terrain`; Block 23.5 remains separately gated. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1148,6 +1148,16 @@ Planned sub-block mapping:
 5. `23.4` Drape the same validated CAL FIRE `GeoJSONLayer` on terrain with the
    existing three severity classes, colors, opacity hierarchy, provenance,
    lazy loading, retry, layer ordering, and no extrusion or derived analysis.
+   **Complete:** the terrain adapter derives its layer from the reviewed 2D
+   factory and changes only elevation placement to `on-the-ground`. It shares
+   the exact parser, manifest, three-class `SimpleFillSymbol` renderer,
+   visibility state machine, Abort, rollback, retry, teardown, and Blob URL
+   ownership. The scene creates the controller after ground readiness, queues
+   desired visibility, keeps hazard below listing graphics, and isolates overlay
+   failure from scene readiness. The terrain-only disclosure preserves CAL FIRE
+   authority. Thirty-two focused tests and web typecheck pass; production
+   wiring, real requests, CSP/key changes, backend, database, and AWS remain
+   unchanged.
 6. `23.5` Enable the user-visible mode switch and complete draft-mode routing,
    2D fallback, terrain-context disclosure, keyboard/accessibility behavior,
    responsive layouts, and state replay across mode changes.

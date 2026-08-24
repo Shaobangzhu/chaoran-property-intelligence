@@ -9,7 +9,8 @@ scene plus World Elevation path on the target development device. Block 23.2
 implemented the mode-neutral React controller and injected-factory seam with
 fake-driver lifecycle tests. Block 23.3 implemented the separately approved,
 non-default local-scene adapter and its offline lifecycle tests. Block 23.4
-remains separately gated.
+implemented the terrain-draped CAL FIRE adapter and conditional context-only
+disclosure. Block 23.5 remains separately gated.
 
 ## Context
 
@@ -143,6 +144,22 @@ layer identity, same three-class unique-value renderer, fill/outline palette,
 opacity hierarchy, lazy-load state machine, rollback, retry, and provenance.
 Set its elevation behavior to drape polygons on the ground. Listings remain
 visually above the hazard fill.
+
+Block 23.4 implements this by constructing the terrain layer from the existing
+reviewed layer factory and setting only `elevationInfo.mode` to
+`on-the-ground`. Both modes therefore share the same strict artifact and
+manifest loaders, layer identity, `SimpleFillSymbol` renderer, three source
+values, visual tokens, and controller lifecycle. Adding the hazard layer at map
+index `0` keeps terrain-aware listing graphics above the fill. No polygon uses
+a 3D symbol, extrusion, z-value, feature expression, or geometry transform.
+
+The terrain scene owns its overlay controller after scene and ground readiness,
+replays desired visibility, forwards renderer state, and destroys the
+controller before removing listing graphics and the scene host. Overlay failure
+remains independent from scene readiness. The shared legend adds the frozen
+terrain-context statement only when the terrain overlay is visible; the 2D
+legend remains unchanged. The terrain factory is still not connected to the
+production map shell.
 
 The immutable validated CAL FIRE release may be cached across a 2D/3D mode
 change after one successful load. Each renderer owns only its ArcGIS layer,

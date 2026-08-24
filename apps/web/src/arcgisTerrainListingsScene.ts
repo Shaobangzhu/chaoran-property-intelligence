@@ -12,12 +12,21 @@ import type {
 } from "@arcgis/core/views/types.js";
 
 import { initializeArcgisRuntime } from "./arcgisRuntime.js";
+import {
+  createArcgisTerrainWildfireHazardOverlayController,
+} from "./arcgisTerrainWildfireHazardOverlay.js";
+import type {
+  CreateArcgisWildfireHazardOverlayOptions,
+} from "./arcgisWildfireHazardOverlay.js";
 import type { ListingSummary } from "./listingsApi.js";
 import type {
   CreateListingsMap,
   CreateListingsMapOptions,
   ListingsMapDriver,
 } from "./listingsMapDriver.js";
+import type {
+  WildfireHazardOverlayController,
+} from "./wildfireHazardOverlay.js";
 
 const INITIAL_CAMERA_POSITION = [-117.58, 33.65, 45_000] as const;
 const INITIAL_CAMERA_HEADING = 0;
@@ -42,6 +51,9 @@ export interface ArcgisTerrainListingsSceneDependencies {
   initializeRuntime: () => void;
   supportsWebGL2: () => boolean;
   createSceneElement: () => ArcgisSceneElement;
+  createWildfireHazardOverlay: (
+    options: CreateArcgisWildfireHazardOverlayOptions,
+  ) => WildfireHazardOverlayController;
   createZoomElement: () => ArcgisZoomElement;
   loadGround: (map: ArcgisMap) => Promise<void>;
 }
@@ -57,6 +69,8 @@ const defaultDependencies: ArcgisTerrainListingsSceneDependencies = {
   initializeRuntime: initializeArcgisRuntime,
   supportsWebGL2: () => typeof WebGL2RenderingContext !== "undefined",
   createSceneElement: () => document.createElement("arcgis-scene"),
+  createWildfireHazardOverlay:
+    createArcgisTerrainWildfireHazardOverlayController,
   createZoomElement: () => document.createElement("arcgis-zoom"),
   loadGround: async (map) => {
     await map.ground.load();
@@ -99,6 +113,8 @@ export function createArcgisTerrainListingsSceneWithDependencies(
 
   let currentListings: ListingSummary[] = [];
   let currentSelectedListingId: string | null = null;
+  let wildfireHazardOverlay: WildfireHazardOverlayController | null = null;
+  let wildfireHazardVisible = false;
   let pendingNavigation: PendingNavigation | null = null;
   let ready = false;
   let initializationSettled = false;
@@ -196,6 +212,20 @@ export function createArcgisTerrainListingsSceneWithDependencies(
       initializationSettled = true;
       reconcileListingGraphics();
       updateSceneCursor();
+      try {
+        wildfireHazardOverlay = dependencies.createWildfireHazardOverlay({
+          map: arcgisMap,
+          onStateChange: options.onWildfireHazardStateChange,
+        });
+        if (wildfireHazardVisible) {
+          void wildfireHazardOverlay.setVisible(true);
+        }
+      } catch {
+        options.onWildfireHazardStateChange({
+          status: "error",
+          visible: false,
+        });
+      }
 
       const navigation = pendingNavigation;
       pendingNavigation = null;
@@ -236,8 +266,9 @@ export function createArcgisTerrainListingsSceneWithDependencies(
     updateDraftMarker: () => {
       // Block 23.5 routes editing to the existing 2D placement workflow.
     },
-    setWildfireHazardVisible: async () => {
-      // Block 23.4 adds the terrain-draped CAL FIRE renderer.
+    setWildfireHazardVisible: async (visible) => {
+      wildfireHazardVisible = visible;
+      await wildfireHazardOverlay?.setVisible(visible);
     },
     resize: () => {
       // The scene component observes its host size.
@@ -251,6 +282,8 @@ export function createArcgisTerrainListingsSceneWithDependencies(
       clickHitTestSequence += 1;
       pointerHitTestSequence += 1;
       navigationSequence += 1;
+      wildfireHazardOverlay?.destroy();
+      wildfireHazardOverlay = null;
       sceneElement.removeEventListener("arcgisLoadError", handleLoadError);
       sceneElement.removeEventListener("arcgisViewClick", handleSceneClick);
       sceneElement.removeEventListener(

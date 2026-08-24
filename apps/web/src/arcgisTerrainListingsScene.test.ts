@@ -17,6 +17,7 @@ import {
 } from "./arcgisTerrainListingsScene.js";
 import { coronaListing, eastvaleListing } from "./listingFixtures.js";
 import type { CreateListingsMapOptions } from "./listingsMapDriver.js";
+import type { WildfireHazardOverlayState } from "./wildfireHazardOverlay.js";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -260,7 +261,7 @@ describe("ArcGIS terrain listings scene driver", () => {
     expect(harness.onReady).toHaveBeenCalledOnce();
   });
 
-  it("keeps draft and CAL FIRE operations inert until later blocks", async () => {
+  it("keeps draft inert and replays queued CAL FIRE visibility after ready", async () => {
     const harness = createTerrainHarness();
     const driver = createArcgisTerrainListingsSceneWithDependencies(
       harness.options,
@@ -272,11 +273,62 @@ describe("ArcGIS terrain listings scene driver", () => {
       coordinates: { latitude: 33.9, longitude: -117.6 },
     });
     await driver.setWildfireHazardVisible(true);
+    expect(harness.createWildfireHazardOverlay).not.toHaveBeenCalled();
     await harness.resolveReady();
 
     expect(getListingsLayer(harness).graphics).toHaveLength(0);
     expect(harness.onDraftCoordinatesChange).not.toHaveBeenCalled();
-    expect(harness.onWildfireHazardStateChange).not.toHaveBeenCalled();
+    expect(harness.createWildfireHazardOverlay).toHaveBeenCalledWith({
+      map: harness.map,
+      onStateChange: harness.onWildfireHazardStateChange,
+    });
+    expect(harness.setWildfireHazardVisible).toHaveBeenCalledOnce();
+    expect(harness.setWildfireHazardVisible).toHaveBeenCalledWith(true);
+
+    await driver.setWildfireHazardVisible(false);
+    expect(harness.setWildfireHazardVisible).toHaveBeenLastCalledWith(false);
+  });
+
+  it("forwards CAL FIRE state and isolates overlay construction failure", async () => {
+    const harness = createTerrainHarness();
+    createArcgisTerrainListingsSceneWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    await harness.resolveReady();
+    const readyState: WildfireHazardOverlayState = {
+      metadata: {
+        artifactVersion: "2025.1",
+        jurisdictions: [],
+        snapshotAt: "2026-08-22T00:00:00.000Z",
+        sourceName: "CAL FIRE / OSFM",
+        sourceUrl: "https://osfm.fire.ca.gov/",
+        sourceVersions: { lra: "FHSZLRA25_1", sra: "FHSZSRA_23_3" },
+      },
+      status: "ready",
+      visible: true,
+    };
+    harness.emitWildfireHazardState(readyState);
+    expect(harness.onWildfireHazardStateChange).toHaveBeenCalledWith(
+      readyState,
+    );
+
+    const failedHarness = createTerrainHarness();
+    failedHarness.createWildfireHazardOverlay.mockImplementationOnce(() => {
+      throw new Error("private overlay construction detail");
+    });
+    createArcgisTerrainListingsSceneWithDependencies(
+      failedHarness.options,
+      failedHarness.dependencies,
+    );
+    await failedHarness.resolveReady();
+
+    expect(failedHarness.onReady).toHaveBeenCalledOnce();
+    expect(failedHarness.onError).not.toHaveBeenCalled();
+    expect(failedHarness.onWildfireHazardStateChange).toHaveBeenCalledWith({
+      status: "error",
+      visible: false,
+    });
   });
 
   it("reports one bounded scene or ground initialization error", async () => {
@@ -350,6 +402,7 @@ describe("ArcGIS terrain listings scene driver", () => {
 
     expect(harness.mapRemove).toHaveBeenCalledOnce();
     expect(harness.mapRemove).toHaveBeenCalledWith(layer);
+    expect(harness.destroyWildfireHazardOverlay).toHaveBeenCalledOnce();
     expect(layer.graphics).toHaveLength(0);
     expect(harness.hitTest).not.toHaveBeenCalled();
     expect(harness.onSelect).not.toHaveBeenCalled();
@@ -373,6 +426,20 @@ function createTerrainHarness(): TerrainHarness {
   const destroyElement = vi.fn(() => Promise.resolve());
   const map = { add: mapAdd, ground: {}, remove: mapRemove };
   const loadGround = vi.fn(async () => undefined);
+  const setWildfireHazardVisible = vi.fn(async () => undefined);
+  const destroyWildfireHazardOverlay = vi.fn();
+  let emitWildfireHazardState = (
+    _state: WildfireHazardOverlayState,
+  ): void => undefined;
+  const createWildfireHazardOverlay = vi.fn(
+    ({ onStateChange }: { onStateChange?: typeof emitWildfireHazardState }) => {
+      emitWildfireHazardState = onStateChange ?? (() => undefined);
+      return {
+        destroy: destroyWildfireHazardOverlay,
+        setVisible: setWildfireHazardVisible,
+      };
+    },
+  );
 
   Object.assign(rawSceneElement, {
     componentOnReady: vi.fn(() => componentReady.promise),
@@ -406,6 +473,7 @@ function createTerrainHarness(): TerrainHarness {
   };
   const dependencies: ArcgisTerrainListingsSceneDependencies = {
     createSceneElement: () => sceneElement,
+    createWildfireHazardOverlay,
     createZoomElement: () => zoomElement,
     initializeRuntime,
     loadGround,
@@ -415,8 +483,11 @@ function createTerrainHarness(): TerrainHarness {
   return {
     componentReady,
     container,
+    createWildfireHazardOverlay,
     dependencies,
     destroyElement,
+    destroyWildfireHazardOverlay,
+    emitWildfireHazardState: (state) => emitWildfireHazardState(state),
     goTo,
     hitTest,
     initializeRuntime,
@@ -436,6 +507,7 @@ function createTerrainHarness(): TerrainHarness {
       await settlePromises();
     },
     sceneElement,
+    setWildfireHazardVisible,
     supportsWebGL2,
     viewContainer,
     zoomElement,
@@ -445,8 +517,11 @@ function createTerrainHarness(): TerrainHarness {
 interface TerrainHarness {
   componentReady: Deferred<void>;
   container: HTMLElement;
+  createWildfireHazardOverlay: ReturnType<typeof vi.fn>;
   dependencies: ArcgisTerrainListingsSceneDependencies;
   destroyElement: ReturnType<typeof vi.fn>;
+  destroyWildfireHazardOverlay: ReturnType<typeof vi.fn>;
+  emitWildfireHazardState: (state: WildfireHazardOverlayState) => void;
   goTo: ReturnType<typeof vi.fn>;
   hitTest: ReturnType<typeof vi.fn>;
   initializeRuntime: ReturnType<typeof vi.fn>;
@@ -465,6 +540,7 @@ interface TerrainHarness {
   sceneElement: ReturnType<
     ArcgisTerrainListingsSceneDependencies["createSceneElement"]
   >;
+  setWildfireHazardVisible: ReturnType<typeof vi.fn>;
   supportsWebGL2: ReturnType<typeof vi.fn>;
   viewContainer: HTMLElement;
   zoomElement: ReturnType<

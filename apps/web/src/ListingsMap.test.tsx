@@ -133,9 +133,24 @@ describe("ListingsMap", () => {
     expect(
       screen.getByRole("switch", { name: "Wildfire hazard zones" }),
     ).toBeChecked();
+    act(() =>
+      terrainHarness.options?.onWildfireHazardStateChange({
+        metadata: createWildfireHazardMetadata(),
+        status: "ready",
+        visible: true,
+      }),
+    );
+    expect(
+      screen.getByText(
+        "Terrain is visual context only. CAL FIRE classifications are unchanged.",
+      ),
+    ).toBeInTheDocument();
 
     twoDimensionalButton.focus();
     await user.keyboard("[Enter]");
+    expect(
+      screen.queryByText(/Terrain is visual context only/),
+    ).not.toBeInTheDocument();
     expect(terrainHarness.driver.destroy).toHaveBeenCalledOnce();
     expect(twoDimensionalHarness.createMap).toHaveBeenCalledTimes(2);
     expect(lifecycle).toEqual([

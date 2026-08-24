@@ -2,16 +2,18 @@
 
 ## Status
 
-Blocks 23.0-23.3 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0-23.4 are complete on `feature/3d-fire-terrain`. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
 frozen. The separately approved 23.1 provider/browser precheck passed, and the
 separately approved 23.2 mode/lifecycle seam passed focused tests and web
-typecheck. Block 23.3 added and verified the non-default terrain-scene adapter.
-Block 23.4 requires a fresh explanation and explicit confirmation.
+typecheck. Block 23.3 added and verified the non-default terrain-scene adapter,
+and Block 23.4 added the terrain-draped CAL FIRE renderer and context-only
+disclosure. Block 23.5 requires a fresh explanation and explicit confirmation.
 
-Block 23.3 registered the exact-pinned SDK's `arcgis-scene` component and added
-a tested adapter, styling hook, and documentation. The adapter is not imported
+Blocks 23.3-23.4 registered the exact-pinned SDK's `arcgis-scene` component and
+added tested scene, listing, and CAL FIRE terrain adapters plus the conditional
+disclosure. The scene adapter is not imported
 by the production entry point or Listings map shell, so the existing 2D
 workspace remains the only user-visible mode and no terrain request is made by
 the application. No dependency, browser credential, Content Security Policy,
@@ -603,6 +605,33 @@ no key, CSP, dependency, backend, database, or AWS contract.
   retry, Abort, and overlay-only failure
 - add the terrain-context-only disclosure
 - prove no classification, boundary, extrusion, or API/backend change
+
+**Complete:** `arcgisTerrainWildfireHazardOverlay.ts` creates the terrain layer
+from the existing reviewed `GeoJSONLayer` factory and changes only
+`elevationInfo.mode` to `on-the-ground`. The layer retains the same stable ID,
+same-origin validated Blob input, provenance loader, exact `moderate`, `high`,
+and `very-high` unique-value renderer, colors, opacity hierarchy, outlines,
+popup/legend settings, and hidden layer-list behavior. Its symbols remain
+`SimpleFillSymbol`; no 3D symbol, extrusion, elevation value, geometry rewrite,
+or derived analysis exists.
+
+The existing engine-neutral lifecycle now accepts the selected layer factory,
+so both 2D and terrain paths share lazy loading, strict artifact/manifest
+validation, desired visibility, same-scene no-refetch toggling, Abort,
+rollback, retry, layer destruction, and Blob URL revocation. The terrain scene
+creates this controller only after scene and ground readiness, replays a queued
+visibility request, inserts hazard at map index `0` below listing graphics,
+forwards overlay state, isolates construction/load errors from scene readiness,
+and destroys the controller before scene teardown.
+
+The existing legend receives a terrain-context flag from the React-owned mode
+and, only while a terrain overlay is visible, adds: `Terrain is visual context
+only. CAL FIRE classifications are unchanged.` The 2D legend and existing
+blank-area disclosure remain unchanged. Thirty-two focused terrain, shared
+overlay, scene, control, and React shell tests pass with web typecheck. The real
+terrain factory remains disconnected from production until Block 23.5, so this
+block made no real provider request and changed no key, CSP, dependency,
+backend, database, or AWS contract.
 
 ### Block 23.5: User-visible integration
 

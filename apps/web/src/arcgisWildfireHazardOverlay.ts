@@ -42,6 +42,10 @@ export interface ArcgisWildfireHazardOverlayDependencies {
   revokeObjectUrl: (objectUrl: string) => void;
 }
 
+export type CreateArcgisWildfireHazardLayer = (
+  objectUrl: string,
+) => GeoJSONLayer;
+
 const defaultDependencies: ArcgisWildfireHazardOverlayDependencies = {
   createLayer: createArcgisWildfireHazardLayer,
   createObjectUrl: createWildfireHazardObjectUrl,
@@ -53,9 +57,19 @@ const defaultDependencies: ArcgisWildfireHazardOverlayDependencies = {
 export function createArcgisWildfireHazardOverlayController(
   options: CreateArcgisWildfireHazardOverlayOptions,
 ): WildfireHazardOverlayController {
+  return createArcgisWildfireHazardOverlayControllerWithLayerFactory(
+    options,
+    createArcgisWildfireHazardLayer,
+  );
+}
+
+export function createArcgisWildfireHazardOverlayControllerWithLayerFactory(
+  options: CreateArcgisWildfireHazardOverlayOptions,
+  createLayer: CreateArcgisWildfireHazardLayer,
+): WildfireHazardOverlayController {
   return createArcgisWildfireHazardOverlayControllerWithDependencies(
     options,
-    defaultDependencies,
+    { ...defaultDependencies, createLayer },
   );
 }
 

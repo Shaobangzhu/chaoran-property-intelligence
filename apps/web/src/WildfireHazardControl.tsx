@@ -8,6 +8,7 @@ export interface WildfireHazardControlProps {
   state: WildfireHazardOverlayState;
   onEnabledChange: (enabled: boolean) => void;
   onRetry: () => void;
+  terrainContext?: boolean;
 }
 
 export function WildfireHazardControl({
@@ -15,6 +16,7 @@ export function WildfireHazardControl({
   state,
   onEnabledChange,
   onRetry,
+  terrainContext = false,
 }: WildfireHazardControlProps): React.JSX.Element {
   const isVisible = state.status === "ready" && state.visible;
 
@@ -61,15 +63,22 @@ export function WildfireHazardControl({
         </div>
       ) : null}
 
-      {isVisible ? <WildfireHazardLegend metadata={state.metadata} /> : null}
+      {isVisible ? (
+        <WildfireHazardLegend
+          metadata={state.metadata}
+          terrainContext={terrainContext}
+        />
+      ) : null}
     </section>
   );
 }
 
 function WildfireHazardLegend({
   metadata,
+  terrainContext,
 }: {
   metadata: WildfireHazardMetadata;
+  terrainContext: boolean;
 }): React.JSX.Element {
   return (
     <div
@@ -108,6 +117,12 @@ function WildfireHazardLegend({
       <p className="wildfire-hazard-disclosure">
         Blank areas may be outside mapped hazard zones.
       </p>
+      {terrainContext ? (
+        <p className="wildfire-hazard-disclosure">
+          Terrain is visual context only. CAL FIRE classifications are
+          unchanged.
+        </p>
+      ) : null}
     </div>
   );
 }

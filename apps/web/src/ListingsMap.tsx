@@ -248,6 +248,7 @@ export function ListingsMap({
               state={wildfireHazardState}
               onEnabledChange={setWildfireHazardVisibility}
               onRetry={() => setWildfireHazardVisibility(true)}
+              terrainContext={mode === "terrain-3d"}
             />
           ) : null}
         </div>
