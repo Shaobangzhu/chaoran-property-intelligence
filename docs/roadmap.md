@@ -17,8 +17,8 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.2 are complete on
-`feature/3d-fire-terrain`; Block 23.3 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.3 are complete on
+`feature/3d-fire-terrain`; Block 23.4 remains separately gated. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1135,7 +1135,16 @@ Planned sub-block mapping:
 4. `23.3` Add the non-default ArcGIS local-scene adapter with World Elevation,
    current-basemap continuity, terrain-aware listing graphics, camera fit,
    focus, selection hit testing, resize, capability failure, and idempotent
-   teardown. Do not add CAL FIRE rendering yet.
+   teardown. Do not add CAL FIRE rendering yet. **Complete:** the exact-pinned
+   SDK now registers `arcgis-scene`, and a non-default driver creates a local
+   `arcgis/navigation` scene over `world-elevation` with automatic quality, no
+   exaggeration, visible attribution, disabled popups, bounded camera fit/focus,
+   WebGL2 and ground-readiness failure isolation, stable terrain-relative
+   listing graphics, layer-scoped selection, and idempotent teardown. Eleven
+   adapter tests plus the existing 2D/shell/boundary regressions provide 36
+   focused passing tests, and web typecheck passes. Production does not import
+   the adapter, so 2D remains the only visible mode; CAL FIRE scene rendering,
+   CSP changes, provider requests, and user-visible wiring were not added.
 5. `23.4` Drape the same validated CAL FIRE `GeoJSONLayer` on terrain with the
    existing three severity classes, colors, opacity hierarchy, provenance,
    lazy loading, retry, layer ordering, and no extrusion or derived analysis.

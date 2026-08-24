@@ -2,19 +2,21 @@
 
 ## Status
 
-Blocks 23.0, 23.1, and 23.2 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0-23.3 are complete on `feature/3d-fire-terrain`. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
 frozen. The separately approved 23.1 provider/browser precheck passed, and the
 separately approved 23.2 mode/lifecycle seam passed focused tests and web
-typecheck. Block 23.3 requires a fresh explanation and explicit confirmation.
+typecheck. Block 23.3 added and verified the non-default terrain-scene adapter.
+Block 23.4 requires a fresh explanation and explicit confirmation.
 
-Block 23.2 changed only frontend controller, tests, styles, and documentation.
-No real scene is connected to production, so the existing 2D workspace remains
-the only user-visible mode. No dependency, browser credential, Content Security
-Policy, external request, database, AWS resource, schedule, RentCast quota, or
-Telegram delivery changed. Temporary Block 23.1 probe files and services were
-removed after evidence collection.
+Block 23.3 registered the exact-pinned SDK's `arcgis-scene` component and added
+a tested adapter, styling hook, and documentation. The adapter is not imported
+by the production entry point or Listings map shell, so the existing 2D
+workspace remains the only user-visible mode and no terrain request is made by
+the application. No dependency, browser credential, Content Security Policy,
+database, AWS resource, schedule, RentCast quota, or Telegram delivery changed.
+Temporary Block 23.1 probe files and services remain removed.
 
 ## Product Question
 
@@ -564,6 +566,34 @@ or AWS resource was added in this block.
   resize, capability failure, and idempotent destroy
 - use automatic quality and no terrain exaggeration
 - keep the adapter non-default and CAL FIRE unavailable in the scene
+
+**Complete:** the web bundle now registers `arcgis-scene`, and
+`arcgisTerrainListingsScene.ts` implements the existing engine-neutral driver
+behind a non-default factory. It configures one local scene with
+`arcgis/navigation`, `world-elevation`, visible attribution, disabled popups,
+no quality override, no vertical exaggeration, and a bounded five-city camera.
+World Elevation readiness and WebGL2 support fail closed through one bounded
+scene error without exposing provider details.
+
+Listings use one dedicated `GraphicsLayer` with stable IDs,
+`relative-to-ground` placement and an 8-meter presentation offset. Ordinary and
+selected markers retain the accepted teal, rust, and white-outline semantics;
+size and height do not encode elevation or hazard. Layer-scoped click and
+pointer hit testing preserve React selection. Single, multi-listing, and focus
+camera commands use explicit zoom and tilt bounds. Stale hit tests and camera
+promises cannot affect a destroyed generation, and teardown removes handlers,
+graphics, the layer, component host, and late component readiness exactly once.
+
+Eleven adapter tests cover configuration, unsupported WebGL2, delayed ground
+readiness, stable reconciliation, selection, pointer feedback, bounded camera,
+pre-ready command replacement, inactive future operations, bounded failures,
+and idempotent teardown. Together with the 2D map, React shell, and production
+boundary regressions, 36 focused tests and the web TypeScript check pass. The
+production boundary test proves that the component is registered while neither
+`main.tsx` nor `ListingsMap.tsx` imports the terrain adapter. CAL FIRE scene
+rendering, disclosure, and production wiring remain intentionally unavailable
+until Blocks 23.4 and 23.5. This block made no real provider request and changed
+no key, CSP, dependency, backend, database, or AWS contract.
 
 ### Block 23.4: Terrain-draped CAL FIRE
 

@@ -7,7 +7,9 @@ security, cost, and acceptance boundaries. Block 23.1 completed the separately
 approved provider/browser precheck and confirmed the proposed ArcGIS local
 scene plus World Elevation path on the target development device. Block 23.2
 implemented the mode-neutral React controller and injected-factory seam with
-fake-driver lifecycle tests. Block 23.3 remains separately gated.
+fake-driver lifecycle tests. Block 23.3 implemented the separately approved,
+non-default local-scene adapter and its offline lifecycle tests. Block 23.4
+remains separately gated.
 
 ## Context
 
@@ -92,6 +94,23 @@ action; it must not break the listing workspace.
 The 3D camera starts from the listing extent with a restrained oblique angle.
 Fit and focus operations remain bounded so a single listing cannot force an
 extreme ground-level or excessively close camera.
+
+Block 23.3 implements this decision behind an unconnected factory. The local
+scene starts at longitude `-117.58`, latitude `33.65`, altitude `45,000`
+meters, heading `0`, and tilt `55`. Fit uses tilt `58`; one-listing fit uses
+zoom `14`, multi-listing fit is clamped to zoom `9.5`-`12.5`, and selected
+focus uses tilt `62` with zoom `14`-`15`. ArcGIS retains automatic quality and
+the ground has no application-defined exaggeration. Ground readiness is an
+initialization gate, not a silent flat-terrain fallback.
+
+The scene's listing layer uses `relative-to-ground` placement with an 8-meter
+visual offset and disables screen-size perspective so symbols remain readable.
+This offset is not stored, displayed, or interpreted as property elevation.
+WebGL2 capability, ground failure, stable graphic reconciliation, layer-scoped
+hit testing, stale asynchronous work, bounded navigation, and idempotent
+teardown are covered by injected-dependency tests. The production entry point
+and map shell do not yet import this factory; CAL FIRE draping and user-visible
+wiring remain Blocks 23.4 and 23.5.
 
 ### Terrain is context only
 
