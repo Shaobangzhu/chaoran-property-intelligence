@@ -15,9 +15,11 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Block 21.8 closed its offline, disposable migration, authenticated
-HTTP, React automated, fake-worker, user-confirmed browser visual, and
-separately approved AWS metadata-only gates. The repository currently contains:
+complete. Block 22.0 is complete in documentation only; Blocks 22.1-22.6 are
+planned on `refactor/arcgis-migration` and remain separately confirmed. Block
+21.8 closed its offline, disposable migration, authenticated HTTP, React
+automated, fake-worker, user-confirmed browser visual, and separately approved
+AWS metadata-only gates. The repository currently contains:
 
 - a TypeScript and pnpm workspace
 - domain listing filters and normalization
@@ -917,3 +919,65 @@ See the
 [Block 21 Configurable Listing Search Knowledge Base](knowledge-base/block-21-configurable-listing-search.md)
 and
 [ADR 0009: Persisted Listing Search Criteria](adr/0009-persisted-listing-search-criteria.md).
+
+### Block 22: ArcGIS Map-Engine Migration
+
+Migrate only the authenticated browser map from MapLibre GL JS and OpenFreeMap
+to ArcGIS Maps SDK for JavaScript. Preserve the existing React/TypeScript
+architecture, injected `ListingsMapDriver`, workspace layout, listing and
+selection behavior, manual-listing draft workflow, CAL FIRE pipeline and UX,
+API/backend contracts, authentication, Search Criteria, Showing List, and AWS
+topology.
+
+The accepted target uses ArcGIS 5.1 map components for view/UI lifecycle and
+core `GraphicsLayer`/`GeoJSONLayer` APIs behind the current driver boundary.
+The CAL FIRE artifact remains a validated same-origin static GeoJSON release;
+the browser does not add an ArcGIS FeatureServer dependency. The
+`VITE_ARCGIS_API_KEY` browser credential is limited to required basemap
+privileges and approved referrers. It is never treated as a hidden server
+secret.
+
+This block is a migration, not a redesign or feature expansion. It does not add
+ArcGIS login, portal items, hosted layers, search, geocoding, routing, popups,
+clustering, 3D, PostGIS, new API routes, database migrations, or cloud
+deployment.
+
+Planned sub-block mapping:
+
+1. `22.0` Freeze feature parity, architecture, security, lifecycle, bundle
+   baseline, rollback, and acceptance contracts. **Complete in documentation
+   only:** ADR 0010 and the Block 22 knowledge base are accepted. Four focused
+   baseline files with 18 tests and the production web build pass. The current
+   MapLibre web asset baseline is 1,815,958 raw bytes and 473,971 gzip bytes.
+   No dependency, runtime source, network service, or AWS resource changed.
+2. `22.1` Add exact compatible ArcGIS 5.1 packages, component registration,
+   basemap-key configuration, and missing/invalid-key tests. Keep MapLibre as
+   the user-visible default and make no real ArcGIS request in automated tests.
+3. `22.2` Implement the ArcGIS listing-map driver with the navigation basemap,
+   listing graphics, selection hit testing, fit/focus behavior, resize,
+   bounded startup failure, retry, and idempotent teardown. Do not cut over the
+   default factory yet.
+4. `22.3` Reproduce manual-listing background placement, listing-hit
+   suppression, draft dragging, coordinate callbacks, confirmation state, and
+   create/edit integration without adding ArcGIS editing UI.
+5. `22.4` Migrate the existing strict CAL FIRE state machine to a validated,
+   Blob-backed ArcGIS `GeoJSONLayer` with severity rendering, preserved layer
+   order, lazy loading, one-fetch toggles, rollback, retry, and cleanup.
+6. `22.5` Switch the production factory to ArcGIS, update CSP from an observed
+   least-privilege network audit, and remove MapLibre, OpenFreeMap, the bundled
+   worker, dead helpers, and engine-specific selectors. The final runtime has
+   one map engine and no permanent compatibility flag.
+7. `22.6` Run full tests, typecheck, builds, desktop/mobile browser acceptance,
+   WebGL/canvas and network inspection, API-key restriction review, and bundle
+   delta recording. Update as-built documentation and leave the merge into
+   `main` to the repository owner after acceptance.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 22 does not call RentCast, connect to PostgreSQL, send
+Telegram, mutate AWS resources, enable a schedule, or deploy unless a separate
+operation is reviewed and approved.
+
+See the
+[Block 22 ArcGIS Map-Engine Migration Knowledge Base](knowledge-base/block-22-arcgis-map-engine-migration.md)
+and
+[ADR 0010: ArcGIS Map-Engine Migration](adr/0010-arcgis-map-engine-migration.md).
