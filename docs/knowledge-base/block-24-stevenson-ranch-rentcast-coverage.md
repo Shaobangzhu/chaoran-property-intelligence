@@ -8,14 +8,15 @@ fixture-gated second audit proved that RentCast classifies every matching ZIP
 `91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
 therefore failed closed. The product/domain decision is now accepted:
 `Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
-and provider city `Valencia` remains unchanged. Blocks 24.2 and 24.3 are
+and provider city `Valencia` remains unchanged. Blocks 24.2 through 24.4 are
 complete: the version-1 Domain market set now contains six choices, the shared
 matcher applies exact-city semantics to the original five markets and ZIP
-semantics to Stevenson Ranch, and the RentCast client now accepts typed radius
-or ZIP search areas. Existing five-market profiles and the default Brea
-production geography remain unchanged. No conditional production source
-routing, persisted search profile, database, Telegram message, AWS resource,
-schedule, or deployment changed.
+semantics to Stevenson Ranch, the RentCast client accepts typed radius or ZIP
+search areas, and the worker source supports sequential, all-or-nothing reads
+across one or two selected areas. Production composition still omits explicit
+areas and therefore retains the Brea default until Block 24.5. No persisted
+search profile, database, Telegram message, AWS resource, schedule, real
+provider request, or deployment changed in Block 24.4.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -98,7 +99,7 @@ type RentCastSaleListingsSearchArea =
       readonly radiusMiles: 20;
     }
   | {
-      readonly kind: "zip-code";
+      readonly kind: "zip";
       readonly zipCode: "91381";
     };
 ```
@@ -405,11 +406,37 @@ Verification completed for this sub-block:
 
 ### Block 24.4: Conditional multi-area source
 
-- map selected cities to one or two reviewed acquisition areas
-- fetch required pages sequentially and validate each page independently
-- flatten only after all required requests succeed
-- preserve canonical-address reconciliation and conflict behavior
-- fail closed on one-area timeout, HTTP failure, invalid JSON, or incomplete page
+**Complete.** The implementation:
+
+- added a pure product-market-to-provider-area mapping in the worker
+- maps any original market selection to the existing Brea radius exactly once
+- maps Stevenson Ranch to ZIP `91381` and returns stable Brea-then-ZIP order for
+  mixed selections
+- rejects empty or unsupported runtime market selections before provider access
+- lets the source accept one or more explicit typed areas while preserving Brea
+  as the compatibility default when the option is omitted
+- fetches required areas sequentially and validates each page independently
+- retains every complete page in memory and normalizes/returns listings only
+  after all required areas succeed
+- reads one shared observation timestamp only after all pages have passed
+- preserves raw duplicate observations for the existing Application canonical-
+  address reconciliation to collapse or reject as appropriate
+- fails the whole source read when a later area has a provider, parse,
+  completeness, or result-limit failure, without returning the earlier page
+
+Production composition does not yet pass persisted markets into this mapping.
+That wiring remains Block 24.5, so the current production worker still makes
+the same single Brea request. This boundary proves the multi-area source before
+changing the production request count.
+
+Verification completed for this sub-block:
+
+- 18 market-mapping and multi-area source tests passed
+- 46 targeted worker, Application reconciliation, and integration tests passed
+- all 113 test files and all 1034 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production web bundle
+- no real RentCast request or other external side effect occurred
 
 ### Block 24.5: Production composition and audit reporting
 
@@ -448,6 +475,8 @@ Verification completed for this sub-block:
 - `packages/rentcast/src/rentCastSaleListingsClient.test.ts`
 - `apps/alert-worker/src/rentCastListingSource.ts`
 - `apps/alert-worker/src/rentCastListingSource.test.ts`
+- `apps/alert-worker/src/rentCastSearchAreas.ts`
+- `apps/alert-worker/src/rentCastSearchAreas.test.ts`
 - `apps/alert-worker/src/runProduction.ts`
 - `apps/alert-worker/src/runProduction.test.ts`
 - `apps/alert-worker/src/runRentCastCoverageAudit.ts`

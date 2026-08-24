@@ -18,14 +18,16 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, and 24.3 are complete on
+into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, 24.3, and 24.4 are complete on
 `feat/add-new-city-stevensonranch`. The controlled provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
 while preserving provider city `Valencia`. Block 24.2 added the sixth
 version-1 product market and exact-city/or-ZIP Domain matcher without migrating
 existing five-market profiles. Block 24.3 added typed radius/ZIP RentCast
-geography while preserving the Brea default; Block 24.4 is next. Block 21.8
+geography while preserving the Brea default. Block 24.4 added conditional,
+sequential, all-or-nothing multi-area source reads while leaving production on
+the Brea compatibility default; Block 24.5 is next. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1282,6 +1284,13 @@ Planned sub-block mapping:
    without a real provider request.
 5. `24.4` Implement conditional one/two-area source routing, sequential fetch,
    all-or-nothing failure, and existing canonical-address reconciliation.
+   **Complete:** pure market mapping selects Brea once for original markets,
+   ZIP `91381` for Stevenson Ranch, and stable Brea-then-ZIP order for mixed
+   selections. The source validates every page before returning any result,
+   preserves downstream canonical-address reconciliation, and passes 46
+   targeted tests, all 1034 repository tests, root typecheck, and root build.
+   Production composition still uses the single Brea default until 24.5; no
+   real provider request or external side effect occurred.
 6. `24.5` Wire persisted criteria into production acquisition areas and update
    per-area/combined coverage audit reporting without changing AWS or schedule.
 7. `24.6` Expose the sixth city through the existing API and React criteria UI,

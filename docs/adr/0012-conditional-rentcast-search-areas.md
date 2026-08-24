@@ -6,8 +6,10 @@ Accepted. The Block 24.1B provider audit confirmed that ZIP `91381` listings
 are labeled `Valencia` by RentCast. The product decision keeps `Stevenson
 Ranch` as the selectable market, matches that market by ZIP, and preserves the
 provider city unchanged. Block 24.3 implements the typed radius/ZIP client
-contract and exports the existing Brea radius as its compatible default.
-Conditional source routing remains separately confirmed by sub-block.
+contract and exports the existing Brea radius as its compatible default. Block
+24.4 implements pure market-to-area selection and sequential, all-or-nothing
+multi-area source reads. Production profile composition remains a separate
+Block 24.5 concern, so omitting explicit areas still uses only the Brea default.
 
 ## Context
 
@@ -38,6 +40,13 @@ Validate every area independently against the 500-result completeness gate.
 Do not pass partial success into the application workflow. Flatten results only
 after all required areas succeed, then retain the existing canonical-address
 deduplication and conflict checks.
+
+Select areas through a pure worker mapping. Any original market selects the
+Brea radius, Stevenson Ranch selects ZIP `91381`, and a mixed selection returns
+the Brea area followed by the ZIP area. The source fetches in that stable order,
+validates each page before continuing, and reads the shared observation time
+only after every page succeeds. An empty or unsupported runtime market set and
+an explicitly empty source-area list fail before provider access.
 
 Append Stevenson Ranch to the version-1 Domain enum without migrating or
 silently rewriting existing profiles. The operator explicitly opts in by saving
