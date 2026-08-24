@@ -15,6 +15,10 @@ import type {
 } from "@arcgis/core/views/types.js";
 
 import { initializeArcgisRuntime } from "./arcgisRuntime.js";
+import {
+  createArcgisWildfireHazardOverlayController,
+  type CreateArcgisWildfireHazardOverlayOptions,
+} from "./arcgisWildfireHazardOverlay.js";
 import type { ListingSummary } from "./listingsApi.js";
 import type {
   CreateListingsMap,
@@ -23,6 +27,7 @@ import type {
   ListingCoordinates,
   ListingsMapDriver,
 } from "./listingsMapDriver.js";
+import type { WildfireHazardOverlayController } from "./wildfireHazardOverlay.js";
 
 const INITIAL_CENTER = [-117.58, 33.94] as const;
 const INITIAL_ZOOM = 10;
@@ -43,6 +48,9 @@ type ArcgisZoomElement = HTMLElementTagNameMap["arcgis-zoom"];
 export interface ArcgisListingsMapDependencies {
   initializeRuntime: () => void;
   createMapElement: () => ArcgisMapElement;
+  createWildfireHazardOverlay: (
+    options: CreateArcgisWildfireHazardOverlayOptions,
+  ) => WildfireHazardOverlayController;
   createZoomElement: () => ArcgisZoomElement;
 }
 
@@ -56,6 +64,7 @@ export class ArcgisListingsMapInitializationError extends Error {
 const defaultDependencies: ArcgisListingsMapDependencies = {
   initializeRuntime: initializeArcgisRuntime,
   createMapElement: () => document.createElement("arcgis-map"),
+  createWildfireHazardOverlay: createArcgisWildfireHazardOverlayController,
   createZoomElement: () => document.createElement("arcgis-zoom"),
 };
 
@@ -90,6 +99,8 @@ export function createArcgisListingsMapWithDependencies(
   let currentSelectedListingId: string | null = null;
   let draftMarkerState: DraftMarkerPresentation | null = null;
   let draftGraphic: Graphic | null = null;
+  let wildfireHazardOverlay: WildfireHazardOverlayController | null = null;
+  let wildfireHazardVisible = false;
   let pendingNavigation: PendingNavigation | null = null;
   let ready = false;
   let initializationSettled = false;
@@ -254,6 +265,20 @@ export function createArcgisListingsMapWithDependencies(
       reconcileListingGraphics();
       reconcileDraftGraphic();
       updateMapCursor();
+      try {
+        wildfireHazardOverlay = dependencies.createWildfireHazardOverlay({
+          map: arcgisMap,
+          onStateChange: options.onWildfireHazardStateChange,
+        });
+        if (wildfireHazardVisible) {
+          void wildfireHazardOverlay.setVisible(true);
+        }
+      } catch {
+        options.onWildfireHazardStateChange({
+          status: "error",
+          visible: false,
+        });
+      }
 
       const navigation = pendingNavigation;
       pendingNavigation = null;
@@ -306,7 +331,10 @@ export function createArcgisListingsMapWithDependencies(
         updateMapCursor();
       }
     },
-    setWildfireHazardVisible: async () => undefined,
+    setWildfireHazardVisible: async (visible) => {
+      wildfireHazardVisible = visible;
+      await wildfireHazardOverlay?.setVisible(visible);
+    },
     resize: () => {
       // The map component observes its host size; retain the engine-neutral hook.
     },
@@ -320,6 +348,8 @@ export function createArcgisListingsMapWithDependencies(
       clickHitTestSequence += 1;
       dragHitTestSequence += 1;
       navigationSequence += 1;
+      wildfireHazardOverlay?.destroy();
+      wildfireHazardOverlay = null;
       mapElement.removeEventListener("arcgisLoadError", handleLoadError);
       mapElement.removeEventListener("arcgisViewClick", handleMapClick);
       mapElement.removeEventListener("arcgisViewDrag", handleMapDrag);

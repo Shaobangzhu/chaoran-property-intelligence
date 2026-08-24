@@ -10,9 +10,13 @@ tested ArcGIS listing-map adapter with stable graphics, layer-scoped hit tests,
 viewport parity, bounded startup failure, and idempotent teardown. The adapter
 now also implements Block 22.3 manual-draft parity with a separate topmost
 graphics layer, local anchored symbol, background placement, draft-only drag,
-confirmation styling, and stale-async guards. It is not imported by the current
-application, so MapLibre remains the production map and no ArcGIS request is
-made. Blocks 22.4 through 22.6 remain separately reviewed and confirmed.
+confirmation styling, and stale-async guards. Block 22.4 extracts the existing
+CAL FIRE lifecycle from renderer ownership and adds a tested Blob-backed ArcGIS
+`GeoJSONLayer` with exact severity rendering, one-fetch visibility reuse,
+rollback, retry, Abort, and layer-order parity. The adapter is not imported by
+the current application, so MapLibre remains the production map and no real
+ArcGIS request is made. Blocks 22.5 through 22.6 remain separately reviewed and
+confirmed.
 
 ## Context
 

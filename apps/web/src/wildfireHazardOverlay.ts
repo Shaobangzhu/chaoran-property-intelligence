@@ -43,6 +43,39 @@ export type WildfireHazardDesignationStatus =
   | "recommended"
   | "locally-adopted";
 
+export const WILDFIRE_HAZARD_SEVERITY_STYLES = {
+  moderate: {
+    fillColor: "#f8b4ad",
+    fillOpacity: 0.16,
+    outlineColor: "#d9776d",
+    outlineOpacity: 0.55,
+    outlineWidth: 0.7,
+  },
+  high: {
+    fillColor: "#e85d55",
+    fillOpacity: 0.22,
+    outlineColor: "#c43c32",
+    outlineOpacity: 0.65,
+    outlineWidth: 0.9,
+  },
+  "very-high": {
+    fillColor: "#a61b1b",
+    fillOpacity: 0.28,
+    outlineColor: "#7f1d1d",
+    outlineOpacity: 0.75,
+    outlineWidth: 1.1,
+  },
+} as const satisfies Record<
+  WildfireHazardSeverity,
+  {
+    fillColor: string;
+    fillOpacity: number;
+    outlineColor: string;
+    outlineOpacity: number;
+    outlineWidth: number;
+  }
+>;
+
 export interface WildfireHazardFeatureCollection {
   type: "FeatureCollection";
   features: WildfireHazardFeature[];
@@ -113,6 +146,23 @@ export type LoadWildfireHazardArtifact = (
   signal: AbortSignal,
 ) => Promise<WildfireHazardFeatureCollection>;
 
+export interface WildfireHazardOverlayRenderer {
+  destroy: () => void;
+  install: (
+    artifact: WildfireHazardFeatureCollection,
+    signal: AbortSignal,
+  ) => Promise<void> | void;
+  rollback: () => void;
+  setVisible: (visible: boolean) => void;
+}
+
+export interface CreateWildfireHazardOverlayLifecycleOptions {
+  loadArtifact?: LoadWildfireHazardArtifact;
+  loadMetadata?: typeof loadWildfireHazardMetadata;
+  onStateChange?: (state: WildfireHazardOverlayState) => void;
+  renderer: WildfireHazardOverlayRenderer;
+}
+
 interface CreateWildfireHazardOverlayControllerOptions {
   map: WildfireHazardMap;
   beforeLayerId: string;
@@ -128,14 +178,26 @@ export function createWildfireHazardOverlayController({
   map,
   onStateChange = () => undefined,
 }: CreateWildfireHazardOverlayControllerOptions): WildfireHazardOverlayController {
+  return createWildfireHazardOverlayLifecycle({
+    loadArtifact,
+    loadMetadata,
+    onStateChange,
+    renderer: createMapLibreWildfireHazardRenderer(map, beforeLayerId),
+  });
+}
+
+export function createWildfireHazardOverlayLifecycle({
+  loadArtifact = loadWildfireHazardArtifact,
+  loadMetadata = loadWildfireHazardMetadata,
+  onStateChange = () => undefined,
+  renderer,
+}: CreateWildfireHazardOverlayLifecycleOptions): WildfireHazardOverlayController {
   let abortController: AbortController | null = null;
   let desiredVisibility = false;
   let destroyed = false;
   let installed = false;
   let loadPromise: Promise<void> | null = null;
   let metadata: WildfireHazardMetadata | null = null;
-  let sourceAdded = false;
-  const addedLayerIds: string[] = [];
   let state: WildfireHazardOverlayState = {
     status: "idle",
     visible: false,
@@ -155,7 +217,7 @@ export function createWildfireHazardOverlayController({
           if (metadata === null) {
             throw new Error("Wildfire hazard metadata is unavailable.");
           }
-          setLayerVisibility(map, visible);
+          renderer.setVisible(visible);
           updateState({ status: "ready", visible, metadata });
         } catch {
           rollbackInstallation();
@@ -198,10 +260,22 @@ export function createWildfireHazardOverlayController({
               return;
             }
             const [artifact, loadedMetadata] = bundle;
-            installLayers(artifact);
+            return Promise.resolve(
+              renderer.install(artifact, currentAbortController.signal),
+            ).then(() => loadedMetadata);
+          })
+          .then((loadedMetadata) => {
+            if (
+              loadedMetadata === undefined ||
+              destroyed ||
+              currentAbortController.signal.aborted
+            ) {
+              rollbackInstallation();
+              return;
+            }
             installed = true;
             metadata = loadedMetadata;
-            setLayerVisibility(map, desiredVisibility);
+            renderer.setVisible(desiredVisibility);
             updateState({
               status: "ready",
               visible: desiredVisibility,
@@ -233,56 +307,16 @@ export function createWildfireHazardOverlayController({
       }
       destroyed = true;
       abortController?.abort();
-      rollbackInstallation();
+      installed = false;
+      metadata = null;
+      renderer.destroy();
     },
   };
-
-  function installLayers(artifact: WildfireHazardFeatureCollection): void {
-    if (map.getSource(WILDFIRE_HAZARD_SOURCE_ID) !== undefined) {
-      throw new Error("Wildfire hazard source already exists.");
-    }
-    if (
-      WILDFIRE_HAZARD_LAYER_IDS.some(
-        (layerId) => map.getLayer(layerId) !== undefined,
-      )
-    ) {
-      throw new Error("Wildfire hazard layer already exists.");
-    }
-
-    map.addSource(WILDFIRE_HAZARD_SOURCE_ID, {
-      type: "geojson",
-      data: artifact,
-    });
-    sourceAdded = true;
-
-    for (const layer of createLayerSpecifications()) {
-      map.addLayer(layer, beforeLayerId);
-      addedLayerIds.push(layer.id);
-    }
-  }
 
   function rollbackInstallation(): void {
     installed = false;
     metadata = null;
-    for (const layerId of [...addedLayerIds].reverse()) {
-      if (map.getLayer(layerId) !== undefined) {
-        try {
-          map.removeLayer(layerId);
-        } catch {
-          // The map may already be tearing down.
-        }
-      }
-    }
-    addedLayerIds.length = 0;
-
-    if (sourceAdded && map.getSource(WILDFIRE_HAZARD_SOURCE_ID) !== undefined) {
-      try {
-        map.removeSource(WILDFIRE_HAZARD_SOURCE_ID);
-      } catch {
-        // The map may already be tearing down.
-      }
-    }
-    sourceAdded = false;
+    renderer.rollback();
   }
 
   function updateState(nextState: WildfireHazardOverlayState): void {
@@ -346,7 +380,69 @@ export function createMapLibreWildfireHazardMapAdapter(
   };
 }
 
+function createMapLibreWildfireHazardRenderer(
+  map: WildfireHazardMap,
+  beforeLayerId: string,
+): WildfireHazardOverlayRenderer {
+  let sourceAdded = false;
+  const addedLayerIds: string[] = [];
+
+  return {
+    destroy: () => rollback(),
+    install: (artifact) => {
+      if (map.getSource(WILDFIRE_HAZARD_SOURCE_ID) !== undefined) {
+        throw new Error("Wildfire hazard source already exists.");
+      }
+      if (
+        WILDFIRE_HAZARD_LAYER_IDS.some(
+          (layerId) => map.getLayer(layerId) !== undefined,
+        )
+      ) {
+        throw new Error("Wildfire hazard layer already exists.");
+      }
+
+      map.addSource(WILDFIRE_HAZARD_SOURCE_ID, {
+        type: "geojson",
+        data: artifact,
+      });
+      sourceAdded = true;
+
+      for (const layer of createLayerSpecifications()) {
+        addedLayerIds.push(layer.id);
+        map.addLayer(layer, beforeLayerId);
+      }
+    },
+    rollback,
+    setVisible: (visible) => setLayerVisibility(map, visible),
+  };
+
+  function rollback(): void {
+    for (const layerId of [...addedLayerIds].reverse()) {
+      if (map.getLayer(layerId) !== undefined) {
+        try {
+          map.removeLayer(layerId);
+        } catch {
+          // The map may already be tearing down.
+        }
+      }
+    }
+    addedLayerIds.length = 0;
+
+    if (sourceAdded && map.getSource(WILDFIRE_HAZARD_SOURCE_ID) !== undefined) {
+      try {
+        map.removeSource(WILDFIRE_HAZARD_SOURCE_ID);
+      } catch {
+        // The map may already be tearing down.
+      }
+    }
+    sourceAdded = false;
+  }
+}
+
 function createLayerSpecifications(): WildfireHazardLayer[] {
+  const moderate = WILDFIRE_HAZARD_SEVERITY_STYLES.moderate;
+  const high = WILDFIRE_HAZARD_SEVERITY_STYLES.high;
+  const veryHigh = WILDFIRE_HAZARD_SEVERITY_STYLES["very-high"];
   return [
     {
       id: WILDFIRE_HAZARD_FILL_LAYER_ID,
@@ -358,22 +454,22 @@ function createLayerSpecifications(): WildfireHazardLayer[] {
           "match",
           ["get", "severity"],
           "moderate",
-          "#f8b4ad",
+          moderate.fillColor,
           "high",
-          "#e85d55",
+          high.fillColor,
           "very-high",
-          "#a61b1b",
+          veryHigh.fillColor,
           "rgba(0, 0, 0, 0)",
         ],
         "fill-opacity": [
           "match",
           ["get", "severity"],
           "moderate",
-          0.16,
+          moderate.fillOpacity,
           "high",
-          0.22,
+          high.fillOpacity,
           "very-high",
-          0.28,
+          veryHigh.fillOpacity,
           0,
         ],
       },
@@ -381,23 +477,23 @@ function createLayerSpecifications(): WildfireHazardLayer[] {
     createOutlineLayer(
       "moderate",
       WILDFIRE_HAZARD_OUTLINE_LAYER_IDS.moderate,
-      "#d9776d",
-      0.7,
-      0.55,
+      moderate.outlineColor,
+      moderate.outlineWidth,
+      moderate.outlineOpacity,
     ),
     createOutlineLayer(
       "high",
       WILDFIRE_HAZARD_OUTLINE_LAYER_IDS.high,
-      "#c43c32",
-      0.9,
-      0.65,
+      high.outlineColor,
+      high.outlineWidth,
+      high.outlineOpacity,
     ),
     createOutlineLayer(
       "very-high",
       WILDFIRE_HAZARD_OUTLINE_LAYER_IDS["very-high"],
-      "#7f1d1d",
-      1.1,
-      0.75,
+      veryHigh.outlineColor,
+      veryHigh.outlineWidth,
+      veryHigh.outlineOpacity,
     ),
   ];
 }

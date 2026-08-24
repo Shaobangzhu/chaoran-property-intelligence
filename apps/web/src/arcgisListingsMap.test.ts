@@ -17,6 +17,7 @@ import {
   createArcgisListingsMapWithDependencies,
   type ArcgisListingsMapDependencies,
 } from "./arcgisListingsMap.js";
+import type { CreateArcgisWildfireHazardOverlayOptions } from "./arcgisWildfireHazardOverlay.js";
 import { coronaListing, eastvaleListing } from "./listingFixtures.js";
 import type { CreateListingsMapOptions } from "./listingsMapDriver.js";
 
@@ -580,6 +581,57 @@ describe("ArcGIS listings map driver", () => {
     expect(harness.onReady).toHaveBeenCalledOnce();
   });
 
+  it("queues hazard visibility, forwards overlay state, and destroys the controller", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+
+    await driver.setWildfireHazardVisible(true);
+    expect(harness.createWildfireHazardOverlay).not.toHaveBeenCalled();
+
+    await harness.resolveReady();
+    expect(harness.createWildfireHazardOverlay).toHaveBeenCalledOnce();
+    expect(harness.overlaySetVisible).toHaveBeenCalledWith(true);
+
+    harness.getWildfireHazardOverlayOptions()?.onStateChange?.({
+      status: "loading",
+      visible: false,
+    });
+    expect(harness.onWildfireHazardStateChange).toHaveBeenCalledWith({
+      status: "loading",
+      visible: false,
+    });
+    expect(harness.onError).not.toHaveBeenCalled();
+
+    await driver.setWildfireHazardVisible(false);
+    expect(harness.overlaySetVisible).toHaveBeenLastCalledWith(false);
+
+    driver.destroy();
+    expect(harness.overlayDestroy).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the base map ready when overlay construction fails", async () => {
+    const harness = createArcgisHarness();
+    harness.createWildfireHazardOverlay.mockImplementationOnce(() => {
+      throw new Error("private overlay construction detail");
+    });
+    createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+
+    await harness.resolveReady();
+
+    expect(harness.onReady).toHaveBeenCalledOnce();
+    expect(harness.onError).not.toHaveBeenCalled();
+    expect(harness.onWildfireHazardStateChange).toHaveBeenCalledWith({
+      status: "error",
+      visible: false,
+    });
+  });
+
   it("reports one bounded initialization error", async () => {
     const harness = createArcgisHarness();
     createArcgisListingsMapWithDependencies(
@@ -662,6 +714,20 @@ function createArcgisHarness(): ArcgisHarness {
   const toMap = vi.fn();
   const destroyElement = vi.fn(() => Promise.resolve());
   const map = { add: mapAdd, remove: mapRemove };
+  let wildfireHazardOverlayOptions:
+    | CreateArcgisWildfireHazardOverlayOptions
+    | undefined;
+  const overlayDestroy = vi.fn();
+  const overlaySetVisible = vi.fn(async () => undefined);
+  const createWildfireHazardOverlay = vi.fn(
+    (overlayOptions: CreateArcgisWildfireHazardOverlayOptions) => {
+      wildfireHazardOverlayOptions = overlayOptions;
+      return {
+        destroy: overlayDestroy,
+        setVisible: overlaySetVisible,
+      };
+    },
+  );
 
   Object.assign(rawMapElement, {
     destroy: destroyElement,
@@ -684,25 +750,29 @@ function createArcgisHarness(): ArcgisHarness {
   const onDraftCoordinatesChange = vi.fn();
   const onReady = vi.fn();
   const onSelect = vi.fn();
+  const onWildfireHazardStateChange = vi.fn();
   const options: CreateListingsMapOptions = {
     container,
     onDraftCoordinatesChange,
     onError,
     onReady,
     onSelect,
-    onWildfireHazardStateChange: vi.fn(),
+    onWildfireHazardStateChange,
   };
   const dependencies: ArcgisListingsMapDependencies = {
     createMapElement: () => mapElement,
+    createWildfireHazardOverlay,
     createZoomElement: () => zoomElement,
     initializeRuntime,
   };
 
   return {
     container,
+    createWildfireHazardOverlay,
     dependencies,
     destroyElement,
     goTo,
+    getWildfireHazardOverlayOptions: () => wildfireHazardOverlayOptions,
     hitTest,
     initializeRuntime,
     mapAdd,
@@ -712,7 +782,10 @@ function createArcgisHarness(): ArcgisHarness {
     onError,
     onReady,
     onSelect,
+    onWildfireHazardStateChange,
     options,
+    overlayDestroy,
+    overlaySetVisible,
     ready,
     resolveReady: async () => {
       ready.resolve();
@@ -726,9 +799,13 @@ function createArcgisHarness(): ArcgisHarness {
 
 interface ArcgisHarness {
   container: HTMLElement;
+  createWildfireHazardOverlay: ReturnType<typeof vi.fn>;
   dependencies: ArcgisListingsMapDependencies;
   destroyElement: ReturnType<typeof vi.fn>;
   goTo: ReturnType<typeof vi.fn>;
+  getWildfireHazardOverlayOptions: () =>
+    | CreateArcgisWildfireHazardOverlayOptions
+    | undefined;
   hitTest: ReturnType<typeof vi.fn>;
   initializeRuntime: ReturnType<typeof vi.fn>;
   mapAdd: ReturnType<typeof vi.fn>;
@@ -738,7 +815,10 @@ interface ArcgisHarness {
   onError: ReturnType<typeof vi.fn>;
   onReady: ReturnType<typeof vi.fn>;
   onSelect: ReturnType<typeof vi.fn>;
+  onWildfireHazardStateChange: ReturnType<typeof vi.fn>;
   options: CreateListingsMapOptions;
+  overlayDestroy: ReturnType<typeof vi.fn>;
+  overlaySetVisible: ReturnType<typeof vi.fn>;
   ready: Deferred<void>;
   resolveReady: () => Promise<void>;
   toMap: ReturnType<typeof vi.fn>;

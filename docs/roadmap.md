@@ -15,7 +15,7 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.3 are complete; Blocks 22.4-22.6 are planned on
+complete. Blocks 22.0-22.4 are complete; Blocks 22.5-22.6 are planned on
 `refactor/arcgis-migration` and remain separately confirmed. Block
 21.8 closed its offline, disposable migration, authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -997,6 +997,24 @@ Planned sub-block mapping:
 5. `22.4` Migrate the existing strict CAL FIRE state machine to a validated,
    Blob-backed ArcGIS `GeoJSONLayer` with severity rendering, preserved layer
    order, lazy loading, one-fetch toggles, rollback, retry, and cleanup.
+   **Complete in code and offline verification:** the existing artifact and
+   metadata loaders, strict parser, state transitions, desired visibility,
+   one-fetch cache, retry, and Abort behavior now run through one
+   engine-neutral lifecycle with renderer-owned installation and rollback.
+   MapLibre retains its existing source/four-layer renderer. The non-default
+   ArcGIS adapter creates one validated Blob-backed `GeoJSONLayer`, applies the
+   accepted three-class `UniqueValueRenderer`, and installs it at map index `0`
+   below stored listings and the draft marker. Disable/enable changes only
+   `visible`; failure removes and destroys the layer, revokes its object URL,
+   and remains retryable. Overlay state is forwarded to the existing React
+   control, while construction or load failure never invokes the base-map error
+   boundary. No real provider request, default-engine cutover, CSP change,
+   backend operation, database operation, deployment, or AWS operation
+   occurred. Seven new ArcGIS overlay tests, 74 focused ArcGIS/CAL FIRE/React
+   tests, all 951 repository tests across 107 files, full typecheck, and
+   production builds pass. Production JavaScript remains
+   MapLibre/OpenFreeMap-only and contains neither ArcGIS overlay runtime markers
+   nor the configured local browser key.
 6. `22.5` Switch the production factory to ArcGIS, update CSP from an observed
    least-privilege network audit, and remove MapLibre, OpenFreeMap, the bundled
    worker, dead helpers, and engine-specific selectors. The final runtime has

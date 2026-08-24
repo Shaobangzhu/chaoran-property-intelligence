@@ -2,18 +2,19 @@
 
 ## Status
 
-Blocks 22.0 through 22.3 are complete. The parity contract, target adapter
+Blocks 22.0 through 22.4 are complete. The parity contract, target adapter
 architecture, security boundary, implementation sequence, rollback strategy,
 and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
 basemap-key configuration, a component-registration runtime entry, React 19
 types, an engine-neutral map port, the ArcGIS listing-map adapter, manual draft
-parity, and offline tests are present. The adapter is not imported by `main.tsx`
-or the current map, so MapLibre remains the user-visible engine and the
-production bundle contains no ArcGIS runtime or API key.
+parity, CAL FIRE ArcGIS renderer, and offline tests are present. The adapter is
+not imported by `main.tsx` or the current map, so MapLibre remains the
+user-visible engine and the production bundle contains no ArcGIS runtime or API
+key.
 
-Blocks 22.4 through 22.6 remain planned and separately confirmed. The work is
+Blocks 22.5 through 22.6 remain planned and separately confirmed. The work is
 isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate. Block 22.3 made no ArcGIS request,
+only after the final acceptance gate. Block 22.4 made no real ArcGIS request,
 backend call, database operation, deployment, or AWS operation.
 
 ## Objective
@@ -407,7 +408,7 @@ state. Monotonic click, pointer, and drag generations reject stale async work
 after a newer event, cancel, teardown, or marker removal. Both graphics layers,
 all handlers, and graphics are removed by the existing idempotent destroy path.
 
-The ArcGIS adapter remains non-default through 22.4. No ArcGIS request, backend
+The ArcGIS adapter remains non-default until 22.5. No ArcGIS request, backend
 call, database operation, CAL FIRE rendering change, CSP change, deployment, or
 AWS operation is part of 22.3.
 
@@ -428,6 +429,63 @@ ArcGIS adapter runtime markers nor the configured local browser key.
 - preserve lazy first load, no-refetch visibility toggles, metadata coupling,
   retry rollback, request abort, layer order, and disclosure UI
 - verify hazard failures never make the base map unavailable
+
+**Complete in code and offline verification:** `wildfireHazardOverlay.ts` now
+separates the existing provider-neutral lifecycle from renderer ownership. The
+shared lifecycle remains authoritative for concurrent artifact/metadata load,
+strict validated input, `idle`/`loading`/`ready`/`error` state, desired
+visibility during loading, successful one-fetch reuse, bounded retry, and
+AbortController teardown. The current MapLibre adapter wraps the same source
+and four layer operations in a renderer, preserving all Block 19 behavior and
+tests without changing the user-visible default.
+
+`arcgisWildfireHazardOverlay.ts` owns one layer ID and one Blob URL. Only after
+both same-origin artifact and reviewed metadata loaders succeed does it
+serialize the validated `FeatureCollection` as `application/geo+json`, create a
+Blob URL, construct and load one popup-disabled `GeoJSONLayer`, and add it at
+map index `0`. Stored-listing and draft graphics therefore remain above the
+hazard polygons. ArcGIS receives no malformed or unattributed geometry and no
+ArcGIS FeatureServer or hosted-data dependency was introduced.
+
+The layer uses a `UniqueValueRenderer` on `severity` with a null default symbol.
+Moderate, High, and Very High retain the accepted fill colors and opacities
+`#f8b4ad`/`0.16`, `#e85d55`/`0.22`, and `#a61b1b`/`0.28`, together with their
+existing severity-specific outline colors, opacity, and pixel widths. The
+custom React legend, source, version, jurisdiction disclosure, and toggle UI do
+not change.
+
+Successful disable/enable changes only the ArcGIS layer's `visible` property
+and performs no new fetch, Blob creation, or layer construction. Metadata
+failure creates no Blob or layer. Layer load or map insertion failure destroys
+partial resources, revokes the Blob URL, reports the existing bounded overlay
+error, and permits a clean retry. Destroy aborts pending source work and
+idempotently removes the installed layer, destroys it, and revokes its URL.
+
+The ArcGIS driver queues visibility requested before map readiness, forwards
+overlay states unchanged, and owns controller teardown. Overlay construction or
+runtime failure is isolated from the base-map `onError` boundary, so listings,
+selection, draft editing, and map navigation remain available.
+
+The ArcGIS adapter remains non-default until 22.5. No real ArcGIS request,
+backend call, database operation, CSP change, deployment, or AWS operation is
+part of 22.4.
+
+Seven new ArcGIS overlay tests use real local SDK layer, renderer, and symbol
+objects plus injected layer-load and Blob seams. They cover exact symbology,
+index-zero installation, lazy one-fetch reuse, loading-time disable, metadata
+gating, load and insertion rollback, retry, Abort, layer destruction, and URL
+revocation. The ArcGIS driver now has 17 tests including visibility queueing,
+state forwarding, error isolation, and controller ownership. Nine focused
+ArcGIS, CAL FIRE, and React files pass 74 tests. The full repository passes 951
+tests across 107 files, full runtime/CDK typecheck passes, and production builds
+pass.
+
+Because the default factory is unchanged, the production build still contains
+the MapLibre worker and OpenFreeMap runtime and contains no ArcGIS navigation,
+`GeoJSONLayer`, or `UniqueValueRenderer` runtime marker and no configured local
+browser key. The existing main JavaScript asset is 1,232.92 kB raw and 330.59
+kB gzip; its existing large-chunk advisory remains for the final 22.5 cutover
+and 22.6 bundle review.
 
 ### Block 22.5: Production factory cutover and cleanup
 
