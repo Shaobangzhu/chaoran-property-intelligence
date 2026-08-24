@@ -2,9 +2,11 @@ import Graphic from "@arcgis/core/Graphic.js";
 import Extent from "@arcgis/core/geometry/Extent.js";
 import Point from "@arcgis/core/geometry/Point.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
+import PictureMarkerSymbol from "@arcgis/core/symbols/PictureMarkerSymbol.js";
 import type { SimpleMarkerSymbolProperties } from "@arcgis/core/symbols/SimpleMarkerSymbol.js";
 import type {
   ClickEvent,
+  DragEvent,
   PointerMoveEvent,
 } from "@arcgis/core/views/input/types.js";
 import type {
@@ -17,6 +19,8 @@ import type { ListingSummary } from "./listingsApi.js";
 import type {
   CreateListingsMap,
   CreateListingsMapOptions,
+  DraftMarkerPresentation,
+  ListingCoordinates,
   ListingsMapDriver,
 } from "./listingsMapDriver.js";
 
@@ -27,8 +31,11 @@ const MAX_MULTI_LISTING_ZOOM = 13;
 const MULTI_LISTING_PADDING = 56;
 const FOCUS_DURATION_MS = 450;
 const LISTING_LAYER_ID = "stored-listings";
+const DRAFT_LAYER_ID = "draft-listing";
 const DEFAULT_MARKER_COLOR = "#0d6e6e";
 const SELECTED_MARKER_COLOR = "#a24f2a";
+const DRAFT_MARKER_COLOR = "#a24f2a";
+const DRAFT_CONFIRMED_COLOR = "#0d6e6e";
 
 type ArcgisMapElement = HTMLElementTagNameMap["arcgis-map"];
 type ArcgisZoomElement = HTMLElementTagNameMap["arcgis-zoom"];
@@ -68,19 +75,31 @@ export function createArcgisListingsMapWithDependencies(
     listMode: "hide",
     title: "Stored listings",
   });
+  const draftLayer = new GraphicsLayer({
+    id: DRAFT_LAYER_ID,
+    listMode: "hide",
+    title: "Draft listing",
+  });
   const defaultMarkerSymbol = createListingMarkerSymbol(false);
   const selectedMarkerSymbol = createListingMarkerSymbol(true);
+  const draftMarkerSymbol = createDraftMarkerSymbol(false);
+  const confirmedDraftMarkerSymbol = createDraftMarkerSymbol(true);
   const graphicsByListingId = new Map<string, Graphic>();
 
   let currentListings: ListingSummary[] = [];
   let currentSelectedListingId: string | null = null;
+  let draftMarkerState: DraftMarkerPresentation | null = null;
+  let draftGraphic: Graphic | null = null;
   let pendingNavigation: PendingNavigation | null = null;
   let ready = false;
   let initializationSettled = false;
   let destroyed = false;
-  let layerInstalled = false;
+  let layersInstalled = false;
+  let draggingDraft = false;
+  let pointerTarget: InteractiveHit = { type: "background" };
   let pointerHitTestSequence = 0;
   let clickHitTestSequence = 0;
+  let dragHitTestSequence = 0;
   let navigationSequence = 0;
 
   mapElement.className = "arcgis-listings-map";
@@ -101,15 +120,22 @@ export function createArcgisListingsMapWithDependencies(
 
     const sequence = ++clickHitTestSequence;
     const hitTarget = (event as CustomEvent<ClickEvent>).detail;
-    void findListingIdAt(hitTarget)
-      .then((listingId) => {
-        if (
-          !destroyed &&
-          ready &&
-          sequence === clickHitTestSequence &&
-          listingId !== null
-        ) {
-          options.onSelect(listingId);
+    void findInteractiveHitAt(hitTarget)
+      .then((hit) => {
+        if (destroyed || !ready || sequence !== clickHitTestSequence) {
+          return;
+        }
+        if (hit.type === "listing") {
+          options.onSelect(hit.listingId);
+          return;
+        }
+        if (hit.type === "draft" || draftMarkerState === null) {
+          return;
+        }
+
+        const coordinates = toListingCoordinates(hitTarget.mapPoint);
+        if (coordinates !== null) {
+          options.onDraftCoordinatesChange(coordinates);
         }
       })
       .catch(() => undefined);
@@ -121,25 +147,88 @@ export function createArcgisListingsMapWithDependencies(
 
     const sequence = ++pointerHitTestSequence;
     const hitTarget = (event as CustomEvent<PointerMoveEvent>).detail;
-    void findListingIdAt(hitTarget)
-      .then((listingId) => {
+    void findInteractiveHitAt(hitTarget)
+      .then((hit) => {
         if (!destroyed && ready && sequence === pointerHitTestSequence) {
-          setMapCursor(listingId === null ? "" : "pointer");
+          pointerTarget = hit;
+          updateMapCursor();
         }
       })
       .catch(() => {
         if (!destroyed && ready && sequence === pointerHitTestSequence) {
-          setMapCursor("");
+          pointerTarget = { type: "background" };
+          updateMapCursor();
         }
       });
   };
   const handlePointerLeave = (): void => {
     pointerHitTestSequence += 1;
-    setMapCursor("");
+    pointerTarget = { type: "background" };
+    updateMapCursor();
+  };
+  const handleMapDrag = (event: Event): void => {
+    if (!ready || destroyed) {
+      return;
+    }
+
+    const dragEvent = (event as CustomEvent<DragEvent>).detail;
+    if (dragEvent.action === "start") {
+      if (dragEvent.button !== 0 || draftGraphic === null) {
+        return;
+      }
+
+      const sequence = ++dragHitTestSequence;
+      void dragEvent
+        .defer(async () => {
+          const hitDraft = await isDraftHitAt(dragEvent);
+          if (
+            destroyed ||
+            !ready ||
+            sequence !== dragHitTestSequence ||
+            !hitDraft ||
+            draftGraphic === null
+          ) {
+            return;
+          }
+
+          dragEvent.stopPropagation();
+          draggingDraft = true;
+          pointerTarget = { type: "draft" };
+          updateMapCursor();
+        })
+        .catch(() => undefined);
+      return;
+    }
+
+    if (!draggingDraft || draftGraphic === null) {
+      return;
+    }
+
+    dragEvent.stopPropagation();
+    if (dragEvent.action === "added" || dragEvent.action === "removed") {
+      return;
+    }
+
+    const coordinates = toListingCoordinates(
+      mapElement.toMap({ x: dragEvent.x, y: dragEvent.y }),
+    );
+    if (coordinates !== null) {
+      draftGraphic.geometry = createPoint(coordinates);
+    }
+
+    if (dragEvent.action === "end") {
+      draggingDraft = false;
+      pointerTarget = { type: "draft" };
+      updateMapCursor();
+      if (coordinates !== null) {
+        options.onDraftCoordinatesChange(coordinates);
+      }
+    }
   };
 
   mapElement.addEventListener("arcgisLoadError", handleLoadError);
   mapElement.addEventListener("arcgisViewClick", handleMapClick);
+  mapElement.addEventListener("arcgisViewDrag", handleMapDrag);
   mapElement.addEventListener("arcgisViewPointerMove", handlePointerMove);
   mapElement.addEventListener("arcgisViewPointerLeave", handlePointerLeave);
   options.container.append(mapElement);
@@ -158,10 +247,13 @@ export function createArcgisListingsMapWithDependencies(
       }
 
       arcgisMap.add(listingsLayer);
-      layerInstalled = true;
+      arcgisMap.add(draftLayer);
+      layersInstalled = true;
       ready = true;
       initializationSettled = true;
       reconcileListingGraphics();
+      reconcileDraftGraphic();
+      updateMapCursor();
 
       const navigation = pendingNavigation;
       pendingNavigation = null;
@@ -199,7 +291,21 @@ export function createArcgisListingsMapWithDependencies(
       }
       runPendingNavigation(navigation);
     },
-    updateDraftMarker: () => undefined,
+    updateDraftMarker: (nextDraftMarker) => {
+      draftMarkerState = cloneDraftMarker(nextDraftMarker);
+      clickHitTestSequence += 1;
+      dragHitTestSequence += 1;
+      if (draftMarkerState?.coordinates === null || draftMarkerState === null) {
+        draggingDraft = false;
+        if (pointerTarget.type === "draft") {
+          pointerTarget = { type: "background" };
+        }
+      }
+      if (ready) {
+        reconcileDraftGraphic();
+        updateMapCursor();
+      }
+    },
     setWildfireHazardVisible: async () => undefined,
     resize: () => {
       // The map component observes its host size; retain the engine-neutral hook.
@@ -212,9 +318,11 @@ export function createArcgisListingsMapWithDependencies(
       destroyed = true;
       pointerHitTestSequence += 1;
       clickHitTestSequence += 1;
+      dragHitTestSequence += 1;
       navigationSequence += 1;
       mapElement.removeEventListener("arcgisLoadError", handleLoadError);
       mapElement.removeEventListener("arcgisViewClick", handleMapClick);
+      mapElement.removeEventListener("arcgisViewDrag", handleMapDrag);
       mapElement.removeEventListener(
         "arcgisViewPointerMove",
         handlePointerMove,
@@ -223,11 +331,14 @@ export function createArcgisListingsMapWithDependencies(
         "arcgisViewPointerLeave",
         handlePointerLeave,
       );
-      if (layerInstalled) {
+      if (layersInstalled) {
         mapElement.map?.remove(listingsLayer);
+        mapElement.map?.remove(draftLayer);
       }
       listingsLayer.removeAll();
+      draftLayer.removeAll();
       graphicsByListingId.clear();
+      draftGraphic = null;
       mapElement.remove();
       void mapElement.destroy().catch(() => undefined);
     },
@@ -279,30 +390,82 @@ export function createArcgisListingsMapWithDependencies(
     }
   }
 
-  async function findListingIdAt(
+  function reconcileDraftGraphic(): void {
+    const coordinates = draftMarkerState?.coordinates;
+    if (coordinates === undefined || coordinates === null) {
+      if (draftGraphic !== null) {
+        draftLayer.remove(draftGraphic);
+        draftGraphic = null;
+      }
+      return;
+    }
+
+    const geometry = createPoint(coordinates);
+    const symbol = draftMarkerState?.confirmed === true
+      ? confirmedDraftMarkerSymbol
+      : draftMarkerSymbol;
+    if (draftGraphic === null) {
+      draftGraphic = new Graphic({
+        attributes: { kind: "draft-listing" },
+        geometry,
+        symbol,
+      });
+      draftLayer.add(draftGraphic);
+      return;
+    }
+
+    draftGraphic.geometry = geometry;
+    draftGraphic.symbol = symbol;
+  }
+
+  async function findInteractiveHitAt(
     hitTarget: ClickEvent | PointerMoveEvent,
-  ): Promise<string | null> {
+  ): Promise<InteractiveHit> {
     const response = await mapElement.hitTest(hitTarget, {
-      include: listingsLayer,
+      include:
+        draftGraphic === null
+          ? listingsLayer
+          : [listingsLayer, draftLayer],
     });
-    const result = response.results.find(
+    const listingResult = response.results.find(
       (candidate) =>
         candidate.type === "graphic" && candidate.layer === listingsLayer,
     );
-    if (result?.type !== "graphic") {
-      return null;
+    if (listingResult?.type === "graphic") {
+      const attributes: unknown = listingResult.graphic.attributes;
+      if (
+        typeof attributes === "object" &&
+        attributes !== null &&
+        "listingId" in attributes
+      ) {
+        const listingId = (attributes as { listingId?: unknown }).listingId;
+        if (typeof listingId === "string") {
+          return { listingId, type: "listing" };
+        }
+      }
     }
 
-    const attributes: unknown = result.graphic.attributes;
-    if (
-      typeof attributes !== "object" ||
-      attributes === null ||
-      !("listingId" in attributes)
-    ) {
-      return null;
-    }
-    const listingId = (attributes as { listingId?: unknown }).listingId;
-    return typeof listingId === "string" ? listingId : null;
+    const draftResult = response.results.find(
+      (candidate) =>
+        candidate.type === "graphic" &&
+        candidate.layer === draftLayer &&
+        candidate.graphic === draftGraphic,
+    );
+    return draftResult?.type === "graphic"
+      ? { type: "draft" }
+      : { type: "background" };
+  }
+
+  async function isDraftHitAt(hitTarget: DragEvent): Promise<boolean> {
+    const response = await mapElement.hitTest(hitTarget, {
+      include: draftLayer,
+    });
+    return response.results.some(
+      (candidate) =>
+        candidate.type === "graphic" &&
+        candidate.layer === draftLayer &&
+        candidate.graphic === draftGraphic,
+    );
   }
 
   function runPendingNavigation(navigation: PendingNavigation): void {
@@ -402,7 +565,23 @@ export function createArcgisListingsMapWithDependencies(
     mapElement.padding = { bottom: 0, left: 0, right: 0, top: 0 };
   }
 
-  function setMapCursor(cursor: "" | "pointer"): void {
+  function updateMapCursor(): void {
+    if (draggingDraft) {
+      setMapCursor("grabbing");
+      return;
+    }
+    if (pointerTarget.type === "listing") {
+      setMapCursor("pointer");
+      return;
+    }
+    if (pointerTarget.type === "draft" && draftGraphic !== null) {
+      setMapCursor("grab");
+      return;
+    }
+    setMapCursor(draftMarkerState === null ? "" : "crosshair");
+  }
+
+  function setMapCursor(cursor: MapCursor): void {
     mapElement.style.cursor = cursor;
     const viewContainer = mapElement.view.container;
     if (viewContainer !== null && viewContainer !== undefined) {
@@ -415,6 +594,13 @@ type PendingNavigation =
   | { type: "fit"; listings: ListingSummary[] }
   | { type: "focus"; listing: ListingSummary };
 
+type InteractiveHit =
+  | { type: "background" }
+  | { type: "draft" }
+  | { listingId: string; type: "listing" };
+
+type MapCursor = "" | "crosshair" | "grab" | "grabbing" | "pointer";
+
 function createListingMarkerSymbol(
   selected: boolean,
 ): SimpleMarkerSymbolProperties & { type: "simple-marker" } {
@@ -425,6 +611,64 @@ function createListingMarkerSymbol(
     style: "circle",
     type: "simple-marker",
   };
+}
+
+function createDraftMarkerSymbol(confirmed: boolean): PictureMarkerSymbol {
+  const markerPath =
+    "M13.5 1C6.6 1 1 6.6 1 13.5C1 22.7 13.5 40 13.5 40S26 22.7 26 13.5C26 6.6 20.4 1 13.5 1Z";
+  const confirmationHalo = confirmed
+    ? `<path d="${markerPath}" fill="${DRAFT_MARKER_COLOR}" stroke="${DRAFT_CONFIRMED_COLOR}" stroke-width="4"/>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="27" height="41" viewBox="0 0 27 41">${confirmationHalo}<path d="${markerPath}" fill="${DRAFT_MARKER_COLOR}" stroke="#ffffff" stroke-width="2"/><circle cx="13.5" cy="13.5" r="5" fill="#ffffff"/></svg>`;
+  return new PictureMarkerSymbol({
+    height: "41px",
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    width: "27px",
+    yoffset: "20.5px",
+  });
+}
+
+function cloneDraftMarker(
+  draftMarker: DraftMarkerPresentation | null,
+): DraftMarkerPresentation | null {
+  if (draftMarker === null) {
+    return null;
+  }
+  return {
+    confirmed: draftMarker.confirmed,
+    coordinates:
+      draftMarker.coordinates === null
+        ? null
+        : { ...draftMarker.coordinates },
+  };
+}
+
+function createPoint(coordinates: ListingCoordinates): Point {
+  return new Point({
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+  });
+}
+
+function toListingCoordinates(point: Point | null | undefined): ListingCoordinates | null {
+  if (point === null || point === undefined) {
+    return null;
+  }
+  const latitude = point.latitude;
+  const longitude = point.longitude;
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return null;
+  }
+  return { latitude, longitude };
 }
 
 function createListingExtent(listings: ListingSummary[]): Extent {

@@ -15,7 +15,7 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.2 are complete; Blocks 22.3-22.6 are planned on
+complete. Blocks 22.0-22.3 are complete; Blocks 22.4-22.6 are planned on
 `refactor/arcgis-migration` and remain separately confirmed. Block
 21.8 closed its offline, disposable migration, authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -978,7 +978,22 @@ Planned sub-block mapping:
    22.4.
 4. `22.3` Reproduce manual-listing background placement, listing-hit
    suppression, draft dragging, coordinate callbacks, confirmation state, and
-   create/edit integration without adding ArcGIS editing UI.
+   create/edit integration without adding ArcGIS editing UI. **Complete in
+   code and offline verification:** the non-default ArcGIS adapter installs a
+   separate topmost draft `GraphicsLayer`, reconciles one stable point graphic,
+   and renders an anchored local data-URI pin with rust editable and teal-halo
+   confirmed states. Layer-scoped hit tests preserve listing selection,
+   background-only placement, draft-hit suppression, crosshair/pointer/grab
+   feedback, and map navigation outside the draft. Dragging stops map
+   propagation only after the draft is hit, updates geometry during movement,
+   and emits bounded coordinates only on drag end. Async generations prevent
+   late click or drag results from writing after cancel or destroy. The ArcGIS
+   adapter remains non-default; no backend, database, wildfire, network, CSP,
+   or AWS behavior changed. Fifteen adapter tests, 34 focused ArcGIS/React
+   workflow tests, all 942 repository tests across 106 files, full typecheck,
+   and production builds pass. Production JavaScript remains
+   MapLibre/OpenFreeMap-only and contains neither ArcGIS adapter runtime markers
+   nor the local browser key.
 5. `22.4` Migrate the existing strict CAL FIRE state machine to a validated,
    Blob-backed ArcGIS `GeoJSONLayer` with severity rendering, preserved layer
    order, lazy loading, one-fetch toggles, rollback, retry, and cleanup.

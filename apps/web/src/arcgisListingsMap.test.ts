@@ -2,7 +2,9 @@
 
 import Graphic from "@arcgis/core/Graphic.js";
 import Extent from "@arcgis/core/geometry/Extent.js";
+import Point from "@arcgis/core/geometry/Point.js";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer.js";
+import PictureMarkerSymbol from "@arcgis/core/symbols/PictureMarkerSymbol.js";
 import SimpleMarkerSymbol from "@arcgis/core/symbols/SimpleMarkerSymbol.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -59,7 +61,7 @@ describe("ArcGIS listings map driver", () => {
 
     await harness.resolveReady();
 
-    expect(harness.mapAdd).toHaveBeenCalledOnce();
+    expect(harness.mapAdd).toHaveBeenCalledTimes(2);
     expect(harness.onReady).toHaveBeenCalledOnce();
     const layer = getListingsLayer(harness);
     expect(layer.graphics).toHaveLength(2);
@@ -80,6 +82,325 @@ describe("ArcGIS listings map driver", () => {
       expect(point.longitude).toBe(eastvaleListing.longitude);
       expect(point.latitude).toBe(eastvaleListing.latitude);
     }
+  });
+
+  it("installs a topmost draft layer and reconciles one anchored marker", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateDraftMarker({
+      confirmed: false,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+
+    await harness.resolveReady();
+
+    expect(harness.mapAdd).toHaveBeenCalledTimes(2);
+    const listingsLayer = getListingsLayer(harness);
+    const draftLayer = getDraftLayer(harness);
+    expect(harness.mapAdd.mock.calls.map((call) => call[0])).toEqual([
+      listingsLayer,
+      draftLayer,
+    ]);
+    expect(draftLayer.graphics).toHaveLength(1);
+    const draftGraphic = draftLayer.graphics.at(0);
+    expect(draftGraphic).toBeInstanceOf(Graphic);
+    expect(draftGraphic?.symbol).toBeInstanceOf(PictureMarkerSymbol);
+    const unconfirmedSymbol = draftGraphic?.symbol as PictureMarkerSymbol;
+    expect(unconfirmedSymbol.url).toMatch(/^data:image\/svg\+xml/);
+    expect(unconfirmedSymbol.width).toBeCloseTo(20.25);
+    expect(unconfirmedSymbol.height).toBeCloseTo(30.75);
+    expect(unconfirmedSymbol.yoffset).toBeCloseTo(15.375);
+    expect(harness.mapElement.style.cursor).toBe("crosshair");
+
+    harness.hitTest.mockResolvedValueOnce({
+      results: [
+        { graphic: draftGraphic, layer: draftLayer, type: "graphic" },
+      ],
+    });
+    dispatchMapEvent(harness.mapElement, "arcgisViewPointerMove", {
+      type: "pointer-move",
+      x: 20,
+      y: 30,
+    });
+    await settlePromises();
+    expect(harness.mapElement.style.cursor).toBe("grab");
+
+    driver.updateDraftMarker({
+      confirmed: true,
+      coordinates: { latitude: 33.9, longitude: -117.6 },
+    });
+
+    expect(draftLayer.graphics).toHaveLength(1);
+    expect(draftLayer.graphics.at(0)).toBe(draftGraphic);
+    expect(draftGraphic?.symbol).toBeInstanceOf(PictureMarkerSymbol);
+    const confirmedSymbol = draftGraphic?.symbol as PictureMarkerSymbol;
+    expect(confirmedSymbol.url).not.toBe(unconfirmedSymbol.url);
+    const point = draftGraphic?.geometry;
+    expect(point?.type).toBe("point");
+    if (point?.type === "point") {
+      expect(point.longitude).toBe(-117.6);
+      expect(point.latitude).toBe(33.9);
+    }
+
+    driver.updateDraftMarker(null);
+    expect(draftLayer.graphics).toHaveLength(0);
+    expect(harness.mapElement.style.cursor).toBe("");
+  });
+
+  it("places drafts only on background clicks and suppresses listing or draft hits", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateListings([eastvaleListing], null);
+    driver.updateDraftMarker({ confirmed: false, coordinates: null });
+    await harness.resolveReady();
+    const listingsLayer = getListingsLayer(harness);
+    const draftLayer = getDraftLayer(harness);
+    const listingGraphic = getGraphic(listingsLayer, eastvaleListing.id);
+
+    harness.hitTest.mockResolvedValueOnce({ results: [] });
+    dispatchMapEvent(harness.mapElement, "arcgisViewClick", {
+      mapPoint: new Point({ latitude: 33.9, longitude: -117.6 }),
+      type: "click",
+      x: 20,
+      y: 30,
+    });
+    await settlePromises();
+    expect(harness.onDraftCoordinatesChange).toHaveBeenCalledWith({
+      latitude: 33.9,
+      longitude: -117.6,
+    });
+
+    harness.hitTest.mockResolvedValueOnce({
+      results: [
+        { graphic: listingGraphic, layer: listingsLayer, type: "graphic" },
+      ],
+    });
+    dispatchMapEvent(harness.mapElement, "arcgisViewClick", {
+      mapPoint: new Point({ latitude: 34, longitude: -117.7 }),
+      type: "click",
+      x: 40,
+      y: 50,
+    });
+    await settlePromises();
+    expect(harness.onSelect).toHaveBeenCalledWith(eastvaleListing.id);
+    expect(harness.onDraftCoordinatesChange).toHaveBeenCalledOnce();
+
+    driver.updateDraftMarker({
+      confirmed: false,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+    const draftGraphic = draftLayer.graphics.at(0);
+    expect(draftGraphic).toBeInstanceOf(Graphic);
+    harness.hitTest.mockResolvedValueOnce({
+      results: [
+        { graphic: draftGraphic, layer: draftLayer, type: "graphic" },
+      ],
+    });
+    dispatchMapEvent(harness.mapElement, "arcgisViewClick", {
+      mapPoint: new Point({ latitude: 34.1, longitude: -117.8 }),
+      type: "click",
+      x: 60,
+      y: 70,
+    });
+    await settlePromises();
+    expect(harness.onDraftCoordinatesChange).toHaveBeenCalledOnce();
+  });
+
+  it("ignores a late background hit after draft mode closes", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateDraftMarker({ confirmed: false, coordinates: null });
+    await harness.resolveReady();
+    const lateHitTest = createDeferred<{ results: [] }>();
+    harness.hitTest.mockReturnValueOnce(lateHitTest.promise);
+
+    dispatchMapEvent(harness.mapElement, "arcgisViewClick", {
+      mapPoint: new Point({ latitude: 33.9, longitude: -117.6 }),
+      type: "click",
+      x: 20,
+      y: 30,
+    });
+    driver.updateDraftMarker(null);
+    lateHitTest.resolve({ results: [] });
+    await settlePromises();
+
+    expect(harness.onDraftCoordinatesChange).not.toHaveBeenCalled();
+    expect(harness.mapElement.style.cursor).toBe("");
+  });
+
+  it("drags only the draft graphic and emits coordinates on drag end", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateDraftMarker({
+      confirmed: true,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+    await harness.resolveReady();
+    const draftLayer = getDraftLayer(harness);
+    const draftGraphic = draftLayer.graphics.at(0);
+    expect(draftGraphic).toBeInstanceOf(Graphic);
+    harness.hitTest.mockResolvedValueOnce({
+      results: [
+        { graphic: draftGraphic, layer: draftLayer, type: "graphic" },
+      ],
+    });
+    const stopStart = vi.fn();
+    const defer = vi.fn(async (operation: () => Promise<void>) => operation());
+
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "start",
+      button: 0,
+      defer,
+      stopPropagation: stopStart,
+      type: "drag",
+      x: 20,
+      y: 30,
+    });
+    await settlePromises();
+    expect(defer).toHaveBeenCalledOnce();
+    expect(stopStart).toHaveBeenCalledOnce();
+    expect(harness.mapElement.style.cursor).toBe("grabbing");
+
+    harness.toMap.mockReturnValueOnce(
+      new Point({ latitude: 33.9, longitude: -117.6 }),
+    );
+    const stopUpdate = vi.fn();
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "update",
+      button: 0,
+      stopPropagation: stopUpdate,
+      type: "drag",
+      x: 40,
+      y: 50,
+    });
+    expect(stopUpdate).toHaveBeenCalledOnce();
+    expect(harness.onDraftCoordinatesChange).not.toHaveBeenCalled();
+    const updatedPoint = draftGraphic?.geometry;
+    expect(updatedPoint?.type).toBe("point");
+    if (updatedPoint?.type === "point") {
+      expect(updatedPoint.longitude).toBe(-117.6);
+      expect(updatedPoint.latitude).toBe(33.9);
+    }
+
+    harness.toMap.mockReturnValueOnce(
+      new Point({ latitude: 33.91, longitude: -117.61 }),
+    );
+    const stopEnd = vi.fn();
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "end",
+      button: 0,
+      stopPropagation: stopEnd,
+      type: "drag",
+      x: 45,
+      y: 55,
+    });
+    expect(stopEnd).toHaveBeenCalledOnce();
+    expect(harness.onDraftCoordinatesChange).toHaveBeenCalledWith({
+      latitude: 33.91,
+      longitude: -117.61,
+    });
+    expect(harness.mapElement.style.cursor).toBe("grab");
+  });
+
+  it("leaves map dragging untouched when drag start misses the draft", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateDraftMarker({
+      confirmed: false,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+    await harness.resolveReady();
+    harness.hitTest.mockResolvedValueOnce({ results: [] });
+    const stopStart = vi.fn();
+    const defer = vi.fn(async (operation: () => Promise<void>) => operation());
+
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "start",
+      button: 0,
+      defer,
+      stopPropagation: stopStart,
+      type: "drag",
+      x: 20,
+      y: 30,
+    });
+    await settlePromises();
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "update",
+      button: 0,
+      stopPropagation: vi.fn(),
+      type: "drag",
+      x: 40,
+      y: 50,
+    });
+
+    expect(stopStart).not.toHaveBeenCalled();
+    expect(harness.toMap).not.toHaveBeenCalled();
+    expect(harness.onDraftCoordinatesChange).not.toHaveBeenCalled();
+  });
+
+  it("ignores a late draft hit after the marker is removed", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    driver.updateDraftMarker({
+      confirmed: false,
+      coordinates: { latitude: 33.8753, longitude: -117.5664 },
+    });
+    await harness.resolveReady();
+    const draftLayer = getDraftLayer(harness);
+    const draftGraphic = draftLayer.graphics.at(0);
+    const lateHitTest = createDeferred<{
+      results: Array<{
+        graphic: Graphic;
+        layer: GraphicsLayer;
+        type: "graphic";
+      }>;
+    }>();
+    harness.hitTest.mockReturnValueOnce(lateHitTest.promise);
+    const stopStart = vi.fn();
+    const defer = vi.fn(async (operation: () => Promise<void>) => operation());
+
+    dispatchMapEvent(harness.mapElement, "arcgisViewDrag", {
+      action: "start",
+      button: 0,
+      defer,
+      stopPropagation: stopStart,
+      type: "drag",
+      x: 20,
+      y: 30,
+    });
+    driver.updateDraftMarker(null);
+    lateHitTest.resolve({
+      results: [
+        {
+          graphic: draftGraphic as Graphic,
+          layer: draftLayer,
+          type: "graphic",
+        },
+      ],
+    });
+    await settlePromises();
+
+    expect(stopStart).not.toHaveBeenCalled();
+    expect(harness.toMap).not.toHaveBeenCalled();
+    expect(harness.onDraftCoordinatesChange).not.toHaveBeenCalled();
   });
 
   it("selects only listing-layer hits and scopes pointer feedback", async () => {
@@ -317,8 +638,9 @@ describe("ArcGIS listings map driver", () => {
     });
     await settlePromises();
 
-    expect(harness.mapRemove).toHaveBeenCalledOnce();
+    expect(harness.mapRemove).toHaveBeenCalledTimes(2);
     expect(harness.mapRemove).toHaveBeenCalledWith(layer);
+    expect(harness.mapRemove).toHaveBeenCalledWith(getDraftLayer(harness));
     expect(layer.graphics).toHaveLength(0);
     expect(harness.hitTest).not.toHaveBeenCalled();
     expect(harness.onSelect).not.toHaveBeenCalled();
@@ -337,6 +659,7 @@ function createArcgisHarness(): ArcgisHarness {
   const mapRemove = vi.fn();
   const hitTest = vi.fn(() => Promise.resolve({ results: [] }));
   const goTo = vi.fn(() => Promise.resolve());
+  const toMap = vi.fn();
   const destroyElement = vi.fn(() => Promise.resolve());
   const map = { add: mapAdd, remove: mapRemove };
 
@@ -345,6 +668,7 @@ function createArcgisHarness(): ArcgisHarness {
     goTo,
     hitTest,
     map,
+    toMap,
     view: { container: viewContainer },
     viewOnReady: vi.fn(() => ready.promise),
     zoom: 10,
@@ -357,11 +681,12 @@ function createArcgisHarness(): ArcgisHarness {
     ArcgisListingsMapDependencies["createZoomElement"]
   >;
   const onError = vi.fn();
+  const onDraftCoordinatesChange = vi.fn();
   const onReady = vi.fn();
   const onSelect = vi.fn();
   const options: CreateListingsMapOptions = {
     container,
-    onDraftCoordinatesChange: vi.fn(),
+    onDraftCoordinatesChange,
     onError,
     onReady,
     onSelect,
@@ -383,6 +708,7 @@ function createArcgisHarness(): ArcgisHarness {
     mapAdd,
     mapElement,
     mapRemove,
+    onDraftCoordinatesChange,
     onError,
     onReady,
     onSelect,
@@ -393,6 +719,7 @@ function createArcgisHarness(): ArcgisHarness {
       await settlePromises();
     },
     viewContainer,
+    toMap,
     zoomElement,
   };
 }
@@ -407,18 +734,26 @@ interface ArcgisHarness {
   mapAdd: ReturnType<typeof vi.fn>;
   mapElement: ReturnType<ArcgisListingsMapDependencies["createMapElement"]>;
   mapRemove: ReturnType<typeof vi.fn>;
+  onDraftCoordinatesChange: ReturnType<typeof vi.fn>;
   onError: ReturnType<typeof vi.fn>;
   onReady: ReturnType<typeof vi.fn>;
   onSelect: ReturnType<typeof vi.fn>;
   options: CreateListingsMapOptions;
   ready: Deferred<void>;
   resolveReady: () => Promise<void>;
+  toMap: ReturnType<typeof vi.fn>;
   viewContainer: HTMLElement;
   zoomElement: ReturnType<ArcgisListingsMapDependencies["createZoomElement"]>;
 }
 
 function getListingsLayer(harness: ArcgisHarness): GraphicsLayer {
   const layer: unknown = harness.mapAdd.mock.calls[0]?.[0];
+  expect(layer).toBeInstanceOf(GraphicsLayer);
+  return layer as GraphicsLayer;
+}
+
+function getDraftLayer(harness: ArcgisHarness): GraphicsLayer {
+  const layer: unknown = harness.mapAdd.mock.calls[1]?.[0];
   expect(layer).toBeInstanceOf(GraphicsLayer);
   return layer as GraphicsLayer;
 }

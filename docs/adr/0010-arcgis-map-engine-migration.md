@@ -8,9 +8,11 @@ basemap-key configuration, component-registration runtime entry, React 19 type
 support, and offline tests. Block 22.2 added the engine-neutral map port and a
 tested ArcGIS listing-map adapter with stable graphics, layer-scoped hit tests,
 viewport parity, bounded startup failure, and idempotent teardown. The adapter
-is not imported by the current application, so MapLibre remains the production
-map and no ArcGIS request is made. Blocks 22.3 through 22.6 remain separately
-reviewed and confirmed.
+now also implements Block 22.3 manual-draft parity with a separate topmost
+graphics layer, local anchored symbol, background placement, draft-only drag,
+confirmation styling, and stale-async guards. It is not imported by the current
+application, so MapLibre remains the production map and no ArcGIS request is
+made. Blocks 22.4 through 22.6 remain separately reviewed and confirmed.
 
 ## Context
 

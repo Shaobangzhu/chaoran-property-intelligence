@@ -2,18 +2,18 @@
 
 ## Status
 
-Blocks 22.0 through 22.2 are complete. The parity contract, target adapter
+Blocks 22.0 through 22.3 are complete. The parity contract, target adapter
 architecture, security boundary, implementation sequence, rollback strategy,
 and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
 basemap-key configuration, a component-registration runtime entry, React 19
-types, an engine-neutral map port, the ArcGIS listing-map adapter, and offline
-tests are present. The adapter is not imported by `main.tsx` or the current map,
-so MapLibre remains the user-visible engine and the production bundle contains
-no ArcGIS runtime or API key.
+types, an engine-neutral map port, the ArcGIS listing-map adapter, manual draft
+parity, and offline tests are present. The adapter is not imported by `main.tsx`
+or the current map, so MapLibre remains the user-visible engine and the
+production bundle contains no ArcGIS runtime or API key.
 
-Blocks 22.3 through 22.6 remain planned and separately confirmed. The work is
+Blocks 22.4 through 22.6 remain planned and separately confirmed. The work is
 isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate. Block 22.2 made no ArcGIS request,
+only after the final acceptance gate. Block 22.3 made no ArcGIS request,
 backend call, database operation, deployment, or AWS operation.
 
 ## Objective
@@ -367,9 +367,9 @@ compatible without recreating the view.
 
 Startup failure is mapped to one credential-free adapter error. Explicit
 component ownership, listener removal, layer/graphic cleanup, async guards, and
-idempotent destroy prevent retry or unmount races. Draft and CAL FIRE hooks are
-intentionally inert in this non-default adapter until Blocks 22.3 and 22.4;
-there is no partial user-visible cutover.
+idempotent destroy prevent retry or unmount races. At the end of 22.2, draft and
+CAL FIRE hooks were intentionally inert in this non-default adapter; there was
+no partial user-visible cutover.
 
 Nine new adapter tests use injected DOM components and real local ArcGIS core
 geometry/graphic classes without a key or network. The five focused
@@ -384,6 +384,41 @@ ArcGIS listing runtime markers nor the local API key in production JavaScript.
 - implement draft drag and coordinate updates
 - preserve edit/create state, confirmation visual, and crosshair behavior
 - verify create/edit integration without backend or database changes
+
+**Complete in code and offline verification:** a second `GraphicsLayer` named
+`draft-listing` is installed after the stored-listing layer and owns at most one
+stable draft `Graphic`. Queued pre-ready state, coordinate changes, confirmation
+changes, cancellation, and teardown reconcile that graphic without replacing
+the layer. The marker is an anchored 27 x 41 px inline SVG
+`PictureMarkerSymbol`; editable state is rust and confirmed state adds the
+existing teal confirmation signal. The symbol has no remote image dependency.
+
+Click hit tests remain layer-scoped. Listing hits select the existing React
+record and suppress placement, draft hits suppress placement, and only a map
+background hit in active draft mode forwards valid longitude/latitude through
+the existing callback. Pointer state preserves listing `pointer`, draft `grab`,
+active drag `grabbing`, and draft-mode background `crosshair` behavior.
+
+Drag start uses ArcGIS event deferral to hit-test the draft before stopping
+propagation. A miss leaves normal map pan untouched. A hit updates the same
+graphic from screen-to-map coordinates during movement and emits one coordinate
+callback on drag end, preserving React ownership of edit/create and confirmation
+state. Monotonic click, pointer, and drag generations reject stale async work
+after a newer event, cancel, teardown, or marker removal. Both graphics layers,
+all handlers, and graphics are removed by the existing idempotent destroy path.
+
+The ArcGIS adapter remains non-default through 22.4. No ArcGIS request, backend
+call, database operation, CAL FIRE rendering change, CSP change, deployment, or
+AWS operation is part of 22.3.
+
+Fifteen adapter tests exercise draft reconciliation, layer order, marker
+anchoring and confirmation, background/listing/draft hit behavior, cursor
+states, draft-only drag, drag-end callbacks, map-pan preservation, stale async
+completion, and cleanup. Five focused ArcGIS, React map, and manual-listing
+workflow files pass 34 tests. The full repository passes 942 tests across 106
+files, full runtime/CDK typecheck passes, and production builds pass. The
+production JavaScript remains MapLibre/OpenFreeMap-only and contains neither
+ArcGIS adapter runtime markers nor the configured local browser key.
 
 ### Block 22.4: CAL FIRE overlay parity
 
