@@ -15,7 +15,7 @@ features early.
 
 Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
-complete. Blocks 22.0-22.1 are complete; Blocks 22.2-22.6 are planned on
+complete. Blocks 22.0-22.2 are complete; Blocks 22.3-22.6 are planned on
 `refactor/arcgis-migration` and remain separately confirmed. Block
 21.8 closed its offline, disposable migration, authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -965,7 +965,17 @@ Planned sub-block mapping:
 3. `22.2` Implement the ArcGIS listing-map driver with the navigation basemap,
    listing graphics, selection hit testing, fit/focus behavior, resize,
    bounded startup failure, retry, and idempotent teardown. Do not cut over the
-   default factory yet.
+   default factory yet. **Complete in code and offline verification:** an
+   engine-neutral port preserves existing imports, and the non-default ArcGIS
+   adapter creates one navigation map, one top-right zoom component, and one
+   stable-ID `GraphicsLayer`. It preserves marker tokens, layer-scoped
+   selection and pointer behavior, fit/focus constraints, bounded errors,
+   stale-async guards, automatic host resize, and idempotent cleanup. Nine new
+   adapter tests, 27 focused tests, all 936 repository tests, full typecheck,
+   and production builds pass. The production bundle remains
+   MapLibre/OpenFreeMap-only and contains neither the ArcGIS listing runtime nor
+   the local API key. Draft and CAL FIRE hooks remain deferred to 22.3 and
+   22.4.
 4. `22.3` Reproduce manual-listing background placement, listing-hit
    suppression, draft dragging, coordinate callbacks, confirmation state, and
    create/edit integration without adding ArcGIS editing UI.

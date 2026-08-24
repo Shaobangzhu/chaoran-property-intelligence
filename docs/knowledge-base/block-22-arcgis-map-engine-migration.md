@@ -2,17 +2,18 @@
 
 ## Status
 
-Blocks 22.0 and 22.1 are complete. The parity contract, target adapter
+Blocks 22.0 through 22.2 are complete. The parity contract, target adapter
 architecture, security boundary, implementation sequence, rollback strategy,
 and acceptance gates are frozen. Exact ArcGIS 5.1 dependencies, strict scoped
 basemap-key configuration, a component-registration runtime entry, React 19
-types, and offline tests are present. The runtime entry is not imported by
-`main.tsx` or the current map, so MapLibre remains the user-visible engine and
-the production bundle contains no ArcGIS runtime or API key.
+types, an engine-neutral map port, the ArcGIS listing-map adapter, and offline
+tests are present. The adapter is not imported by `main.tsx` or the current map,
+so MapLibre remains the user-visible engine and the production bundle contains
+no ArcGIS runtime or API key.
 
-Blocks 22.2 through 22.6 remain planned and separately confirmed. The work is
+Blocks 22.3 through 22.6 remain planned and separately confirmed. The work is
 isolated on `refactor/arcgis-migration`; the owner will merge it into `main`
-only after the final acceptance gate. Block 22.1 made no ArcGIS request,
+only after the final acceptance gate. Block 22.2 made no ArcGIS request,
 backend call, database operation, deployment, or AWS operation.
 
 ## Objective
@@ -345,6 +346,37 @@ occurred in 22.1.
 - retain the existing MapLibre default while the ArcGIS adapter is tested
 - use injected SDK seams or fakes so CI makes no ArcGIS request
 - verify list-to-map and map-to-list selection behavior
+
+**Complete in code and offline verification:** the application-facing map
+types now live in `listingsMapDriver.ts`; `ListingsMap.tsx` re-exports the same
+names, so existing consumers and React ownership remain unchanged. The new
+non-default `arcgisListingsMap.ts` creates one `arcgis-map` host with the
+`arcgis/navigation` basemap, the frozen initial center and zoom, visible
+attribution, disabled popups, and one top-right `arcgis-zoom` component.
+
+One `GraphicsLayer` reconciles point graphics by stable listing ID. Updates
+retain existing `Graphic` instances, remove stale IDs, and apply the reviewed
+14 px teal or 18 px rust circles with 2 px white outlines. Layer-scoped async
+hit tests drive listing selection and pointer feedback. Monotonic click,
+pointer, and navigation generations prevent stale completions from changing
+selection, cursor, padding, or a newer view. Single-listing fit, multi-listing
+extent fit with 56 px symmetric padding and zoom 13 cap, and 450 ms focus at a
+minimum zoom of 12.5 preserve the frozen viewport contract. The component
+observes host resizing, while the retained `resize()` hook keeps the port
+compatible without recreating the view.
+
+Startup failure is mapped to one credential-free adapter error. Explicit
+component ownership, listener removal, layer/graphic cleanup, async guards, and
+idempotent destroy prevent retry or unmount races. Draft and CAL FIRE hooks are
+intentionally inert in this non-default adapter until Blocks 22.3 and 22.4;
+there is no partial user-visible cutover.
+
+Nine new adapter tests use injected DOM components and real local ArcGIS core
+geometry/graphic classes without a key or network. The five focused
+map/security files pass 27 tests; the full repository passes 936 tests across
+106 files, full runtime/CDK typecheck passes, and the production build passes.
+The bundle audit still finds OpenFreeMap as the default and finds neither the
+ArcGIS listing runtime markers nor the local API key in production JavaScript.
 
 ### Block 22.3: Manual-listing draft parity
 

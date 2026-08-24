@@ -539,6 +539,12 @@ a:focus-visible {
   inset: 0;
 }
 
+.arcgis-listings-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .map-state {
   position: absolute;
   inset: 0;

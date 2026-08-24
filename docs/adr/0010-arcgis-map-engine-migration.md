@@ -5,9 +5,12 @@
 Accepted. Block 22.0 recorded the migration architecture and parity contract.
 Block 22.1 installed exact ArcGIS 5.1 dependencies and added the isolated
 basemap-key configuration, component-registration runtime entry, React 19 type
-support, and offline tests. The runtime entry is not imported by the current
-application, so MapLibre remains the production map and no ArcGIS request is
-made. Blocks 22.2 through 22.6 remain separately reviewed and confirmed.
+support, and offline tests. Block 22.2 added the engine-neutral map port and a
+tested ArcGIS listing-map adapter with stable graphics, layer-scoped hit tests,
+viewport parity, bounded startup failure, and idempotent teardown. The adapter
+is not imported by the current application, so MapLibre remains the production
+map and no ArcGIS request is made. Blocks 22.3 through 22.6 remain separately
+reviewed and confirmed.
 
 ## Context
 
