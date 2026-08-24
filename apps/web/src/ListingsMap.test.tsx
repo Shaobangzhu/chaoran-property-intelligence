@@ -6,15 +6,15 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { createArcgisListingsMap, createArcgisTerrainListingsScene } =
+const { createArcgisListingsMap, createLazyArcgisTerrainListingsScene } =
   vi.hoisted(() => ({
     createArcgisListingsMap: vi.fn(),
-    createArcgisTerrainListingsScene: vi.fn(),
+    createLazyArcgisTerrainListingsScene: vi.fn(),
   }));
 
 vi.mock("./arcgisListingsMap.js", () => ({ createArcgisListingsMap }));
-vi.mock("./arcgisTerrainListingsScene.js", () => ({
-  createArcgisTerrainListingsScene,
+vi.mock("./lazyArcgisTerrainListingsScene.js", () => ({
+  createLazyArcgisTerrainListingsScene,
 }));
 
 import {
@@ -52,7 +52,7 @@ describe("ListingsMap", () => {
       "aria-pressed",
       "true",
     );
-    expect(createArcgisTerrainListingsScene).not.toHaveBeenCalled();
+    expect(createLazyArcgisTerrainListingsScene).not.toHaveBeenCalled();
   });
 
   it("switches between injected drivers while preserving React-owned state", async () => {

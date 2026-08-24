@@ -11,8 +11,11 @@ fake-driver lifecycle tests. Block 23.3 implemented the separately approved,
 non-default local-scene adapter and its offline lifecycle tests. Block 23.4
 implemented the terrain-draped CAL FIRE adapter and conditional context-only
 disclosure. Block 23.5 connected the production mode control, enforced 2D
-draft editing, and added bounded retry/return behavior. Block 23.6 remains
-separately gated.
+draft editing, and added bounded retry/return behavior. Block 23.6 applies the
+exact CSP origin, enforces dynamic scene loading, and passes its automated
+security, bundle, lifecycle, referrer, type, test, and build gates. The operator
+subsequently confirmed that the integrated browser/runtime acceptance criteria
+were met, completing Block 23.6.
 
 ## Context
 
@@ -211,12 +214,32 @@ origin. Never log the key or include it in UI errors, tests, screenshots,
 documentation, or build reports. Block 23.6 applies and rechecks the production
 policy after the non-default scene exists.
 
+Block 23.6 applies exactly that candidate. An approved local referrer returned
+HTTP 200 and an intentionally rejected referrer returned HTTP 401 without
+printing the credential. The production preview serves the exact origin and no
+ArcGIS wildcard. The basemap-only runtime scope remains unchanged.
+
 The ArcGIS numeric Elevation API publishes a separate per-returned-point price.
 Block 23 does not call it, so that transaction category is not part of this
 feature. Terrain3D tile transfer and existing basemap usage remain subject to
 the applicable ArcGIS account terms and will be reviewed against provider usage
 reporting in Block 23.6; this ADR does not claim that external map traffic is
 universally free.
+
+The provider publishes basemap tile and session pricing and separately prices
+numeric Elevation API points. This application uses the existing direct-token
+basemap tile model and makes no numeric Elevation API request. Terrain3D remains
+external transfer subject to account terms and usage reporting; no published
+numeric-elevation price is attributed to it without provider evidence.
+
+### Keep the 2D entry path close to its accepted bundle
+
+Register and import the scene runtime dynamically only after explicit `3D
+Terrain` selection. The lazy driver preserves the synchronous engine-neutral
+factory interface, bounds queued state, and prevents a resolved import from
+mounting after teardown. This keeps the 2D default main asset within 1.51%
+gzip of the Block 22 baseline while retaining the complete 3D capability as
+on-demand chunks. The accepted large-chunk advisory remains visible.
 
 ### Preserve operational boundaries
 

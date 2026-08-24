@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 23.0-23.5 are complete on `feature/3d-fire-terrain`. The product
+Blocks 23.0-23.6 are complete on `feature/3d-fire-terrain`. The product
 semantics, authority boundary, architecture, provider/security decisions,
 implementation sequence, test strategy, rollback, and acceptance criteria are
 frozen. The separately approved 23.1 provider/browser precheck passed, and the
@@ -10,8 +10,8 @@ separately approved 23.2 mode/lifecycle seam passed focused tests and web
 typecheck. Block 23.3 added and verified the non-default terrain-scene adapter,
 and Block 23.4 added the terrain-draped CAL FIRE renderer and context-only
 disclosure. Block 23.5 connected the reviewed scene adapter to the user-visible
-mode control and completed draft and failure routing. Block 23.6 requires a
-fresh explanation and explicit confirmation.
+mode control and completed draft and failure routing. Block 23.6 completed the
+security, network, bundle, lifecycle, and operator-confirmed browser gates.
 
 Blocks 23.3-23.5 registered the exact-pinned SDK's `arcgis-scene` component and
 added tested scene, listing, and CAL FIRE terrain adapters plus the conditional
@@ -681,6 +681,91 @@ provider-alert, Telegram, AWS, schedule, or deployment contract.
 - audit one active WebGL context, repeated mode cleanup, automatic quality,
   supported-device handling, and memory behavior
 - leave deployment and AWS unchanged
+
+**Complete:** the production document now adds only
+`https://elevation3d.arcgis.com` to `connect-src`. It does not add an ArcGIS
+wildcard, `elevation-api.arcgis.com`, another image/script origin,
+`'unsafe-eval'`, or a second credential. `arcgisConfig.ts` remains unchanged:
+the existing browser credential is still assigned only to
+`esriConfig.apiKeys.basemapStyles` and is never assigned globally.
+
+The authorized service-level referrer audit read the existing key from
+`.env.local` without printing it. The approved
+`http://127.0.0.1:5173/` referrer returned HTTP 200 from the navigation basemap
+style endpoint; an intentionally unapproved referrer returned HTTP 401. No key,
+token-bearing URL, response body, or credential metadata was written to source,
+test output, build reports, screenshots, or documentation. No environment,
+credential, privilege, referrer, or ArcGIS account setting changed.
+
+Block 23.5's static scene registration made the main production JavaScript
+asset 2,583.17 kB raw / 678.38 kB gzip. Block 23.6 replaces that path with a
+small synchronous lazy driver. It dynamically registers `arcgis-scene` and
+imports the reviewed terrain adapter only after the operator selects `3D
+Terrain`. The proxy bounds and replays the latest listings, selected ID, draft
+presentation, navigation, desired CAL FIRE visibility, and resize intent. A
+destroyed generation cannot create a late scene or report a late load error.
+
+The synthetic-key production build records:
+
+| Metric | Block 22 baseline | Block 23.6 | Delta |
+| --- | ---: | ---: | ---: |
+| JavaScript assets | 1,090 | 1,382 | +292 total on-demand assets |
+| Main raw | 1,438.27 kB | 1,454.96 kB | +16.69 kB / +1.16% |
+| Main gzip | 360.43 kB | 365.88 kB | +5.45 kB / +1.51% |
+| Module preloads | 303 | 312 | +9 / +2.97% |
+
+The separately loaded `arcgis-scene` chunk is 1,069.54 kB raw / 283.60 kB
+gzip. Compared with the static Block 23.5 result, lazy loading removes 1,128.21
+kB raw / 312.50 kB gzip from the main asset. The build still emits the accepted
+large-chunk advisory; Block 23 does not hide or relax that warning.
+
+Offline lifecycle tests prove that React destroys the active driver before
+starting its replacement, an unresolved lazy scene cannot mount after destroy,
+an initialized scene is destroyed once, and real-scene teardown removes its
+overlay, listing layer, handlers, graphics, host, and component resources.
+Scene tests also prove that WebGL2 failure creates no host and that the
+application does not set `qualityProfile`, leaving ArcGIS automatic quality in
+control. These are deterministic ownership gates, not a claim about browser or
+GPU memory that the test process cannot observe.
+
+The real-key production build and Vite preview started successfully. Read-only
+preview probes returned HTTP 200 for `/` and `/api/health`; the served HTML
+contains the exact Terrain3D origin and no wildcard. The local API was restarted
+for this audit with `API_PUBLIC_ORIGIN=http://127.0.0.1:4173` as a process-only
+override. A preview-origin `/api/auth/me` request without a session cookie
+returned the expected HTTP 401 authentication response rather than an origin
+rejection. No source or environment file changed for this audit setup. The
+automated browser-control surface was unavailable during implementation, so
+browser results were not inferred from unit tests. On August 24, 2026, the
+operator completed live browser acceptance and confirmed that the Block 23.6
+criteria were met. The accepted view shows real 3D terrain, draped CAL FIRE
+classifications, a readable selected listing marker above the hazard fill, the
+context-only disclosure, and Esri/provider attribution. The operator also
+accepted the 2D/3D lifecycle, Console, network, and responsive behavior. The
+provider usage dashboard remains an informational operator surface rather than
+a source-code or deployment gate; no ArcGIS account setting changed.
+
+Cost assumptions are intentionally narrow as of August 24, 2026:
+
+- the navigation style uses the existing basemap tile model; ArcGIS Location
+  Platform publishes 2 million free basemap tiles per month, then USD 0.15 per
+  1,000 tiles, while ArcGIS Online includes basemap tiles in its subscription
+- a direct access token is the tile usage model; the application does not start
+  a basemap session
+- the separate numeric Elevation API publishes 50,000 free returned points,
+  then USD 1.00 per 1,000 points, but Block 23 makes zero such requests and does
+  not hold its privilege
+- World Elevation Terrain3D transfer is external provider traffic, but it is not
+  represented as a numeric Elevation API transaction in the published service
+  table; this document does not call it universally free
+- API-key service consumption and billing belong to the subscription that
+  created the key; the authoritative operator check is **My dashboard > Usage >
+  Developer credentials > selected credential > billing cycle**
+
+Official references: [Basemap Styles service and pricing](https://developers.arcgis.com/rest/basemap-styles/),
+[Elevation API pricing](https://developers.arcgis.com/rest/elevation/index.html),
+[API-key usage tracking](https://developers.arcgis.com/documentation/security-and-authentication/api-key-authentication/api-key-credentials/location-platform/),
+and [SceneView performance and quality](https://developers.arcgis.com/javascript/latest/references/core/views/SceneView/).
 
 ### Block 23.7: Acceptance and merge gate
 

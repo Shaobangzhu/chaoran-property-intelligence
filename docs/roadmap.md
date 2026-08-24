@@ -17,8 +17,9 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.5 are complete on
-`feature/3d-fire-terrain`; Block 23.6 remains separately gated. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.6 are complete on
+`feature/3d-fire-terrain`; Block 23.7 remains the final acceptance and merge
+gate. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1176,7 +1177,21 @@ Planned sub-block mapping:
 7. `23.6` Complete the least-privilege API-key/CSP integration, provider network
    audit, bundle delta, WebGL-context and memory audit, automatic ArcGIS quality
    behavior, and supported-device fallback. Do not broaden origins or privileges
-   beyond observed need.
+   beyond observed need. **Complete:** the exact `elevation3d.arcgis.com`
+   connect origin is applied with no wildcard or additional privilege.
+   Approved/rejected
+   referrer probes returned HTTP 200/401 without exposing the key. Scene code is
+   dynamically loaded only after 3D selection, reducing the static Block 23.5
+   main asset from 2,583.17/678.38 kB raw/gzip to a synthetic-key
+   1,454.96/365.88 kB, only 1.16%/1.51% above the Block 22 main baseline. The
+   build has 1,382 JS assets and 312 preloads; the 1,069.54/283.60 kB scene
+   chunk is on demand. All 973 tests, root typecheck, and runtime/web/infra
+   builds pass. Production preview and its API proxy return HTTP 200. The
+   operator completed live browser acceptance on August 24, 2026 and confirmed
+   the 3D terrain, draped CAL FIRE overlay, readable listing marker,
+   context-only disclosure, attribution, 2D/3D lifecycle, Console, network, and
+   responsive criteria. No backend, database, AWS, deployment, environment,
+   account, privilege, or referrer setting changed.
 8. `23.7` Run full tests, typecheck, builds, desktop/mobile visual acceptance,
    screenshot and nonblank WebGL/canvas checks, camera interaction, Console and
    Network inspection, CAL FIRE semantic parity, security review, and rollback

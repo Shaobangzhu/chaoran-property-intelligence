@@ -8,6 +8,7 @@ describe("production map-engine boundary", () => {
       manifest,
       main,
       arcgisComponents,
+      lazyTerrainScene,
       mapShell,
       styles,
       viteConfig,
@@ -17,6 +18,10 @@ describe("production map-engine boundary", () => {
         readFile(new URL("../package.json", import.meta.url), "utf8"),
         readFile(new URL("./main.tsx", import.meta.url), "utf8"),
         readFile(new URL("./arcgisComponents.ts", import.meta.url), "utf8"),
+        readFile(
+          new URL("./lazyArcgisTerrainListingsScene.ts", import.meta.url),
+          "utf8",
+        ),
         readFile(new URL("./ListingsMap.tsx", import.meta.url), "utf8"),
         readFile(new URL("./styles.css", import.meta.url), "utf8"),
         readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
@@ -31,13 +36,17 @@ describe("production map-engine boundary", () => {
     expect(arcgisComponents).toContain(
       '@arcgis/map-components/components/arcgis-map',
     );
-    expect(arcgisComponents).toContain(
-      '@arcgis/map-components/components/arcgis-scene',
+    expect(arcgisComponents).not.toContain("arcgis-scene");
+    expect(lazyTerrainScene).toContain(
+      'import("@arcgis/map-components/components/arcgis-scene")',
+    );
+    expect(lazyTerrainScene).toContain(
+      'import("./arcgisTerrainListingsScene.js")',
     );
     expect(mapShell).not.toContain("maplibre-gl");
     expect(mapShell).not.toContain("OpenFreeMap");
-    expect(mapShell).toContain("createArcgisTerrainListingsScene");
-    expect(mapShell).toContain('from "./arcgisTerrainListingsScene.js"');
+    expect(mapShell).toContain("createLazyArcgisTerrainListingsScene");
+    expect(mapShell).not.toContain('from "./arcgisTerrainListingsScene.js"');
     expect(styles).not.toContain(".maplibregl-");
     expect(viteConfig).toContain('envDir: "../.."');
   });

@@ -10,8 +10,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { createArcgisListingsMap } from "./arcgisListingsMap.js";
 import {
-  createArcgisTerrainListingsScene,
-} from "./arcgisTerrainListingsScene.js";
+  createLazyArcgisTerrainListingsScene,
+} from "./lazyArcgisTerrainListingsScene.js";
 import type { ListingSummary } from "./listingsApi.js";
 import type {
   CreateListingsMap,
@@ -52,7 +52,7 @@ export function ListingsMap({
   selectedListingId,
   onSelect,
   createMap = createArcgisListingsMap,
-  createTerrainMap = createArcgisTerrainListingsScene,
+  createTerrainMap = createLazyArcgisTerrainListingsScene,
 }: ListingsMapProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const twoDimensionalButtonRef = useRef<HTMLButtonElement>(null);
