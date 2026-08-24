@@ -3,14 +3,13 @@
 ## Status
 
 Block 24.0 is complete in documentation only on
-`feat/add-new-city-stevensonranch`. Block 24.1 verified the official provider
-contract and consumed its one authorized real request, but the audit result is
-inconclusive because the local aggregate validator failed before retaining the
-required totals and city labels. Block 24.1A is complete: the replacement
-aggregate-only audit entrypoint and its no-network fixture gates are ready for
-a separately authorized 24.1B request. No production RentCast source,
-persisted search profile, database, Telegram message, AWS resource, schedule,
-or deployment changed.
+`feat/add-new-city-stevensonranch`. Block 24.1A and 24.1B are complete. The
+fixture-gated second audit proved that RentCast classifies every matching ZIP
+`91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
+therefore failed closed. Block 24.2 and all production implementation are
+paused for an explicit product/domain naming decision. No production RentCast
+source, persisted search profile, database, Telegram message, AWS resource,
+schedule, or deployment changed.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -252,7 +251,7 @@ The command refuses execution unless its only argument is
 pnpm rentcast:stevenson-ranch-coverage-audit
 ```
 
-The separately controlled real-request entrypoint is reserved for Block 24.1B:
+The separately controlled real-request entrypoint was used once in Block 24.1B:
 
 ```bash
 pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
@@ -275,9 +274,9 @@ The no-network fixture suite proves:
 - explicit CLI authorization, exactly-one-fetch behavior, no retry, and API-key
   redaction
 
-Block 24.1A does not make a provider request and does not change the production
-request profile. Block 24.1 remains incomplete until a separately authorized
-24.1B execution confirms the actual returned city label and completeness gate.
+Block 24.1A did not make a provider request and did not change the production
+request profile. At that point Block 24.1 remained incomplete pending the
+separately authorized 24.1B result recorded below.
 
 Verification completed on 2026-08-24:
 
@@ -289,6 +288,47 @@ Verification completed on 2026-08-24:
 - `git diff --check` passed
 - the security diff found no environment-file, production composition, worker
   entrypoint, database, AWS, Telegram, or existing RentCast client change
+
+#### Block 24.1B: Controlled provider result
+
+After new explicit authorization on 2026-08-24, the fixture-gated command made
+exactly one real request with the bounded `91381` profile. It did not retry.
+The aggregate result was:
+
+| Gate | Result |
+| --- | --- |
+| Total matching listings | 17 |
+| Returned listings | 17 |
+| Result limit / margin | 500 / 483 |
+| Returned page complete | Yes |
+| Expected ZIP `91381` verified | Yes, 17 |
+| Expected city `Stevenson Ranch` verified | **No** |
+| Returned city labels | `Valencia`: 17 |
+| Property types | `Single Family`: 17 |
+| Status values | `Active`: 17 |
+| Invalid filter rows | 0 |
+| Response body bytes | 18,482 |
+| Request latency | 269 ms |
+| Coverage gate | **FAIL** |
+
+The provider page is complete, below the result cap, and compatible with every
+filter except the required city label. This is a conclusive provider-contract
+result: RentCast represents ZIP `91381` with city `Valencia`. The command exited
+with code 1 as designed. It emitted no API key, request URL, raw response,
+street address, listing ID, or MLS data.
+
+Block 24.1 is complete as a controlled audit, but the feature compatibility
+gate is not accepted. Do not silently rewrite `Valencia` to `Stevenson Ranch`
+and do not begin Block 24.2 until the product/domain contract explicitly chooses
+one of these directions:
+
+1. keep `Stevenson Ranch` as the product market while defining a reviewed ZIP-
+   based provider mapping that preserves the original listing city, or
+2. expose a Valencia/Stevenson Ranch market label whose eligibility is
+   explicitly defined by ZIP `91381`, or
+3. stop Block 24 and retain the existing five-city coverage.
+
+No additional provider request is needed to make this naming decision.
 
 ### Block 24.2: Domain and profile compatibility
 

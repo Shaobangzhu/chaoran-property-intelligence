@@ -18,10 +18,11 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Block 24.0 and the no-network Block 24.1A audit tooling are
-complete on `feat/add-new-city-stevensonranch`. The first Block 24.1 provider
-audit was inconclusive; a second request remains a separately authorized
-24.1B operation. Production coverage implementation has not started. Block 21.8
+into `main`. Blocks 24.0, 24.1A, and 24.1B are complete on
+`feat/add-new-city-stevensonranch`. The controlled provider gate found 17
+complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
+Ranch`. Production coverage implementation is paused before 24.2 for an
+explicit product/domain naming decision. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1257,7 +1258,12 @@ Planned sub-block mapping:
    one-request CLI guard, safe default command, and deterministic fixtures now
    prove the ZIP URL, strict decimal header, complete-page, expected-city/ZIP,
    filter, schema, no-retry, and redaction gates without provider access.
-   **24.1B pending:** execute the tested command only after new authorization.
+   **24.1B complete, provider gate failed closed:** one newly authorized request
+   returned all 17 matching records in one complete page with 483 result slots
+   remaining. ZIP, property type, status, and configured filters passed, but all
+   17 city labels were `Valencia`; no retry occurred and no raw listing data was
+   retained. Pause before 24.2 until the supported-market contract explicitly
+   resolves the provider/product naming difference.
 3. `24.2` Add Stevenson Ranch to the version-1 Domain city set and prove
    backward compatibility with existing five-city profiles.
 4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its
