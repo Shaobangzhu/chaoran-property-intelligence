@@ -18,8 +18,7 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0-24.7 are complete on
-`feat/add-new-city-stevensonranch` and are ready to merge. The controlled
+into `main`. Blocks 24.0-24.7 are complete and merged into `main`. The controlled
 provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
@@ -37,7 +36,11 @@ preservation, and ArcGIS 2D/3D cross-region fit through all 1048 passing tests,
 full typecheck, and production build. The operator completed the logged-in local
 criteria flow, explicitly saved Stevenson Ranch, accepted the stored-snapshot
 Listings behavior, and verified that the unchanged five-city CAL FIRE artifact
-loads with its blank-area disclosure. Block 21.8
+loads with its blank-area disclosure. Block 25.0 is complete in documentation
+only on `feature/stevenson-ranch-wildfire-coverage`; ADR 0013 and the Block 25
+knowledge base freeze the typed coverage-target architecture and require a
+separately approved authoritative source/boundary audit before implementation.
+Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1342,3 +1345,72 @@ See the
 [Block 24 Stevenson Ranch RentCast Coverage Knowledge Base](knowledge-base/block-24-stevenson-ranch-rentcast-coverage.md)
 and
 [ADR 0012: Conditional RentCast Search Areas](adr/0012-conditional-rentcast-search-areas.md).
+
+### Block 25: Stevenson Ranch Wildfire Coverage
+
+Extend the reviewed CAL FIRE / Office of the State Fire Marshal Fire Hazard
+Severity Zone artifact to the Stevenson Ranch product market without treating
+ZIP `91381` as a city, legal jurisdiction, or hazard boundary. Stevenson Ranch
+is a typed `market-context` coverage target; the existing five cities remain
+`incorporated-jurisdiction` targets.
+
+The runtime continues to use a deterministic, versioned, same-origin GeoJSON
+artifact. React and ArcGIS do not call a live CAL FIRE, Los Angeles County,
+Census, or third-party hazard service. The application preserves official
+`Moderate`, `High`, and `Very High` classifications, LRA/SRA responsibility,
+existing transparent styling, listing-marker ordering, 2D/3D parity, and all
+hazard-not-risk and blank-area disclosures.
+
+The overlay remains independent from listing count. When the map is viewing the
+supported Stevenson Ranch context, enabling the overlay must display reviewed
+hazard geometry even when no stored listing matches current criteria. Search
+Criteria and RentCast city data do not select or classify hazard features.
+
+Planned sub-block mapping:
+
+1. `25.0` Freeze product, authority, geography, typed coverage-target, manifest,
+   artifact, security, cost, compatibility, rollout, rollback, and acceptance
+   boundaries. **Complete in documentation only:** ADR 0013 and the Block 25
+   knowledge base are accepted. No source download, external query, artifact
+   build, runtime source, secret, database, provider, cloud, or deployment
+   changed.
+2. `25.1` Recheck current official CAL FIRE LRA/SRA sources and Los Angeles
+   County adoption evidence; select and checksum a defensible Stevenson Ranch
+   market-context boundary; audit LRA/SRA intersections, severities, geometry,
+   counts, bounds, area, size, parse cost, and clipping semantics. Any real
+   download or service query requires a fresh explanation and explicit
+   authorization. Do not publish a runtime artifact.
+3. `25.2` Add red tests and implement typed coverage-target and manifest schema
+   version 2 contracts. Generalize the fixed five-city config and parser while
+   retaining strict kinds, statuses, provenance, URL, filename, checksum,
+   duplicate, severity, and responsibility-area validation.
+4. `25.3` Add the reviewed checksum-pinned boundary snapshot and generalize the
+   deterministic GDAL pipeline to explicit target boundary sources and
+   selectors. Preserve geometry repair, area reconciliation, severity
+   allowlisting, `NonWildland` exclusion, transfer budgets, and fail-closed
+   behavior.
+5. `25.4` Generate and review the successor versioned artifact and manifest.
+   Reconcile per-target and combined counts, severities, bounds, geometry,
+   areas, checksums, attribution, raw/gzip size, and deterministic rebuilds
+   before changing runtime references.
+6. `25.5` Integrate the strict schema and artifact into React and both ArcGIS
+   modes. Preserve visual tokens, layer order, lazy loading, Abort, retry,
+   rollback, teardown, terrain semantics, and compact/mobile provenance. Prove
+   zero listings do not suppress Stevenson Ranch hazard polygons.
+7. `25.6` Run focused and repository-wide tests, typecheck, builds, CSP and
+   payload review, then complete desktop/mobile 2D/3D visual acceptance for
+   Stevenson Ranch and all five existing cities. Inspect Console, Network,
+   nonblank canvas/WebGL output, memory, interaction, and teardown.
+8. `25.7` Complete the final diff, security, provenance, rollback, and as-built
+   documentation gate. Leave commit, push, PR, and merge under repository-owner
+   control.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Block 25 does not create a new hazard model, call RentCast,
+connect to PostgreSQL, send Telegram, mutate AWS, add a browser credential,
+change a schedule, or deploy.
+
+See the
+[Block 25 Stevenson Ranch Wildfire Coverage Knowledge Base](knowledge-base/block-25-stevenson-ranch-wildfire-coverage.md)
+and
+[ADR 0013: Typed Wildfire Coverage Targets](adr/0013-typed-wildfire-coverage-targets.md).
