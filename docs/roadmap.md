@@ -36,10 +36,14 @@ preservation, and ArcGIS 2D/3D cross-region fit through all 1048 passing tests,
 full typecheck, and production build. The operator completed the logged-in local
 criteria flow, explicitly saved Stevenson Ranch, accepted the stored-snapshot
 Listings behavior, and verified that the unchanged five-city CAL FIRE artifact
-loads with its blank-area disclosure. Block 25.0 is complete in documentation
-only on `feature/stevenson-ranch-wildfire-coverage`; ADR 0013 and the Block 25
-knowledge base freeze the typed coverage-target architecture and require a
-separately approved authoritative source/boundary audit before implementation.
+loads with its blank-area disclosure. Blocks 25.0 and 25.1 are complete on
+`feature/stevenson-ranch-wildfire-coverage`. The separately authorized audit
+selected the U.S. Census ACS 2025 Stevenson Ranch CDP, GEOID `0674130`, as a
+statistical `market-context` boundary; verified Los Angeles County
+unincorporated jurisdiction and Ordinance `2025-0027` LRA adoption evidence;
+reconciled five LRA and seven SRA source intersections; and selected an exact
+hard clip that projects the combined artifact at 1,158,246 raw and 289,420 gzip
+bytes. Audit candidates remain ignored and no runtime artifact changed.
 Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
@@ -1379,7 +1383,16 @@ Planned sub-block mapping:
    market-context boundary; audit LRA/SRA intersections, severities, geometry,
    counts, bounds, area, size, parse cost, and clipping semantics. Any real
    download or service query requires a fresh explanation and explicit
-   authorization. Do not publish a runtime artifact.
+   authorization. Do not publish a runtime artifact. **Complete:** the official
+   ACS 2025 Stevenson Ranch CDP (`0674130`) is the selected statistical
+   boundary with SHA-256
+   `2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+   Official and pinned-local checks agree on five LRA intersections, including
+   one excluded `NonWildland`, and seven SRA intersections. Los Angeles County
+   Ordinance `2025-0027` supports `locally-adopted` LRA status. Exact CDP hard
+   clipping adds 11 supported features and projects the combined artifact at
+   1,158,246 raw / 289,420 gzip bytes; whole intersecting polygons were rejected
+   as geographically overbroad. No runtime artifact was published.
 3. `25.2` Add red tests and implement typed coverage-target and manifest schema
    version 2 contracts. Generalize the fixed five-city config and parser while
    retaining strict kinds, statuses, provenance, URL, filename, checksum,

@@ -194,6 +194,115 @@ Before publishing a derived artifact, preserve required official attribution
 and recheck the current source terms and disclaimers. This audit makes no
 assumption that an open viewer implies an unrestricted redistribution license.
 
+## Block 25.1 Stevenson Ranch Extension Audit
+
+Block 25.1 completed on 2026-08-24 under separate authorization. It made
+read-only requests to official CAL FIRE / OSFM, Los Angeles County, and U.S.
+Census services, then used the existing digest-pinned GDAL image with container
+networking disabled. It did not read application secrets, call a provider or
+production service, publish a runtime artifact, or retain listing addresses.
+Downloaded candidates and audit responses remain ignored under
+`.cache/wildfire-hazard`.
+
+### Boundary selection
+
+No precise, directly downloadable Los Angeles County polygon named Stevenson
+Ranch was found. County planning and GIS records identify Stevenson Ranch as
+part of the unincorporated Santa Clarita Valley, but the jurisdiction layer is
+too broad to serve as the product coverage boundary.
+
+The selected candidate is the official U.S. Census Bureau TIGERweb ACS 2025
+`Stevenson Ranch CDP`, GEOID `0674130`, from the Census Designated Places layer.
+It is a statistical `market-context` boundary, not a city, postal boundary,
+parcel determination, fire district, or CAL FIRE classification boundary.
+
+| Boundary measurement | Result |
+| --- | --- |
+| Feature count | 1 valid Polygon |
+| Census `AREALAND` / `AREAWATER` | 16,533,804 / 2,399 square meters |
+| GDAL EPSG:3310 area | 16,536,210.674 square meters |
+| Point on surface | `POINT(-118.594058 34.392544)` |
+| Download size | 24,175 bytes |
+| SHA-256 | `2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf` |
+
+Official boundary source:
+
+- [U.S. Census TIGERweb ACS 2025 Census Designated Places layer](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12)
+
+### Jurisdiction and designation evidence
+
+The CDP point-on-surface intersects exactly one feature in each official
+jurisdiction check:
+
+- CAL FIRE: county `Los Angeles`, jurisdiction `Los Angeles County`, type
+  `Unincorporated County`, status `Qualifying`, unit `LAC`
+- Los Angeles County GIS: name `SANTA CLARITA VALLEY`, jurisdiction
+  `UNINCORPORATED AREA`
+
+Los Angeles County Ordinance `2025-0027` was adopted on 2025-07-22 and became
+operative on 2025-08-21 for LRA FHSZ designations in the Consolidated Fire
+Protection District. It is the evidence for assigning `locally-adopted` to LRA
+features in this market context. The CAL FIRE jurisdiction layer's null
+`STATUS` field is not used as adoption evidence. SRA features retain source
+status `effective`.
+
+Official evidence:
+
+- [Los Angeles County Board of Supervisors July 22, 2025 proceedings](https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf)
+- [Los Angeles County Santa Clarita Valley Area Plan](https://planning.lacounty.gov/wp-content/uploads/2022/10/Santa-Clarita-Valley-Area-Plan.pdf)
+- [CAL FIRE LRA jurisdiction layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZLRA_FULLJurisPolys_PubContactTablev4_JOIN_VIEW/FeatureServer/0)
+- [Los Angeles County jurisdiction layer](https://services1.arcgis.com/vdxp8SwMGji0hqly/ArcGIS/rest/services/jurisdiction_la_WFL1/FeatureServer/0)
+
+### Source and intersection reconciliation
+
+The current CAL FIRE service metadata still identifies LRA layer
+`FHSZLRA25_v1_All` and SRA layer `FHSZSRA_23_3`. The local archives used for
+the spatial audit match the existing configured sizes and SHA-256 digests.
+
+Exact polygon queries against the official feature services returned five LRA
+and seven SRA features. Local clipping from the checksum-pinned archives
+returned the same counts. The LRA set includes one `NonWildland` feature; the
+normalizer continues to exclude it and allow only the three official FHSZ
+classes.
+
+| Responsibility area | Moderate | High | Very High | `NonWildland` | Supported area (m2) | Invalid geometries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LRA | 1 | 1 | 2 | 1 | 7,969,148.811 | 0 |
+| SRA | 0 | 6 | 1 | 0 | 7,507,481.567 | 0 |
+| Combined | 1 | 7 | 3 | 1 | 15,476,630.378 | 0 |
+
+The excluded `NonWildland` area is 1,059,579.364 square meters. Supported
+geometry plus the excluded source polygon reconciles to the CDP area within one
+square meter. LRA/SRA assignment therefore comes from the authoritative source
+geometry and is not inferred from ZIP `91381`, provider city `Valencia`, or the
+product market label.
+
+### Clip and packaging decision
+
+The audit compared exact hard clipping with retaining every full official
+source polygon that intersects the CDP:
+
+| Measurement | Exact CDP hard clip | Whole intersecting polygons |
+| --- | ---: | ---: |
+| Supported features | 11 | 11 |
+| Coordinates | 8,692 | 65,583 |
+| Candidate raw / gzip bytes | 225,195 / 54,642 | 1,690,689 / 446,181 |
+| Combined raw / gzip bytes | 1,158,246 / 289,420 | 2,623,740 / 680,959 |
+| Node 24.19.0 parse mean, 100 runs | 2.426 ms | 5.942 ms |
+
+The whole-feature candidate extends west to longitude `-120.5036026` because a
+source polygon is much larger than the product market. Although both candidates
+fit the hard transfer budgets, retaining that geometry would misframe the map
+and broaden the delivery scope without product value. Block 25 selects an exact
+hard clip to the Census CDP and must disclose that the clip edge is a product
+coverage boundary rather than an official severity transition.
+
+The projected combined hard-clipped artifact remains well below the 10 MiB raw
+and 2 MiB gzip limits. These are audit-only estimates. Block 25.3 must reproduce
+the transformation from a tracked boundary snapshot, and Block 25.4 must record
+the final deterministic checksums and quality reconciliation before runtime
+publication.
+
 ## Limitations
 
 - This is a display-data audit, not parcel-level hazard certification.
@@ -202,3 +311,5 @@ assumption that an open viewer implies an unrestricted redistribution license.
 - Eastvale's local adoption remains unresolved by the official records found.
 - A future source refresh must repeat the Block 19.5 size, performance, and
   browser visual checks.
+- The selected Stevenson Ranch CDP is a statistical market-context boundary;
+  its product clip edge is not a legal or CAL FIRE hazard boundary.

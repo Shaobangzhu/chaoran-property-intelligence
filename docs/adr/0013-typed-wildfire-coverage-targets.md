@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted for Block 25 implementation. Block 25.0 records architecture only.
-No external source, artifact, runtime code, environment, database, provider, or
-cloud resource changed when this decision was accepted.
+Accepted for Block 25 implementation. Block 25.0 records the architecture and
+Block 25.1 records the authorized boundary and source-audit decision. No runtime
+artifact, runtime code, environment, database, provider, or cloud resource
+changed in either sub-block.
 
 ## Context
 
@@ -47,11 +48,22 @@ existing cities use `incorporated-jurisdiction`. Stevenson Ranch uses
 `market-context`; ZIP `91381` may be recorded as its product selector but is not
 treated as its legal jurisdiction.
 
-Block 25.1 selects the exact market-context boundary from reviewed public
-sources. Prefer a current official Los Angeles County community or planning
-boundary. Use a versioned Census ZCTA only if a sufficiently precise county
-boundary is unavailable, and label that choice as postal context rather than a
-government jurisdiction.
+Block 25.1 selected the official U.S. Census Bureau TIGERweb ACS 2025
+`Stevenson Ranch CDP`, GEOID `0674130`, as the exact market-context boundary.
+No precise, directly downloadable Los Angeles County polygon named Stevenson
+Ranch was found; the County planning and jurisdiction records instead confirm
+that the community is within the unincorporated Santa Clarita Valley. The
+Census Designated Place is a versioned statistical place shaped for the named
+community and is more precise for this purpose than ZIP/ZCTA `91381` or provider
+city `Valencia`.
+
+The CDP is not a government jurisdiction, postal boundary, parcel
+determination, fire district, or CAL FIRE classification boundary. Record it as
+`market-context`, with source provenance and the explicit disclosure that an
+artifact clip edge is a product coverage edge. Use exact hard clipping to the
+CDP. Do not retain whole intersecting source polygons: the audit found that one
+such polygon extends far outside the market and unnecessarily broadens map fit
+and payload scope.
 
 ### Publish a new manifest contract
 
@@ -97,6 +109,14 @@ CAL FIRE / OSFM remains the classification authority. The application displays
 only `Moderate`, `High`, and `Very High` from the official artifact. LRA and SRA
 status follows current source and local-adoption evidence. `NonWildland` remains
 excluded rather than becoming a fourth severity.
+
+For the selected CDP, CAL FIRE identifies the containing target as qualifying
+`Los Angeles County / Unincorporated County`, and Los Angeles County GIS
+identifies it as the `SANTA CLARITA VALLEY / UNINCORPORATED AREA`. Los Angeles
+County Ordinance `2025-0027`, operative 2025-08-21, is the local-adoption
+evidence for LRA features; use evidence ID
+`los-angeles-county-ordinance-2025-0027` and status `locally-adopted`. SRA
+features remain `effective` from the CAL FIRE source.
 
 ArcGIS 2D and 3D Terrain load the same artifact and renderer contract. Terrain
 remains visual context only. It does not change severity, polygon geometry, or

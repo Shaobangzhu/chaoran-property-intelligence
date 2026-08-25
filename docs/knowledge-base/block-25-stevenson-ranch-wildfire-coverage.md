@@ -2,16 +2,19 @@
 
 ## Status
 
-Block 25.0 is complete in documentation only on
-`feature/stevenson-ranch-wildfire-coverage`. This record freezes the product,
+Blocks 25.0 and 25.1 are complete on
+`feature/stevenson-ranch-wildfire-coverage`. Block 25.0 froze the product,
 authority, geography, artifact, compatibility, security, cost, rollback, test,
-and acceptance boundaries before implementation.
+and acceptance boundaries. Block 25.1 completed the separately authorized
+official-source, boundary, jurisdiction, spatial, geometry, size, and parse
+audit described below.
 
-No CAL FIRE or county dataset was downloaded or queried, no production artifact
-was rebuilt, and no runtime source, environment file, secret, database, AWS
-resource, RentCast request, Telegram delivery, or deployment changed in Block
-25.0. Every executable sub-block still requires a fresh explanation and
-explicit confirmation.
+Block 25.1 used only public official sources and the existing checksum-pinned
+CAL FIRE archives. Audit candidates and responses remain under the ignored
+`.cache/wildfire-hazard` directory. No production artifact was rebuilt, and no
+runtime source, environment file, secret, database, AWS resource, RentCast
+request, Telegram delivery, or deployment changed. Every remaining executable
+sub-block still requires a fresh explanation and explicit confirmation.
 
 ## Purpose
 
@@ -74,28 +77,137 @@ The preliminary planning evidence is:
   July 22, 2025, with an operative date of August 21, 2025, for state-mandated
   LRA FHSZ changes in the Consolidated Fire Protection District
 
-These records establish the planning direction, not the final feature
-selection. Block 25.1 must recheck the current official records and determine
-which portions of the reviewed Stevenson Ranch context are LRA, SRA, or outside
-either published source before assigning designation metadata.
+Block 25.1 rechecked these records and assigned designation metadata only after
+intersecting the selected boundary with both official source geometries. The
+result contains both LRA and SRA classifications plus one excluded LRA
+`NonWildland` polygon, as detailed below.
 
 ### Coverage-boundary decision gate
 
-Block 25.1 must select and checksum one defensible display boundary. Candidate
-sources are evaluated in this order:
+Block 25.1 evaluated candidate sources in this order:
 
 1. a current official Los Angeles County community or planning boundary that
    represents Stevenson Ranch with sufficient precision
 2. a current official Los Angeles County unincorporated-jurisdiction layer plus
    a separately documented market-context boundary
-3. a versioned Census ZCTA `91381` boundary only when no better official
+3. a versioned federal statistical boundary that identifies the community more
+   precisely than ZIP or provider-city data
+4. a versioned Census ZCTA `91381` boundary only when no better official
    community boundary is available
 
 A ZCTA or ZIP-derived boundary, if selected, must be labeled `market-context`.
 It must never be labeled a jurisdiction, city limit, CAL FIRE boundary, or
 parcel determination. The published geometry must include enough surrounding
 context to avoid implying that a delivery clip edge is an official hazard edge.
-The exact clip/context rule is an output of 25.1, not assumed in 25.0.
+The accepted boundary is the U.S. Census Bureau ACS 2025 `Stevenson Ranch CDP`
+polygon, GEOID `0674130`. A Census Designated Place is a statistical place, not
+an incorporated jurisdiction or CAL FIRE boundary. It is therefore recorded as
+`market-context`. ZIP `91381` remains only the separate product selector.
+
+The accepted delivery rule is an exact hard clip to this CDP boundary. The
+visible provenance must disclose that the clip edge is a product coverage edge,
+not an official FHSZ transition. Retaining whole intersecting source polygons
+was rejected because one official polygon extends far beyond the market and
+would materially distort map fit and payload scope.
+
+## Block 25.1 Audit Result
+
+### Official source and jurisdiction findings
+
+The CAL FIRE / OSFM source page and feature-layer metadata still identify the
+pinned inputs used by the existing pipeline:
+
+- LRA `FHSZLRA25_1`, service layer `FHSZLRA25_v1_All`
+- SRA `FHSZSRA_23_3`, service layer `FHSZSRA_23_3`
+
+The local archives still match their configured checksums:
+
+| Source | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `FHSZLRA251Allgdb.zip` | 9,840,158 | `736fa5231c70b844550784cd13c8d414c239cf9573c9cae6139554ef0bf464b6` |
+| `FHSZSRA_23_3.zip` | 36,001,656 | `e744eb8eb7895157f4025109f29ff5312180a52fdb4648ff9fe9328edf4db3b2` |
+
+A point-on-surface check inside the selected CDP returned one feature from each
+official jurisdiction layer:
+
+- CAL FIRE: `Los Angeles County`, `Unincorporated County`, `Qualifying`, unit
+  `LAC`
+- Los Angeles County GIS: `SANTA CLARITA VALLEY`, `UNINCORPORATED AREA`
+
+Los Angeles County Board of Supervisors Ordinance `2025-0027`, adopted July 22,
+2025 and operative August 21, 2025, supplies the local-adoption evidence for
+LRA geometry in the Consolidated Fire Protection District. The future manifest
+evidence ID is `los-angeles-county-ordinance-2025-0027`; the LRA designation
+status is `locally-adopted`. SRA geometry remains `effective` from the CAL FIRE
+source. A null `STATUS` value in the CAL FIRE contact layer was not treated as
+adoption evidence.
+
+### Boundary provenance
+
+The selected boundary came from the official U.S. Census Bureau TIGERweb ACS
+2025 Census Designated Places layer. The bounded query returned exactly one
+valid polygon:
+
+| Field | Audited value |
+| --- | --- |
+| Name | `Stevenson Ranch CDP` |
+| GEOID | `0674130` |
+| Census land / water area | 16,533,804 / 2,399 square meters |
+| GDAL EPSG:3310 polygon area | 16,536,210.674 square meters |
+| Boundary bytes | 24,175 |
+| Boundary SHA-256 | `2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf` |
+| Geometry validity | valid polygon; one ring |
+| Point on surface | `POINT(-118.594058 34.392544)` |
+
+No precise, directly downloadable Los Angeles County polygon named Stevenson
+Ranch was found. The County planning record confirms the community's
+unincorporated status, while the Census CDP supplies the most precise,
+versioned, official community-shaped boundary found. It is preferred over the
+ZIP `91381` ZCTA and provider city `Valencia`, neither of which represents the
+product community as accurately.
+
+### Spatial and classification findings
+
+An exact-boundary official-service count returned five intersecting LRA source
+features and seven SRA source features. The checksum-pinned local archives
+returned the same counts. The LRA set contains one `NonWildland` feature, which
+continues to be excluded rather than rendered as a fourth severity.
+
+| Responsibility area | Moderate | High | Very High | Excluded `NonWildland` | Supported area (m2) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| LRA | 1 | 1 | 2 | 1 | 7,969,148.811 |
+| SRA | 0 | 6 | 1 | 0 | 7,507,481.567 |
+| Combined | 1 | 7 | 3 | 1 | 15,476,630.378 |
+
+The excluded `NonWildland` area is 1,059,579.364 square meters. Supported FHSZ
+geometry plus that excluded source area reconciles to the CDP polygon within
+one square meter of projection/serialization tolerance. All 11 supported
+clipped geometries are valid. This proves the responsibility area from source
+geometry rather than inferring it from ZIP, listing city, or market label.
+
+### Packaging decision
+
+| Measurement | Existing artifact | Exact CDP hard clip | Whole intersecting polygons |
+| --- | ---: | ---: | ---: |
+| Added supported features | - | 11 | 11 |
+| Added coordinates | - | 8,692 | 65,583 |
+| Candidate raw bytes | - | 225,195 | 1,690,689 |
+| Candidate gzip bytes | - | 54,642 | 446,181 |
+| Combined raw bytes | 933,093 | 1,158,246 | 2,623,740 |
+| Combined gzip bytes | 234,976 | 289,420 | 680,959 |
+| Node 24.19.0 parse mean, 100 runs | not rerun | 2.426 ms | 5.942 ms |
+
+Both candidates are below the 10 MiB raw and 2 MiB gzip hard limits, but the
+whole-feature candidate extends to longitude `-120.5036026`, far outside the
+Stevenson Ranch market. Exact hard clipping is smaller, keeps the intended map
+context, and preserves the current pipeline model. The measured combined hard
+clip uses about 11.0% of the raw budget and 13.8% of the gzip budget. Parse
+timings are local synthetic comparisons, not browser acceptance results.
+
+Block 25.2 may now implement typed manifest contracts against this frozen
+boundary and designation decision. Block 25.3 remains responsible for adding a
+reviewed tracked snapshot and reproducible build support; nothing from the
+ignored audit cache is a runtime or release artifact.
 
 ## Existing System Constraint
 
@@ -272,13 +384,12 @@ cleanup, or profile mutation.
 
 ### Block 25.1: Authoritative source and boundary audit
 
-- recheck current CAL FIRE / OSFM LRA and SRA versions, terms, and downloads
-- verify Los Angeles County adoption evidence and operative map scope
-- select and checksum the Stevenson Ranch market-context boundary
-- determine LRA/SRA intersections without inferring from ZIP alone
-- measure features, severities, coordinates, size, bounds, parse cost, geometry,
-  and context clipping behavior
-- record aggregate evidence without publishing a runtime artifact
+**Complete:** current CAL FIRE / OSFM LRA and SRA metadata and pinned archives
+were rechecked; Los Angeles County jurisdiction and adoption evidence was
+verified; the ACS 2025 Stevenson Ranch CDP was selected and checksummed; exact
+LRA/SRA intersections, severities, areas, geometry, size, bounds, parse cost,
+and clipping alternatives were measured; and aggregate evidence was recorded
+without publishing a runtime artifact.
 
 ### Block 25.2: Coverage-target and manifest contracts
 
@@ -344,8 +455,11 @@ Block 25 is complete only when:
 ## Official Planning References
 
 - [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
+- [U.S. Census TIGERweb ACS 2025 Census Designated Places](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12)
 - [Los Angeles County Santa Clarita Valley Area Plan](https://planning.lacounty.gov/wp-content/uploads/2022/10/Santa-Clarita-Valley-Area-Plan.pdf)
 - [Los Angeles County Board of Supervisors July 22, 2025 proceedings](https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf)
+- [CAL FIRE LRA jurisdiction layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZLRA_FULLJurisPolys_PubContactTablev4_JOIN_VIEW/FeatureServer/0)
+- [Los Angeles County jurisdiction layer](https://services1.arcgis.com/vdxp8SwMGji0hqly/ArcGIS/rest/services/jurisdiction_la_WFL1/FeatureServer/0)
 - [Block 19 Wildfire Hazard Overlay](block-19-wildfire-hazard-overlay.md)
 - [Block 23 3D Fire Terrain](block-23-3d-fire-terrain.md)
 - [Block 24 Stevenson Ranch RentCast Coverage](block-24-stevenson-ranch-rentcast-coverage.md)
