@@ -71,6 +71,14 @@ describe("runStevensonRanchCoverageAudit", () => {
 
     const output = formatStevensonRanchCoverageAuditSummary(summary);
     expect(output).toContain("Coverage gate: PASS");
+    expect(output).toContain("Requests completed: 1");
+    expect(output).toContain("Audit request cost: 1");
+    expect(output).toContain(
+      "Monthly allowance planning reference: 50 requests",
+    );
+    expect(output).toContain(
+      "Production request cost reference: 5 requests for five incorporated markets; 6 requests for all six markets.",
+    );
     expect(output).toContain(
       'City counts: {"Stevenson Ranch":2}',
     );

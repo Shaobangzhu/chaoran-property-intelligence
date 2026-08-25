@@ -79,10 +79,11 @@ pnpm exec vitest run \
   -t "silently baselines a revision before later new-listing and below-floor drop alerts"
 ```
 
-The first run must issue one fake provider request, baseline widened inventory,
-advance the fake applied revision, and send no Telegram request. The second run
-must preserve one provider request and produce one batched fake Telegram call
-containing both a later new listing and a tracked below-floor price drop.
+The fixture selects Chino and Corona. The first run must issue two fake direct
+city requests, baseline widened inventory, advance the fake applied revision,
+and send no Telegram request. The second run must preserve the same two-request
+market set and produce one batched fake Telegram call containing both a later
+new listing and a tracked below-floor price drop.
 
 ## Local Execution Record: 2026-08-22
 

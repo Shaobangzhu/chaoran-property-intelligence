@@ -1,7 +1,6 @@
 import type { ListingSourcePort } from "@chaoran-property-intelligence/application";
 import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
 import {
-  defaultRentCastSaleListingsSearchArea,
   type RentCastListingsPort,
   type RentCastSaleListing,
   type RentCastSaleListingsPage,
@@ -9,14 +8,10 @@ import {
   type RentCastSaleListingsSearchCriteria,
 } from "@chaoran-property-intelligence/rentcast";
 
-const defaultRentCastListingSearchAreas = Object.freeze([
-  defaultRentCastSaleListingsSearchArea,
-]);
-
 export interface RentCastListingSourceOptions {
   client: RentCastListingsPort;
   searchCriteria: RentCastSaleListingsSearchCriteria;
-  searchAreas?: readonly RentCastSaleListingsSearchArea[];
+  searchAreas: readonly RentCastSaleListingsSearchArea[];
   now: () => Date;
 }
 
@@ -48,8 +43,7 @@ export class RentCastListingSource implements ListingSourcePort {
   private readonly now: () => Date;
 
   constructor(options: RentCastListingSourceOptions) {
-    const searchAreas =
-      options.searchAreas ?? defaultRentCastListingSearchAreas;
+    const searchAreas = options.searchAreas;
     if (!Array.isArray(searchAreas) || searchAreas.length === 0) {
       throw new InvalidRentCastListingSearchAreasError();
     }

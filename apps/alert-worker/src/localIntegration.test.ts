@@ -72,6 +72,7 @@ describe("local alert worker integration", () => {
         fetch: rentCastFetch,
       }),
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+      searchAreas: [{ kind: "city", city: "Eastvale" }],
       now: () => new Date("2026-08-19T17:00:00.000Z"),
     });
     const checkNewListings = new CheckNewListings({

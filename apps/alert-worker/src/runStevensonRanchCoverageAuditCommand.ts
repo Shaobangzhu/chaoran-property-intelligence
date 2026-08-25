@@ -5,6 +5,7 @@ import {
 import type { TextWriter } from "./runAlertWorker.js";
 
 const executionConfirmation = "--execute-one-request";
+const marketConfirmation = "--market=stevenson-ranch-91381";
 const usage =
   "Usage: pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request\n";
 
@@ -22,12 +23,13 @@ export async function runStevensonRanchCoverageAuditCommand(
   runtime: StevensonRanchCoverageAuditCommandRuntime,
 ): Promise<number> {
   if (
-    runtime.args.length !== 1 ||
-    runtime.args[0] !== executionConfirmation
+    runtime.args.length !== 2 ||
+    runtime.args[0] !== executionConfirmation ||
+    runtime.args[1] !== marketConfirmation
   ) {
     runtime.stderr.write(usage);
     runtime.stderr.write(
-      "No RentCast request was made. The explicit one-request confirmation flag is required.\n",
+      "No RentCast request was made. The explicit one-request confirmation and exact reviewed market are required.\n",
     );
     return 1;
   }

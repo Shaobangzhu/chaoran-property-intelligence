@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultRentCastSaleListingsSearchArea } from "@chaoran-property-intelligence/rentcast";
+import type { ListingSearchCity } from "@chaoran-property-intelligence/domain";
 
 import {
   InvalidRentCastSearchMarketsError,
@@ -12,25 +12,31 @@ describe("RentCast search area selection", () => {
   it.each([
     "Chino",
     "Chino Hills",
-    "Corona",
     "Eastvale",
+    "Corona",
     "Jurupa Valley",
-  ] as const)("maps the %s market to the Brea radius", (market) => {
+  ] as const)("maps the %s market to its direct city area", (market) => {
     expect(
       selectRentCastSaleListingsSearchAreas([market]),
-    ).toEqual([defaultRentCastSaleListingsSearchArea]);
+    ).toEqual([{ kind: "city", city: market }]);
   });
 
-  it("maps all original markets to the Brea radius only once", () => {
+  it("maps all five incorporated markets to five canonical direct city areas", () => {
     expect(
       selectRentCastSaleListingsSearchAreas([
-        "Chino",
-        "Chino Hills",
+        "Jurupa Valley",
         "Corona",
         "Eastvale",
-        "Jurupa Valley",
+        "Chino Hills",
+        "Chino",
       ]),
-    ).toEqual([defaultRentCastSaleListingsSearchArea]);
+    ).toEqual([
+      { kind: "city", city: "Chino" },
+      { kind: "city", city: "Chino Hills" },
+      { kind: "city", city: "Eastvale" },
+      { kind: "city", city: "Corona" },
+      { kind: "city", city: "Jurupa Valley" },
+    ]);
   });
 
   it("maps Stevenson Ranch alone to ZIP 91381", () => {
@@ -39,7 +45,7 @@ describe("RentCast search area selection", () => {
     ]);
   });
 
-  it("maps mixed markets to the Brea radius and then ZIP 91381", () => {
+  it("maps mixed markets in canonical order and preserves ZIP 91381", () => {
     expect(
       selectRentCastSaleListingsSearchAreas([
         "Stevenson Ranch",
@@ -47,17 +53,55 @@ describe("RentCast search area selection", () => {
         "Chino",
       ]),
     ).toEqual([
-      defaultRentCastSaleListingsSearchArea,
+      { kind: "city", city: "Chino" },
+      { kind: "city", city: "Corona" },
       stevensonRanchRentCastSaleListingsSearchArea,
     ]);
   });
 
-  it("rejects an empty or unsupported runtime market selection", () => {
+  it("maps all six markets to exactly six canonical provider areas", () => {
+    expect(
+      selectRentCastSaleListingsSearchAreas([
+        "Stevenson Ranch",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ]),
+    ).toEqual([
+      { kind: "city", city: "Chino" },
+      { kind: "city", city: "Chino Hills" },
+      { kind: "city", city: "Eastvale" },
+      { kind: "city", city: "Corona" },
+      { kind: "city", city: "Jurupa Valley" },
+      stevensonRanchRentCastSaleListingsSearchArea,
+    ]);
+  });
+
+  it("returns frozen areas without mutating the selected markets", () => {
+    const markets = ["Stevenson Ranch", "Corona", "Chino"] as const;
+    const areas = selectRentCastSaleListingsSearchAreas(markets);
+
+    expect(markets).toEqual(["Stevenson Ranch", "Corona", "Chino"]);
+    expect(Object.isFrozen(areas)).toBe(true);
+    expect(areas.every((area) => Object.isFrozen(area))).toBe(true);
+  });
+
+  it("rejects empty, duplicate, unsupported, or malformed runtime selections", () => {
     expect(() => selectRentCastSaleListingsSearchAreas([])).toThrow(
       InvalidRentCastSearchMarketsError,
     );
     expect(() =>
+      selectRentCastSaleListingsSearchAreas(["Corona", "Corona"]),
+    ).toThrow(InvalidRentCastSearchMarketsError);
+    expect(() =>
       selectRentCastSaleListingsSearchAreas(["Valencia" as "Corona"]),
+    ).toThrow(InvalidRentCastSearchMarketsError);
+    expect(() =>
+      selectRentCastSaleListingsSearchAreas(
+        null as unknown as readonly ListingSearchCity[],
+      ),
     ).toThrow(InvalidRentCastSearchMarketsError);
   });
 });

@@ -484,6 +484,60 @@ describe("ListingsMap", () => {
     );
   });
 
+  it("preserves a zero-listing wildfire overlay across 2D and terrain drivers", async () => {
+    const user = userEvent.setup();
+    const twoDimensionalHarness = createDriverHarness();
+    const terrainHarness = createDriverHarness();
+    render(
+      <ListingsMap
+        createMap={twoDimensionalHarness.createMap}
+        createTerrainMap={terrainHarness.createMap}
+        listings={[]}
+        onSelect={() => undefined}
+        selectedListingId={null}
+      />,
+    );
+
+    expect(twoDimensionalHarness.driver.updateListings).toHaveBeenCalledWith(
+      [],
+      null,
+    );
+    act(() => twoDimensionalHarness.options?.onReady());
+    expect(twoDimensionalHarness.driver.fitToListings).toHaveBeenCalledWith([]);
+
+    const toggle = screen.getByRole("switch", {
+      name: "Wildfire hazard zones",
+    });
+    await user.click(toggle);
+    expect(
+      twoDimensionalHarness.driver.setWildfireHazardVisible,
+    ).toHaveBeenCalledWith(true);
+
+    await user.click(screen.getByRole("button", { name: "3D Terrain" }));
+    expect(twoDimensionalHarness.driver.destroy).toHaveBeenCalledOnce();
+    expect(terrainHarness.driver.updateListings).toHaveBeenCalledWith([], null);
+
+    act(() => terrainHarness.options?.onReady());
+    expect(terrainHarness.driver.fitToListings).toHaveBeenCalledWith([]);
+    expect(terrainHarness.driver.setWildfireHazardVisible).toHaveBeenCalledWith(
+      true,
+    );
+    expect(toggle).toBeChecked();
+
+    act(() =>
+      terrainHarness.options?.onWildfireHazardStateChange({
+        metadata: createWildfireHazardMetadata(),
+        status: "ready",
+        visible: true,
+      }),
+    );
+    expect(
+      screen.getByText(
+        "Terrain is visual context only. CAL FIRE classifications are unchanged.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows a bounded map error and can retry initialization", async () => {
     const user = userEvent.setup();
     const firstHarness = createDriverHarness();

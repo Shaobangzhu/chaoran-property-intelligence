@@ -24,6 +24,11 @@ import {
   type ProductionDependencies,
 } from "./runProduction.js";
 
+const allFiveDirectCityAreas =
+  "city-Chino,city-Chino Hills,city-Eastvale,city-Corona,city-Jurupa Valley";
+const defaultSixMarketSourceEvent =
+  `source:rentcast-secret:Single Family:850000:4:2.5:${allFiveDirectCityAreas},zip-91381`;
+
 describe("runProduction", () => {
   it("migrates, executes the use case, and closes the database", async () => {
     const events: string[] = [];
@@ -39,7 +44,7 @@ describe("runProduction", () => {
       "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      "source:rentcast-secret:Single Family:850000:4:2.5:radius,zip-91381",
+      defaultSixMarketSourceEvent,
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "database:close",
@@ -83,14 +88,18 @@ describe("runProduction", () => {
   });
 
   it.each([
-    ["one original market", ["Corona"], "radius"],
+    ["one incorporated market", ["Corona"], "city-Corona"],
     [
-      "all original markets",
+      "all incorporated markets",
       ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
-      "radius",
+      allFiveDirectCityAreas,
     ],
     ["Stevenson Ranch only", ["Stevenson Ranch"], "zip-91381"],
-    ["mixed markets", ["Stevenson Ranch", "Corona"], "radius,zip-91381"],
+    [
+      "mixed markets",
+      ["Stevenson Ranch", "Corona"],
+      "city-Corona,zip-91381",
+    ],
   ] as const)(
     "projects provider fields and acquisition areas for %s",
     async (_label, cities, expectedAreas) => {
@@ -139,7 +148,7 @@ describe("runProduction", () => {
       "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      "source:rentcast-secret:Single Family:850000:4:2.5:radius,zip-91381",
+      defaultSixMarketSourceEvent,
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "repository:revision-baseline:2:1:0",
@@ -292,7 +301,11 @@ function createDependencies(
 }
 
 function describeSearchArea(area: RentCastSaleListingsSearchArea): string {
-  return area.kind === "radius" ? "radius" : `zip-${area.zipCode}`;
+  if (area.kind === "radius") {
+    return "radius";
+  }
+
+  return area.kind === "city" ? `city-${area.city}` : `zip-${area.zipCode}`;
 }
 
 function createProfile(

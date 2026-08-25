@@ -265,12 +265,12 @@ describe("listing alert production workflow integration", () => {
       if (url.origin === "https://api.rentcast.io") {
         providerCall += 1;
         steps.push(`rentcast:request:${providerCall}`);
+        const isLaterRun = providerCall > 2;
         const tracked = createRentCastListing({
-          price: providerCall === 1 ? 820000 : 770000,
-          lastSeenDate:
-            providerCall === 1
-              ? "2026-08-22T12:00:00.000Z"
-              : "2026-08-23T12:00:00.000Z",
+          price: isLaterRun ? 770000 : 820000,
+          lastSeenDate: isLaterRun
+            ? "2026-08-23T12:00:00.000Z"
+            : "2026-08-22T12:00:00.000Z",
         });
         const widenedInventory = createRentCastListing({
           id: "rentcast-widened",
@@ -280,19 +280,22 @@ describe("listing alert production workflow integration", () => {
           zipCode: "91710",
           price: 830000,
         });
-        const listings =
-          providerCall === 1
-            ? [tracked, widenedInventory]
-            : [
-                tracked,
-                widenedInventory,
-                createRentCastListing({
-                  id: "rentcast-later-new",
-                  formattedAddress: "300 Main St, Corona, CA 92882",
-                  addressLine1: "300 Main St",
-                  price: 840000,
-                }),
-              ];
+        const city = url.searchParams.get("city");
+        const listings = city === "Chino"
+          ? [widenedInventory]
+          : [
+              tracked,
+              ...(isLaterRun
+                ? [
+                    createRentCastListing({
+                      id: "rentcast-later-new",
+                      formattedAddress: "300 Main St, Corona, CA 92882",
+                      addressLine1: "300 Main St",
+                      price: 840000,
+                    }),
+                  ]
+                : []),
+            ];
         return Response.json(listings, {
           headers: { "X-Total-Count": String(listings.length) },
         });
@@ -369,7 +372,7 @@ describe("listing alert production workflow integration", () => {
     expect(steps.filter((step) => step === "telegram:request")).toHaveLength(1);
   });
 
-  it("quietly baselines mixed Brea and 91381 inventory after reconciling overlap", async () => {
+  it("quietly baselines mixed direct-city and 91381 inventory after reconciling overlap", async () => {
     const steps: string[] = [];
     const mixedCriteria = {
       ...defaultListingSearchCriteria,
@@ -450,12 +453,13 @@ describe("listing alert production workflow integration", () => {
     );
 
     expect(rentCastUrls).toHaveLength(2);
-    expect(rentCastUrls[0]?.searchParams.get("address")).toBe(
-      "1065 Brea Mall, Brea, CA 92821",
-    );
-    expect(rentCastUrls[0]?.searchParams.get("radius")).toBe("20");
+    expect(rentCastUrls[0]?.searchParams.get("city")).toBe("Corona");
+    expect(rentCastUrls[0]?.searchParams.get("state")).toBe("CA");
+    expect(rentCastUrls[0]?.searchParams.get("address")).toBeNull();
+    expect(rentCastUrls[0]?.searchParams.get("radius")).toBeNull();
     expect(rentCastUrls[0]?.searchParams.get("zipCode")).toBeNull();
     expect(rentCastUrls[1]?.searchParams.get("zipCode")).toBe("91381");
+    expect(rentCastUrls[1]?.searchParams.get("city")).toBeNull();
     expect(rentCastUrls[1]?.searchParams.get("address")).toBeNull();
     expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
     expect(repository.observations).toHaveLength(2);
@@ -477,7 +481,163 @@ describe("listing alert production workflow integration", () => {
     expect(steps).toContain("database:close");
   });
 
-  it("does not partially persist mixed inventory when the 91381 request fails", async () => {
+  it.each([
+    {
+      name: "one selected market",
+      cities: ["Corona"],
+      expectedAreas: ["Corona"],
+    },
+    {
+      name: "all five incorporated markets",
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+      ],
+    },
+    {
+      name: "all six product markets",
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Stevenson Ranch",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "91381",
+      ],
+    },
+  ] as const)(
+    "quietly baselines $name with one request per canonical provider area",
+    async ({ cities, expectedAreas }) => {
+      const steps: string[] = [];
+      const repository = new IntegrationListingAlertRepository(
+        steps,
+        createObservation(createNormalizedListing()),
+        { revision: 2, appliedRevision: 1 },
+      );
+      const database = new RecordingSqlDatabase(steps);
+      const rentCastUrls: URL[] = [];
+      const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+        const url = input as URL;
+        if (url.origin === "https://api.rentcast.io") {
+          rentCastUrls.push(url);
+          const index = rentCastUrls.length;
+          const providerCity = url.searchParams.get("city") ?? "Valencia";
+          const zipCode = url.searchParams.get("zipCode") ?? "92882";
+          return Response.json(
+            [
+              createRentCastListing({
+                id: `rentcast-market-${index}`,
+                formattedAddress: `${100 + index} Market St, ${providerCity}, CA ${zipCode}`,
+                addressLine1: `${100 + index} Market St`,
+                city: providerCity,
+                zipCode,
+                mlsNumber: `MATRIX${index}`,
+              }),
+            ],
+            { headers: { "X-Total-Count": "1" } },
+          );
+        }
+        if (url.origin === "https://api.telegram.org") {
+          throw new Error("Revision baseline must not send Telegram alerts");
+        }
+        throw new Error(`Unexpected HTTP request: ${url.origin}`);
+      });
+      const now = vi.fn(() => new Date("2026-08-25T19:00:00.000Z"));
+      const dependencies: ProductionDependencies = {
+        createDatabase: () => database,
+        runMigrations: async () => {},
+        createSearchProfileQuery: () => ({
+          findPrimaryProfile: async () =>
+            createSearchProfile({
+              criteria: {
+                ...defaultListingSearchCriteria,
+                cities,
+              },
+              revision: 2,
+              appliedRevision: 1,
+            }),
+        }),
+        createRepository: () => repository,
+        createSource: (options) =>
+          new RentCastListingSource({
+            client: new RentCastSaleListingsClient({
+              apiKey: options.apiKey,
+              fetch: options.fetch,
+            }),
+            searchCriteria: options.searchCriteria,
+            searchAreas: options.searchAreas,
+            now: options.now,
+          }),
+        createNotifications: (options) => new TelegramBotClient(options),
+      };
+
+      await runProduction(
+        {
+          environment: {
+            DATABASE_URL: "postgresql://database.example/app",
+            RENTCAST_API_KEY: "rentcast-secret",
+            TELEGRAM_BOT_TOKEN: "telegram-secret",
+            TELEGRAM_CHAT_ID: "123456789",
+          },
+          fetch,
+          now,
+        },
+        dependencies,
+      );
+
+      expect(rentCastUrls).toHaveLength(expectedAreas.length);
+      expect(
+        rentCastUrls.map(
+          (url) =>
+            url.searchParams.get("city") ?? url.searchParams.get("zipCode"),
+        ),
+      ).toEqual(expectedAreas);
+      for (const url of rentCastUrls) {
+        expect(url.searchParams.get("address")).toBeNull();
+        expect(url.searchParams.get("radius")).toBeNull();
+      }
+      expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
+      expect(repository.listingSnapshots).toHaveLength(expectedAreas.length);
+      expect(repository.events).toEqual([]);
+      expect(now).toHaveBeenCalledTimes(2);
+      expect(steps).toContain("database:close");
+      expect(
+        fetch.mock.calls.filter(
+          ([input]) => (input as URL).origin === "https://api.telegram.org",
+        ),
+      ).toHaveLength(0);
+      if (
+        rentCastUrls.some(
+          (url) => url.searchParams.get("zipCode") === "91381",
+        )
+      ) {
+        expect(repository.listingSnapshots.at(-1)).toMatchObject({
+          city: "Valencia",
+          zipCode: "91381",
+        });
+      }
+    },
+  );
+
+  it("does not partially persist or notify when the sixth market request fails", async () => {
     const steps: string[] = [];
     const initialListing = createNormalizedListing();
     const repository = new IntegrationListingAlertRepository(
@@ -487,11 +647,13 @@ describe("listing alert production workflow integration", () => {
     );
     const database = new RecordingSqlDatabase(steps);
     let providerCall = 0;
+    const rentCastUrls: URL[] = [];
     const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
       const url = input as URL;
       if (url.origin === "https://api.rentcast.io") {
         providerCall += 1;
-        if (providerCall === 1) {
+        rentCastUrls.push(url);
+        if (providerCall < 6) {
           return Response.json([createRentCastListing()], {
             headers: { "X-Total-Count": "1" },
           });
@@ -512,7 +674,14 @@ describe("listing alert production workflow integration", () => {
           createSearchProfile({
             criteria: {
               ...defaultListingSearchCriteria,
-              cities: ["Corona", "Stevenson Ranch"],
+              cities: [
+                "Chino",
+                "Chino Hills",
+                "Eastvale",
+                "Corona",
+                "Jurupa Valley",
+                "Stevenson Ranch",
+              ],
             },
             revision: 2,
             appliedRevision: 1,
@@ -548,7 +717,20 @@ describe("listing alert production workflow integration", () => {
       ),
     ).rejects.toThrow("RentCast request failed");
 
-    expect(providerCall).toBe(2);
+    expect(providerCall).toBe(6);
+    expect(
+      rentCastUrls.map((url) =>
+        url.searchParams.get("city") ?? url.searchParams.get("zipCode"),
+      ),
+    ).toEqual([
+      "Chino",
+      "Chino Hills",
+      "Eastvale",
+      "Corona",
+      "Jurupa Valley",
+      "91381",
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(6);
     expect(repository.calls).toEqual([]);
     expect(repository.observations).toEqual([createObservation(initialListing)]);
     expect(repository.listingSnapshots).toEqual([]);

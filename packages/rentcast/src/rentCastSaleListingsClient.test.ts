@@ -40,7 +40,10 @@ describe("RentCastSaleListingsClient", () => {
       fetch,
     });
 
-    await client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria);
+    await client.searchSaleListings(
+      defaultRentCastSaleListingsSearchCriteria,
+      defaultRentCastSaleListingsSearchArea,
+    );
 
     expect(fetch).toHaveBeenCalledOnce();
 
@@ -109,6 +112,7 @@ describe("RentCastSaleListingsClient", () => {
       "100 Main St, Corona, CA 92882",
     );
     expect((url as URL).searchParams.get("radius")).toBe("12");
+    expect((url as URL).searchParams.get("city")).toBeNull();
     expect((url as URL).searchParams.get("zipCode")).toBeNull();
   });
 
@@ -130,6 +134,7 @@ describe("RentCastSaleListingsClient", () => {
     expect(url).toBeInstanceOf(URL);
     expect((url as URL).searchParams.get("zipCode")).toBe("91381");
     expect((url as URL).searchParams.get("address")).toBeNull();
+    expect((url as URL).searchParams.get("city")).toBeNull();
     expect((url as URL).searchParams.get("radius")).toBeNull();
     expect((url as URL).searchParams.get("state")).toBe("CA");
     expect((url as URL).searchParams.get("status")).toBe("Active");
@@ -137,14 +142,56 @@ describe("RentCastSaleListingsClient", () => {
     expect((url as URL).searchParams.get("includeTotalCount")).toBe("true");
   });
 
+  it("builds a city request with fixed California state and no other geography", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json([], { headers: { "X-Total-Count": "0" } }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+    const searchArea = {
+      kind: "city",
+      city: "  Chino Hills  ",
+    } as const;
+
+    await client.searchSaleListings(
+      defaultRentCastSaleListingsSearchCriteria,
+      searchArea,
+    );
+
+    const url = fetch.mock.calls[0]?.[0];
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).searchParams.get("city")).toBe("Chino Hills");
+    expect((url as URL).searchParams.get("state")).toBe("CA");
+    expect((url as URL).searchParams.get("address")).toBeNull();
+    expect((url as URL).searchParams.get("radius")).toBeNull();
+    expect((url as URL).searchParams.get("zipCode")).toBeNull();
+    expect(searchArea).toEqual({
+      kind: "city",
+      city: "  Chino Hills  ",
+    });
+  });
+
   it.each([
     null,
+    undefined,
     { kind: "radius", address: "", radiusMiles: 20 },
     { kind: "radius", address: "Brea, CA", radiusMiles: 0 },
     { kind: "radius", address: "Brea, CA", radiusMiles: 1.5 },
+    {
+      kind: "radius",
+      address: "Brea, CA",
+      radiusMiles: 20,
+      city: "Chino",
+    },
     { kind: "zip", zipCode: "9138" },
     { kind: "zip", zipCode: "91381-1234" },
-    { kind: "city", city: "Stevenson Ranch" },
+    { kind: "zip", zipCode: "91381", address: "Brea, CA" },
+    { kind: "city", city: "" },
+    { kind: "city", city: " \t " },
+    { kind: "city", city: "Chino\nHills" },
+    { kind: "city", city: "Chino", zipCode: "91710" },
   ])("rejects an invalid search area before fetch: %o", async (searchArea) => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const client = new RentCastSaleListingsClient({
@@ -184,7 +231,10 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+      client.searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).resolves.toEqual({
       listings: [rentCastListing],
       responseBodyBytes: new TextEncoder().encode(responseBody).byteLength,
@@ -210,7 +260,10 @@ describe("RentCastSaleListingsClient", () => {
         minimumBathrooms: 0,
       };
 
-      await client.searchSaleListings(criteria);
+      await client.searchSaleListings(
+        criteria,
+        defaultRentCastSaleListingsSearchArea,
+      );
 
       expect(fetch).toHaveBeenCalledOnce();
       const url = fetch.mock.calls[0]?.[0];
@@ -231,10 +284,13 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListings({
-        ...defaultRentCastSaleListingsSearchCriteria,
-        minimumBathrooms: 2.25,
-      }),
+      client.searchSaleListings(
+        {
+          ...defaultRentCastSaleListingsSearchCriteria,
+          minimumBathrooms: 2.25,
+        },
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).rejects.toThrow("RentCast sale listings search criteria were invalid");
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -255,7 +311,10 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListingsForCoverageAudit(),
+      client.searchSaleListingsForCoverageAudit(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).resolves.toEqual({
       listings: [rentCastListing],
       responseBodyBytes: new TextEncoder().encode(responseBody).byteLength,
@@ -310,7 +369,10 @@ describe("RentCastSaleListingsClient", () => {
       });
 
       await expect(
-        client.searchSaleListingsForCoverageAudit(),
+        client.searchSaleListingsForCoverageAudit(
+          defaultRentCastSaleListingsSearchCriteria,
+          defaultRentCastSaleListingsSearchArea,
+        ),
       ).rejects.toThrow(
         "RentCast sale listings response did not include a valid X-Total-Count header",
       );
@@ -329,7 +391,10 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListingsForCoverageAudit(),
+      client.searchSaleListingsForCoverageAudit(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).rejects.toThrow(
       "RentCast sale listings total count was smaller than the response page",
     );
@@ -348,9 +413,12 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
-    ).rejects.toThrow(
-      "RentCast sale listings request failed with status 401",
+      client.searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        { kind: "city", city: "Corona" },
+      ),
+    ).rejects.toEqual(
+      new Error("RentCast sale listings request failed with status 401"),
     );
   });
 
@@ -368,7 +436,10 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+      client.searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).rejects.toThrow(
       "RentCast sale listings response was not valid JSON",
     );
@@ -384,7 +455,10 @@ describe("RentCastSaleListingsClient", () => {
     });
 
     await expect(
-      client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria),
+      client.searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      ),
     ).rejects.toThrow(
       "RentCast sale listings response did not match the expected schema",
     );
@@ -410,6 +484,7 @@ describe("RentCastSaleListingsClient", () => {
 
     const search = client.searchSaleListings(
       defaultRentCastSaleListingsSearchCriteria,
+      defaultRentCastSaleListingsSearchArea,
     );
     const expectation = expect(search).rejects.toThrow(
       "RentCast sale listings request timed out",
@@ -437,7 +512,10 @@ describe("RentCastSaleListingsClient", () => {
       fetch,
     });
     const search = client
-      .searchSaleListings(defaultRentCastSaleListingsSearchCriteria)
+      .searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        defaultRentCastSaleListingsSearchArea,
+      )
       .catch((error: unknown) => {
         timedOut = true;
         return error;

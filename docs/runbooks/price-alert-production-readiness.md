@@ -19,7 +19,8 @@ Do not combine these operations into one approval:
 1. deploy the reviewed image with both schedules disabled
 2. inspect price-alert state without mutation
 3. apply bundled migrations and initialize legacy price state
-4. make one real RentCast request and permit resulting Telegram delivery
+4. make one explicit selected-market RentCast request set and permit resulting
+   Telegram delivery
 5. enable recurring execution
 
 Never include listing rows, addresses, prices, database credentials, provider
@@ -205,9 +206,14 @@ The following operations happen only after Block 20.7 readiness is complete.
    baseline, require schema, migration 006, and price baseline all `yes`.
 6. Review aggregate observation and event counts. Any unexpected pending event
    count stops the rollout for investigation.
-7. Obtain separate approval for one default `--run` task. This operation makes
-   one real RentCast request and may send one or more real Telegram alert
-   messages.
+7. Normalize and record the selected market names and expected request count
+   before approval. Each market costs one request: the five incorporated
+   markets cost 5 requests, and all six markets cost 6. Treat 50 requests as a
+   planning reference only; verify the current RentCast plan and usage before
+   execution. Then obtain separate approval for one default `--run` task. It
+   makes exactly the approved 1-6 sequential requests and may send one or more
+   real Telegram alert messages. Do not retry a partial or failed area without
+   a new quota review and approval.
 8. Require exit code 0, `Production run completed.`, no failure notification,
    no running task afterward, and both schedules still disabled.
 9. Run the read-only verification again and require zero pending events.

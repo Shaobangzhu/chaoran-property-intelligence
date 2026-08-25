@@ -1,4 +1,4 @@
-import { runRentCastCoverageAuditCommand } from "./runRentCastCoverageAuditCommand.js";
+import { runFiveCityDirectCoverageAuditCommand } from "./runFiveCityDirectCoverageAuditCommand.js";
 
 interface ProcessLike {
   argv: string[];
@@ -10,7 +10,7 @@ interface ProcessLike {
 
 declare const process: ProcessLike;
 
-process.exitCode = await runRentCastCoverageAuditCommand({
+process.exitCode = await runFiveCityDirectCoverageAuditCommand({
   args: process.argv.slice(2),
   environment: process.env,
   fetch: globalThis.fetch,

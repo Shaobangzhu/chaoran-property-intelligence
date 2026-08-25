@@ -44,6 +44,18 @@ unincorporated jurisdiction and Ordinance `2025-0027` LRA adoption evidence;
 reconciled five LRA and seven SRA source intersections; and selected an exact
 hard clip that projects the combined artifact at 1,158,246 raw and 289,420 gzip
 bytes. Audit candidates remain ignored and no runtime artifact changed.
+Blocks 25.2-25.7 are complete and merged into `main`. Blocks 26.0-26.7 are
+complete on `refactor/five-city-direct-market-coverage`: the five incorporated
+markets now use direct city acquisition, Stevenson Ranch retains ZIP `91381`,
+the source and production workflow require explicit sequential areas, and the
+legacy Brea-default audit path is retired. Request-cost guidance now treats 50
+requests as a planning reference and requires current account-plan and usage
+verification before any real audit or production run.
+The final release matrix proves successful one-, five-, and six-market worker
+composition with exactly 1, 5, and 6 canonical provider requests. All 114 test
+files and 1,101 tests, typecheck, production/AWS build, browser evidence, and
+security/diff gates pass; merge, schedule, and deployment remain under
+repository-owner control.
 Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
@@ -1478,3 +1490,135 @@ See the
 [Block 25 Stevenson Ranch Wildfire Coverage Knowledge Base](knowledge-base/block-25-stevenson-ranch-wildfire-coverage.md)
 and
 [ADR 0013: Typed Wildfire Coverage Targets](adr/0013-typed-wildfire-coverage-targets.md).
+
+### Block 26: Five-City Direct Market Coverage
+
+Replace the legacy 20-mile RentCast radius centered at Brea with one direct
+`city + state=CA` provider area for each selected incorporated market: Chino,
+Chino Hills, Eastvale, Corona, and Jurupa Valley. Stevenson Ranch retains its
+reviewed ZIP `91381` area and provider city remains unchanged.
+
+The worker preserves explicit typed geography, canonical market order,
+per-area 500-result completeness, sequential all-or-nothing acquisition,
+canonical-address reconciliation, price-drop behavior, and one stored React
+record per property. No production or successor audit path may silently fall
+back to the Brea radius.
+
+The Brea radius does not govern wildfire data. The existing five city targets
+remain exact `incorporated-jurisdiction` boundaries, while Stevenson Ranch
+remains a `market-context` target. Block 26 does not rebuild the CAL FIRE
+artifact, reinterpret classifications, or introduce a live hazard request.
+
+Planned sub-block mapping:
+
+1. `26.0` Freeze product, provider geography, hazard authority, quota, failure,
+   compatibility, security, rollout, rollback, test, and acceptance boundaries.
+   **Complete in documentation only:** ADR 0014 and the Block 26 knowledge base
+   are accepted, ADR 0012 is marked partially superseded, and this roadmap is
+   recorded. No runtime code, secret, provider request, database, wildfire
+   artifact, AWS resource, schedule, Telegram delivery, or deployment changed.
+2. `26.1A` Add fixture-gated direct-city coverage-audit tooling, strict command
+   authorization, aggregate-only output, and dry-run tests without reading a
+   credential or calling RentCast. **Complete:** an isolated runner now builds
+   five canonical `city + state=CA` requests and reports only per-city and
+   combined counts, provider labels, completeness, capacity, bytes, prices, and
+   timings. The CLI requires exact five-request and market-list confirmations;
+   its non-executing package command does not load `.env.local`, makes no
+   request, and fails with guarded usage. Twenty-four focused tests, all 116
+   test files and 1,096 tests, root typecheck, and production/AWS build pass.
+   No real provider request or production-path change occurred.
+3. `26.1B` With fresh explicit authorization, execute exactly five real
+   RentCast city requests without retry and record aggregate provider labels,
+   capacity, completeness, response size, and elapsed evidence. **Complete:**
+   the guarded command made five canonical sequential requests with no retry;
+   all city, filter, schema, and completeness gates passed. It returned all 112
+   matching rows (Chino 22, Chino Hills 1, Eastvale 2, Corona 64, Jurupa Valley
+   23), zero filter violations, and a 2,388-row combined capacity margin. Only
+   aggregate evidence was recorded, and production acquisition did not change.
+4. `26.2` Add the strict typed city-area client contract, mutually exclusive
+   query parameters, and required explicit production geography. Remove the
+   implicit Brea default while retaining explicit radius capability for
+   reviewed maintenance or rollback. **Complete:** the RentCast package exports
+   a strict city variant; city, ZIP, and radius runtime fields are mutually
+   exclusive; city labels are normalized without changing provider case; and
+   invalid areas fail before fetch. Both client entrypoints require an explicit
+   area, so omitted geography can no longer fall back to Brea. Existing worker
+   mapping remains explicitly Brea-based until Blocks 26.3 and 26.4. All 39
+   focused client tests, all 116 test files and 1,104 repository tests, root
+   typecheck, and the production/AWS build pass.
+5. `26.3` Map each selected incorporated city to one city area and Stevenson
+   Ranch to ZIP `91381` in canonical order. Reject empty, duplicate, and
+   unsupported inputs before network access. **Complete:** the active selector
+   now maps every supported market to one explicit frozen area, restores Domain
+   order independent of input order, and fails closed on empty, duplicate,
+   unsupported, or malformed input. One, five, and six selected markets yield
+   exactly 1, 5, and 6 areas. Production composition now receives five direct
+   city areas plus the existing Stevenson ZIP when all markets are selected;
+   no worker or provider request was executed. Twenty-six focused mapping,
+   production-composition, and existing workflow integration tests pass, along
+   with all 116 test files and 1,106 repository tests, root typecheck, and the
+   production/AWS build.
+6. `26.4` Integrate direct areas into the source and production composition
+   while preserving all-or-nothing reads, completeness gates, overlap
+   reconciliation, observation time, alert state, and zero partial Telegram
+   effects. **Complete:** the source now requires an explicit non-empty area
+   list and has no Brea fallback. Six-market source coverage proves canonical
+   sequential reads, a shared post-success observation time, and independent
+   completeness gates; a sixth-request provider failure and a later-area
+   incomplete page return no rows and do not read the observation clock.
+   Production workflow integration proves that the same late failure causes no
+   persistence, revision advancement, listing snapshot, alert event, or
+   Telegram request. Existing canonical-address overlap reconciliation,
+   tracked price-drop delivery, and ZIP `91381` provider city `Valencia`
+   preservation remain covered. All 116 test files and 1,107 tests, root
+   typecheck, and the production/AWS build pass.
+7. `26.5` Replace active Brea-default audit and operations guidance with
+   explicit market-scoped commands and visible request-count/quota gates. No
+   ordinary command may silently execute five or six provider requests.
+   **Complete:** the old Brea-default scripts and executable chain are removed.
+   Safe five-city and Stevenson Ranch previews load no environment file and
+   exit before provider access; real forms require exact request-count and
+   market confirmations. The five-city audit costs 5 requests, the ZIP `91381`
+   audit costs 1, and no ordinary combined six-request command exists. Output
+   and operations guidance expose the 50-request planning reference plus 5/6
+   production cost while requiring verification of current account plan and
+   usage. Historical Block 20/24 evidence remains documented but is no longer
+   executable guidance. All 48 focused successor-audit tests, all 114 test
+   files and 1,096 repository tests, root typecheck, and the production/AWS
+   build pass. No real request or external side effect occurred.
+8. `26.6` Verify the existing six-target wildfire artifact remains unchanged
+   and complete 2D/3D, zero-listing, responsive, provenance, disclosure,
+   interaction, and teardown regression acceptance for all five cities.
+   **Complete:** pinned SHA-256 checks protect the unchanged GeoJSON and
+   manifest; incorporated-target and empty-listing 2D/3D regressions pass;
+   all 71 focused tests, all 114 repository test files and 1,098 tests,
+   typecheck, and the production/AWS build pass. Desktop and mobile manual
+   acceptance confirmed the authoritative overlay, terrain context, markers,
+   controls, provenance, disclosures, List/Map behavior, unchanged Search
+   Criteria UX, and a clean application Console. No provider, database-write,
+   Telegram, AWS, schedule, artifact-build, or deployment side effect occurred.
+9. `26.7` Run fake-provider one-, five-, and six-market integrations, full
+   tests/typecheck/builds, browser and security acceptance, final diff,
+   rollback, quota, and as-built documentation gates. Commit, push, PR, merge,
+   schedule, and deployment remain under repository-owner control.
+   **Complete:** the production-composition matrix proves exact canonical
+   request counts of 1, 5, and 6 with no implicit Brea parameters, no partial
+   state, and no Telegram during revision baseline. All 175 focused tests and
+   all 114 repository test files / 1,101 tests pass with root typecheck and the
+   production/AWS build. The accepted 26.6 browser evidence remains valid
+   because 26.7 changes no Web runtime. Final security and diff review found no
+   credential, tracked local environment, dependency-lock, migration,
+   workflow, infrastructure-runtime, wildfire-artifact, schedule, or
+   deployment change.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. A full six-market worker run consumes six successful RentCast
+requests; using 50 requests as a monthly planning reference, no more than eight
+complete runs fit before audits, retries, or other provider use. Verify the
+current account plan and usage before execution. Block 26 does not approve or
+change a production cadence.
+
+See the
+[Block 26 Five-City Direct Market Coverage Knowledge Base](knowledge-base/block-26-five-city-direct-market-coverage.md)
+and
+[ADR 0014: Direct Market RentCast Acquisition](adr/0014-direct-market-rentcast-acquisition.md).

@@ -467,11 +467,12 @@ Verification completed for this sub-block:
 - avoids logging radius anchor addresses, request URLs, API keys, raw responses,
   listing IDs, MLS numbers, or street addresses
 
-The existing `rentcast:coverage-audit:execute-one-request` command still omits
-an explicit area list and therefore executes exactly one Brea request. Block
-24.5 does not silently widen that authorization gate. Multi-area audit behavior
-is covered with fixtures; any real multi-area audit still requires a separately
-reviewed command and explicit authorization.
+At the Block 24.5 checkpoint,
+`rentcast:coverage-audit:execute-one-request` omitted an explicit area list and
+therefore executed exactly one Brea request. Block 26.5 later retired that
+command and executable chain. Current operations use separately guarded
+five-direct-city and ZIP `91381` audit commands; this paragraph remains only as
+historical Block 24 evidence.
 
 Verification completed for this sub-block:
 
@@ -619,8 +620,10 @@ approved operations.
 - `apps/alert-worker/src/rentCastSearchAreas.test.ts`
 - `apps/alert-worker/src/runProduction.ts`
 - `apps/alert-worker/src/runProduction.test.ts`
-- `apps/alert-worker/src/runRentCastCoverageAudit.ts`
-- `apps/alert-worker/src/runRentCastCoverageAudit.test.ts`
+- `apps/alert-worker/src/runRentCastCoverageAudit.ts` (historical; removed in
+  Block 26.5)
+- `apps/alert-worker/src/runRentCastCoverageAudit.test.ts` (historical; removed
+  in Block 26.5)
 - `apps/web/src/SearchCriteriaScreen.tsx`
 - `apps/web/src/SearchCriteriaScreen.test.tsx`
 - `apps/web/src/listingFixtures.ts`

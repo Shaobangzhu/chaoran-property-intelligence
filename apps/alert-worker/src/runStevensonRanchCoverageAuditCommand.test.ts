@@ -10,7 +10,7 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
 
     const exitCode = await runStevensonRanchCoverageAuditCommand({
       args: [],
-      environment: { RENTCAST_API_KEY: "test-secret" },
+      environment: {},
       fetch,
       now: () => 1_000,
       stderr,
@@ -23,7 +23,29 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
     expect(stderr.output).toContain(
       "rentcast:stevenson-ranch-coverage-audit:execute-one-request",
     );
+    expect(stderr.output).toContain("exact reviewed market");
     expect(stderr.output).toContain("No RentCast request was made.");
+    expect(stderr.output).toContain("explicit one-request confirmation");
+  });
+
+  it("refuses an unreviewed market confirmation before fetch", async () => {
+    const stdout = new MemoryWriter();
+    const stderr = new MemoryWriter();
+    const fetch = vi.fn<typeof globalThis.fetch>();
+
+    const exitCode = await runStevensonRanchCoverageAuditCommand({
+      args: ["--execute-one-request", "--market=valencia"],
+      environment: { RENTCAST_API_KEY: "test-secret" },
+      fetch,
+      now: () => 1_000,
+      stderr,
+      stdout,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toContain("exact reviewed market");
   });
 
   it("executes one aggregate-only audit with the explicit flag", async () => {
@@ -36,7 +58,10 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
     );
 
     const exitCode = await runStevensonRanchCoverageAuditCommand({
-      args: ["--execute-one-request"],
+      args: [
+        "--execute-one-request",
+        "--market=stevenson-ranch-91381",
+      ],
       environment: { RENTCAST_API_KEY: "test-secret" },
       fetch,
       now: () => 1_000,
@@ -48,6 +73,10 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(stderr.output).toBe("");
     expect(stdout.output).toContain("Coverage gate: PASS");
+    expect(stdout.output).toContain("Requests completed: 1");
+    expect(stdout.output).toContain(
+      "Monthly allowance planning reference: 50 requests",
+    );
     expect(stdout.output).toContain("Expected city verified: yes");
     expect(stdout.output).not.toContain("123 Main St");
     expect(stdout.output).not.toContain("test-secret");
@@ -64,7 +93,10 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
     );
 
     const exitCode = await runStevensonRanchCoverageAuditCommand({
-      args: ["--execute-one-request"],
+      args: [
+        "--execute-one-request",
+        "--market=stevenson-ranch-91381",
+      ],
       environment: { RENTCAST_API_KEY: "test-secret" },
       fetch,
       now: () => 1_000,
@@ -87,7 +119,10 @@ describe("runStevensonRanchCoverageAuditCommand", () => {
     });
 
     const exitCode = await runStevensonRanchCoverageAuditCommand({
-      args: ["--execute-one-request"],
+      args: [
+        "--execute-one-request",
+        "--market=stevenson-ranch-91381",
+      ],
       environment: { RENTCAST_API_KEY: "test-secret" },
       fetch,
       now: () => 1_000,
