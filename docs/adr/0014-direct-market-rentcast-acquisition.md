@@ -12,7 +12,12 @@ No runtime implementation or provider audit occurred in Block 26.0.
 Block 26.1A subsequently added an isolated fixture-gated audit runner and an
 exact double-confirmation CLI. It does not change the RentCast package, source,
 market mapping, or production composition, and no real provider request was
-made. Direct city evidence remains pending Block 26.1B.
+made. Block 26.1B then used that isolated path, with fresh authorization, to
+make exactly five sequential real requests without retry. All five direct city
+areas passed provider-city, fixed-filter, schema, and completeness gates; 112
+matching rows were returned in total, with zero filter violations and no area
+near its 500-row limit. Production composition remains unchanged pending the
+implementation blocks.
 
 ## Context
 
@@ -147,8 +152,9 @@ weakening CAL FIRE provenance.
 
 The RentCast key remains server-side in the existing header. No raw listing,
 street address, credential, full request URL, or request header may appear in
-audit output. A five-city real audit requires fresh explicit authorization and
-must make exactly five requests with no automatic retry.
+audit output. The Block 26.1B five-city real audit used fresh explicit
+authorization, made exactly five requests with no automatic retry, and emitted
+aggregate evidence only.
 
 Request cadence and subscription cost are deployment gates. This decision does
 not enable a schedule, run a production worker, deploy AWS resources, mutate a

@@ -1517,7 +1517,12 @@ Planned sub-block mapping:
    No real provider request or production-path change occurred.
 3. `26.1B` With fresh explicit authorization, execute exactly five real
    RentCast city requests without retry and record aggregate provider labels,
-   capacity, completeness, response size, and elapsed evidence.
+   capacity, completeness, response size, and elapsed evidence. **Complete:**
+   the guarded command made five canonical sequential requests with no retry;
+   all city, filter, schema, and completeness gates passed. It returned all 112
+   matching rows (Chino 22, Chino Hills 1, Eastvale 2, Corona 64, Jurupa Valley
+   23), zero filter violations, and a 2,388-row combined capacity margin. Only
+   aggregate evidence was recorded, and production acquisition did not change.
 4. `26.2` Add the strict typed city-area client contract, mutually exclusive
    query parameters, and required explicit production geography. Remove the
    implicit Brea default while retaining explicit radius capability for

@@ -2,16 +2,19 @@
 
 ## Status
 
-Blocks 26.0 and 26.1A are complete on
+Blocks 26.0, 26.1A, and 26.1B are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
 added an isolated, fixture-gated five-city audit entrypoint without changing
-production acquisition.
+production acquisition. Block 26.1B used that guarded entrypoint for the
+authorized five-request provider audit and recorded aggregate-only evidence.
 
-No environment file, credential, database, real provider request, wildfire
-artifact, AWS resource, schedule, Telegram delivery, or deployment changed
-through Block 26.1A.
+Block 26.1B read only the existing server-side RentCast key and made exactly
+five sequential requests with no retry. No credential value, raw response,
+request URL, request header, or street address was recorded. No database,
+production acquisition profile, wildfire artifact, AWS resource, schedule,
+Telegram delivery, or deployment changed.
 
 ## Purpose
 
@@ -192,8 +195,8 @@ rules remain accepted.
 - Browser code receives no RentCast credential or provider endpoint.
 - Audit output must not contain API keys, request headers, raw responses,
   street addresses, or full request URLs.
-- Block 26.1B requires fresh explicit authorization before reading
-  `.env.local` or making five real city requests.
+- Block 26.1B used fresh explicit authorization before reading only the
+  RentCast key from `.env.local` and making five real city requests.
 - Tests and implementation use fixtures and fake HTTP adapters by default.
 - No PostgreSQL, Telegram, AWS, ArcGIS-account, CAL FIRE, Census, or county GIS
   access is needed before the separately authorized acceptance stages.
@@ -261,6 +264,30 @@ on fresh explicit authorization.
 - record aggregate, non-address evidence in this document
 - stop before implementation if a city label is unsupported, unexpectedly
   broad, incomplete at 500 rows, or inconsistent with provider city values
+
+Status: complete on August 25, 2026. After explicit authorization, the guarded
+command made exactly five sequential requests in canonical market order with
+no retry. All five areas passed exact provider-city, fixed-filter, schema, and
+completeness gates:
+
+| Direct city area | Total | Returned | Limit margin | Returned price range | Body bytes | Elapsed ms |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| Chino | 22 | 22 | 478 | $599,000-$850,000 | 25,120 | 453 |
+| Chino Hills | 1 | 1 | 499 | $825,888-$825,888 | 1,242 | 241 |
+| Eastvale | 2 | 2 | 498 | $795,000-$850,000 | 2,180 | 235 |
+| Corona | 64 | 64 | 436 | $648,888-$850,000 | 74,116 | 191 |
+| Jurupa Valley | 23 | 23 | 477 | $575,000-$850,000 | 25,403 | 149 |
+
+The combined result was 112 total and returned rows, zero fixed-filter
+violations, a 2,388-row margin against the combined 2,500 capacity, 128,061
+response-body bytes, and 1,269 milliseconds of provider elapsed time. Provider
+city counts were exactly Chino 22, Chino Hills 1, Eastvale 2, Corona 64, and
+Jurupa Valley 23. Every returned page was complete.
+
+The audit consumed five authorized provider requests. It did not change the
+production request profile, persist listings, mutate criteria, send Telegram,
+access AWS, or publish runtime artifacts. The evidence clears the direct-city
+provider gate for Block 26.2; it does not itself enable production behavior.
 
 ### Block 26.2: Typed city search-area contract
 
