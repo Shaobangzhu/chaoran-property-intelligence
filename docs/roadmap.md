@@ -1441,11 +1441,22 @@ Planned sub-block mapping:
    independent from listing results. Focused tests pass 45/45, wildfire tests
    pass 24/24, all 114 repository files and 1,072 tests pass, typecheck passes,
    and the production application and infrastructure build passes. Browser
-   visual, Console, Network, WebGL, and teardown acceptance remains Block 25.6.
+   visual, Console, Network, WebGL, and teardown acceptance was deferred to
+   Block 25.6.
 7. `25.6` Run focused and repository-wide tests, typecheck, builds, CSP and
    payload review, then complete desktop/mobile 2D/3D visual acceptance for
    Stevenson Ranch and all five existing cities. Inspect Console, Network,
-   nonblank canvas/WebGL output, memory, interaction, and teardown.
+   nonblank canvas/WebGL output, memory, interaction, and teardown. **Complete:**
+   all 114 repository test files and 1,072 tests pass, repository-wide
+   typecheck and production/AWS builds pass, and the existing ArcGIS chunk-size
+   warning is unchanged. Desktop and 390 x 844 mobile acceptance confirms
+   nonblank 2D/3D output, transparent authoritative polygons, listing-marker
+   ordering, six-target provenance, Stevenson Ranch visibility with no matching
+   listing, zero interaction-window Console errors/warnings, no horizontal
+   mobile overflow, and full map/scene/canvas teardown. A stale local Vite
+   optimized-dependency cache caused the reported map outage; forced dependency
+   reoptimization restored the local ArcGIS modules without a source, artifact,
+   CSP, API-key, backend, or provider change.
 8. `25.7` Complete the final diff, security, provenance, rollback, and as-built
    documentation gate. Leave commit, push, PR, and merge under repository-owner
    control.

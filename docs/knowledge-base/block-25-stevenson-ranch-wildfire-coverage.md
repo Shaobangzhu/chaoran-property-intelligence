@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 25.0 through 25.5 are complete on
+Blocks 25.0 through 25.6 are complete on
 `feature/stevenson-ranch-wildfire-coverage`. Block 25.0 froze the product,
 authority, geography, artifact, compatibility, security, cost, rollback, test,
 and acceptance boundaries. Block 25.1 completed the separately authorized
@@ -10,7 +10,8 @@ official-source, boundary, jurisdiction, spatial, geometry, size, and parse
 audit described below. Block 25.2 implemented the typed coverage-target and
 manifest schema version 2 contracts. Block 25.3 implemented deterministic
 six-target staging, Block 25.4 published the reviewed successor, and Block 25.5
-integrated that artifact into the shared React/ArcGIS 2D and 3D runtime.
+integrated that artifact into the shared React/ArcGIS 2D and 3D runtime. Block
+25.6 completed repository-wide automation and desktop/mobile browser acceptance.
 
 The source audit and deterministic builder used only public official sources
 and the existing checksum-pinned CAL FIRE archives. Audit candidates and
@@ -531,11 +532,36 @@ until the final Block 25 release gate; no deployment occurred in Block 25.5.
 
 ### Block 25.6: Automated and browser acceptance
 
-- run focused and repository-wide tests, typecheck, builds, CSP, and payload
-  review
-- verify Stevenson Ranch with zero matching listings in desktop/mobile 2D/3D
-- verify all five existing cities remain semantically unchanged
-- inspect Console, Network, nonblank canvas/WebGL, memory, and teardown
+**Complete on 2026-08-25:** all 114 repository test files and 1,072 tests pass,
+repository-wide typecheck passes, and the production application and AWS
+infrastructure build passes. The existing ArcGIS chunk-size warning remains
+unchanged. The CSP test passes, the successor artifact remains 1,158,246 raw
+bytes and within the existing transfer gates, and both the successor and
+rollback GeoJSON files remain same-origin static assets.
+
+Desktop and 390 x 844 mobile browser acceptance covered ArcGIS 2D, lazy-loaded
+3D Terrain, overlay off/on, mode switching, pan/zoom, listing-marker ordering,
+the three official severities, CAL FIRE / OSFM attribution, the six-target
+schema version 2 provenance, and the Stevenson Ranch CDP/ZIP 91381 disclosure.
+The reviewed Stevenson Ranch polygons remained visible without a matching
+listing. Screenshot pixel sampling confirmed nonblank, varied map output in
+both modes and viewports; the mobile document width equaled the 390-pixel
+viewport with no horizontal overflow.
+
+The user-reported local map outage was traced to stale Vite optimized-dependency
+hashes after branch/build changes. Restarting Vite with forced dependency
+optimization restored the ArcGIS modules; this did not require a product-code,
+artifact, CSP, API-key, or data change. A hard development reload may still log
+one non-blocking ArcGIS Map Component basemap-disposal error while replacing its
+initial internal basemap. The final map loads with attribution and controls,
+and the measured overlay and 2D/3D interaction windows added zero Console errors
+or warnings.
+
+Teardown acceptance navigated away from Listings after 3D use and observed zero
+`canvas`, `arcgis-map`, and `arcgis-scene` elements. No live CAL FIRE, Los
+Angeles County, Census, RentCast, AWS, or Telegram request was introduced. The
+in-app browser did not expose a JavaScript heap metric, so acceptance records
+structural WebGL/DOM teardown rather than an unsupported numeric memory claim.
 
 ### Block 25.7: Final gate and as-built record
 
