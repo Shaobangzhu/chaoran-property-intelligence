@@ -9,6 +9,10 @@ preservation, per-area completeness, all-or-nothing failure, or
 canonical-address reconciliation decisions.
 
 No runtime implementation or provider audit occurred in Block 26.0.
+Block 26.1A subsequently added an isolated fixture-gated audit runner and an
+exact double-confirmation CLI. It does not change the RentCast package, source,
+market mapping, or production composition, and no real provider request was
+made. Direct city evidence remains pending Block 26.1B.
 
 ## Context
 

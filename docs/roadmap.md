@@ -1507,7 +1507,14 @@ Planned sub-block mapping:
    artifact, AWS resource, schedule, Telegram delivery, or deployment changed.
 2. `26.1A` Add fixture-gated direct-city coverage-audit tooling, strict command
    authorization, aggregate-only output, and dry-run tests without reading a
-   credential or calling RentCast.
+   credential or calling RentCast. **Complete:** an isolated runner now builds
+   five canonical `city + state=CA` requests and reports only per-city and
+   combined counts, provider labels, completeness, capacity, bytes, prices, and
+   timings. The CLI requires exact five-request and market-list confirmations;
+   its non-executing package command does not load `.env.local`, makes no
+   request, and fails with guarded usage. Twenty-four focused tests, all 116
+   test files and 1,096 tests, root typecheck, and production/AWS build pass.
+   No real provider request or production-path change occurred.
 3. `26.1B` With fresh explicit authorization, execute exactly five real
    RentCast city requests without retry and record aggregate provider labels,
    capacity, completeness, response size, and elapsed evidence.

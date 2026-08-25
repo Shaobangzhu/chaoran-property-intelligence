@@ -2,15 +2,16 @@
 
 ## Status
 
-Block 26.0 is complete in documentation on
-`refactor/five-city-direct-market-coverage`. The product, provider geography,
-hazard authority, request-count, failure, compatibility, security, rollout,
-rollback, test, and acceptance boundaries below are frozen before runtime work
-begins.
+Blocks 26.0 and 26.1A are complete on
+`refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
+provider geography, hazard authority, request-count, failure, compatibility,
+security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
+added an isolated, fixture-gated five-city audit entrypoint without changing
+production acquisition.
 
-No source code, environment file, credential, database, provider request,
-wildfire artifact, AWS resource, schedule, Telegram delivery, or deployment
-changed in Block 26.0.
+No environment file, credential, database, real provider request, wildfire
+artifact, AWS resource, schedule, Telegram delivery, or deployment changed
+through Block 26.1A.
 
 ## Purpose
 
@@ -221,6 +222,37 @@ Status: complete in documentation only.
 - avoid logging raw listings, addresses, credentials, or request URLs
 
 This sub-block does not read `.env.local` or call RentCast.
+
+Status: complete. The isolated audit runner constructs exactly five sequential
+`city + state=CA` URLs in the frozen market order and validates the existing
+Single Family, Active, maximum-price, bedroom, bathroom, 500-row, and
+`X-Total-Count` contracts. It emits only aggregate per-city and combined
+counts, provider-city distributions, price ranges, response sizes, timings,
+and completeness results. It does not retain or print listing addresses.
+
+The CLI requires both exact arguments before it reads `RENTCAST_API_KEY` or
+calls `fetch`:
+
+```text
+--execute-five-requests
+--markets=chino,chino-hills,eastvale,corona,jurupa-valley
+```
+
+The non-executing package command intentionally omits `.env.local`, prints the
+guarded usage, confirms that no request was made, and exits nonzero. The future
+execution command loads `.env.local` only after the repository owner chooses
+the explicitly named five-request script. No retry or partial summary is
+implemented.
+
+Twenty-four focused runner and command tests pass, including canonical request
+order, mutually exclusive geography parameters, aggregate-only output, exact
+double confirmation, missing-key validation, provider-city mismatch,
+500-result failure, invalid total-count headers, fixed-filter violations,
+invalid schema, later-area failure, no retry, and API-key redaction. The full
+repository gate passes 116 test files and 1,096 tests,
+root typecheck, and production/AWS build. The existing ArcGIS chunk-size
+warning is unchanged. No real request was made and Block 26.1B remains gated
+on fresh explicit authorization.
 
 ### Block 26.1B: Controlled real provider audit
 
