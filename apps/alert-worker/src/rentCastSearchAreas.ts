@@ -1,10 +1,9 @@
 import {
+  isListingSearchCity,
   listingSearchCities,
-  stevensonRanchListingSearchMarket,
   type ListingSearchCity,
 } from "@chaoran-property-intelligence/domain";
 import {
-  defaultRentCastSaleListingsSearchArea,
   type RentCastSaleListingsSearchArea,
 } from "@chaoran-property-intelligence/rentcast";
 
@@ -12,6 +11,17 @@ export const stevensonRanchRentCastSaleListingsSearchArea = Object.freeze({
   kind: "zip",
   zipCode: "91381",
 } satisfies RentCastSaleListingsSearchArea);
+
+const rentCastSaleListingsSearchAreasByMarket = Object.freeze({
+  Chino: Object.freeze({ kind: "city", city: "Chino" }),
+  "Chino Hills": Object.freeze({ kind: "city", city: "Chino Hills" }),
+  Eastvale: Object.freeze({ kind: "city", city: "Eastvale" }),
+  Corona: Object.freeze({ kind: "city", city: "Corona" }),
+  "Jurupa Valley": Object.freeze({ kind: "city", city: "Jurupa Valley" }),
+  "Stevenson Ranch": stevensonRanchRentCastSaleListingsSearchArea,
+} satisfies Readonly<
+  Record<ListingSearchCity, RentCastSaleListingsSearchArea>
+>);
 
 export class InvalidRentCastSearchMarketsError extends Error {
   constructor() {
@@ -23,22 +33,21 @@ export class InvalidRentCastSearchMarketsError extends Error {
 export function selectRentCastSaleListingsSearchAreas(
   markets: readonly ListingSearchCity[],
 ): readonly RentCastSaleListingsSearchArea[] {
-  if (
-    markets.length === 0 ||
-    markets.some(
-      (market) => !listingSearchCities.includes(market as ListingSearchCity),
-    )
-  ) {
+  if (!Array.isArray(markets) || markets.length === 0) {
     throw new InvalidRentCastSearchMarketsError();
   }
 
-  const areas: RentCastSaleListingsSearchArea[] = [];
-  if (markets.some((market) => market !== stevensonRanchListingSearchMarket)) {
-    areas.push(defaultRentCastSaleListingsSearchArea);
-  }
-  if (markets.includes(stevensonRanchListingSearchMarket)) {
-    areas.push(stevensonRanchRentCastSaleListingsSearchArea);
+  const selectedMarkets = new Set<ListingSearchCity>();
+  for (const market of markets as readonly unknown[]) {
+    if (!isListingSearchCity(market) || selectedMarkets.has(market)) {
+      throw new InvalidRentCastSearchMarketsError();
+    }
+    selectedMarkets.add(market);
   }
 
-  return Object.freeze(areas);
+  return Object.freeze(
+    listingSearchCities
+      .filter((market) => selectedMarkets.has(market))
+      .map((market) => rentCastSaleListingsSearchAreasByMarket[market]),
+  );
 }

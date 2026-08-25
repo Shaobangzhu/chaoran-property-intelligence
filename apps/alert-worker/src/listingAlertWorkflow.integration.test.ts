@@ -265,12 +265,12 @@ describe("listing alert production workflow integration", () => {
       if (url.origin === "https://api.rentcast.io") {
         providerCall += 1;
         steps.push(`rentcast:request:${providerCall}`);
+        const isLaterRun = providerCall > 2;
         const tracked = createRentCastListing({
-          price: providerCall === 1 ? 820000 : 770000,
-          lastSeenDate:
-            providerCall === 1
-              ? "2026-08-22T12:00:00.000Z"
-              : "2026-08-23T12:00:00.000Z",
+          price: isLaterRun ? 770000 : 820000,
+          lastSeenDate: isLaterRun
+            ? "2026-08-23T12:00:00.000Z"
+            : "2026-08-22T12:00:00.000Z",
         });
         const widenedInventory = createRentCastListing({
           id: "rentcast-widened",
@@ -280,19 +280,22 @@ describe("listing alert production workflow integration", () => {
           zipCode: "91710",
           price: 830000,
         });
-        const listings =
-          providerCall === 1
-            ? [tracked, widenedInventory]
-            : [
-                tracked,
-                widenedInventory,
-                createRentCastListing({
-                  id: "rentcast-later-new",
-                  formattedAddress: "300 Main St, Corona, CA 92882",
-                  addressLine1: "300 Main St",
-                  price: 840000,
-                }),
-              ];
+        const city = url.searchParams.get("city");
+        const listings = city === "Chino"
+          ? [widenedInventory]
+          : [
+              tracked,
+              ...(isLaterRun
+                ? [
+                    createRentCastListing({
+                      id: "rentcast-later-new",
+                      formattedAddress: "300 Main St, Corona, CA 92882",
+                      addressLine1: "300 Main St",
+                      price: 840000,
+                    }),
+                  ]
+                : []),
+            ];
         return Response.json(listings, {
           headers: { "X-Total-Count": String(listings.length) },
         });
@@ -369,7 +372,7 @@ describe("listing alert production workflow integration", () => {
     expect(steps.filter((step) => step === "telegram:request")).toHaveLength(1);
   });
 
-  it("quietly baselines mixed Brea and 91381 inventory after reconciling overlap", async () => {
+  it("quietly baselines mixed direct-city and 91381 inventory after reconciling overlap", async () => {
     const steps: string[] = [];
     const mixedCriteria = {
       ...defaultListingSearchCriteria,
@@ -450,12 +453,13 @@ describe("listing alert production workflow integration", () => {
     );
 
     expect(rentCastUrls).toHaveLength(2);
-    expect(rentCastUrls[0]?.searchParams.get("address")).toBe(
-      "1065 Brea Mall, Brea, CA 92821",
-    );
-    expect(rentCastUrls[0]?.searchParams.get("radius")).toBe("20");
+    expect(rentCastUrls[0]?.searchParams.get("city")).toBe("Corona");
+    expect(rentCastUrls[0]?.searchParams.get("state")).toBe("CA");
+    expect(rentCastUrls[0]?.searchParams.get("address")).toBeNull();
+    expect(rentCastUrls[0]?.searchParams.get("radius")).toBeNull();
     expect(rentCastUrls[0]?.searchParams.get("zipCode")).toBeNull();
     expect(rentCastUrls[1]?.searchParams.get("zipCode")).toBe("91381");
+    expect(rentCastUrls[1]?.searchParams.get("city")).toBeNull();
     expect(rentCastUrls[1]?.searchParams.get("address")).toBeNull();
     expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
     expect(repository.observations).toHaveLength(2);

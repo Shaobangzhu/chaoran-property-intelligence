@@ -1536,7 +1536,16 @@ Planned sub-block mapping:
    typecheck, and the production/AWS build pass.
 5. `26.3` Map each selected incorporated city to one city area and Stevenson
    Ranch to ZIP `91381` in canonical order. Reject empty, duplicate, and
-   unsupported inputs before network access.
+   unsupported inputs before network access. **Complete:** the active selector
+   now maps every supported market to one explicit frozen area, restores Domain
+   order independent of input order, and fails closed on empty, duplicate,
+   unsupported, or malformed input. One, five, and six selected markets yield
+   exactly 1, 5, and 6 areas. Production composition now receives five direct
+   city areas plus the existing Stevenson ZIP when all markets are selected;
+   no worker or provider request was executed. Twenty-six focused mapping,
+   production-composition, and existing workflow integration tests pass, along
+   with all 116 test files and 1,106 repository tests, root typecheck, and the
+   production/AWS build.
 6. `26.4` Integrate direct areas into the source and production composition
    while preserving all-or-nothing reads, completeness gates, overlap
    reconciliation, observation time, alert state, and zero partial Telegram

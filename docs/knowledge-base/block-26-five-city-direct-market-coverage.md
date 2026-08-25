@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 26.0 through 26.2 are complete on
+Blocks 26.0 through 26.3 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
@@ -11,6 +11,8 @@ production acquisition. Block 26.1B used that guarded entrypoint for the
 authorized five-request provider audit and recorded aggregate-only evidence.
 Block 26.2 added the strict typed city-area client contract and removed
 implicit client-level geography defaults without changing worker area mapping.
+Block 26.3 replaced the active product-market selector and production
+composition expectations with canonical direct-market areas.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -334,6 +336,42 @@ environment file was read and no real provider request was made in Block 26.2.
 - preserve canonical order independent of input order
 - reject empty, duplicate, and unsupported markets before provider access
 - replace Brea-based unit and production-composition expectations
+
+Status: complete. The active worker selector now owns one explicit frozen
+provider area for every Domain product market:
+
+| Product market | Selected provider area |
+| --- | --- |
+| Chino | `city=Chino&state=CA` |
+| Chino Hills | `city=Chino Hills&state=CA` |
+| Eastvale | `city=Eastvale&state=CA` |
+| Corona | `city=Corona&state=CA` |
+| Jurupa Valley | `city=Jurupa Valley&state=CA` |
+| Stevenson Ranch | `zipCode=91381` |
+
+The selector validates that input is a non-empty array of unique supported
+markets. Empty, duplicate, unsupported, null, or otherwise malformed runtime
+values throw `InvalidRentCastSearchMarketsError` before client or provider
+access. It projects selected markets through `listingSearchCities`, so output
+order is canonical regardless of form or persistence input order. The returned
+array and every reusable area are frozen, and caller input is not mutated.
+
+One incorporated market produces one city area, all five incorporated markets
+produce five city areas, and all six markets produce those five areas followed
+by ZIP `91381`. The selector no longer imports or returns the Brea radius.
+`runProduction` already consumes this selector, so its composed source options
+now contain the direct areas. No worker was executed and no provider, database,
+Telegram, AWS, or deployment operation occurred in Block 26.3.
+
+Twenty-six focused mapping, production-composition, and existing workflow
+integration tests pass, including single, five-market, Stevenson-only, mixed,
+six-market, canonical-order, duplicate, unsupported, malformed, frozen-output,
+input-immutability, revision-baseline, overlap, and failed-later-area coverage.
+The full repository gate passes 116 test files and 1,106 tests, root typecheck,
+and the production/AWS build. The existing ArcGIS chunk-size warning is
+unchanged. Deeper source paging, all-or-nothing acquisition, overlap
+reconciliation, observation time, persistence, and notification integration
+acceptance remains the scope of Block 26.4.
 
 ### Block 26.4: Source and production integration
 

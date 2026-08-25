@@ -26,6 +26,15 @@ rejected before provider access. The explicit legacy Brea area remains in the
 worker until the separately reviewed market mapping and production integration
 stages; it is no longer an implicit client fallback.
 
+Block 26.3 implements the accepted product-market mapping in the active worker
+selector. The five incorporated markets now compose one direct city area each
+in Domain canonical order, and Stevenson Ranch remains ZIP `91381`. The
+selector rejects empty, duplicate, unsupported, and malformed runtime input
+before provider access. Production composition now receives direct areas, but
+no worker execution, provider call, schedule change, or deployment occurred in
+this stage. Source-level atomicity and alert workflow integration remain gated
+by Block 26.4.
+
 ## Context
 
 The application supports Chino, Chino Hills, Eastvale, Corona, Jurupa Valley,
