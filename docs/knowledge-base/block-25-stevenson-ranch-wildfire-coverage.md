@@ -463,10 +463,41 @@ bundle-size warning remains unchanged.
 
 ### Block 25.4: Publish the successor artifact
 
-- generate the new versioned GeoJSON and manifest from reviewed inputs
-- verify per-target and combined counts, bounds, severities, areas, checksums,
-  attribution, and transfer budgets
-- update published-artifact tests only after deterministic rebuild comparison
+**Complete:** publication was explicitly unlocked in `config.json` after a
+fresh offline prepublication stage reproduced the Block 25.3 candidate. Both
+`pnpm wildfire:data:stage` and `pnpm wildfire:data:build` use cached,
+checksum-pinned inputs with GDAL under Docker `--network=none`; the publication
+script now forces `--offline` as part of its package command.
+
+Block 25.4 atomically published:
+
+```text
+apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson
+apps/web/public/data/wildfire-hazard/manifest.json
+```
+
+The published artifact and schema version 2 manifest are byte-for-byte equal
+to the staged review candidates. The successor contains 96 features, including
+11 Stevenson Ranch features, and preserves the reviewed severity,
+responsibility-area, designation, boundary-source, evidence, product-selector,
+and disclosure contracts. Its final measurements are 1,158,246 raw bytes,
+292,581 gzip bytes, 44,204 coordinates, bounds
+`[-118.622305, 33.8000861, -117.3673113, 34.417989]`, and artifact SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+The published manifest SHA-256 is
+`e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`.
+
+Published-artifact tests now fail closed on artifact bytes, checksum, counts,
+bounds, transfer budgets, six typed targets, Census CDP provenance, Los Angeles
+County adoption evidence, and Stevenson Ranch per-severity area reconciliation.
+The prior `fhsz-five-cities-2025.1.geojson` remains present only for the
+Block 25.5 runtime-reference transition. Block 25.4 does not change the React
+artifact URL, renderer, map behavior, database, provider, secret, cloud
+resource, or deployment. Verification completed on 2026-08-24: wildfire data
+tests pass 24/24, all 114 repository test files and 1,071 tests pass,
+repository-wide typecheck passes, and the production application and AWS
+infrastructure build passes. The existing ArcGIS chunk-size warning remains
+unchanged.
 
 ### Block 25.5: React and ArcGIS integration
 

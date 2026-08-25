@@ -31,7 +31,69 @@ describe("wildfire hazard manifest metadata", () => {
         { name: "Eastvale", status: "recommended" },
         { name: "Jurupa Valley", status: "locally-adopted" },
       ],
-      coverageTargets: [],
+      coverageTargets: [
+        {
+          id: "chino",
+          label: "Chino",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "chino-valley-ordinance-2025-01",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
+        },
+        {
+          id: "chino-hills",
+          label: "Chino Hills",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "chino-valley-ordinance-2025-01",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
+        },
+        {
+          id: "corona",
+          label: "Corona",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "corona-ordinance-3418",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
+        },
+        {
+          id: "eastvale",
+          label: "Eastvale",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "recommended",
+          evidenceId: "eastvale-proposal-review",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
+        },
+        {
+          id: "jurupa-valley",
+          label: "Jurupa Valley",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "jurupa-valley-ordinance-2025-13",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
+        },
+        {
+          id: "stevenson-ranch-91381",
+          label: "Stevenson Ranch",
+          kind: "market-context",
+          boundarySourceId: "census-stevenson-ranch-cdp",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "los-angeles-county-ordinance-2025-0027",
+          coverageDisclosure:
+            "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
+          productSelector: { kind: "zip", value: "91381" },
+        },
+      ],
     });
   });
 
@@ -83,15 +145,15 @@ describe("wildfire hazard manifest metadata", () => {
     );
 
     const unsupportedStatus = structuredClone(readPublishedManifest());
-    unsupportedStatus.targetJurisdictions[0].lraDesignationStatus = "pending";
+    unsupportedStatus.coverageTargets[0].lraDesignationStatus = "pending";
     expect(() => parseWildfireHazardManifest(unsupportedStatus)).toThrow(
-      "Unsupported jurisdiction designation status",
+      "Unsupported coverage target designation status",
     );
 
-    const missingJurisdiction = structuredClone(readPublishedManifest());
-    missingJurisdiction.targetJurisdictions.pop();
-    expect(() => parseWildfireHazardManifest(missingJurisdiction)).toThrow(
-      "exactly five target jurisdictions",
+    const missingCoverageTargets = structuredClone(readPublishedManifest());
+    missingCoverageTargets.coverageTargets = [];
+    expect(() => parseWildfireHazardManifest(missingCoverageTargets)).toThrow(
+      "coverage targets are required",
     );
   });
 

@@ -272,6 +272,28 @@ The prior gzip figure was an audit-only projection; the measured result remains
 well within the unchanged 2 MiB gate. Publication is locked until Block 25.4,
 and no browser asset changed in Block 25.3.
 
+### Block 25.4 deterministic publication reconciliation
+
+A fresh offline stage reproduced the reviewed candidate, after which the
+offline-only publication path wrote the successor artifact and schema version
+2 manifest. The staged and public files compare byte-for-byte. The public
+artifact has SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`;
+the public manifest has SHA-256
+`e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`.
+
+Final combined measurements are 96 features, 44,204 coordinates, 1,158,246
+raw bytes, 292,581 gzip bytes, and bounds
+`[-118.622305, 33.8000861, -117.3673113, 34.417989]`. The artifact contains
+29 Moderate, 34 High, and 33 Very High features; 25 are SRA and 71 are LRA.
+Designation counts are 25 `effective`, 11 `recommended`, and 60
+`locally-adopted`. Stevenson Ranch retains 11 features, 15,476,630.378 square
+meters, zero invalid geometry, and the audited 1 / 7 / 3 severity split.
+
+The old five-city GeoJSON is retained temporarily because the React loader URL
+does not move until Block 25.5. No live GIS service, credential, provider,
+database, cloud resource, or deployment was introduced by publication.
+
 ### Source and intersection reconciliation
 
 The current CAL FIRE service metadata still identifies LRA layer
@@ -316,11 +338,10 @@ and broaden the delivery scope without product value. Block 25 selects an exact
 hard clip to the Census CDP and must disclose that the clip edge is a product
 coverage boundary rather than an official severity transition.
 
-The projected combined hard-clipped artifact remains well below the 10 MiB raw
-and 2 MiB gzip limits. These are audit-only estimates. Block 25.3 must reproduce
-the transformation from a tracked boundary snapshot, and Block 25.4 must record
-the final deterministic checksums and quality reconciliation before runtime
-publication.
+The published combined hard-clipped artifact remains well below the 10 MiB raw
+and 2 MiB gzip limits. Block 25.3 reproduced the transformation from a tracked
+boundary snapshot, and Block 25.4 recorded the final deterministic checksums
+and quality reconciliation before the coordinated runtime-reference change.
 
 ## Limitations
 

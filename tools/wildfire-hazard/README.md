@@ -15,11 +15,11 @@ pnpm wildfire:data:stage
 pnpm wildfire:data:build
 ```
 
-`wildfire:data:stage` is the Block 25.3 review path. It is offline-only and
-writes candidate files under `.cache/wildfire-hazard/staged`. It fails when a
+`wildfire:data:stage` is the review path. It is offline-only and writes
+candidate files under `.cache/wildfire-hazard/staged`. It fails when a
 checksum-pinned CAL FIRE archive is not already cached. `wildfire:data:build`
-is the explicit publication path and is locked in `config.json` until Block
-25.4 reviews the successor artifact.
+is the explicit publication path; it is also forced offline and must be
+enabled by a reviewed block in `config.json`.
 
 Both build modes require:
 
@@ -95,19 +95,26 @@ change, area drift over `0.001`, or size-budget failure stops the build.
 
 ## Outputs
 
-Block 25.3 staging atomically writes only ignored review candidates:
+Staging atomically writes only ignored review candidates:
 
 ```text
 .cache/wildfire-hazard/staged/fhsz-supported-markets-2025.1-r2.geojson
 .cache/wildfire-hazard/staged/manifest.json
 ```
 
-The publication lock prevents the current production assets from changing:
+Block 25.4 published the reviewed successor while retaining the previous
+five-city artifact for the Block 25.5 runtime-reference transition:
 
 ```text
 apps/web/public/data/wildfire-hazard/fhsz-five-cities-2025.1.geojson
+apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson
 apps/web/public/data/wildfire-hazard/manifest.json
 ```
+
+The public schema version 2 manifest describes the successor artifact and all
+six typed coverage targets. The React artifact URL remains on the retained
+five-city file until Block 25.5 changes the runtime reference and completes
+browser acceptance.
 
 The manifest contains source and artifact checksums, versions, attribution,
 designation evidence, coverage-target status, per-target and combined category

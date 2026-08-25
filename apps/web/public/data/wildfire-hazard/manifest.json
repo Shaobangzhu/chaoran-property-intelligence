@@ -1,33 +1,33 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "artifact": {
-    "fileName": "fhsz-five-cities-2025.1.geojson",
+    "fileName": "fhsz-supported-markets-2025.1-r2.geojson",
     "mediaType": "application/geo+json",
     "version": "2025.1",
-    "sha256": "d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f",
-    "bytes": 933093,
-    "gzipBytes": 234976,
-    "featureCount": 85,
-    "coordinateCount": 35512,
+    "sha256": "7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd",
+    "bytes": 1158246,
+    "gzipBytes": 292581,
+    "featureCount": 96,
+    "coordinateCount": 44204,
     "bounds": [
-      -117.802551,
+      -118.622305,
       33.8000861,
       -117.3673113,
-      34.0342506
+      34.417989
     ],
     "severityCounts": {
-      "moderate": 28,
-      "high": 27,
-      "very-high": 30
+      "moderate": 29,
+      "high": 34,
+      "very-high": 33
     },
     "responsibilityAreaCounts": {
-      "sra": 18,
-      "lra": 67
+      "sra": 25,
+      "lra": 71
     },
     "designationStatusCounts": {
-      "effective": 18,
+      "effective": 25,
       "recommended": 11,
-      "locally-adopted": 56
+      "locally-adopted": 60
     }
   },
   "generatedFromSnapshotAt": "2026-08-22T00:29:56Z",
@@ -70,6 +70,16 @@
       "version": "24_1",
       "license": "Creative Commons Attribution",
       "attribution": "CAL FIRE FRAP / California Board of Equalization"
+    },
+    {
+      "id": "census-stevenson-ranch-cdp",
+      "title": "ACS 2025 Stevenson Ranch Census Designated Place",
+      "canonicalUrl": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12",
+      "sha256": "2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf",
+      "bytes": 24175,
+      "version": "ACS 2025 PLACE 0674130",
+      "license": "U.S. Government public domain",
+      "attribution": "U.S. Census Bureau TIGERweb"
     }
   ],
   "designationEvidence": [
@@ -96,93 +106,272 @@
       "title": "City of Jurupa Valley Ordinance 2025-13 adoption minutes",
       "url": "https://www.jurupavalley.org/DocumentCenter/View/4218",
       "finding": "Adopted the State Fire Marshal recommendations on 2025-06-26."
+    },
+    {
+      "id": "los-angeles-county-ordinance-2025-0027",
+      "title": "Los Angeles County Ordinance 2025-0027 proceedings",
+      "url": "https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf",
+      "finding": "The Board adopted Ordinance 2025-0027 on 2025-07-22, operative 2025-08-21, for LRA FHSZ designations in the Consolidated Fire Protection District."
     }
   ],
-  "targetJurisdictions": [
+  "coverageTargets": [
     {
-      "name": "Chino",
+      "id": "chino",
+      "label": "Chino",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "chino-valley-ordinance-2025-01"
+      "evidenceId": "chino-valley-ordinance-2025-01",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Chino Hills",
+      "id": "chino-hills",
+      "label": "Chino Hills",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "chino-valley-ordinance-2025-01"
+      "evidenceId": "chino-valley-ordinance-2025-01",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Corona",
+      "id": "corona",
+      "label": "Corona",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "corona-ordinance-3418"
+      "evidenceId": "corona-ordinance-3418",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Eastvale",
+      "id": "eastvale",
+      "label": "Eastvale",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "recommended",
-      "evidenceId": "eastvale-proposal-review"
+      "evidenceId": "eastvale-proposal-review",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Jurupa Valley",
+      "id": "jurupa-valley",
+      "label": "Jurupa Valley",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "jurupa-valley-ordinance-2025-13"
+      "evidenceId": "jurupa-valley-ordinance-2025-13",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
+    },
+    {
+      "id": "stevenson-ranch-91381",
+      "label": "Stevenson Ranch",
+      "kind": "market-context",
+      "boundarySourceId": "census-stevenson-ranch-cdp",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "los-angeles-county-ordinance-2025-0027",
+      "coverageDisclosure": "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
+      "productSelector": {
+        "kind": "zip",
+        "value": "91381"
+      }
     }
   ],
   "quality": {
-    "clippingBoundary": "union of five target incorporated-city boundaries",
+    "clippingBoundary": "union of 6 reviewed coverage-target boundaries",
     "outputCrs": "EPSG:4326",
     "coordinatePrecision": 7,
     "clippedInvalidGeometryCount": 1,
     "repairedInvalidGeometryCount": 0,
-    "inputEligibleFeatureCount": 85,
-    "outputFeatureCount": 85,
-    "excludedNonWildlandFeatureCount": 8,
-    "inputAreaSquareMeters": 192378539.752,
-    "outputAreaSquareMeters": 192378539.752,
+    "inputEligibleFeatureCount": 96,
+    "outputFeatureCount": 96,
+    "excludedNonWildlandFeatureCount": 9,
+    "inputAreaSquareMeters": 207855170.13,
+    "outputAreaSquareMeters": 207855170.13,
     "areaDriftRatio": 0,
     "invalidGeometryCount": 0,
     "removedZeroAreaNonPolygonComponentCount": 1,
     "bySeverity": {
       "moderate": {
-        "clippedFeatureCount": 28,
+        "clippedFeatureCount": 29,
         "clippedInvalidGeometryCount": 0,
-        "inputFeatureCount": 28,
-        "outputFeatureCount": 28,
-        "clippedAreaSquareMeters": 24642197.161,
-        "inputAreaSquareMeters": 24642197.161,
-        "outputAreaSquareMeters": 24642197.161,
+        "inputFeatureCount": 29,
+        "outputFeatureCount": 29,
+        "clippedAreaSquareMeters": 25476636.496,
+        "inputAreaSquareMeters": 25476636.496,
+        "outputAreaSquareMeters": 25476636.496,
         "repairAreaDriftRatio": 0,
         "areaDriftRatio": 0
       },
       "high": {
-        "clippedFeatureCount": 27,
+        "clippedFeatureCount": 34,
         "clippedInvalidGeometryCount": 0,
-        "inputFeatureCount": 27,
-        "outputFeatureCount": 27,
-        "clippedAreaSquareMeters": 22051722.036,
-        "inputAreaSquareMeters": 22051722.036,
-        "outputAreaSquareMeters": 22051722.036,
+        "inputFeatureCount": 34,
+        "outputFeatureCount": 34,
+        "clippedAreaSquareMeters": 23275965.548,
+        "inputAreaSquareMeters": 23275965.548,
+        "outputAreaSquareMeters": 23275965.548,
         "repairAreaDriftRatio": 0,
         "areaDriftRatio": 0
       },
       "very-high": {
-        "clippedFeatureCount": 30,
+        "clippedFeatureCount": 33,
         "clippedInvalidGeometryCount": 1,
-        "inputFeatureCount": 30,
-        "outputFeatureCount": 30,
-        "clippedAreaSquareMeters": 145684620.747,
-        "inputAreaSquareMeters": 145684620.556,
-        "outputAreaSquareMeters": 145684620.556,
-        "repairAreaDriftRatio": 1.3098458e-9,
+        "inputFeatureCount": 33,
+        "outputFeatureCount": 33,
+        "clippedAreaSquareMeters": 159102568.277,
+        "inputAreaSquareMeters": 159102568.086,
+        "outputAreaSquareMeters": 159102568.086,
+        "repairAreaDriftRatio": 1.1993797e-9,
         "areaDriftRatio": 0
+      }
+    },
+    "byCoverageTarget": {
+      "chino": {
+        "label": "Chino",
+        "inputEligibleFeatureCount": 17,
+        "inputAreaSquareMeters": 6461399.967,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 6,
+            "areaSquareMeters": 735262.527,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 9,
+            "areaSquareMeters": 1297951.522,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 2,
+            "areaSquareMeters": 4428185.918,
+            "invalidGeometryCount": 0
+          }
+        }
+      },
+      "chino-hills": {
+        "label": "Chino Hills",
+        "inputEligibleFeatureCount": 12,
+        "inputAreaSquareMeters": 99362600.736,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 3,
+            "areaSquareMeters": 11539970.265,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 2,
+            "areaSquareMeters": 3045466.434,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 7,
+            "areaSquareMeters": 84777164.037,
+            "invalidGeometryCount": 0
+          }
+        }
+      },
+      "corona": {
+        "label": "Corona",
+        "inputEligibleFeatureCount": 33,
+        "inputAreaSquareMeters": 40707490.772,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 10,
+            "areaSquareMeters": 5509310.986,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 8,
+            "areaSquareMeters": 4921954.898,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 15,
+            "areaSquareMeters": 30276224.888,
+            "invalidGeometryCount": 0
+          }
+        }
+      },
+      "eastvale": {
+        "label": "Eastvale",
+        "inputEligibleFeatureCount": 12,
+        "inputAreaSquareMeters": 3497290.481,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 5,
+            "areaSquareMeters": 311717.353,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 4,
+            "areaSquareMeters": 2043891.02,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 3,
+            "areaSquareMeters": 1141682.108,
+            "invalidGeometryCount": 0
+          }
+        }
+      },
+      "jurupa-valley": {
+        "label": "Jurupa Valley",
+        "inputEligibleFeatureCount": 11,
+        "inputAreaSquareMeters": 42349757.797,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 3,
+            "areaSquareMeters": 3955460.905,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 5,
+            "areaSquareMeters": 13332933.287,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 3,
+            "areaSquareMeters": 25061363.605,
+            "invalidGeometryCount": 0
+          }
+        }
+      },
+      "stevenson-ranch-91381": {
+        "label": "Stevenson Ranch",
+        "inputEligibleFeatureCount": 11,
+        "inputAreaSquareMeters": 15476630.378,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 7,
+            "areaSquareMeters": 1224243.512,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 1,
+            "areaSquareMeters": 834439.336,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 3,
+            "areaSquareMeters": 13417947.53,
+            "invalidGeometryCount": 0
+          }
+        }
       }
     },
     "budgets": {
       "maximumRawBytes": 10485760,
-      "actualRawBytes": 933093,
+      "actualRawBytes": 1158246,
       "maximumGzipBytes": 2097152,
-      "actualGzipBytes": 234976
+      "actualGzipBytes": 292581
     }
   },
   "exclusions": {
-    "nonWildlandFeatureCount": 8,
+    "nonWildlandFeatureCount": 9,
     "unsupportedSeverities": "fail-build"
   },
   "disclosures": [

@@ -28,7 +28,7 @@
     "user:create-admin": "pnpm build:admin-cli && node --env-file-if-exists=.env.local apps/admin-cli/dist/index.js",
     "verify:local": "vitest run apps/alert-worker/src/localIntegration.test.ts",
     "web:dev": "pnpm --dir apps/web dev",
-    "wildfire:data:build": "node tools/wildfire-hazard/build.mjs --publish",
+    "wildfire:data:build": "node tools/wildfire-hazard/build.mjs --publish --offline",
     "wildfire:data:stage": "node tools/wildfire-hazard/build.mjs --stage-only --offline",
     "wildfire:data:test": "vitest run tools/wildfire-hazard"
   },

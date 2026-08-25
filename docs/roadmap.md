@@ -1420,7 +1420,16 @@ Planned sub-block mapping:
 5. `25.4` Generate and review the successor versioned artifact and manifest.
    Reconcile per-target and combined counts, severities, bounds, geometry,
    areas, checksums, attribution, raw/gzip size, and deterministic rebuilds
-   before changing runtime references.
+   before changing runtime references. **Complete:** a fresh offline stage and
+   offline publication produced byte-identical successor files. The public
+   schema version 2 manifest describes all six targets; the 96-feature artifact
+   is 1,158,246 raw / 292,581 gzip bytes with SHA-256
+   `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+   Stevenson Ranch reconciles to 11 valid features and the audited 1 Moderate /
+   7 High / 3 Very High split. The previous artifact is retained and the React
+   runtime URL remains unchanged until Block 25.5. Wildfire tests pass 24/24,
+   all 114 repository test files and 1,071 tests pass, typecheck passes, and the
+   production application and infrastructure build passes.
 6. `25.5` Integrate the strict schema and artifact into React and both ArcGIS
    modes. Preserve visual tokens, layer order, lazy loading, Abort, retry,
    rollback, teardown, terrain semantics, and compact/mobile provenance. Prove
