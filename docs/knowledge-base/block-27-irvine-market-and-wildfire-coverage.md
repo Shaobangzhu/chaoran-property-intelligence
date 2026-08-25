@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 27.0, 27.1A, 27.1B, and 27.1C are complete on
+Blocks 27.0, 27.1A, 27.1B, 27.1C, and 27.2 are complete on
 `feat/add-city-of-Irvine`. Block 27.0
 froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
@@ -13,11 +13,13 @@ one authorized real request with no retry. Its valid zero-row response could
 not clear the provider-city evidence gate. Block 27.1C therefore executed a
 separately reviewed, bounded Active-market identity probe; all 500 sampled rows
 used provider city `Irvine`, so the provider-geography gate is now cleared.
-Production Irvine mapping remains unchanged until the later implementation
-stages. No official GIS query, source download,
-wildfire artifact, database record, saved search profile, AWS resource,
-schedule, Telegram delivery, deployment, commit, push, or merge changed in
-these stages.
+Block 27.2 selected and checksummed one official Irvine incorporated-city
+boundary, reconciled current CAL FIRE LRA/SRA service counts with the pinned
+archives, and verified City Council Ordinance `25-19` as local-adoption
+evidence. Production Irvine mapping and the public wildfire artifact remain
+unchanged until the later implementation stages. No database record, saved
+search profile, AWS resource, schedule, Telegram delivery, deployment, push,
+or merge changed in these stages.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -98,12 +100,13 @@ authority. The artifact may display only the official supported severities:
 - `Very High`
 
 `NonWildland` remains excluded. LRA and SRA responsibility-area values remain
-source data, not application inference. Block 27.2 must recheck the pinned CAL
-FIRE source metadata, calculate bounded Irvine intersections, and obtain
-official City of Irvine adoption/designation evidence before assigning an LRA
-status. Orange County sources may supplement provenance but cannot replace a
-clear city or CAL FIRE authority record. The status is deliberately unresolved
-in Block 27.0.
+source data, not application inference. Block 27.2 rechecked the pinned CAL
+FIRE source metadata, calculated bounded Irvine intersections, and verified
+City Council Ordinance `25-19`. Irvine LRA features therefore use
+`locally-adopted`; SRA features retain source status `effective`. Orange County
+sources may supplement provenance but do not replace the City or CAL FIRE
+authority record. This resolves the status deliberately left open in Block
+27.0.
 
 The build must retain exact clipping, geometry repair, invalid-geometry checks,
 per-target area reconciliation, severity allowlisting, deterministic rebuilds,
@@ -362,12 +365,63 @@ GIS artifact, schedule, migration, or deployment state changed.
 
 ### Block 27.2: Official Irvine Wildfire Audit
 
-- recheck official CAL FIRE LRA/SRA metadata and current source identity
-- select and checksum exactly one official Irvine incorporated-city boundary
-- identify official City of Irvine designation/adoption evidence
-- audit clipped LRA/SRA counts, severities, responsibility areas, bounds, area,
-  invalid geometry, artifact growth, and parse-cost projections
-- publish no runtime artifact in this stage
+**Complete:** the separately authorized audit used read-only official requests
+and the already-installed digest-pinned GDAL `3.13.2` image with container
+networking disabled. It did not read `.env.local`, call RentCast, PostgreSQL,
+Telegram, AWS, or an ArcGIS account, retain listing addresses, or publish a
+runtime artifact. Downloaded evidence and generated candidates remain ignored
+under `.cache/wildfire-hazard/audit/block-27-2`; the directory measured about
+4.7 MiB, below the authorized 50 MB cap.
+
+The current CAL FIRE `City Boundaries` service returned exactly one Irvine,
+Orange County feature. Its normalized candidate is 39,079 bytes with SHA-256
+`368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`,
+is valid, has EPSG:3310 area `170,869,605.704035 m2`, and bounds
+`[-117.868766, 33.599396, -117.678038, 33.773657]`. The current geometry and
+the cached official `24_1` Irvine geometry are topologically equal with equal
+area, so the candidate preserves the established incorporated-city source
+semantics.
+
+The CAL FIRE jurisdiction layer returns one qualifying `Incorporated City`
+record for Irvine. Its contact workflow status is not used as adoption proof.
+The City of Irvine introduced Ordinance `25-19` on 2025-06-10 and adopted it on
+2025-06-24. The ordinance repeals Ordinance `12-03`, designates Moderate, High,
+and Very High zones from the 2025 map, and takes effect 30 days after adoption.
+It is the evidence for Irvine LRA status `locally-adopted`; SRA remains
+`effective`.
+
+Exact polygon queries against the current CAL FIRE feature services and local
+hard clips from the checksum-pinned archives agree:
+
+| Responsibility area | Moderate | High | Very High | Features | Area (m2) | Invalid | Repair drift |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| LRA | 4 | 4 | 4 | 12 | 65,497,365.692 | 0 | 0 |
+| SRA | 0 | 0 | 2 | 2 | 17,014.666 | 0 | 0 |
+| Combined | 4 | 4 | 6 | 14 | 65,514,380.358 | 0 | 0 |
+
+LRA and SRA touch at two feature pairs but have zero overlapping area. The
+supported geometry covers about 38.342% of the city boundary. Blank Irvine
+areas remain unclassified display space, not a conclusion of no hazard.
+
+The Irvine-only runtime-shaped candidate contains 14 features, 8,256
+coordinates, 62 rings, bounds
+`[-117.8537862, 33.5993963, -117.6780379, 33.773657]`, 215,910 raw bytes, and
+61,665 gzip bytes. Rebuilding the current six-target artifact plus Irvine with
+the existing artifact builder projects 110 features, 52,460 coordinates,
+1,374,114 raw bytes, and 354,030 gzip bytes. That uses about 13.10% of the
+10 MiB raw limit and 16.88% of the 2 MiB gzip limit. On Node `24.19.0`, 200
+warm-cache JSON parses averaged 2.990 ms with p95 3.438 ms. This is audit
+evidence only; Block 27.5 must reproduce it through the reviewed pipeline
+before publication.
+
+Official evidence:
+
+- [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
+- [CAL FIRE 2025 LRA feature layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSALRA25_v1_All/FeatureServer/0)
+- [CAL FIRE 2023 SRA feature layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZSRA_23_3/FeatureServer/0)
+- [CAL FIRE California Incorporated Cities](https://lab.data.ca.gov/dataset/california-incorporated-cities)
+- [City of Irvine Ordinance 25-19](https://irvine.granicus.com/MetaViewer.php?event_id=2641&meta_id=167078&view_id=)
+- [City of Irvine current LRA GIS layer](https://gis.cityofirvine.org/arcgis/rest/services/ParcelClariti/MapServer/160)
 
 ### Block 27.3: Domain, API, And React Market Support
 

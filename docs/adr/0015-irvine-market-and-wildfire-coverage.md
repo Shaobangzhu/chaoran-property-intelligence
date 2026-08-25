@@ -25,10 +25,18 @@ scope rows, and the response was 570,092 bytes in 1,338 ms. The provider
 geography gate is cleared, while production Irvine mapping remains unchanged
 until the later implementation stages. All 24 new probe tests, all 99 audit
 regressions, all 118 repository test files and 1,152 tests, repository-wide
-typecheck, and the production/AWS build pass. No official GIS request, source
-download, wildfire artifact, database change, production profile mutation,
-cloud action, schedule change, Telegram delivery, or deployment occurred in
-these stages.
+typecheck, and the production/AWS build pass. Block 27.2 then completed the
+separately authorized official wildfire audit. The selected current CAL FIRE
+incorporated-city boundary resolves exactly one Irvine feature, is
+topologically equal to the cached `24_1` geometry, and has normalized SHA-256
+`368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`.
+City Council Ordinance `25-19`, adopted on 2025-06-24, supports
+`locally-adopted` LRA status. Exact current-service counts match the pinned
+archive clip: 12 LRA features and 2 SRA features, with no invalid geometry or
+area drift. The projected 110-feature successor remains within existing
+payload and parse gates. All audit candidates remain ignored; no runtime
+artifact, database, production profile, cloud resource, schedule, Telegram
+delivery, or deployment changed.
 
 ## Context
 

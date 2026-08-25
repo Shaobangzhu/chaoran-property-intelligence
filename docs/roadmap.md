@@ -1704,6 +1704,18 @@ Planned sub-block mapping:
    CAL FIRE LRA/SRA metadata and intersections, City of Irvine designation
    evidence, geometry, severity, responsibility area, bounds, area, checksum,
    payload, and parse-cost projections. Publish no runtime artifact.
+   **Complete:** current official services returned one qualifying incorporated
+   Irvine jurisdiction and one valid current city boundary. The normalized
+   boundary has SHA-256
+   `368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`
+   and is topologically equal to the cached `24_1` geometry. City Council
+   Ordinance `25-19`, adopted 2025-06-24, establishes `locally-adopted` LRA
+   evidence. Current service counts and pinned-archive hard clips agree on 12
+   LRA features and 2 SRA features with zero invalid geometry, zero repair
+   drift, and zero LRA/SRA overlap area. The projected 110-feature successor is
+   1,374,114 raw / 354,030 gzip bytes; 200 Node `24.19.0` parses averaged 2.990
+   ms with p95 3.438 ms. All candidates remain ignored and no runtime artifact
+   or production system changed.
 6. `27.3` Append Irvine to the schema-version-1 Domain/API/React allowlist while
    keeping existing and default profiles unchanged. Preserve the current city
    checkbox UX, validation, revisions, authentication, and accessibility.
