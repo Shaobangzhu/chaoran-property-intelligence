@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 26.0 through 26.4 are complete on
+Blocks 26.0 through 26.5 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
@@ -16,6 +16,9 @@ composition expectations with canonical direct-market areas. Block 26.4
 removed the source-level Brea fallback and completed fake-provider production
 workflow integration for sequential acquisition, completeness, overlap,
 provider-city preservation, and zero-partial-effect failure behavior.
+Block 26.5 retired the old Brea-default audit path, retained separately guarded
+five-direct-city and ZIP `91381` audits, and made request cost and quota planning
+visible in command output and operations guidance.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -169,11 +172,12 @@ Successful RentCast requests count independently. The request matrix becomes:
 | Stevenson Ranch only | 1 |
 | Five incorporated cities plus Stevenson Ranch | 6 |
 
-With a 50-request monthly allowance, five-city runs permit at most 10 complete
-runs and six-market runs permit at most 8 complete runs with 2 requests left,
-before audits, manual calls, or retries. A weekly six-market cadence would use
-approximately 24 requests in a four-run month, but Block 26 does not approve,
-enable, or change an AWS schedule.
+Using 50 requests as a monthly planning reference, five-city runs permit at
+most 10 complete runs and six-market runs permit at most 8 complete runs with 2
+requests left, before audits, manual calls, or retries. This arithmetic does not
+assert the account's current plan or remaining quota. A weekly six-market
+cadence would use approximately 24 requests in a four-run month, but Block 26
+does not approve, enable, or change an AWS schedule.
 
 Production enablement must review the actual subscription, remaining monthly
 quota, audit consumption, intended cadence, and overage policy together. The
@@ -419,10 +423,41 @@ schedule, wildfire artifact, deployment, or production data changed in Block
 
 ### Block 26.5: Audit and operational integration
 
-- replace the active Brea-default audit path with explicit market-scoped audit
-- update command help, README, runbooks, AWS design notes, and quota examples
-- ensure no ordinary command silently expands into five or six live requests
-- retain historical Block 20 and Block 24 results as historical evidence
+Status: complete. The legacy `rentcast:coverage-audit` package scripts and their
+Brea-default runner, command, CLI, and tests are removed. Two successor paths
+remain:
+
+```bash
+# Safe previews: no .env.local load and no provider request
+pnpm rentcast:five-city-direct-coverage-audit
+pnpm rentcast:stevenson-ranch-coverage-audit
+
+# Real requests: separately reviewed and explicitly confirmed
+pnpm rentcast:five-city-direct-coverage-audit:execute-five-requests
+pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
+```
+
+The first real command requires the exact five-request flag and canonical five
+market list. The second requires the exact one-request flag and reviewed
+`stevenson-ranch-91381` market token. Invalid or incomplete confirmations exit
+before `fetch`. There is no ordinary six-request command; auditing all six
+markets requires separately approving and running 5 + 1.
+
+Both aggregate-only summaries report requests completed, audit request cost, a
+50-request monthly planning reference, and the 5/6-request production cost.
+They do not claim the current account plan or remaining balance and instruct the
+operator to verify both before execution. README, AWS design guidance,
+production readiness/baseline runbooks, roadmap, and ADRs now use the direct
+market request model. Historical Block 20 and Block 24 Brea results remain
+identified as historical evidence rather than executable guidance.
+
+All 48 focused successor-audit tests pass. The complete repository gate passes
+all 114 test files and 1,096 tests, root typecheck, and the production/AWS
+build. The existing ArcGIS chunk-size advisory is unchanged.
+
+No environment file was read and no real RentCast, PostgreSQL, Telegram, AWS,
+schedule, deployment, migration, profile, or production-data operation occurred
+in Block 26.5.
 
 ### Block 26.6: Wildfire and web regression acceptance
 

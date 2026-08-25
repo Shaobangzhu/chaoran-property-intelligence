@@ -217,11 +217,15 @@ The RentCast adapter now has two isolated internal request profiles:
 - `searchSaleListingsForCoverageAudit()` uses `price=*:850000`, retains every
   other production filter and `limit=500`, and requests the total count
 
-The separate maintenance command is:
+The historical Block 20 maintenance command was:
 
 ```bash
 pnpm rentcast:coverage-audit:execute-one-request
 ```
+
+Block 26.5 retired this Brea-default command and its executable chain. It is
+shown here only to preserve the Block 20 audit record and must not be used as
+current operational guidance.
 
 The executable refuses to call `fetch` when the exact confirmation argument is
 missing. Its output contains only the total and returned counts, cap margin,

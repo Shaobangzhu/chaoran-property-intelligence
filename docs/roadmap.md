@@ -44,6 +44,13 @@ unincorporated jurisdiction and Ordinance `2025-0027` LRA adoption evidence;
 reconciled five LRA and seven SRA source intersections; and selected an exact
 hard clip that projects the combined artifact at 1,158,246 raw and 289,420 gzip
 bytes. Audit candidates remain ignored and no runtime artifact changed.
+Blocks 25.2-25.7 are complete and merged into `main`. Blocks 26.0-26.5 are
+complete on `refactor/five-city-direct-market-coverage`: the five incorporated
+markets now use direct city acquisition, Stevenson Ranch retains ZIP `91381`,
+the source and production workflow require explicit sequential areas, and the
+legacy Brea-default audit path is retired. Request-cost guidance now treats 50
+requests as a planning reference and requires current account-plan and usage
+verification before any real audit or production run.
 Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
@@ -1563,6 +1570,17 @@ Planned sub-block mapping:
 7. `26.5` Replace active Brea-default audit and operations guidance with
    explicit market-scoped commands and visible request-count/quota gates. No
    ordinary command may silently execute five or six provider requests.
+   **Complete:** the old Brea-default scripts and executable chain are removed.
+   Safe five-city and Stevenson Ranch previews load no environment file and
+   exit before provider access; real forms require exact request-count and
+   market confirmations. The five-city audit costs 5 requests, the ZIP `91381`
+   audit costs 1, and no ordinary combined six-request command exists. Output
+   and operations guidance expose the 50-request planning reference plus 5/6
+   production cost while requiring verification of current account plan and
+   usage. Historical Block 20/24 evidence remains documented but is no longer
+   executable guidance. All 48 focused successor-audit tests, all 114 test
+   files and 1,096 repository tests, root typecheck, and the production/AWS
+   build pass. No real request or external side effect occurred.
 8. `26.6` Verify the existing six-target wildfire artifact remains unchanged
    and complete 2D/3D, zero-listing, responsive, provenance, disclosure,
    interaction, and teardown regression acceptance for all five cities.
@@ -1573,8 +1591,9 @@ Planned sub-block mapping:
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. A full six-market worker run consumes six successful RentCast
-requests; with a 50-request monthly allowance, no more than eight complete runs
-fit before audits, retries, or other provider use. Block 26 does not approve or
+requests; using 50 requests as a monthly planning reference, no more than eight
+complete runs fit before audits, retries, or other provider use. Verify the
+current account plan and usage before execution. Block 26 does not approve or
 change a production cadence.
 
 See the

@@ -1,4 +1,5 @@
 import { readRequiredVariable } from "./productionConfig.js";
+import { formatRentCastAuditQuotaDisclosure } from "./rentCastAuditQuota.js";
 
 const rentCastSaleListingsUrl = "https://api.rentcast.io/v1/listings/sale";
 const expectedCity = "Stevenson Ranch";
@@ -107,6 +108,7 @@ export function formatStevensonRanchCoverageAuditSummary(
   return [
     "RentCast Stevenson Ranch coverage audit completed.",
     "Request profile: stevenson-ranch-91381-coverage-audit",
+    ...formatRentCastAuditQuotaDisclosure(1),
     `Coverage gate: ${summary.coverageGatePassed ? "PASS" : "FAIL"}`,
     `Total matching listings: ${summary.totalMatchingListings}`,
     `Returned listings: ${summary.returnedListings}`,

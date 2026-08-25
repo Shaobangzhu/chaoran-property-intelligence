@@ -122,7 +122,8 @@ the existing listing snapshot view.
 - The browser, API, worker, and Domain use one authoritative criteria contract.
 - Criteria remain typed and versioned while JSONB avoids coupling future
   complex criteria to the first physical column layout.
-- The one-request monthly quota boundary is preserved.
+- The original one-request monthly quota boundary was preserved through Block
+  21, but ADR 0014 supersedes it with one explicit request per selected market.
 - Criteria changes become auditable and concurrency-safe.
 - A widened search does not create a Telegram flood.
 - Saved changes are not immediate; the next worker run owns provider

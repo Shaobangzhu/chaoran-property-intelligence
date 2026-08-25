@@ -196,29 +196,34 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits.
 
-Block 20.1A adds an isolated RentCast price-drop coverage audit command. It
-does not run through the production worker, connect to PostgreSQL, or send
-Telegram. Running the script without its explicit confirmation argument exits
-before `fetch`:
+Block 26.5 retires the legacy Brea-default coverage audit. The two supported
+maintenance paths are market-scoped and do not run through the production
+worker, connect to PostgreSQL, or send Telegram. These safe previews do not
+load `.env.local` and exit before `fetch`:
 
 ```bash
-pnpm rentcast:coverage-audit
+pnpm rentcast:five-city-direct-coverage-audit
+pnpm rentcast:stevenson-ranch-coverage-audit
 ```
 
-The separately approved one-request form is:
+The real-request forms require exact request-count and market confirmations:
 
 ```bash
-pnpm rentcast:coverage-audit:execute-one-request
+pnpm rentcast:five-city-direct-coverage-audit:execute-five-requests
+pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
 ```
 
-The command loads only `RENTCAST_API_KEY`, uses the audit-only `*:850000`
-price range plus `includeTotalCount=true`, and prints aggregate counts, price
-range, response-body bytes, elapsed time, and the 500-result cap margin. It
-never prints credentials, the request URL, raw response, or street addresses.
-Block 20.1A implemented and tested this command without making a real RentCast
-request. Block 20.1B later executed it once under explicit approval and recorded
-only aggregate evidence in the Block 20 knowledge base. A future repeat still
-requires a fresh quota and request review.
+The first command makes exactly five sequential direct-city requests. The
+second makes exactly one ZIP `91381` request. Auditing all six markets requires
+two separate approvals and both commands; there is no ordinary combined
+six-request command. Output contains aggregate coverage, completeness, request
+cost, and a 50-request monthly planning reference, but never claims the
+account's current plan or remaining quota. Verify current RentCast plan and
+usage before every approved execution. Credentials, full request URLs, raw
+responses, and street addresses are never printed.
+
+The retired Block 20 Brea audit and its one approved historical result remain
+documented in the Block 20 knowledge base as historical evidence only.
 
 Block 20.2 added the provider-neutral price-alert contracts without changing
 the production worker at that stage. `ListingAddressKey` provides strict,

@@ -136,7 +136,12 @@ stop and investigate instead of running production.
 
 ## Controlled Baseline Execution
 
-Obtain explicit approval after the pre-baseline inspection. Then run exactly one
+Obtain explicit approval after the pre-baseline inspection. Before approval,
+normalize the persisted selected markets and record the expected RentCast
+request count. The direct-market worker makes one sequential request per
+selected market: 1-6 requests, 5 for the five incorporated markets, or 6 when
+Stevenson Ranch is also selected. Treat 50 requests as a planning reference
+only and verify the current account plan and usage. Then run exactly one
 Fargate task with the production task definition's default `--run` command and
 the same reviewed network configuration.
 

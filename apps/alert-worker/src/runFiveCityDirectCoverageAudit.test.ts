@@ -95,6 +95,13 @@ describe("runFiveCityDirectCoverageAudit", () => {
     const output = formatFiveCityDirectCoverageAuditSummary(summary);
     expect(output).toContain("Coverage gate: PASS");
     expect(output).toContain("Requests completed: 5");
+    expect(output).toContain("Audit request cost: 5");
+    expect(output).toContain(
+      "Monthly allowance planning reference: 50 requests",
+    );
+    expect(output).toContain(
+      "Production request cost reference: 5 requests for five incorporated markets; 6 requests for all six markets.",
+    );
     expect(output).toContain("Area 5: Jurupa Valley, CA");
     expect(output).toContain(
       'Provider city counts: {"Chino":1,"Chino Hills":1,"Corona":1,"Eastvale":1,"Jurupa Valley":1}',

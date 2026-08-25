@@ -1,4 +1,5 @@
 import { readRequiredVariable } from "./productionConfig.js";
+import { formatRentCastAuditQuotaDisclosure } from "./rentCastAuditQuota.js";
 
 const rentCastSaleListingsUrl = "https://api.rentcast.io/v1/listings/sale";
 const expectedState = "CA";
@@ -108,7 +109,7 @@ export function formatFiveCityDirectCoverageAuditSummary(
     "RentCast five-city direct coverage audit completed.",
     "Request profile: five-city-direct-market-coverage-audit",
     `Audited direct city areas: ${summary.areas.length}`,
-    `Requests completed: ${summary.combined.requestCount}`,
+    ...formatRentCastAuditQuotaDisclosure(summary.combined.requestCount),
     "Combined provider rows before reconciliation:",
     `Coverage gate: ${summary.combined.coverageGatePassed ? "PASS" : "FAIL"}`,
     `Expected cities verified: ${summary.combined.expectedCitiesVerified ? "yes" : "no"}`,

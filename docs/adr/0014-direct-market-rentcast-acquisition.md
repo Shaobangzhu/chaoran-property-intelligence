@@ -46,6 +46,14 @@ persistence, revision advancement, listing snapshot, alert event, clock read,
 or Telegram request. No real provider, database, Telegram, AWS, schedule, or
 deployment operation occurred in this stage.
 
+Block 26.5 retires the legacy Brea-default audit executable and package scripts.
+The supported successor paths are separately guarded five-direct-city and ZIP
+`91381` audits. Their safe previews load no environment file; their real forms
+require exact request-count and market confirmations. No ordinary combined
+six-request command exists. Aggregate output discloses actual audit request
+cost plus the 50-request planning reference and tells operators to verify the
+current account plan and usage before execution.
+
 ## Context
 
 The application supports Chino, Chino Hills, Eastvale, Corona, Jurupa Valley,
@@ -134,8 +142,9 @@ Tradeoffs:
 
 - five original markets now consume five requests instead of one per run
 - all six markets consume six requests instead of two
-- a 50-request allowance supports at most 10 five-market runs or 8 six-market
-  runs before audits, retries, and other use
+- a 50-request planning reference supports at most 10 five-market runs or 8
+  six-market runs before audits, retries, and other use; actual plan and usage
+  still require verification
 - one city-area failure fails the complete selected-market run
 - case-sensitive provider city inputs require controlled audit evidence
 - tests and operational output must make request fan-out explicit
@@ -186,6 +195,13 @@ aggregate evidence only.
 Request cadence and subscription cost are deployment gates. This decision does
 not enable a schedule, run a production worker, deploy AWS resources, mutate a
 profile, connect to PostgreSQL, or send Telegram notifications.
+
+The five-city audit costs exactly 5 requests and the Stevenson Ranch audit
+costs exactly 1. Auditing all six requires two separately approved commands.
+At the 50-request planning reference, production supports at most 10 five-market
+runs or 8 six-market runs before audits, retries, and other usage. These figures
+are planning arithmetic, not an assertion about the account's current quota or
+remaining balance.
 
 ## Rollback
 

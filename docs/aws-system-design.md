@@ -418,6 +418,7 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Operating system | Linux |
 | Platform version | Latest |
 | Hard process limit | 15 minutes |
+| RentCast requests per run | 1-6 sequential requests, one per selected market |
 | RentCast request timeout | 30 seconds, no automatic retry |
 | Scheduler retry attempts | 2 |
 | Maximum scheduler event age | 1 hour |
@@ -495,33 +496,42 @@ The currently deployed image still filters out prices below `$780,000` and
 predates Blocks 21.6 and 21.7. Repository code now loads the persisted primary
 search profile after bundled migrations and before constructing the alert,
 provider, or notification adapters. It projects property type, maximum price,
-minimum bedrooms, and minimum bathrooms into one regional RentCast request with
-`price=*:<maximumPrice>`, `limit=500`, and `includeTotalCount=true`; city and
-minimum-price decisions remain Domain filters. Missing or malformed profiles
-fail closed. An unapplied profile revision now performs one provider request
-and an atomic silent baseline: PostgreSQL locks the profile and candidate
+minimum bedrooms, and minimum bathrooms into one explicit RentCast area for
+each selected market, with `price=*:<maximumPrice>`, `limit=500`, and
+`includeTotalCount=true`; minimum-price decisions remain Domain filters. Chino,
+Chino Hills, Eastvale, Corona, and Jurupa Valley each use a direct city request;
+Stevenson Ranch uses ZIP `91381`. The canonical sequential request count is
+therefore 1-6, exactly matching the number of selected markets. Missing or
+malformed profiles fail closed.
+
+An unapplied profile revision now performs the complete selected-market request
+set and an atomic silent baseline: PostgreSQL locks the profile and candidate
 addresses, refreshes full-criteria inventory plus already tracked below-floor
 addresses, preserves all outbox events, and advances `applied_revision` only
 with the baseline writes. Existing pending events are delivered after commit.
-A response total above 500 or an incomplete below-cap page stops before
-baseline, listing state, or Telegram mutation. Migration 007, a real production
-provider run, production
-listing Telegram delivery, image deployment, and schedule enablement each
-remain separately confirmed operations.
+Every response page independently must remain complete and at or below 500;
+one failed or incomplete area stops before baseline, listing state, or Telegram
+mutation. Migration 007, a real production provider run, production listing
+Telegram delivery, image deployment, and schedule enablement each remain
+separately confirmed operations.
 
-Block 20.1A implements the audit as a separate maintenance entrypoint, not as a
-mode of the scheduled production worker. It requires the exact
-`--execute-one-request` argument before `fetch`, loads only `RENTCAST_API_KEY`,
-uses `price=*:850000`, `limit=500`, and `includeTotalCount=true`, and emits only
-aggregate measurements. The ordinary worker still used
-`price=780000:850000` through Block 20.4. No real audit request or AWS operation
-was performed in 20.1A. Block 20.1B later used one explicitly approved request:
-all 132 matching rows were returned, 54 were below `$780,000`, and the result
-retained 368 rows of margin below the 500-row cap. The request took 6,089 ms and
-returned a 148,427-byte body. Block 20.5 then adopted the broadened profile in
-repository code, using deterministic adapters and fixtures only. No database,
-Telegram, or AWS operation accompanied it, and the deployed worker remains
-unchanged.
+Block 20.1A implemented a separate Brea-default maintenance audit. Block 20.1B
+later used one explicitly approved request: all 132 matching rows were
+returned, 54 were below `$780,000`, and the result retained 368 rows of margin
+below the 500-row cap. The request took 6,089 ms and returned a 148,427-byte
+body. Block 26.5 retires that executable path while retaining these figures as
+historical evidence.
+
+The supported successor audits are an exactly confirmed five-request direct
+city command and an independently confirmed one-request ZIP `91381` command.
+Safe preview commands do not load `.env.local`. There is no ordinary combined
+six-request audit; auditing all six markets requires two separate approvals.
+Audit output records actual request cost and a 50-request monthly planning
+reference, while requiring operators to verify the account's current plan and
+usage. At that planning level, five-market production costs 5 requests per run
+and all-six production costs 6, allowing at most 10 or 8 runs respectively
+before audits, retries, and other usage. The recurring Scheduler must remain
+disabled until cadence and subscription capacity receive explicit approval.
 
 ## Database Design
 
