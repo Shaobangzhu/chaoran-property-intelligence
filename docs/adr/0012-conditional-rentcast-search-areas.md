@@ -11,7 +11,11 @@ contract and exports the existing Brea radius as its compatible default. Block
 multi-area source reads. Block 24.5 wires the normalized persisted profile into
 that selection for production composition. Existing profiles therefore retain
 their saved request area, while an explicit Stevenson Ranch selection adds the
-reviewed ZIP area without changing provider listing data.
+reviewed ZIP area without changing provider listing data. Block 24.6 verifies
+that the bounded authenticated API and React criteria UI preserve a legacy
+five-market profile until the operator explicitly selects and saves Stevenson
+Ranch; that save serializes canonical markets and advances the profile revision
+exactly once without changing the applied alert baseline.
 
 ## Context
 

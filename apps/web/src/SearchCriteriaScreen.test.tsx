@@ -53,6 +53,83 @@ describe("SearchCriteriaScreen", () => {
     ).not.toBeChecked();
   });
 
+  it("loads an explicitly saved six-market profile without creating a dirty draft", async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      loadCriteria: async () =>
+        snapshot({
+          criteria: {
+            ...snapshot().criteria,
+            cities: [
+              "Chino",
+              "Chino Hills",
+              "Eastvale",
+              "Corona",
+              "Jurupa Valley",
+              "Stevenson Ranch",
+            ],
+          },
+          revision: 3,
+        }),
+    });
+
+    const trigger = await screen.findByRole("button", {
+      name: "6 cities selected",
+    });
+    expect(screen.getByText("Revision 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save criteria" })).toBeDisabled();
+
+    await user.click(trigger);
+    expect(
+      screen.getByRole("checkbox", { name: "Stevenson Ranch" }),
+    ).toBeChecked();
+  });
+
+  it("opts into Stevenson Ranch explicitly and adopts the next revision", async () => {
+    const user = userEvent.setup();
+    const saveCriteria = vi.fn(
+      async (input: UpdateListingSearchCriteriaInput) =>
+        snapshot({ criteria: input.criteria, revision: 3 }),
+    );
+    renderScreen({ saveCriteria });
+
+    const trigger = await screen.findByRole("button", {
+      name: "5 cities selected",
+    });
+    await user.click(trigger);
+    await user.click(
+      screen.getByRole("checkbox", { name: "Stevenson Ranch" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "6 cities selected" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+
+    expect(saveCriteria).toHaveBeenCalledTimes(1);
+    expect(saveCriteria).toHaveBeenCalledWith({
+      expectedRevision: 2,
+      criteria: {
+        ...snapshot().criteria,
+        cities: [
+          "Chino",
+          "Chino Hills",
+          "Eastvale",
+          "Corona",
+          "Jurupa Valley",
+          "Stevenson Ranch",
+        ],
+      },
+    });
+    expect(
+      await screen.findByText(
+        "Saved as revision 3. The next alert run will apply these criteria.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Revision 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save criteria" })).toBeDisabled();
+  });
+
   it("retries an unavailable initial load", async () => {
     const user = userEvent.setup();
     const loadCriteria = vi

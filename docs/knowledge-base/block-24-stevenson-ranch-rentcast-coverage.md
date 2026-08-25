@@ -9,15 +9,19 @@ fixture-gated second audit proved that RentCast classifies every matching ZIP
 therefore failed closed. The product/domain decision is now accepted:
 `Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
 and provider city `Valencia` remains unchanged. Blocks 24.2 through 24.5 are
-complete: the version-1 Domain market set now contains six choices, the shared
+complete, and Block 24.6 implementation and automated verification are
+complete with browser visual acceptance pending: the version-1 Domain market
+set now contains six choices, the shared
 matcher applies exact-city semantics to the original five markets and ZIP
 semantics to Stevenson Ranch, the RentCast client accepts typed radius or ZIP
 search areas, and the worker source supports sequential, all-or-nothing reads
 across one or two selected areas. Production composition now derives those
 areas from the normalized persisted profile, and the coverage-audit model
-reports per-area and pre-reconciliation combined metrics. No persisted profile,
-database, Telegram message, AWS resource, schedule, real provider request, or
-deployment changed in Block 24.5.
+reports per-area and pre-reconciliation combined metrics. The authenticated API
+and React criteria boundary now has explicit six-market load, opt-in save,
+canonical serialization, actor attribution, and revision-increment coverage.
+No persisted profile, database, Telegram message, AWS resource, schedule, real
+provider request, or deployment changed in Block 24.6.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -481,11 +485,47 @@ Verification completed for this sub-block:
 
 ### Block 24.6: API and React city selection
 
-- expose the sixth shared Domain option through the current API DTO
-- update selection copy and tests from one-to-five to one-to-six
-- verify existing profiles remain unchanged until explicitly saved
-- verify saving Stevenson Ranch increments revision without duplicating listings
-- run desktop/mobile accessibility and layout acceptance
+Implementation and automated verification are complete. The existing dynamic
+Domain/API/React path already exposed the sixth market and the form already
+said `Select between one and six cities.`; no production-code change was
+required. This sub-block adds regression coverage that:
+
+- loads an existing five-market profile unchanged and leaves Stevenson Ranch
+  available but unchecked
+- loads an explicitly saved six-market profile at its persisted revision
+  without creating a dirty draft
+- adds Stevenson Ranch only after an explicit checkbox action, serializes all
+  six markets in canonical Domain order, and adopts the returned next revision
+- accepts and returns Stevenson Ranch through the bounded authenticated HTTP
+  PUT DTO with the authenticated actor while omitting fixed state, status, and
+  schema fields from the editable client contract
+- updates only the primary search profile, increments its revision exactly
+  once, and leaves `appliedRevision` unchanged so the existing alert baseline
+  remains authoritative
+- retains the existing canonical-address listing reconciliation; criteria
+  writes have no listing-repository port and therefore cannot create a second
+  React listing record
+- preserves the existing Escape focus return, click-away closure, validation,
+  conflict/reload, dirty/discard, and responsive breakpoint coverage
+
+Verification completed for this sub-block:
+
+- 49 focused React, Web API adapter, and Application tests passed
+- 61 authenticated API route tests passed
+- all 113 test files and all 1043 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production ArcGIS web bundle
+- `git diff --check` passed
+- no production source, schema, migration, dependency, provider request,
+  profile mutation, database write, Telegram send, AWS operation, schedule
+  change, or deployment occurred
+
+Desktop/mobile visual acceptance remains pending because the isolated browser
+session had no administrator login. The local servers were stopped without
+entering credentials or saving criteria. Block 24.6 should be marked fully
+complete only after the operator signs in and confirms the six-option city
+control at desktop and mobile widths without saving the real profile unless
+that mutation is separately intended.
 
 ### Block 24.7: Integration and final gate
 

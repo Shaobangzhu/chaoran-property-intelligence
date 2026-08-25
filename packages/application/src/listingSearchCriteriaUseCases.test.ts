@@ -112,6 +112,50 @@ describe("listing search criteria use cases", () => {
     });
   });
 
+  it("opts a legacy profile into Stevenson Ranch with one revision change", async () => {
+    const repository = new FakeListingSearchProfileRepository({
+      profile: createProfile({
+        criteria: normalizeListingSearchCriteria({
+          ...defaultListingSearchCriteria,
+          cities: [
+            "Chino",
+            "Chino Hills",
+            "Eastvale",
+            "Corona",
+            "Jurupa Valley",
+          ],
+        }),
+      }),
+    });
+    const criteria = {
+      ...editableDefaultCriteria(),
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Stevenson Ranch",
+      ] as const,
+    };
+
+    const result = await createUpdateUseCase(repository).execute(
+      createUpdateInput({ criteria }),
+    );
+
+    expect(result).toEqual({ criteria, revision: 2, updatedAt });
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.currentProfile).toMatchObject({
+      appliedRevision: 1,
+      criteria: {
+        ...defaultListingSearchCriteria,
+        cities: criteria.cities,
+      },
+      revision: 2,
+      updatedByUserId: actorUserId,
+    });
+  });
+
   it("returns a canonical no-op without changing revision or audit metadata", async () => {
     const repository = new FakeListingSearchProfileRepository({
       profile: createProfile(),
