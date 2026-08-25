@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted. The Block 24.1B provider audit confirmed that ZIP `91381` listings
+Accepted and partially superseded by ADR 0014. ADR 0014 replaces the active
+five-city Brea-radius selection and default-audit decisions with direct city
+queries. This ADR continues to govern Stevenson Ranch ZIP `91381`, provider
+data preservation, per-area completeness, all-or-nothing failure, and
+canonical-address reconciliation.
+
+The Block 24.1B provider audit confirmed that ZIP `91381` listings
 are labeled `Valencia` by RentCast. The product decision keeps `Stevenson
 Ranch` as the selectable market, matches that market by ZIP, and preserves the
 provider city unchanged. Block 24.3 implements the typed radius/ZIP client

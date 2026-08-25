@@ -1478,3 +1478,68 @@ See the
 [Block 25 Stevenson Ranch Wildfire Coverage Knowledge Base](knowledge-base/block-25-stevenson-ranch-wildfire-coverage.md)
 and
 [ADR 0013: Typed Wildfire Coverage Targets](adr/0013-typed-wildfire-coverage-targets.md).
+
+### Block 26: Five-City Direct Market Coverage
+
+Replace the legacy 20-mile RentCast radius centered at Brea with one direct
+`city + state=CA` provider area for each selected incorporated market: Chino,
+Chino Hills, Eastvale, Corona, and Jurupa Valley. Stevenson Ranch retains its
+reviewed ZIP `91381` area and provider city remains unchanged.
+
+The worker preserves explicit typed geography, canonical market order,
+per-area 500-result completeness, sequential all-or-nothing acquisition,
+canonical-address reconciliation, price-drop behavior, and one stored React
+record per property. No production or successor audit path may silently fall
+back to the Brea radius.
+
+The Brea radius does not govern wildfire data. The existing five city targets
+remain exact `incorporated-jurisdiction` boundaries, while Stevenson Ranch
+remains a `market-context` target. Block 26 does not rebuild the CAL FIRE
+artifact, reinterpret classifications, or introduce a live hazard request.
+
+Planned sub-block mapping:
+
+1. `26.0` Freeze product, provider geography, hazard authority, quota, failure,
+   compatibility, security, rollout, rollback, test, and acceptance boundaries.
+   **Complete in documentation only:** ADR 0014 and the Block 26 knowledge base
+   are accepted, ADR 0012 is marked partially superseded, and this roadmap is
+   recorded. No runtime code, secret, provider request, database, wildfire
+   artifact, AWS resource, schedule, Telegram delivery, or deployment changed.
+2. `26.1A` Add fixture-gated direct-city coverage-audit tooling, strict command
+   authorization, aggregate-only output, and dry-run tests without reading a
+   credential or calling RentCast.
+3. `26.1B` With fresh explicit authorization, execute exactly five real
+   RentCast city requests without retry and record aggregate provider labels,
+   capacity, completeness, response size, and elapsed evidence.
+4. `26.2` Add the strict typed city-area client contract, mutually exclusive
+   query parameters, and required explicit production geography. Remove the
+   implicit Brea default while retaining explicit radius capability for
+   reviewed maintenance or rollback.
+5. `26.3` Map each selected incorporated city to one city area and Stevenson
+   Ranch to ZIP `91381` in canonical order. Reject empty, duplicate, and
+   unsupported inputs before network access.
+6. `26.4` Integrate direct areas into the source and production composition
+   while preserving all-or-nothing reads, completeness gates, overlap
+   reconciliation, observation time, alert state, and zero partial Telegram
+   effects.
+7. `26.5` Replace active Brea-default audit and operations guidance with
+   explicit market-scoped commands and visible request-count/quota gates. No
+   ordinary command may silently execute five or six provider requests.
+8. `26.6` Verify the existing six-target wildfire artifact remains unchanged
+   and complete 2D/3D, zero-listing, responsive, provenance, disclosure,
+   interaction, and teardown regression acceptance for all five cities.
+9. `26.7` Run fake-provider one-, five-, and six-market integrations, full
+   tests/typecheck/builds, browser and security acceptance, final diff,
+   rollback, quota, and as-built documentation gates. Commit, push, PR, merge,
+   schedule, and deployment remain under repository-owner control.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. A full six-market worker run consumes six successful RentCast
+requests; with a 50-request monthly allowance, no more than eight complete runs
+fit before audits, retries, or other provider use. Block 26 does not approve or
+change a production cadence.
+
+See the
+[Block 26 Five-City Direct Market Coverage Knowledge Base](knowledge-base/block-26-five-city-direct-market-coverage.md)
+and
+[ADR 0014: Direct Market RentCast Acquisition](adr/0014-direct-market-rentcast-acquisition.md).
