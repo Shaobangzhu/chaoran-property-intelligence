@@ -18,8 +18,7 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0-24.7 are complete on
-`feat/add-new-city-stevensonranch` and are ready to merge. The controlled
+into `main`. Blocks 24.0-24.7 are complete and merged into `main`. The controlled
 provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
@@ -37,7 +36,15 @@ preservation, and ArcGIS 2D/3D cross-region fit through all 1048 passing tests,
 full typecheck, and production build. The operator completed the logged-in local
 criteria flow, explicitly saved Stevenson Ranch, accepted the stored-snapshot
 Listings behavior, and verified that the unchanged five-city CAL FIRE artifact
-loads with its blank-area disclosure. Block 21.8
+loads with its blank-area disclosure. Blocks 25.0 and 25.1 are complete on
+`feature/stevenson-ranch-wildfire-coverage`. The separately authorized audit
+selected the U.S. Census ACS 2025 Stevenson Ranch CDP, GEOID `0674130`, as a
+statistical `market-context` boundary; verified Los Angeles County
+unincorporated jurisdiction and Ordinance `2025-0027` LRA adoption evidence;
+reconciled five LRA and seven SRA source intersections; and selected an exact
+hard clip that projects the combined artifact at 1,158,246 raw and 289,420 gzip
+bytes. Audit candidates remain ignored and no runtime artifact changed.
+Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1342,3 +1349,132 @@ See the
 [Block 24 Stevenson Ranch RentCast Coverage Knowledge Base](knowledge-base/block-24-stevenson-ranch-rentcast-coverage.md)
 and
 [ADR 0012: Conditional RentCast Search Areas](adr/0012-conditional-rentcast-search-areas.md).
+
+### Block 25: Stevenson Ranch Wildfire Coverage
+
+Extend the reviewed CAL FIRE / Office of the State Fire Marshal Fire Hazard
+Severity Zone artifact to the Stevenson Ranch product market without treating
+ZIP `91381` as a city, legal jurisdiction, or hazard boundary. Stevenson Ranch
+is a typed `market-context` coverage target; the existing five cities remain
+`incorporated-jurisdiction` targets.
+
+The runtime continues to use a deterministic, versioned, same-origin GeoJSON
+artifact. React and ArcGIS do not call a live CAL FIRE, Los Angeles County,
+Census, or third-party hazard service. The application preserves official
+`Moderate`, `High`, and `Very High` classifications, LRA/SRA responsibility,
+existing transparent styling, listing-marker ordering, 2D/3D parity, and all
+hazard-not-risk and blank-area disclosures.
+
+The overlay remains independent from listing count. When the map is viewing the
+supported Stevenson Ranch context, enabling the overlay must display reviewed
+hazard geometry even when no stored listing matches current criteria. Search
+Criteria and RentCast city data do not select or classify hazard features.
+
+Planned sub-block mapping:
+
+1. `25.0` Freeze product, authority, geography, typed coverage-target, manifest,
+   artifact, security, cost, compatibility, rollout, rollback, and acceptance
+   boundaries. **Complete in documentation only:** ADR 0013 and the Block 25
+   knowledge base are accepted. No source download, external query, artifact
+   build, runtime source, secret, database, provider, cloud, or deployment
+   changed.
+2. `25.1` Recheck current official CAL FIRE LRA/SRA sources and Los Angeles
+   County adoption evidence; select and checksum a defensible Stevenson Ranch
+   market-context boundary; audit LRA/SRA intersections, severities, geometry,
+   counts, bounds, area, size, parse cost, and clipping semantics. Any real
+   download or service query requires a fresh explanation and explicit
+   authorization. Do not publish a runtime artifact. **Complete:** the official
+   ACS 2025 Stevenson Ranch CDP (`0674130`) is the selected statistical
+   boundary with SHA-256
+   `2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+   Official and pinned-local checks agree on five LRA intersections, including
+   one excluded `NonWildland`, and seven SRA intersections. Los Angeles County
+   Ordinance `2025-0027` supports `locally-adopted` LRA status. Exact CDP hard
+   clipping adds 11 supported features and projects the combined artifact at
+   1,158,246 raw / 289,420 gzip bytes; whole intersecting polygons were rejected
+   as geographically overbroad. No runtime artifact was published.
+3. `25.2` Add red tests and implement typed coverage-target and manifest schema
+   version 2 contracts. Generalize the fixed five-city config and parser while
+   retaining strict kinds, statuses, provenance, URL, filename, checksum,
+   duplicate, severity, and responsibility-area validation. **Complete:** the
+   build config now uses typed `coverageTargets`; the manifest producer writes
+   schema version 2 only; the browser parser reads the currently published
+   schema version 1 and strict version 2 during migration; the five existing
+   designation statuses are preserved; and invalid kinds, statuses, duplicate
+   IDs/labels, missing source/evidence references, insecure evidence URLs,
+   unsafe artifact filenames, integrity counts, severities, and responsibility
+   areas fail closed. The current runtime artifact and manifest remain
+   unchanged. The build rejects non-city targets with an explicit Block 25.3
+   boundary-pipeline error until the reviewed Stevenson Ranch snapshot lands.
+4. `25.3` Add the reviewed checksum-pinned boundary snapshot and generalize the
+   deterministic GDAL pipeline to explicit target boundary sources and
+   selectors. Preserve geometry repair, area reconciliation, severity
+   allowlisting, `NonWildland` exclusion, transfer budgets, and fail-closed
+   behavior. **Complete:** the ACS 2025 Stevenson Ranch CDP is tracked at its
+   audited checksum; all six targets use typed selectors that must match one
+   tracked boundary; per-target GDAL QA is recorded; offline staging and a
+   Block 25.4 publication lock are enforced. Two offline builds produced the
+   same 96-feature, 1,158,246-byte artifact with SHA-256
+   `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+   The current public GeoJSON and manifest remain byte-for-byte unchanged.
+5. `25.4` Generate and review the successor versioned artifact and manifest.
+   Reconcile per-target and combined counts, severities, bounds, geometry,
+   areas, checksums, attribution, raw/gzip size, and deterministic rebuilds
+   before changing runtime references. **Complete:** a fresh offline stage and
+   offline publication produced byte-identical successor files. The public
+   schema version 2 manifest describes all six targets; the 96-feature artifact
+   is 1,158,246 raw / 292,581 gzip bytes with SHA-256
+   `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+   Stevenson Ranch reconciles to 11 valid features and the audited 1 Moderate /
+   7 High / 3 Very High split. The previous artifact is retained and the React
+   runtime URL remains unchanged until Block 25.5. Wildfire tests pass 24/24,
+   all 114 repository test files and 1,071 tests pass, typecheck passes, and the
+   production application and infrastructure build passes.
+6. `25.5` Integrate the strict schema and artifact into React and both ArcGIS
+   modes. Preserve visual tokens, layer order, lazy loading, Abort, retry,
+   rollback, teardown, terrain semantics, and compact/mobile provenance. Prove
+   zero listings do not suppress Stevenson Ranch hazard polygons. **Complete:**
+   the shared runtime loader now requests the six-target successor; 2D and 3D
+   retain one artifact and lifecycle contract; the legend distinguishes the
+   Stevenson Ranch market context, Census CDP coverage edge, and ZIP `91381`
+   product selector; and a zero-listing React test proves the toggle remains
+   independent from listing results. Focused tests pass 45/45, wildfire tests
+   pass 24/24, all 114 repository files and 1,072 tests pass, typecheck passes,
+   and the production application and infrastructure build passes. Browser
+   visual, Console, Network, WebGL, and teardown acceptance was deferred to
+   Block 25.6.
+7. `25.6` Run focused and repository-wide tests, typecheck, builds, CSP and
+   payload review, then complete desktop/mobile 2D/3D visual acceptance for
+   Stevenson Ranch and all five existing cities. Inspect Console, Network,
+   nonblank canvas/WebGL output, memory, interaction, and teardown. **Complete:**
+   all 114 repository test files and 1,072 tests pass, repository-wide
+   typecheck and production/AWS builds pass, and the existing ArcGIS chunk-size
+   warning is unchanged. Desktop and 390 x 844 mobile acceptance confirms
+   nonblank 2D/3D output, transparent authoritative polygons, listing-marker
+   ordering, six-target provenance, Stevenson Ranch visibility with no matching
+   listing, zero interaction-window Console errors/warnings, no horizontal
+   mobile overflow, and full map/scene/canvas teardown. A stale local Vite
+   optimized-dependency cache caused the reported map outage; forced dependency
+   reoptimization restored the local ArcGIS modules without a source, artifact,
+   CSP, API-key, backend, or provider change.
+8. `25.7` Complete the final diff, security, provenance, rollback, and as-built
+   documentation gate. Leave commit, push, PR, and merge under repository-owner
+   control. **Complete:** the 25-path branch diff is limited to the wildfire
+   pipeline/assets, React integration, tests, docs, and explicit offline scripts;
+   no environment, CI/CD, AWS, backend, provider, database, schedule, credential,
+   or CSP boundary changed. A digest-pinned, network-disabled GDAL rebuild
+   reproduced the 96-feature artifact and schema version 2 manifest byte-for-byte
+   while preserving the prior five-city rollback asset. Focused tests pass
+   24/24; the final repository gate passes 114/114 test files and 1,072/1,072
+   tests, repository-wide typecheck, the production web build, and the AWS build.
+   Commit, push, PR, merge, deployment, and rollback remain under owner control.
+
+Every executable sub-block received a fresh explanation and explicit
+confirmation. Block 25 does not create a new hazard model, call RentCast,
+connect to PostgreSQL, send Telegram, mutate AWS, add a browser credential,
+change a schedule, or deploy.
+
+See the
+[Block 25 Stevenson Ranch Wildfire Coverage Knowledge Base](knowledge-base/block-25-stevenson-ranch-wildfire-coverage.md)
+and
+[ADR 0013: Typed Wildfire Coverage Targets](adr/0013-typed-wildfire-coverage-targets.md).

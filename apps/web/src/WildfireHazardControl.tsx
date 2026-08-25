@@ -112,8 +112,18 @@ function WildfireHazardLegend({
         </span>
       </div>
       <p className="wildfire-hazard-jurisdictions">
-        {formatJurisdictionStatus(metadata)}
+        {formatCoverageStatus(metadata)}
       </p>
+      {metadata.coverageTargets
+        .filter(({ kind }) => kind === "market-context")
+        .map((target) => (
+          <p className="wildfire-hazard-disclosure" key={target.id}>
+            {target.coverageDisclosure}
+            {target.productSelector === undefined
+              ? null
+              : ` Product market selector: ZIP ${target.productSelector.value}.`}
+          </p>
+        ))}
       <p className="wildfire-hazard-disclosure">
         Blank areas may be outside mapped hazard zones.
       </p>
@@ -154,7 +164,7 @@ function formatSnapshotDate(value: string): string {
   }).format(new Date(value));
 }
 
-function formatJurisdictionStatus(metadata: WildfireHazardMetadata): string {
+function formatCoverageStatus(metadata: WildfireHazardMetadata): string {
   const adopted = metadata.jurisdictions
     .filter(({ status }) => status === "locally-adopted")
     .map(({ name }) => name);
@@ -167,6 +177,16 @@ function formatJurisdictionStatus(metadata: WildfireHazardMetadata): string {
   }
   if (recommended.length > 0) {
     sentences.push(`${formatList(recommended)} recommended.`);
+  }
+  for (const target of metadata.coverageTargets) {
+    if (target.kind !== "market-context") {
+      continue;
+    }
+    const status =
+      target.lraDesignationStatus === "locally-adopted"
+        ? "locally adopted"
+        : "recommended";
+    sentences.push(`${target.label} market context ${status}.`);
   }
   return sentences.join(" ");
 }

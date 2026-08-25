@@ -11,15 +11,21 @@ data or start Docker.
 
 ```bash
 pnpm wildfire:data:test
+pnpm wildfire:data:stage
 pnpm wildfire:data:build
 ```
 
-The production build requires:
+`wildfire:data:stage` is the review path. It is offline-only and writes
+candidate files under `.cache/wildfire-hazard/staged`. It fails when a
+checksum-pinned CAL FIRE archive is not already cached. `wildfire:data:build`
+is the explicit publication path; it is also forced offline and must be
+enabled by a reviewed block in `config.json`.
+
+Both build modes require:
 
 - Node.js `24.19.0`
 - a running Docker service
-- network access only when a checksum-pinned OSFM archive is absent from the
-  local cache
+- the checksum-pinned OSFM archives in the local cache for offline staging
 
 GDAL runs in the pinned multi-platform image recorded in `config.json`. The
 container starts with `--network=none` and can access only
@@ -28,8 +34,9 @@ container starts with `--network=none` and can access only
 ## Inputs
 
 `config.json` is the reviewed source allowlist. It records canonical and
-download URLs, versions, byte limits, SHA-256 checksums, licenses, attribution,
-target jurisdictions, and local-adoption evidence.
+download URLs when applicable, versions, byte limits, SHA-256 checksums,
+licenses, attribution, typed coverage targets, selectors, and local-adoption
+evidence.
 
 The LRA and SRA archives are downloaded into:
 
@@ -51,50 +58,79 @@ The config records both the tracked subset checksum and the complete upstream
 snapshot checksum. The snapshot is CC BY data attributed to CAL FIRE FRAP and
 the California Board of Equalization.
 
+The separately reviewed Stevenson Ranch delivery boundary is the official
+U.S. Census Bureau ACS 2025 Census Designated Place, GEOID `0674130`:
+
+```text
+sources/stevenson-ranch-cdp-acs25.geojson
+```
+
+Its tracked SHA-256 is
+`2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+It is a statistical `market-context` boundary, not a city, ZIP boundary,
+parcel determination, or CAL FIRE classification boundary. ZIP `91381`
+remains a separate product selector.
+
 ## Pipeline
 
 The build performs these bounded stages:
 
 1. Verify every source checksum and byte limit.
-2. Confirm exactly one boundary for each target jurisdiction.
-3. Use GDAL to clip LRA and SRA polygons to each incorporated-city boundary.
+2. Resolve each typed `{ field, equals }` selector against its explicit tracked
+   boundary source and require exactly one matching feature.
+3. Use GDAL to clip LRA and SRA polygons to each reviewed coverage boundary.
 4. Extract only polygonal components created by clipping.
 5. Apply GDAL `ST_MakeValid` explicitly and record repair counts and area
    drift; do not skip invalid features.
 6. Normalize only `Moderate`, `High`, and `Very High`; exclude `NonWildland`.
 7. Reproject to EPSG:4326, round to seven decimal places, and preserve holes.
 8. Sort features deterministically and emit the minimal browser properties.
-9. Reconcile per-severity feature counts, validity, and EPSG:3310 area before
-   and after normalization.
+9. Reconcile per-target and combined feature counts, validity, severity, and
+   EPSG:3310 area before and after normalization.
 10. Enforce the 10 MiB raw and 2 MiB gzip artifact budgets.
 
-Any unknown severity, source mismatch, invalid output geometry, feature-count
-change, area drift over `0.001`, or size-budget failure stops publication.
+Any unsafe selector, zero or multiple boundary match, incomplete provenance,
+unknown severity, source mismatch, invalid output geometry, feature-count
+change, area drift over `0.001`, or size-budget failure stops the build.
 
 ## Outputs
 
-Successful builds atomically replace only:
+Staging atomically writes only ignored review candidates:
+
+```text
+.cache/wildfire-hazard/staged/fhsz-supported-markets-2025.1-r2.geojson
+.cache/wildfire-hazard/staged/manifest.json
+```
+
+Block 25.4 published the reviewed successor while retaining the previous
+five-city artifact for the Block 25.5 runtime-reference transition:
 
 ```text
 apps/web/public/data/wildfire-hazard/fhsz-five-cities-2025.1.geojson
+apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson
 apps/web/public/data/wildfire-hazard/manifest.json
 ```
 
+The public schema version 2 manifest describes the successor artifact and all
+six typed coverage targets. Block 25.5 moved the shared React 2D/3D artifact URL
+to the successor. The retained five-city file is a bounded rollback asset until
+the final Block 25 release gate; browser acceptance remains Block 25.6.
+
 The manifest contains source and artifact checksums, versions, attribution,
-designation evidence, jurisdiction status, category counts, bounds, size
-measurements, repair metrics, and disclosures. Do not edit either output by
-hand.
+designation evidence, coverage-target status, per-target and combined category
+counts, bounds, size measurements, repair metrics, and disclosures. Do not edit
+generated output by hand.
 
 ## Source Refresh
 
 A refresh is a reviewed maintainer operation:
 
-1. Recheck the OSFM source page and all five local-adoption records.
+1. Recheck the OSFM source page and all designation records.
 2. Download the new complete inputs outside ordinary CI.
 3. Review metadata, fields, CRS, license, and target-city boundaries.
-4. Generate and inspect a new five-city boundary snapshot when needed.
+4. Generate and inspect reviewed boundary snapshots when needed.
 5. Update `config.json` versions and checksums intentionally.
-6. Run fixture tests and two identical production builds.
+6. Run fixture tests and two identical offline staging builds.
 7. Compare manifest counts, bounds, areas, sizes, and checksums in review.
 8. Complete browser visual and performance verification before deployment.
 

@@ -194,6 +194,177 @@ Before publishing a derived artifact, preserve required official attribution
 and recheck the current source terms and disclaimers. This audit makes no
 assumption that an open viewer implies an unrestricted redistribution license.
 
+## Block 25.1 Stevenson Ranch Extension Audit
+
+Block 25.1 completed on 2026-08-24 under separate authorization. It made
+read-only requests to official CAL FIRE / OSFM, Los Angeles County, and U.S.
+Census services, then used the existing digest-pinned GDAL image with container
+networking disabled. It did not read application secrets, call a provider or
+production service, publish a runtime artifact, or retain listing addresses.
+Downloaded candidates and audit responses remain ignored under
+`.cache/wildfire-hazard`.
+
+### Boundary selection
+
+No precise, directly downloadable Los Angeles County polygon named Stevenson
+Ranch was found. County planning and GIS records identify Stevenson Ranch as
+part of the unincorporated Santa Clarita Valley, but the jurisdiction layer is
+too broad to serve as the product coverage boundary.
+
+The selected candidate is the official U.S. Census Bureau TIGERweb ACS 2025
+`Stevenson Ranch CDP`, GEOID `0674130`, from the Census Designated Places layer.
+It is a statistical `market-context` boundary, not a city, postal boundary,
+parcel determination, fire district, or CAL FIRE classification boundary.
+
+| Boundary measurement | Result |
+| --- | --- |
+| Feature count | 1 valid Polygon |
+| Census `AREALAND` / `AREAWATER` | 16,533,804 / 2,399 square meters |
+| GDAL EPSG:3310 area | 16,536,210.674 square meters |
+| Point on surface | `POINT(-118.594058 34.392544)` |
+| Download size | 24,175 bytes |
+| SHA-256 | `2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf` |
+
+Official boundary source:
+
+- [U.S. Census TIGERweb ACS 2025 Census Designated Places layer](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12)
+
+### Jurisdiction and designation evidence
+
+The CDP point-on-surface intersects exactly one feature in each official
+jurisdiction check:
+
+- CAL FIRE: county `Los Angeles`, jurisdiction `Los Angeles County`, type
+  `Unincorporated County`, status `Qualifying`, unit `LAC`
+- Los Angeles County GIS: name `SANTA CLARITA VALLEY`, jurisdiction
+  `UNINCORPORATED AREA`
+
+Los Angeles County Ordinance `2025-0027` was adopted on 2025-07-22 and became
+operative on 2025-08-21 for LRA FHSZ designations in the Consolidated Fire
+Protection District. It is the evidence for assigning `locally-adopted` to LRA
+features in this market context. The CAL FIRE jurisdiction layer's null
+`STATUS` field is not used as adoption evidence. SRA features retain source
+status `effective`.
+
+Official evidence:
+
+- [Los Angeles County Board of Supervisors July 22, 2025 proceedings](https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf)
+- [Los Angeles County Santa Clarita Valley Area Plan](https://planning.lacounty.gov/wp-content/uploads/2022/10/Santa-Clarita-Valley-Area-Plan.pdf)
+- [CAL FIRE LRA jurisdiction layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZLRA_FULLJurisPolys_PubContactTablev4_JOIN_VIEW/FeatureServer/0)
+- [Los Angeles County jurisdiction layer](https://services1.arcgis.com/vdxp8SwMGji0hqly/ArcGIS/rest/services/jurisdiction_la_WFL1/FeatureServer/0)
+
+### Block 25.3 deterministic staging reconciliation
+
+The audited ACS 2025 CDP response is now tracked byte-for-byte at
+`tools/wildfire-hazard/sources/stevenson-ranch-cdp-acs25.geojson`. Its checksum,
+single-feature count, GEOID, and geometry type are validated before clipping.
+The generalized builder resolves Stevenson Ranch with `GEOID = 0674130`; the
+five existing incorporated jurisdictions retain their explicit `CITY`
+selectors. Raw SQL selectors are not accepted.
+
+Two offline builds using the existing checksum-pinned CAL FIRE archives and
+GDAL `3.13.2` produced identical candidate bytes. Stevenson Ranch reconciled to
+11 valid supported geometries, 15,476,630.378 square meters, and severity counts
+of 1 Moderate, 7 High, and 3 Very High. The combined candidate contains 96
+features and measures 1,158,246 raw / 292,581 gzip bytes with SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+The prior gzip figure was an audit-only projection; the measured result remains
+well within the unchanged 2 MiB gate. Publication is locked until Block 25.4,
+and no browser asset changed in Block 25.3.
+
+### Block 25.4 deterministic publication reconciliation
+
+A fresh offline stage reproduced the reviewed candidate, after which the
+offline-only publication path wrote the successor artifact and schema version
+2 manifest. The staged and public files compare byte-for-byte. The public
+artifact has SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`;
+the public manifest has SHA-256
+`e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`.
+
+Final combined measurements are 96 features, 44,204 coordinates, 1,158,246
+raw bytes, 292,581 gzip bytes, and bounds
+`[-118.622305, 33.8000861, -117.3673113, 34.417989]`. The artifact contains
+29 Moderate, 34 High, and 33 Very High features; 25 are SRA and 71 are LRA.
+Designation counts are 25 `effective`, 11 `recommended`, and 60
+`locally-adopted`. Stevenson Ranch retains 11 features, 15,476,630.378 square
+meters, zero invalid geometry, and the audited 1 / 7 / 3 severity split.
+
+The old five-city GeoJSON is retained temporarily because the React loader URL
+does not move until Block 25.5. No live GIS service, credential, provider,
+database, cloud resource, or deployment was introduced by publication.
+
+### Block 25.7 final release reconciliation
+
+Block 25.7 reran the stage-only pipeline with Docker networking disabled and
+the already-installed digest-pinned GDAL `3.13.2` image. It made no upstream,
+provider, database, cloud, or secret request. The rebuild again produced 96
+features, 1,158,246 raw bytes, 292,581 gzip bytes, and artifact SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+
+The staged artifact and manifest compared byte-for-byte with the public files.
+The manifest retained SHA-256
+`e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`,
+and the tracked Stevenson Ranch boundary retained SHA-256
+`2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+The prior five-city artifact remains available at SHA-256
+`d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`
+as the bounded rollback asset.
+
+Focused wildfire tests pass 24/24. The final repository gate passes all 114
+test files and 1,072 tests, repository-wide typecheck, the production web build,
+and the AWS infrastructure build. No source refresh, authority reinterpretation,
+runtime origin, credential, deployment, or rollback execution occurred.
+
+### Source and intersection reconciliation
+
+The current CAL FIRE service metadata still identifies LRA layer
+`FHSZLRA25_v1_All` and SRA layer `FHSZSRA_23_3`. The local archives used for
+the spatial audit match the existing configured sizes and SHA-256 digests.
+
+Exact polygon queries against the official feature services returned five LRA
+and seven SRA features. Local clipping from the checksum-pinned archives
+returned the same counts. The LRA set includes one `NonWildland` feature; the
+normalizer continues to exclude it and allow only the three official FHSZ
+classes.
+
+| Responsibility area | Moderate | High | Very High | `NonWildland` | Supported area (m2) | Invalid geometries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LRA | 1 | 1 | 2 | 1 | 7,969,148.811 | 0 |
+| SRA | 0 | 6 | 1 | 0 | 7,507,481.567 | 0 |
+| Combined | 1 | 7 | 3 | 1 | 15,476,630.378 | 0 |
+
+The excluded `NonWildland` area is 1,059,579.364 square meters. Supported
+geometry plus the excluded source polygon reconciles to the CDP area within one
+square meter. LRA/SRA assignment therefore comes from the authoritative source
+geometry and is not inferred from ZIP `91381`, provider city `Valencia`, or the
+product market label.
+
+### Clip and packaging decision
+
+The audit compared exact hard clipping with retaining every full official
+source polygon that intersects the CDP:
+
+| Measurement | Exact CDP hard clip | Whole intersecting polygons |
+| --- | ---: | ---: |
+| Supported features | 11 | 11 |
+| Coordinates | 8,692 | 65,583 |
+| Candidate raw / gzip bytes | 225,195 / 54,642 | 1,690,689 / 446,181 |
+| Combined raw / gzip bytes | 1,158,246 / 289,420 | 2,623,740 / 680,959 |
+| Node 24.19.0 parse mean, 100 runs | 2.426 ms | 5.942 ms |
+
+The whole-feature candidate extends west to longitude `-120.5036026` because a
+source polygon is much larger than the product market. Although both candidates
+fit the hard transfer budgets, retaining that geometry would misframe the map
+and broaden the delivery scope without product value. Block 25 selects an exact
+hard clip to the Census CDP and must disclose that the clip edge is a product
+coverage boundary rather than an official severity transition.
+
+The published combined hard-clipped artifact remains well below the 10 MiB raw
+and 2 MiB gzip limits. Block 25.3 reproduced the transformation from a tracked
+boundary snapshot, and Block 25.4 recorded the final deterministic checksums
+and quality reconciliation before the coordinated runtime-reference change.
+
 ## Limitations
 
 - This is a display-data audit, not parcel-level hazard certification.
@@ -202,3 +373,5 @@ assumption that an open viewer implies an unrestricted redistribution license.
 - Eastvale's local adoption remains unresolved by the official records found.
 - A future source refresh must repeat the Block 19.5 size, performance, and
   browser visual checks.
+- The selected Stevenson Ranch CDP is a statistical market-context boundary;
+  its product clip edge is not a legal or CAL FIRE hazard boundary.
