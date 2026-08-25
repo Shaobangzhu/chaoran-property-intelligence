@@ -331,6 +331,7 @@ describe("ArcGIS terrain listings scene driver", () => {
       metadata: {
         artifactVersion: "2025.1",
         jurisdictions: [],
+        coverageTargets: [],
         snapshotAt: "2026-08-22T00:00:00.000Z",
         sourceName: "CAL FIRE / OSFM",
         sourceUrl: "https://osfm.fire.ca.gov/",

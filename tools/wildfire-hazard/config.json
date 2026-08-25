@@ -63,36 +63,51 @@
       "attribution": "CAL FIRE FRAP / California Board of Equalization"
     }
   ],
-  "jurisdictions": [
+  "coverageTargets": [
     {
-      "name": "Chino",
-      "slug": "chino",
+      "id": "chino",
+      "label": "Chino",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "chino-valley-ordinance-2025-01"
+      "evidenceId": "chino-valley-ordinance-2025-01",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Chino Hills",
-      "slug": "chino-hills",
+      "id": "chino-hills",
+      "label": "Chino Hills",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "chino-valley-ordinance-2025-01"
+      "evidenceId": "chino-valley-ordinance-2025-01",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Corona",
-      "slug": "corona",
+      "id": "corona",
+      "label": "Corona",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "corona-ordinance-3418"
+      "evidenceId": "corona-ordinance-3418",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Eastvale",
-      "slug": "eastvale",
+      "id": "eastvale",
+      "label": "Eastvale",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "recommended",
-      "evidenceId": "eastvale-proposal-review"
+      "evidenceId": "eastvale-proposal-review",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     },
     {
-      "name": "Jurupa Valley",
-      "slug": "jurupa-valley",
+      "id": "jurupa-valley",
+      "label": "Jurupa Valley",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "city-boundaries",
       "lraDesignationStatus": "locally-adopted",
-      "evidenceId": "jurupa-valley-ordinance-2025-13"
+      "evidenceId": "jurupa-valley-ordinance-2025-13",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     }
   ],
   "designationEvidence": [

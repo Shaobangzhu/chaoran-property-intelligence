@@ -127,32 +127,14 @@ describe("buildWildfireHazardArtifact", () => {
 });
 
 describe("createWildfireHazardManifest", () => {
-  it("records deterministic artifact, source, tool, and license provenance", () => {
-    const artifact = buildWildfireHazardArtifact([source]);
-    const manifest = createWildfireHazardManifest({
-      artifact,
-      artifactFileName: "fhsz-five-cities-2025.1.geojson",
-      artifactVersion: "2025.1",
-      snapshotAt: "2026-08-22T00:13:29Z",
-      gdalImage:
-        "ghcr.io/osgeo/gdal:ubuntu-small-3.13.2@sha256:49b1b7a9779340ad66e7f87ea78ea632e923867df24e68c6d17f0079220e16b3",
-      sources: [
-        {
-          id: "lra",
-          title: "2025 combined LRA Fire Hazard Severity Zones",
-          canonicalUrl: "https://example.test/lra.zip",
-          sha256: "a".repeat(64),
-          version: "FHSZLRA25_1",
-          license: "CC BY",
-          attribution: "CAL FIRE / Office of the State Fire Marshal",
-        },
-      ],
-    });
+  it("records schema v2 artifact, source, target, tool, and license provenance", () => {
+    const { artifact, ...input } = createManifestInput();
+    const manifest = createWildfireHazardManifest({ artifact, ...input });
 
     expect(manifest).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       artifact: {
-        fileName: "fhsz-five-cities-2025.1.geojson",
+        fileName: "fhsz-six-markets-2025.1.geojson",
         version: "2025.1",
         sha256: artifact.sha256,
         bytes: Buffer.byteLength(artifact.json),
@@ -162,15 +144,163 @@ describe("createWildfireHazardManifest", () => {
       tooling: {
         node: process.versions.node,
       },
-      sources: [
+      coverageTargets: [
         expect.objectContaining({
-          id: "lra",
-          license: "CC BY",
+          id: "chino",
+          label: "Chino",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "city-boundaries",
+          lraDesignationStatus: "locally-adopted",
+        }),
+        expect.objectContaining({
+          id: "stevenson-ranch-91381",
+          label: "Stevenson Ranch",
+          kind: "market-context",
+          boundarySourceId: "census-zcta-91381",
+          lraDesignationStatus: "recommended",
+          productSelector: { kind: "zip", value: "91381" },
         }),
       ],
     });
+    expect(manifest.sources).toContainEqual(
+      expect.objectContaining({ id: "lra", license: "CC BY" }),
+    );
+  });
+
+  it.each([
+    [
+      "an unknown target kind",
+      (input: Record<string, any>) => {
+        input.coverageTargets[0].kind = "district";
+      },
+      /Unsupported coverage target kind/,
+    ],
+    [
+      "an unknown designation status",
+      (input: Record<string, any>) => {
+        input.coverageTargets[0].lraDesignationStatus = "pending";
+      },
+      /Unsupported coverage target designation status/,
+    ],
+    [
+      "a duplicate target id",
+      (input: Record<string, any>) => {
+        input.coverageTargets[1].id = input.coverageTargets[0].id;
+      },
+      /Duplicate coverage target id/,
+    ],
+    [
+      "a missing boundary source reference",
+      (input: Record<string, any>) => {
+        input.coverageTargets[0].boundarySourceId = "missing-source";
+      },
+      /unknown boundary source/,
+    ],
+    [
+      "a missing evidence reference",
+      (input: Record<string, any>) => {
+        input.coverageTargets[0].evidenceId = "missing-evidence";
+      },
+      /unknown designation evidence/,
+    ],
+    [
+      "an insecure evidence URL",
+      (input: Record<string, any>) => {
+        input.designationEvidence[0].url = "http://example.test/evidence";
+      },
+      /HTTPS designation evidence URL/,
+    ],
+    [
+      "an unsafe artifact filename",
+      (input: Record<string, any>) => {
+        input.artifactFileName = "../hazard.geojson";
+      },
+      /safe GeoJSON artifact filename/,
+    ],
+    [
+      "artifact checksum disagreement",
+      (input: Record<string, any>) => {
+        input.artifact.sha256 = "0".repeat(64);
+      },
+      /SHA-256 does not match its bytes/,
+    ],
+  ])("rejects %s", (_label, mutate, expectedError) => {
+    const manifestInput = createManifestInput();
+    mutate(manifestInput);
+    const { artifact, ...input } = manifestInput;
+
+    expect(() =>
+      createWildfireHazardManifest({ artifact, ...input }),
+    ).toThrow(expectedError);
   });
 });
+
+function createManifestInput(): Record<string, any> {
+  return {
+    artifact: buildWildfireHazardArtifact([source]),
+    artifactFileName: "fhsz-six-markets-2025.1.geojson",
+    artifactVersion: "2025.1",
+    snapshotAt: "2026-08-22T00:13:29Z",
+    gdalImage:
+      "ghcr.io/osgeo/gdal:ubuntu-small-3.13.2@sha256:49b1b7a9779340ad66e7f87ea78ea632e923867df24e68c6d17f0079220e16b3",
+    sources: [
+      createManifestSource("lra", "FHSZLRA25_1", "a"),
+      createManifestSource("sra", "FHSZSRA_23_3", "b"),
+      createManifestSource("city-boundaries", "24_1", "c"),
+      createManifestSource("census-zcta-91381", "2025", "d"),
+    ],
+    designationEvidence: [
+      {
+        id: "chino-valley-ordinance-2025-01",
+        title: "Chino Valley ordinance",
+        url: "https://example.test/chino-evidence",
+        finding: "The locally adopted classification applies.",
+      },
+      {
+        id: "stevenson-ranch-cal-fire-recommended",
+        title: "CAL FIRE recommended map",
+        url: "https://example.test/stevenson-ranch-evidence",
+        finding: "The recommended classification applies to this market context.",
+      },
+    ],
+    coverageTargets: [
+      {
+        id: "chino",
+        label: "Chino",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "chino-valley-ordinance-2025-01",
+        coverageDisclosure: "Official incorporated-city boundary.",
+      },
+      {
+        id: "stevenson-ranch-91381",
+        label: "Stevenson Ranch",
+        kind: "market-context",
+        boundarySourceId: "census-zcta-91381",
+        lraDesignationStatus: "recommended",
+        evidenceId: "stevenson-ranch-cal-fire-recommended",
+        coverageDisclosure: "ZIP 91381 is a market context, not a city boundary.",
+        productSelector: { kind: "zip", value: "91381" },
+      },
+    ],
+  };
+}
+
+function createManifestSource(id: string, version: string, hashCharacter: string) {
+  return {
+    id,
+    title: `${id} source`,
+    canonicalUrl:
+      id === "lra" || id === "sra"
+        ? "https://example.test/cal-fire"
+        : `https://example.test/${id}`,
+    sha256: hashCharacter.repeat(64),
+    version,
+    license: "CC BY",
+    attribution: "CAL FIRE / Office of the State Fire Marshal",
+  };
+}
 
 function createFeatureCollection(overrides: Record<string, unknown>) {
   return {

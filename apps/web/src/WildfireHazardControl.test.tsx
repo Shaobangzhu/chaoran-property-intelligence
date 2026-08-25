@@ -178,5 +178,6 @@ function createMetadata(): WildfireHazardMetadata {
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "locally-adopted" },
     ],
+    coverageTargets: [],
   };
 }

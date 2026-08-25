@@ -366,6 +366,7 @@ function createMetadata(): WildfireHazardMetadata {
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "recommended" },
     ],
+    coverageTargets: [],
     snapshotAt: "2026-08-22T00:00:00.000Z",
     sourceName: "CAL FIRE / OSFM",
     sourceUrl: "https://osfm.fire.ca.gov/",

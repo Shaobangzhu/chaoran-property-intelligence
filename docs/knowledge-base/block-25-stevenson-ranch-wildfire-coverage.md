@@ -2,12 +2,13 @@
 
 ## Status
 
-Blocks 25.0 and 25.1 are complete on
+Blocks 25.0 through 25.2 are complete on
 `feature/stevenson-ranch-wildfire-coverage`. Block 25.0 froze the product,
 authority, geography, artifact, compatibility, security, cost, rollback, test,
 and acceptance boundaries. Block 25.1 completed the separately authorized
 official-source, boundary, jurisdiction, spatial, geometry, size, and parse
-audit described below.
+audit described below. Block 25.2 implemented the typed coverage-target and
+manifest schema version 2 contracts without publishing new runtime data.
 
 Block 25.1 used only public official sources and the existing checksum-pinned
 CAL FIRE archives. Audit candidates and responses remain under the ignored
@@ -222,10 +223,11 @@ The Block 19 pipeline currently:
   repair, area reconciliation, counts, bounds, and checksums
 - fails above 10 MiB raw or 2 MiB gzip
 
-The browser contract is also intentionally five-city-specific: it hardcodes the
-artifact URL and rejects a manifest that does not contain exactly the five
-reviewed jurisdictions. Block 25 must generalize these assumptions without
-weakening strict validation.
+Before Block 25.2, the browser contract was intentionally five-city-specific:
+it hardcoded the artifact URL and rejected a manifest that did not contain
+exactly the five reviewed jurisdictions. Block 25.2 replaced that future-facing
+assumption with typed, variable `coverageTargets` while retaining a temporary
+schema version 1 compatibility reader for the artifact that is still deployed.
 
 ## Architecture Decision
 
@@ -393,10 +395,27 @@ without publishing a runtime artifact.
 
 ### Block 25.2: Coverage-target and manifest contracts
 
-- add failing tests for typed coverage targets and schema version 2
-- generalize config and manifest generation away from exactly five cities
-- retain strict source, status, URL, filename, checksum, and duplicate checks
-- prove the existing targets preserve current designation metadata
+**Complete:** red tests established the schema version 2 producer and browser
+contracts before implementation. The tracked build config now models the five
+existing cities as typed `incorporated-jurisdiction` coverage targets with
+explicit boundary source, designation evidence, and disclosure references. The
+manifest producer emits only schema version 2, while the browser parser accepts
+the currently published version 1 manifest and strict version 2 during the
+migration window.
+
+Version 2 rejects unknown target kinds or statuses, duplicate IDs or labels,
+missing boundary-source or evidence references, insecure source/evidence URLs,
+unsafe artifact filenames, malformed checksums, unknown severity or
+responsibility-area counts, and count/integrity disagreement. Existing Chino,
+Chino Hills, Corona, Eastvale, and Jurupa Valley designation statuses remain
+unchanged. The current published GeoJSON and version 1 manifest were not
+modified. Until Block 25.3 adds the reviewed Stevenson Ranch boundary snapshot
+and generalized clipping selectors, the build fails closed with an explicit
+boundary-pipeline error for a non-city target.
+
+Verification completed on 2026-08-24: all 113 test files and 1,064 tests pass,
+repository-wide typecheck passes, and the production web build passes. The
+existing ArcGIS bundle-size warning remains unchanged.
 
 ### Block 25.3: Deterministic boundary and build pipeline
 

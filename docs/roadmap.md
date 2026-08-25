@@ -1396,7 +1396,16 @@ Planned sub-block mapping:
 3. `25.2` Add red tests and implement typed coverage-target and manifest schema
    version 2 contracts. Generalize the fixed five-city config and parser while
    retaining strict kinds, statuses, provenance, URL, filename, checksum,
-   duplicate, severity, and responsibility-area validation.
+   duplicate, severity, and responsibility-area validation. **Complete:** the
+   build config now uses typed `coverageTargets`; the manifest producer writes
+   schema version 2 only; the browser parser reads the currently published
+   schema version 1 and strict version 2 during migration; the five existing
+   designation statuses are preserved; and invalid kinds, statuses, duplicate
+   IDs/labels, missing source/evidence references, insecure evidence URLs,
+   unsafe artifact filenames, integrity counts, severities, and responsibility
+   areas fail closed. The current runtime artifact and manifest remain
+   unchanged. The build rejects non-city targets with an explicit Block 25.3
+   boundary-pipeline error until the reviewed Stevenson Ranch snapshot lands.
 4. `25.3` Add the reviewed checksum-pinned boundary snapshot and generalize the
    deterministic GDAL pipeline to explicit target boundary sources and
    selectors. Preserve geometry repair, area reconciliation, severity

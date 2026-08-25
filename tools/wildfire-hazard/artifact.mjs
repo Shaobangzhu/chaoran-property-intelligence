@@ -19,6 +19,16 @@ const designationStatuses = new Set([
   "recommended",
   "locally-adopted",
 ]);
+const targetDesignationStatuses = new Set([
+  "recommended",
+  "locally-adopted",
+]);
+const coverageTargetKinds = new Set([
+  "incorporated-jurisdiction",
+  "market-context",
+]);
+const sha256Pattern = /^[a-f0-9]{64}$/;
+const identifierPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function buildWildfireHazardArtifact(sources) {
   if (!Array.isArray(sources) || sources.length === 0) {
@@ -98,19 +108,24 @@ export function createWildfireHazardManifest({
   nodeVersion = process.versions.node,
   sources,
   designationEvidence = [],
-  targetJurisdictions = [],
+  coverageTargets = [],
   quality,
 }) {
-  if (!artifactFileName || !artifactVersion || !snapshotAt || !gdalImage) {
-    throw new Error("Complete artifact and tooling metadata is required.");
-  }
+  validateManifestArtifact(
+    artifact,
+    artifactFileName,
+    artifactVersion,
+    snapshotAt,
+  );
+  requireNonEmptyString(gdalImage, "GDAL image");
+  requireNonEmptyString(nodeVersion, "Node version");
 
-  if (!Array.isArray(sources) || sources.length === 0) {
-    throw new Error("At least one provenance source is required.");
-  }
+  const sourceIds = validateManifestSources(sources);
+  const evidenceIds = validateDesignationEvidence(designationEvidence);
+  validateCoverageTargets(coverageTargets, sourceIds, evidenceIds);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     artifact: {
       fileName: artifactFileName,
       mediaType: "application/geo+json",
@@ -136,8 +151,11 @@ export function createWildfireHazardManifest({
     designationEvidence: designationEvidence.map((evidence) => ({
       ...evidence,
     })),
-    targetJurisdictions: targetJurisdictions.map((jurisdiction) => ({
-      ...jurisdiction,
+    coverageTargets: coverageTargets.map((target) => ({
+      ...target,
+      ...(target.productSelector === undefined
+        ? {}
+        : { productSelector: { ...target.productSelector } }),
     })),
     quality,
     exclusions: {
@@ -151,6 +169,255 @@ export function createWildfireHazardManifest({
       "This display artifact is not a parcel-level hazard determination.",
     ],
   };
+}
+
+function validateManifestArtifact(
+  artifact,
+  artifactFileName,
+  artifactVersion,
+  snapshotAt,
+) {
+  if (
+    typeof artifactFileName !== "string" ||
+    artifactFileName.trim() !== artifactFileName ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.geojson$/.test(artifactFileName)
+  ) {
+    throw new Error("A safe GeoJSON artifact filename is required.");
+  }
+  requireNonEmptyString(artifactVersion, "artifact version");
+  const snapshot = requireNonEmptyString(snapshotAt, "snapshot timestamp");
+  if (Number.isNaN(Date.parse(snapshot))) {
+    throw new Error("The wildfire hazard snapshot timestamp is invalid.");
+  }
+  if (
+    typeof artifact?.json !== "string" ||
+    !sha256Pattern.test(artifact?.sha256)
+  ) {
+    throw new Error("A valid wildfire hazard artifact is required.");
+  }
+  if (sha256Text(artifact.json) !== artifact.sha256) {
+    throw new Error("Wildfire hazard artifact SHA-256 does not match its bytes.");
+  }
+
+  const statistics = artifact.statistics;
+  if (Buffer.byteLength(artifact.json) !== statistics?.rawBytes) {
+    throw new Error("Wildfire hazard artifact raw byte count is inconsistent.");
+  }
+  if (
+    gzipSync(artifact.json, { level: 9, mtime: 0 }).byteLength !==
+    statistics?.gzipBytes
+  ) {
+    throw new Error("Wildfire hazard artifact gzip byte count is inconsistent.");
+  }
+  requireNonNegativeInteger(statistics?.featureCount, "feature count");
+  requireNonNegativeInteger(statistics?.coordinateCount, "coordinate count");
+  requireNonNegativeInteger(statistics?.gzipBytes, "gzip byte count");
+  validateCountRecord(
+    statistics?.severityCounts,
+    severityOrder.keys(),
+    statistics.featureCount,
+    "severity",
+  );
+  validateCountRecord(
+    statistics?.responsibilityAreaCounts,
+    responsibilityAreas,
+    statistics.featureCount,
+    "responsibility area",
+  );
+  validateCountRecord(
+    statistics?.designationStatusCounts,
+    designationStatuses,
+    statistics.featureCount,
+    "designation status",
+  );
+}
+
+function validateManifestSources(sources) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    throw new Error("At least one provenance source is required.");
+  }
+
+  const sourceIds = new Set();
+  const canonicalUrls = new Map();
+  for (const source of sources) {
+    const id = requireIdentifier(source?.id, "provenance source id");
+    if (sourceIds.has(id)) {
+      throw new Error(`Duplicate provenance source id: ${id}.`);
+    }
+    sourceIds.add(id);
+    requireNonEmptyString(source.title, `source ${id} title`);
+    canonicalUrls.set(
+      id,
+      requireHttpsUrl(source.canonicalUrl, `source ${id} canonical URL`),
+    );
+    if (source.downloadUrl !== undefined) {
+      requireHttpsUrl(source.downloadUrl, `source ${id} download URL`);
+    }
+    if (!sha256Pattern.test(source.sha256)) {
+      throw new Error(`Source ${id} has an invalid SHA-256.`);
+    }
+    requireNonEmptyString(source.version, `source ${id} version`);
+    requireNonEmptyString(source.license, `source ${id} license`);
+    requireNonEmptyString(source.attribution, `source ${id} attribution`);
+  }
+
+  if (!sourceIds.has("lra") || !sourceIds.has("sra")) {
+    throw new Error("Both LRA and SRA provenance sources are required.");
+  }
+  if (canonicalUrls.get("lra") !== canonicalUrls.get("sra")) {
+    throw new Error("LRA and SRA must share one canonical source.");
+  }
+  return sourceIds;
+}
+
+function validateDesignationEvidence(designationEvidence) {
+  if (!Array.isArray(designationEvidence) || designationEvidence.length === 0) {
+    throw new Error("At least one designation evidence record is required.");
+  }
+
+  const evidenceIds = new Set();
+  for (const evidence of designationEvidence) {
+    const id = requireIdentifier(evidence?.id, "designation evidence id");
+    if (evidenceIds.has(id)) {
+      throw new Error(`Duplicate designation evidence id: ${id}.`);
+    }
+    evidenceIds.add(id);
+    requireNonEmptyString(evidence.title, `designation evidence ${id} title`);
+    requireHttpsUrl(
+      evidence.url,
+      `HTTPS designation evidence URL for ${id}`,
+    );
+    requireNonEmptyString(
+      evidence.finding,
+      `designation evidence ${id} finding`,
+    );
+  }
+  return evidenceIds;
+}
+
+function validateCoverageTargets(coverageTargets, sourceIds, evidenceIds) {
+  if (!Array.isArray(coverageTargets) || coverageTargets.length === 0) {
+    throw new Error("At least one wildfire hazard coverage target is required.");
+  }
+
+  const targetIds = new Set();
+  const targetLabels = new Set();
+  for (const target of coverageTargets) {
+    const id = requireIdentifier(target?.id, "coverage target id");
+    if (targetIds.has(id)) {
+      throw new Error(`Duplicate coverage target id: ${id}.`);
+    }
+    targetIds.add(id);
+
+    const label = requireNonEmptyString(target.label, `coverage target ${id} label`);
+    if (targetLabels.has(label)) {
+      throw new Error(`Duplicate coverage target label: ${label}.`);
+    }
+    targetLabels.add(label);
+
+    if (!coverageTargetKinds.has(target.kind)) {
+      throw new Error(`Unsupported coverage target kind: ${String(target.kind)}.`);
+    }
+    const boundarySourceId = requireIdentifier(
+      target.boundarySourceId,
+      `coverage target ${id} boundary source id`,
+    );
+    if (!sourceIds.has(boundarySourceId)) {
+      throw new Error(
+        `Coverage target ${id} references unknown boundary source ${boundarySourceId}.`,
+      );
+    }
+    if (!targetDesignationStatuses.has(target.lraDesignationStatus)) {
+      throw new Error(
+        "Unsupported coverage target designation status.",
+      );
+    }
+    const evidenceId = requireIdentifier(
+      target.evidenceId,
+      `coverage target ${id} evidence id`,
+    );
+    if (!evidenceIds.has(evidenceId)) {
+      throw new Error(
+        `Coverage target ${id} references unknown designation evidence ${evidenceId}.`,
+      );
+    }
+    requireNonEmptyString(
+      target.coverageDisclosure,
+      `coverage target ${id} disclosure`,
+    );
+    validateProductSelector(target);
+  }
+}
+
+function validateProductSelector(target) {
+  if (target.kind === "incorporated-jurisdiction") {
+    if (target.productSelector !== undefined) {
+      throw new Error(
+        "Incorporated-jurisdiction targets cannot define a product selector.",
+      );
+    }
+    return;
+  }
+
+  if (
+    target.productSelector?.kind !== "zip" ||
+    !/^\d{5}$/.test(target.productSelector?.value)
+  ) {
+    throw new Error("Market-context targets require a five-digit ZIP selector.");
+  }
+}
+
+function validateCountRecord(value, allowedKeys, featureCount, label) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`Wildfire hazard ${label} counts are required.`);
+  }
+  const allowed = new Set(allowedKeys);
+  const keys = Object.keys(value);
+  if (keys.some((key) => !allowed.has(key))) {
+    throw new Error(`Wildfire hazard ${label} counts contain an unknown key.`);
+  }
+  const total = [...allowed].reduce((sum, key) => {
+    requireNonNegativeInteger(value[key], `${label} count for ${key}`);
+    return sum + value[key];
+  }, 0);
+  if (total !== featureCount) {
+    throw new Error(`Wildfire hazard ${label} counts do not match feature count.`);
+  }
+}
+
+function requireIdentifier(value, label) {
+  const identifier = requireNonEmptyString(value, label);
+  if (!identifierPattern.test(identifier)) {
+    throw new Error(`Wildfire hazard ${label} is invalid.`);
+  }
+  return identifier;
+}
+
+function requireHttpsUrl(value, label) {
+  const url = requireNonEmptyString(value, label);
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`A ${label} is required.`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`A ${label} is required.`);
+  }
+  return parsed.toString().replace(/\/$/, "");
+}
+
+function requireNonEmptyString(value, label) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Wildfire hazard ${label} is required.`);
+  }
+  return value;
+}
+
+function requireNonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`Wildfire hazard ${label} must be a non-negative integer.`);
+  }
 }
 
 export function serializeManifest(manifest) {

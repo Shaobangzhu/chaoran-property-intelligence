@@ -2,10 +2,11 @@
 
 ## Status
 
-Accepted for Block 25 implementation. Block 25.0 records the architecture and
-Block 25.1 records the authorized boundary and source-audit decision. No runtime
-artifact, runtime code, environment, database, provider, or cloud resource
-changed in either sub-block.
+Accepted and implemented through Block 25.2. Block 25.0 records the architecture,
+Block 25.1 records the authorized boundary and source-audit decision, and Block
+25.2 implements the typed config, schema version 2 producer, and strict browser
+parser with temporary version 1 read compatibility. No runtime artifact,
+environment, database, provider, or cloud resource changed through Block 25.2.
 
 ## Context
 

@@ -52,7 +52,7 @@ async function main() {
     sourceFiles.set(source.id, await prepareSource(source));
   }
 
-  validateTargetJurisdictions(
+  validateCoverageTargetBoundaries(
     JSON.parse(
       await readFile(sourceFiles.get("city-boundaries").path, "utf8"),
     ),
@@ -70,18 +70,18 @@ async function main() {
     (source) => source.responsibilityArea !== undefined,
   );
 
-  for (const jurisdiction of config.jurisdictions) {
+  for (const target of config.coverageTargets) {
     for (const source of hazardSources) {
       const designationStatus =
         source.responsibilityArea === "sra"
           ? "effective"
-          : jurisdiction.lraDesignationStatus;
-      const outputFileName = `${source.id}-${jurisdiction.slug}.geojson`;
-      const clippedFileName = `${source.id}-${jurisdiction.slug}-clipped.geojson`;
+          : target.lraDesignationStatus;
+      const outputFileName = `${source.id}-${target.id}.geojson`;
+      const clippedFileName = `${source.id}-${target.id}-clipped.geojson`;
       const outputPath = join(intermediateDirectory, outputFileName);
 
       console.log(
-        `Clipping ${source.id.toUpperCase()} to ${jurisdiction.name}...`,
+        `Clipping ${source.id.toUpperCase()} to ${target.label}...`,
       );
       runGdal([
         "ogr2ogr",
@@ -99,7 +99,7 @@ async function main() {
         "-clipsrclayer",
         citySource.gdalLayer,
         "-clipsrcwhere",
-        `CITY = ${quoteSqlString(jurisdiction.name)}`,
+        `CITY = ${quoteSqlString(target.label)}`,
         "-t_srs",
         "EPSG:4326",
         "-dim",
@@ -127,7 +127,7 @@ async function main() {
             responsibilityArea: source.responsibilityArea,
             designationStatus,
             sourceVersion: source.version,
-            jurisdiction: jurisdiction.name,
+            jurisdiction: target.label,
           },
         });
       }
@@ -168,7 +168,7 @@ async function main() {
         responsibilityArea: source.responsibilityArea,
         designationStatus,
         sourceVersion: source.version,
-        jurisdiction: jurisdiction.name,
+        jurisdiction: target.label,
         featureCollection,
       });
 
@@ -180,7 +180,7 @@ async function main() {
             responsibilityArea: source.responsibilityArea,
             designationStatus,
             sourceVersion: source.version,
-            jurisdiction: jurisdiction.name,
+            jurisdiction: target.label,
           },
         });
       }
@@ -250,11 +250,7 @@ async function main() {
       };
     }),
     designationEvidence: config.designationEvidence,
-    targetJurisdictions: config.jurisdictions.map((jurisdiction) => ({
-      name: jurisdiction.name,
-      lraDesignationStatus: jurisdiction.lraDesignationStatus,
-      evidenceId: jurisdiction.evidenceId,
-    })),
+    coverageTargets: config.coverageTargets,
     quality,
   });
 
@@ -294,15 +290,28 @@ function validateConfig() {
     throw new Error("The incorporated-city boundary source is required.");
   }
 
-  const jurisdictionNames = new Set();
-  for (const jurisdiction of config.jurisdictions) {
-    if (jurisdictionNames.has(jurisdiction.name)) {
-      throw new Error(`Duplicate jurisdiction: ${jurisdiction.name}.`);
-    }
-    jurisdictionNames.add(jurisdiction.name);
+  if (!Array.isArray(config.coverageTargets) || config.coverageTargets.length === 0) {
+    throw new Error("At least one coverage target is required.");
   }
-  if (jurisdictionNames.size !== 5) {
-    throw new Error("Exactly five target jurisdictions are required.");
+  const targetIds = new Set();
+  const targetLabels = new Set();
+  for (const target of config.coverageTargets) {
+    if (targetIds.has(target.id)) {
+      throw new Error(`Duplicate coverage target id: ${target.id}.`);
+    }
+    if (targetLabels.has(target.label)) {
+      throw new Error(`Duplicate coverage target label: ${target.label}.`);
+    }
+    targetIds.add(target.id);
+    targetLabels.add(target.label);
+    if (
+      target.kind !== "incorporated-jurisdiction" ||
+      target.boundarySourceId !== "city-boundaries"
+    ) {
+      throw new Error(
+        `Coverage target ${target.id} requires the Block 25.3 boundary pipeline.`,
+      );
+    }
   }
 }
 
@@ -429,7 +438,7 @@ async function sha256File(path) {
   return hash.digest("hex");
 }
 
-function validateTargetJurisdictions(cityCollection) {
+function validateCoverageTargetBoundaries(cityCollection) {
   if (
     cityCollection?.type !== "FeatureCollection" ||
     !Array.isArray(cityCollection.features)
@@ -437,13 +446,13 @@ function validateTargetJurisdictions(cityCollection) {
     throw new Error("City boundary source is not a GeoJSON FeatureCollection.");
   }
 
-  for (const jurisdiction of config.jurisdictions) {
+  for (const target of config.coverageTargets) {
     const matches = cityCollection.features.filter(
-      (feature) => feature.properties?.CITY === jurisdiction.name,
+      (feature) => feature.properties?.CITY === target.label,
     );
     if (matches.length !== 1) {
       throw new Error(
-        `Expected one official boundary for ${jurisdiction.name}; ` +
+        `Expected one official boundary for ${target.label}; ` +
           `received ${matches.length}.`,
       );
     }
