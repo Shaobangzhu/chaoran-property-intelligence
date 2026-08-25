@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 25.0 through 25.6 are complete on
+Blocks 25.0 through 25.7 are complete on
 `feature/stevenson-ranch-wildfire-coverage`. Block 25.0 froze the product,
 authority, geography, artifact, compatibility, security, cost, rollback, test,
 and acceptance boundaries. Block 25.1 completed the separately authorized
@@ -12,13 +12,15 @@ manifest schema version 2 contracts. Block 25.3 implemented deterministic
 six-target staging, Block 25.4 published the reviewed successor, and Block 25.5
 integrated that artifact into the shared React/ArcGIS 2D and 3D runtime. Block
 25.6 completed repository-wide automation and desktop/mobile browser acceptance.
+Block 25.7 closed the final diff, security, provenance, rollback, and as-built
+gate. Block 25 is complete on this branch and awaits repository-owner commit,
+push, PR, and merge decisions.
 
 The source audit and deterministic builder used only public official sources
 and the existing checksum-pinned CAL FIRE archives. Audit candidates and
 responses remain under the ignored `.cache/wildfire-hazard` directory. No
 environment file, secret, database, AWS resource, RentCast request, Telegram
-delivery, or deployment changed. Every remaining executable sub-block still
-requires a fresh explanation and explicit confirmation.
+delivery, or deployment changed.
 
 ## Purpose
 
@@ -527,8 +529,8 @@ Focused 2D/3D, metadata, lifecycle, control, and zero-listing tests pass 45/45;
 wildfire data tests pass 24/24; all 114 repository test files and 1,072 tests
 pass; repository-wide typecheck passes; and the production application and AWS
 infrastructure build passes. The existing ArcGIS chunk-size warning remains
-unchanged. The old five-city artifact is retained as a bounded rollback asset
-until the final Block 25 release gate; no deployment occurred in Block 25.5.
+unchanged. The old five-city artifact is retained as a bounded rollback asset;
+no deployment occurred in Block 25.5.
 
 ### Block 25.6: Automated and browser acceptance
 
@@ -565,10 +567,28 @@ structural WebGL/DOM teardown rather than an unsupported numeric memory claim.
 
 ### Block 25.7: Final gate and as-built record
 
-- reconcile the final diff with scope and security boundaries
-- update source audit, knowledge base, ADR, and roadmap with measured evidence
-- document rollback and operator acceptance
-- leave commit, push, PR, and merge under repository-owner control
+**Complete on 2026-08-25:** the final `main...HEAD` audit contains 25 changed
+paths limited to the wildfire build/data pipeline, versioned static assets,
+React metadata/control integration, focused tests, documentation, and explicit
+offline package scripts. It contains no change to `.env*`, GitHub Actions, AWS,
+API, alert worker, shared backend packages, authentication, database, RentCast,
+Telegram, schedules, or CSP. A changed-file secret-pattern review found only
+documentation references to security boundaries and no credential material.
+
+The already-installed checksum-pinned GDAL image was verified by digest and the
+offline stage was rerun with container networking disabled. The 96-feature
+artifact and schema version 2 manifest are byte-identical to the public files,
+retain their reviewed checksums, and remain below the unchanged payload limits.
+The prior five-city artifact remains present with its documented checksum as a
+bounded rollback asset. Rollback requires only reverting the Block 25 web/data
+release and redeploying the prior static bundle; it requires no data repair,
+secret rotation, provider action, or cloud cleanup.
+
+Focused wildfire tests pass 24/24. The final repository gate passes all 114
+test files and 1,072 tests, repository-wide typecheck, the production web build,
+and the AWS infrastructure build. The existing ArcGIS chunk-size warning is
+unchanged. No commit, push, PR, merge, deployment, or rollback was executed by
+Block 25.7.
 
 ## Acceptance Criteria
 
@@ -586,6 +606,12 @@ Block 25 is complete only when:
 9. no new runtime origin, credential, provider cost, or cloud resource exists
 10. desktop/mobile acceptance confirms provenance, disclosures, interaction,
     Console, Network, and teardown behavior
+
+All ten criteria are satisfied by Blocks 25.1 through 25.7. The retained
+development-only ArcGIS basemap-disposal log and unavailable JavaScript heap
+metric are documented in Block 25.6; neither concealed a failed interaction,
+contradicted the structural teardown result, or caused a production build
+failure.
 
 ## Official Planning References
 

@@ -1459,9 +1459,17 @@ Planned sub-block mapping:
    CSP, API-key, backend, or provider change.
 8. `25.7` Complete the final diff, security, provenance, rollback, and as-built
    documentation gate. Leave commit, push, PR, and merge under repository-owner
-   control.
+   control. **Complete:** the 25-path branch diff is limited to the wildfire
+   pipeline/assets, React integration, tests, docs, and explicit offline scripts;
+   no environment, CI/CD, AWS, backend, provider, database, schedule, credential,
+   or CSP boundary changed. A digest-pinned, network-disabled GDAL rebuild
+   reproduced the 96-feature artifact and schema version 2 manifest byte-for-byte
+   while preserving the prior five-city rollback asset. Focused tests pass
+   24/24; the final repository gate passes 114/114 test files and 1,072/1,072
+   tests, repository-wide typecheck, the production web build, and the AWS build.
+   Commit, push, PR, merge, deployment, and rollback remain under owner control.
 
-Every executable sub-block requires a fresh explanation and explicit
+Every executable sub-block received a fresh explanation and explicit
 confirmation. Block 25 does not create a new hazard model, call RentCast,
 connect to PostgreSQL, send Telegram, mutate AWS, add a browser credential,
 change a schedule, or deploy.

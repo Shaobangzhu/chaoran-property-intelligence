@@ -294,6 +294,28 @@ The old five-city GeoJSON is retained temporarily because the React loader URL
 does not move until Block 25.5. No live GIS service, credential, provider,
 database, cloud resource, or deployment was introduced by publication.
 
+### Block 25.7 final release reconciliation
+
+Block 25.7 reran the stage-only pipeline with Docker networking disabled and
+the already-installed digest-pinned GDAL `3.13.2` image. It made no upstream,
+provider, database, cloud, or secret request. The rebuild again produced 96
+features, 1,158,246 raw bytes, 292,581 gzip bytes, and artifact SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+
+The staged artifact and manifest compared byte-for-byte with the public files.
+The manifest retained SHA-256
+`e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`,
+and the tracked Stevenson Ranch boundary retained SHA-256
+`2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+The prior five-city artifact remains available at SHA-256
+`d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`
+as the bounded rollback asset.
+
+Focused wildfire tests pass 24/24. The final repository gate passes all 114
+test files and 1,072 tests, repository-wide typecheck, the production web build,
+and the AWS infrastructure build. No source refresh, authority reinterpretation,
+runtime origin, credential, deployment, or rollback execution occurred.
+
 ### Source and intersection reconciliation
 
 The current CAL FIRE service metadata still identifies LRA layer
