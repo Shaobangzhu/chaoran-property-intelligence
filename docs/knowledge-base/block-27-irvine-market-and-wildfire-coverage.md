@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 27.0, 27.1A, 27.1B, 27.1C, 27.2, and 27.3 are complete on
+Blocks 27.0, 27.1A, 27.1B, 27.1C, 27.2, 27.3, and 27.4 are complete on
 `feat/add-city-of-Irvine`. Block 27.0
 froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
@@ -21,9 +21,11 @@ API contract, web client, and existing accessible city checkbox while retaining
 the pre-Irvine six-market default. Existing five- and six-market profiles remain
 valid and unchanged. Until Block 27.4 adds the reviewed provider mapping, the
 worker rejects any selected Irvine market before creating a RentCast request.
-The public wildfire artifact remains unchanged. No database record, saved search
-profile, AWS resource, schedule, Telegram delivery, deployment, push, or merge
-changed in these stages.
+Block 27.4 now maps Irvine to one exact direct-city provider area and restores
+the worker's exhaustive seven-market mapping. The public wildfire artifact
+remains unchanged. No database record, saved search profile, AWS resource,
+schedule, Telegram delivery, deployment, push, or merge changed in these
+stages.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -445,10 +447,11 @@ control all accept Irvine and preserve canonical order. The existing disclosure
 now describes a one-to-seven selection range without changing its interaction
 or layout.
 
-The acquisition map is deliberately partial during this staged commit. If a
-profile selects Irvine before Block 27.4 is installed, the worker throws the
-existing bounded invalid-market error before any provider request. It does not
-fall back to ZIP, radius, address, county, or another city.
+During the isolated 27.3 stage, the acquisition map remained deliberately
+partial. An Irvine selection threw the existing bounded invalid-market error
+before any provider request and never fell back to ZIP, radius, address, county,
+or another city. Block 27.4 replaces that temporary guard with the reviewed
+direct-city mapping.
 
 Eight focused test files and 205 tests cover the allowlist, unchanged defaults,
 exact-city matching, revision adoption, API canonicalization and authentication,
@@ -465,6 +468,30 @@ wildfire artifact or production profile changed.
 - prove 1-, 6-, and 7-market request counts and canonical order
 - preserve overlap reconciliation, provider data, observation time, alert
   behavior, and zero partial Telegram effects
+
+Status: complete. The reviewed Irvine product market maps to exactly one
+RentCast search area `{ kind: "city", city: "Irvine" }`. The request client
+emits `city=Irvine` with fixed `state=CA` and no ZIP, address, radius, or county
+fallback. Canonical all-market acquisition order is Chino, Chino Hills,
+Eastvale, Corona, Jurupa Valley, Stevenson Ranch ZIP `91381`, then Irvine.
+
+Focused selector, source, production-composition, workflow-integration, and
+Domain-filter tests prove Irvine-only uses one request, the six incorporated
+cities use six direct-city requests, the pre-Irvine profile still uses six
+requests, and all seven markets use seven sequential requests. Each area must
+return a complete page before the source reads the shared observation clock or
+returns any rows. If the seventh Irvine request fails or is incomplete, no
+earlier row is normalized, persisted, observed, alerted, or sent to Telegram;
+the criteria revision remains unapplied. Existing cross-area canonical-address
+reconciliation and price-drop/new-listing behavior remain unchanged. Provider
+city values remain provider-owned, including `Valencia` for ZIP `91381` and
+`Irvine` for the reviewed direct-city response.
+
+All five focused test files and 82 tests pass. The complete repository gate
+passes all 118 test files and 1,169 tests, repository-wide typecheck, and the
+production/AWS build. The existing ArcGIS chunk-size advisory is unchanged. No
+real RentCast request or other external service call occurred, and no database,
+production profile, schedule, deployment, or wildfire runtime artifact changed.
 
 ### Block 27.5: Deterministic Seven-Target Wildfire Artifact
 

@@ -488,6 +488,11 @@ describe("listing alert production workflow integration", () => {
       expectedAreas: ["Corona"],
     },
     {
+      name: "Irvine only",
+      cities: ["Irvine"],
+      expectedAreas: ["Irvine"],
+    },
+    {
       name: "all five incorporated markets",
       cities: [
         "Chino",
@@ -521,6 +526,46 @@ describe("listing alert production workflow integration", () => {
         "Corona",
         "Jurupa Valley",
         "91381",
+      ],
+    },
+    {
+      name: "all six incorporated markets",
+      cities: [
+        "Irvine",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Irvine",
+      ],
+    },
+    {
+      name: "all seven product markets",
+      cities: [
+        "Irvine",
+        "Stevenson Ranch",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "91381",
+        "Irvine",
       ],
     },
   ] as const)(
@@ -613,6 +658,7 @@ describe("listing alert production workflow integration", () => {
       for (const url of rentCastUrls) {
         expect(url.searchParams.get("address")).toBeNull();
         expect(url.searchParams.get("radius")).toBeNull();
+        expect(url.searchParams.get("county")).toBeNull();
       }
       expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
       expect(repository.listingSnapshots).toHaveLength(expectedAreas.length);
@@ -629,15 +675,26 @@ describe("listing alert production workflow integration", () => {
           (url) => url.searchParams.get("zipCode") === "91381",
         )
       ) {
+        expect(repository.listingSnapshots).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ city: "Valencia", zipCode: "91381" }),
+          ]),
+        );
+      }
+      if (rentCastUrls.some((url) => url.searchParams.get("city") === "Irvine")) {
+        const irvineUrl = rentCastUrls.find(
+          (url) => url.searchParams.get("city") === "Irvine",
+        );
+        expect(irvineUrl?.searchParams.get("state")).toBe("CA");
+        expect(irvineUrl?.searchParams.get("zipCode")).toBeNull();
         expect(repository.listingSnapshots.at(-1)).toMatchObject({
-          city: "Valencia",
-          zipCode: "91381",
+          city: "Irvine",
         });
       }
     },
   );
 
-  it("does not partially persist or notify when the sixth market request fails", async () => {
+  it("does not partially persist or notify when the seventh market request fails", async () => {
     const steps: string[] = [];
     const initialListing = createNormalizedListing();
     const repository = new IntegrationListingAlertRepository(
@@ -653,7 +710,7 @@ describe("listing alert production workflow integration", () => {
       if (url.origin === "https://api.rentcast.io") {
         providerCall += 1;
         rentCastUrls.push(url);
-        if (providerCall < 6) {
+        if (providerCall < 7) {
           return Response.json([createRentCastListing()], {
             headers: { "X-Total-Count": "1" },
           });
@@ -681,6 +738,7 @@ describe("listing alert production workflow integration", () => {
                 "Corona",
                 "Jurupa Valley",
                 "Stevenson Ranch",
+                "Irvine",
               ],
             },
             revision: 2,
@@ -717,7 +775,7 @@ describe("listing alert production workflow integration", () => {
       ),
     ).rejects.toThrow("RentCast request failed");
 
-    expect(providerCall).toBe(6);
+    expect(providerCall).toBe(7);
     expect(
       rentCastUrls.map((url) =>
         url.searchParams.get("city") ?? url.searchParams.get("zipCode"),
@@ -729,8 +787,9 @@ describe("listing alert production workflow integration", () => {
       "Corona",
       "Jurupa Valley",
       "91381",
+      "Irvine",
     ]);
-    expect(fetch).toHaveBeenCalledTimes(6);
+    expect(fetch).toHaveBeenCalledTimes(7);
     expect(repository.calls).toEqual([]);
     expect(repository.observations).toEqual([createObservation(initialListing)]);
     expect(repository.listingSnapshots).toEqual([]);

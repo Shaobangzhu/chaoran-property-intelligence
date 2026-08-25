@@ -1723,13 +1723,21 @@ Planned sub-block mapping:
    default remains the six pre-Irvine markets. Domain, Application, API, browser
    client, and React tests prove opt-in saving, canonical order, unchanged old
    profiles, revision behavior, authentication, and accessible checkbox use.
-   Until 27.4 adds the direct-city provider mapping, the worker fails closed on
-   an Irvine selection before any RentCast request. All 118 test files and 1,161
-   tests, repository-wide typecheck, and the production/AWS build pass.
+   The isolated 27.3 stage failed closed on an Irvine selection before any
+   RentCast request; 27.4 replaces that temporary guard with the reviewed
+   direct-city mapping. All 118 test files and 1,161 tests, repository-wide
+   typecheck, and the production/AWS build pass.
 7. `27.4` Map Irvine to one direct city area and prove 1-, 6-, and 7-market
    request counts, canonical order, per-area completeness, all-or-nothing
    behavior, overlap reconciliation, provider-data preservation, observation
    time, alerts, and zero partial Telegram effects.
+   **Complete:** Irvine maps to one exact `city=Irvine&state=CA` provider area
+   without ZIP, address, radius, or county fallback. Tests prove Irvine-only,
+   six-incorporated-city, pre-Irvine six-market, and all-seven-market request
+   plans in canonical order. A failed or incomplete seventh request returns no
+   partial rows and causes no persistence, observation, revision advancement,
+   alert, or Telegram side effect. All 118 test files and 1,169 tests,
+   repository-wide typecheck, and the production/AWS build pass.
 8. `27.5` Add the reviewed boundary snapshot, stage the seven-target artifact,
    and reconcile deterministic provenance, geometry, counts, severity, area,
    checksums, and raw/gzip limits while retaining the current public artifact.

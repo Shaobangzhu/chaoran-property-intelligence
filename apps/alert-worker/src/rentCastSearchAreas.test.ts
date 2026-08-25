@@ -15,6 +15,7 @@ describe("RentCast search area selection", () => {
     "Eastvale",
     "Corona",
     "Jurupa Valley",
+    "Irvine",
   ] as const)("maps the %s market to its direct city area", (market) => {
     expect(
       selectRentCastSaleListingsSearchAreas([market]),
@@ -49,6 +50,7 @@ describe("RentCast search area selection", () => {
     expect(
       selectRentCastSaleListingsSearchAreas([
         "Stevenson Ranch",
+        "Irvine",
         "Corona",
         "Chino",
       ]),
@@ -56,10 +58,31 @@ describe("RentCast search area selection", () => {
       { kind: "city", city: "Chino" },
       { kind: "city", city: "Corona" },
       stevensonRanchRentCastSaleListingsSearchArea,
+      { kind: "city", city: "Irvine" },
     ]);
   });
 
-  it("maps all six markets to exactly six canonical provider areas", () => {
+  it("maps all six incorporated markets to direct city areas", () => {
+    expect(
+      selectRentCastSaleListingsSearchAreas([
+        "Irvine",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ]),
+    ).toEqual([
+      { kind: "city", city: "Chino" },
+      { kind: "city", city: "Chino Hills" },
+      { kind: "city", city: "Eastvale" },
+      { kind: "city", city: "Corona" },
+      { kind: "city", city: "Jurupa Valley" },
+      { kind: "city", city: "Irvine" },
+    ]);
+  });
+
+  it("keeps all six pre-Irvine markets in canonical provider order", () => {
     expect(
       selectRentCastSaleListingsSearchAreas([
         "Stevenson Ranch",
@@ -79,13 +102,26 @@ describe("RentCast search area selection", () => {
     ]);
   });
 
-  it("fails closed for Irvine until its reviewed worker mapping is enabled", () => {
-    expect(() => selectRentCastSaleListingsSearchAreas(["Irvine"])).toThrow(
-      InvalidRentCastSearchMarketsError,
-    );
-    expect(() =>
-      selectRentCastSaleListingsSearchAreas(["Corona", "Irvine"]),
-    ).toThrow(InvalidRentCastSearchMarketsError);
+  it("maps all seven markets to exactly seven canonical provider areas", () => {
+    expect(
+      selectRentCastSaleListingsSearchAreas([
+        "Irvine",
+        "Stevenson Ranch",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ]),
+    ).toEqual([
+      { kind: "city", city: "Chino" },
+      { kind: "city", city: "Chino Hills" },
+      { kind: "city", city: "Eastvale" },
+      { kind: "city", city: "Corona" },
+      { kind: "city", city: "Jurupa Valley" },
+      stevensonRanchRentCastSaleListingsSearchArea,
+      { kind: "city", city: "Irvine" },
+    ]);
   });
 
   it("returns frozen areas without mutating the selected markets", () => {

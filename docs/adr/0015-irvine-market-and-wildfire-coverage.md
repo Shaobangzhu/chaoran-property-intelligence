@@ -39,13 +39,24 @@ artifact, database, production profile, cloud resource, schedule, Telegram
 delivery, or deployment changed. Block 27.3 appended Irvine to the
 schema-version-1 Domain/API/React allowlist and canonical order while preserving
 the six-market default and all existing profiles. The current React disclosure
-offers Irvine as an unchecked seventh market. Because provider acquisition is
-deferred to Block 27.4, the worker now fails closed before any RentCast request
-when an Irvine selection reaches the existing six-market acquisition map. Eight
+offers Irvine as an unchecked seventh market. During that isolated stage,
+provider acquisition remained deferred to Block 27.4 and the worker failed
+closed before any RentCast request when an Irvine selection reached the existing
+six-market acquisition map. Eight
 focused test files and 205 tests, all 118 repository test files and 1,161 tests,
 repository-wide typecheck, and the production/AWS build pass. No external
 service, database record, runtime wildfire artifact, production profile, or
-deployment changed.
+deployment changed. Block 27.4 then enabled the reviewed exhaustive worker
+mapping: Irvine produces one direct-city area after the five original city
+areas and Stevenson Ranch ZIP `91381` in canonical all-market order. Integration
+tests prove one, six, and seven sequential request plans; exact Irvine city and
+California parameters without fallback geography; provider-data preservation;
+shared observation time; downstream overlap reconciliation; and zero partial
+persistence, revision advancement, alerts, or Telegram delivery when the
+seventh request fails. All five focused test files and 82 tests, all 118
+repository test files and 1,169 tests, repository-wide typecheck, and the
+production/AWS build pass. No real provider request, production profile,
+database record, schedule, wildfire artifact, or deployment changed.
 
 ## Context
 

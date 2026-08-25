@@ -16,7 +16,8 @@ import {
 } from "./rentCastListingSource.js";
 import { selectRentCastSaleListingsSearchAreas } from "./rentCastSearchAreas.js";
 
-const allSixMarketSearchAreas = selectRentCastSaleListingsSearchAreas([
+const allSevenMarketSearchAreas = selectRentCastSaleListingsSearchAreas([
+  "Irvine",
   "Stevenson Ranch",
   "Jurupa Valley",
   "Corona",
@@ -55,8 +56,8 @@ describe("RentCastListingSource", () => {
     );
   });
 
-  it("fetches all six market areas sequentially and flattens only after every area succeeds", async () => {
-    const pages = allSixMarketSearchAreas.map((area, index) =>
+  it("fetches all seven market areas sequentially and flattens only after every area succeeds", async () => {
+    const pages = allSevenMarketSearchAreas.map((area, index) =>
       createPage([
         createListing({
           id: `rentcast-${index + 1}`,
@@ -70,21 +71,21 @@ describe("RentCastListingSource", () => {
     const source = new RentCastListingSource({
       client,
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
-      searchAreas: allSixMarketSearchAreas,
+      searchAreas: allSevenMarketSearchAreas,
       now,
     });
 
     const listings = await source.getActiveSaleListings();
 
-    expect(listings).toHaveLength(6);
+    expect(listings).toHaveLength(7);
     expect(listings.at(-1)).toMatchObject({
-      sourceListingId: "rentcast-6",
-      city: "Valencia",
-      zipCode: "91381",
+      sourceListingId: "rentcast-7",
+      city: "Irvine",
+      zipCode: "92882",
       firstDiscoveredAt: "2026-08-24T20:00:00.000Z",
     });
     expect(client.searchSaleListings.mock.calls).toEqual(
-      allSixMarketSearchAreas.map((area) => [
+      allSevenMarketSearchAreas.map((area) => [
         defaultRentCastSaleListingsSearchCriteria,
         area,
       ]),
@@ -92,19 +93,19 @@ describe("RentCastListingSource", () => {
     expect(now).toHaveBeenCalledOnce();
   });
 
-  it("does not return or normalize earlier areas when the sixth request fails", async () => {
+  it("does not return or normalize earlier areas when the seventh request fails", async () => {
     const providerFailure = new Error("RentCast request failed");
     const client = createSequentialClient([
-      ...allSixMarketSearchAreas.slice(0, -1).map(() =>
+      ...allSevenMarketSearchAreas.slice(0, -1).map(() =>
         createPage([createListing()]),
       ),
       providerFailure,
     ]);
     const now = vi.fn(() => new Date("2026-08-24T20:00:00.000Z"));
-    const source = createSource(client, allSixMarketSearchAreas, now);
+    const source = createSource(client, allSevenMarketSearchAreas, now);
 
     await expect(source.getActiveSaleListings()).rejects.toBe(providerFailure);
-    expect(client.searchSaleListings).toHaveBeenCalledTimes(6);
+    expect(client.searchSaleListings).toHaveBeenCalledTimes(7);
     expect(now).not.toHaveBeenCalled();
   });
 
@@ -121,7 +122,7 @@ describe("RentCastListingSource", () => {
     },
   ])("fails closed when a later area $name", async ({ page, error }) => {
     const client = createSequentialClient([
-      ...allSixMarketSearchAreas.slice(0, 4).map(() =>
+      ...allSevenMarketSearchAreas.slice(0, -1).map(() =>
         createPage([createListing()]),
       ),
       page,
@@ -129,9 +130,9 @@ describe("RentCastListingSource", () => {
     const now = vi.fn(() => new Date("2026-08-24T20:00:00.000Z"));
 
     await expect(
-      createSource(client, allSixMarketSearchAreas, now).getActiveSaleListings(),
+      createSource(client, allSevenMarketSearchAreas, now).getActiveSaleListings(),
     ).rejects.toBeInstanceOf(error);
-    expect(client.searchSaleListings).toHaveBeenCalledTimes(5);
+    expect(client.searchSaleListings).toHaveBeenCalledTimes(7);
     expect(now).not.toHaveBeenCalled();
   });
 
