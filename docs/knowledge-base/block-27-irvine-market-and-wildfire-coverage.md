@@ -2,15 +2,19 @@
 
 ## Status
 
-Blocks 27.0 and 27.1A are complete on `feat/add-city-of-Irvine`. Block 27.0
+Blocks 27.0, 27.1A, and the authorized request portion of 27.1B are complete on
+`feat/add-city-of-Irvine`. Block 27.0
 froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
 adding Irvine, California. Block 27.1A added an isolated, fixture-gated Irvine
 direct-city audit entrypoint without changing Domain markets, production
-acquisition, saved criteria, or wildfire coverage. No real provider request,
-official GIS query, source download, wildfire artifact, database record, saved
-search profile, AWS resource, schedule, Telegram delivery, deployment, commit,
-push, or merge changed in either stage.
+acquisition, saved criteria, or wildfire coverage. Block 27.1B then made exactly
+one authorized real request with no retry. The valid zero-row response did not
+clear the provider-city evidence gate, so Irvine remains disabled pending a
+separately reviewed identity probe. No official GIS query, source download,
+wildfire artifact, database record, saved search profile, AWS resource,
+schedule, Telegram delivery, deployment, commit, push, or merge changed in
+these stages.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -246,6 +250,54 @@ profile, migration, or deployment action occurred.
 - record aggregate count, provider-city distribution, capacity margin, returned
   price range, response bytes, elapsed time, and completeness evidence
 - stop before production mapping if the provider geography is not defensible
+
+Status: authorized request complete with a failed coverage gate on August 25,
+2026. The guarded command read only the existing server-side key and made
+exactly one direct-city request with no retry. RentCast returned a successful,
+schema-valid, complete zero-row page for the frozen product filters:
+
+| Evidence | Result |
+| --- | ---: |
+| Requests completed | 1 |
+| Total matching listings | 0 |
+| Returned listings | 0 |
+| Result-limit margin | 500 |
+| Returned page complete | yes |
+| Invalid filter rows | 0 |
+| Provider city counts | `{}` |
+| Expected city verified | no |
+| Response body bytes | 2 |
+| Provider elapsed milliseconds | 651 |
+| Coverage gate | FAIL |
+
+The response proves that the exact request was accepted and that no current
+listing satisfies the frozen Single Family, Active, maximum-price, bedroom,
+and bathroom filters. It does not prove which provider city label a future
+matching row will carry. Zero inventory is not evidence that Irvine is an
+unsupported market, but it is also not sufficient evidence to enable exact
+city matching in production.
+
+No retry or wider request was made. No raw response, street address, full URL,
+header, or credential was recorded. The audit did not change production
+acquisition, criteria, listings, PostgreSQL, Telegram, AWS, schedules, wildfire
+data, or deployment state. Block 27.3 and 27.4 remain gated until a separately
+reviewed and authorized provider identity probe verifies Irvine geography.
+
+### Block 27.1C: Controlled Irvine Provider Identity Probe
+
+- define and test a wider but bounded Irvine identity request separately from
+  the zero-row product-filter request
+- preserve exact `city=Irvine`, fixed California and Active status, aggregate
+  output, redaction, one-request confirmation, timeout, and no retry
+- report total count, returned sample count, provider-city distribution,
+  response bytes, elapsed time, and whether every returned row identifies
+  Irvine
+- treat the probe as geography evidence only; do not change product filters or
+  claim product inventory completeness from a broad sample
+- require fresh explicit authorization before one real request
+
+Status: proposed after the inconclusive zero-row 27.1B result; not authorized or
+implemented.
 
 ### Block 27.2: Official Irvine Wildfire Audit
 

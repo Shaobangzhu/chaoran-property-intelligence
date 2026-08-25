@@ -1671,28 +1671,39 @@ Planned sub-block mapping:
    external request or runtime production change occurred.
 3. `27.1B` With fresh explicit authorization, make exactly one real Irvine
    RentCast request without retry and record only aggregate provider geography,
-   completeness, capacity, price, byte, and timing evidence.
-4. `27.2` With fresh explicit authorization, audit official Irvine boundary,
+   completeness, capacity, price, byte, and timing evidence. **Request complete,
+   provider gate not cleared:** the one authorized request returned a valid,
+   complete zero-row page with a 500-row limit margin, zero filter violations,
+   a 2-byte body, and 651 ms provider elapsed time. No retry occurred. The
+   result proves request acceptance and zero current inventory under the frozen
+   filters, but it cannot verify the provider city label, so production Irvine
+   mapping remains disabled.
+4. `27.1C` Add a separately guarded, wider Irvine provider-identity probe and,
+   only with fresh explicit authorization, make one real request without retry.
+   Record aggregate city distribution and sample evidence only; do not change
+   product filters or treat a broad sample as product inventory completeness.
+   **Proposed, not authorized or implemented.**
+5. `27.2` With fresh explicit authorization, audit official Irvine boundary,
    CAL FIRE LRA/SRA metadata and intersections, City of Irvine designation
    evidence, geometry, severity, responsibility area, bounds, area, checksum,
    payload, and parse-cost projections. Publish no runtime artifact.
-5. `27.3` Append Irvine to the schema-version-1 Domain/API/React allowlist while
+6. `27.3` Append Irvine to the schema-version-1 Domain/API/React allowlist while
    keeping existing and default profiles unchanged. Preserve the current city
    checkbox UX, validation, revisions, authentication, and accessibility.
-6. `27.4` Map Irvine to one direct city area and prove 1-, 6-, and 7-market
+7. `27.4` Map Irvine to one direct city area and prove 1-, 6-, and 7-market
    request counts, canonical order, per-area completeness, all-or-nothing
    behavior, overlap reconciliation, provider-data preservation, observation
    time, alerts, and zero partial Telegram effects.
-7. `27.5` Add the reviewed boundary snapshot, stage the seven-target artifact,
+8. `27.5` Add the reviewed boundary snapshot, stage the seven-target artifact,
    and reconcile deterministic provenance, geometry, counts, severity, area,
    checksums, and raw/gzip limits while retaining the current public artifact.
-8. `27.6` Publish the versioned successor and integrate it into the shared
+9. `27.6` Publish the versioned successor and integrate it into the shared
    ArcGIS 2D/3D loader, metadata, provenance, disclosures, viewport, and
    zero-listing behavior without changing classification or terrain semantics.
-9. `27.7` Complete focused and repository-wide tests, typecheck, production/AWS
+10. `27.7` Complete focused and repository-wide tests, typecheck, production/AWS
    builds, and desktop/mobile 2D/3D visual, Console, Network, WebGL, responsive,
    interaction, and teardown acceptance for Irvine and all prior markets.
-10. `27.8` Complete final security, quota, artifact, CSP, compatibility,
+11. `27.8` Complete final security, quota, artifact, CSP, compatibility,
     rollout, rollback, diff, and as-built release gates. Leave commit, push, PR,
     merge, production profile changes, schedules, and deployment under
     repository-owner control.

@@ -9,9 +9,14 @@ preview loads no environment file and makes no request; its real form requires
 exact one-request and `irvine-ca` confirmations and remains gated on fresh
 authorization. All 75 focused audit regressions, all 116 repository test files
 and 1,128 tests, repository-wide typecheck, and the production/AWS build pass.
-No real provider audit, official GIS request, source download, wildfire
-artifact, database change, production profile mutation, cloud action, schedule
-change, Telegram delivery, or deployment occurred in these stages.
+Block 27.1B then made exactly one authorized real Irvine request without retry.
+The valid response was complete at zero rows under the frozen product filters,
+so it confirmed request acceptance but could not verify a provider city label;
+the coverage gate failed closed. A separately reviewed provider identity probe
+is required before production enablement. No official GIS request, source
+download, wildfire artifact, database change, production profile mutation,
+cloud action, schedule change, Telegram delivery, or deployment occurred in
+these stages.
 
 ## Context
 
