@@ -36,7 +36,7 @@ describe("SearchCriteriaScreen", () => {
     expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
   });
 
-  it("keeps a five-market profile unchanged while offering Stevenson Ranch", async () => {
+  it("keeps a five-market profile unchanged while offering opt-in markets", async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -44,13 +44,14 @@ describe("SearchCriteriaScreen", () => {
       await screen.findByRole("button", { name: "5 cities selected" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Select between one and six cities."),
+      screen.getByText("Select between one and seven cities."),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "5 cities selected" }));
     expect(
       screen.getByRole("checkbox", { name: "Stevenson Ranch" }),
     ).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Irvine" })).not.toBeChecked();
   });
 
   it("loads an explicitly saved six-market profile without creating a dirty draft", async () => {
@@ -83,6 +84,57 @@ describe("SearchCriteriaScreen", () => {
     expect(
       screen.getByRole("checkbox", { name: "Stevenson Ranch" }),
     ).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Irvine" })).not.toBeChecked();
+  });
+
+  it("opts a pre-Irvine profile into Irvine and adopts the next revision", async () => {
+    const user = userEvent.setup();
+    const preIrvineCriteria = {
+      ...snapshot().criteria,
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Stevenson Ranch",
+      ] as const,
+    };
+    const saveCriteria = vi.fn(
+      async (input: UpdateListingSearchCriteriaInput) =>
+        snapshot({ criteria: input.criteria, revision: 4 }),
+    );
+    renderScreen({
+      loadCriteria: async () =>
+        snapshot({ criteria: preIrvineCriteria, revision: 3 }),
+      saveCriteria,
+    });
+
+    const trigger = await screen.findByRole("button", {
+      name: "6 cities selected",
+    });
+    expect(screen.getByRole("button", { name: "Save criteria" })).toBeDisabled();
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("checkbox", { name: "Irvine" }));
+    expect(
+      screen.getByRole("button", { name: "7 cities selected" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+
+    expect(saveCriteria).toHaveBeenCalledWith({
+      expectedRevision: 3,
+      criteria: {
+        ...preIrvineCriteria,
+        cities: [...preIrvineCriteria.cities, "Irvine"],
+      },
+    });
+    expect(
+      await screen.findByText(
+        "Saved as revision 4. The next alert run will apply these criteria.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save criteria" })).toBeDisabled();
   });
 
   it("opts into Stevenson Ranch explicitly and adopts the next revision", async () => {

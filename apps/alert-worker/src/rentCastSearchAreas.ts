@@ -12,16 +12,16 @@ export const stevensonRanchRentCastSaleListingsSearchArea = Object.freeze({
   zipCode: "91381",
 } satisfies RentCastSaleListingsSearchArea);
 
-const rentCastSaleListingsSearchAreasByMarket = Object.freeze({
+const rentCastSaleListingsSearchAreasByMarket: Readonly<
+  Partial<Record<ListingSearchCity, RentCastSaleListingsSearchArea>>
+> = Object.freeze({
   Chino: Object.freeze({ kind: "city", city: "Chino" }),
   "Chino Hills": Object.freeze({ kind: "city", city: "Chino Hills" }),
   Eastvale: Object.freeze({ kind: "city", city: "Eastvale" }),
   Corona: Object.freeze({ kind: "city", city: "Corona" }),
   "Jurupa Valley": Object.freeze({ kind: "city", city: "Jurupa Valley" }),
   "Stevenson Ranch": stevensonRanchRentCastSaleListingsSearchArea,
-} satisfies Readonly<
-  Record<ListingSearchCity, RentCastSaleListingsSearchArea>
->);
+});
 
 export class InvalidRentCastSearchMarketsError extends Error {
   constructor() {
@@ -45,9 +45,17 @@ export function selectRentCastSaleListingsSearchAreas(
     selectedMarkets.add(market);
   }
 
-  return Object.freeze(
-    listingSearchCities
-      .filter((market) => selectedMarkets.has(market))
-      .map((market) => rentCastSaleListingsSearchAreasByMarket[market]),
-  );
+  const searchAreas: RentCastSaleListingsSearchArea[] = [];
+  for (const market of listingSearchCities) {
+    if (!selectedMarkets.has(market)) {
+      continue;
+    }
+    const searchArea = rentCastSaleListingsSearchAreasByMarket[market];
+    if (searchArea === undefined) {
+      throw new InvalidRentCastSearchMarketsError();
+    }
+    searchAreas.push(searchArea);
+  }
+
+  return Object.freeze(searchAreas);
 }

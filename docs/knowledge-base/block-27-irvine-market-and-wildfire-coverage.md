@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 27.0, 27.1A, 27.1B, 27.1C, and 27.2 are complete on
+Blocks 27.0, 27.1A, 27.1B, 27.1C, 27.2, and 27.3 are complete on
 `feat/add-city-of-Irvine`. Block 27.0
 froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
@@ -16,10 +16,14 @@ used provider city `Irvine`, so the provider-geography gate is now cleared.
 Block 27.2 selected and checksummed one official Irvine incorporated-city
 boundary, reconciled current CAL FIRE LRA/SRA service counts with the pinned
 archives, and verified City Council Ordinance `25-19` as local-adoption
-evidence. Production Irvine mapping and the public wildfire artifact remain
-unchanged until the later implementation stages. No database record, saved
-search profile, AWS resource, schedule, Telegram delivery, deployment, push,
-or merge changed in these stages.
+evidence. Block 27.3 appended Irvine to the schema-version-1 Domain allowlist,
+API contract, web client, and existing accessible city checkbox while retaining
+the pre-Irvine six-market default. Existing five- and six-market profiles remain
+valid and unchanged. Until Block 27.4 adds the reviewed provider mapping, the
+worker rejects any selected Irvine market before creating a RentCast request.
+The public wildfire artifact remains unchanged. No database record, saved search
+profile, AWS resource, schedule, Telegram delivery, deployment, push, or merge
+changed in these stages.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -431,6 +435,28 @@ Official evidence:
 - preserve validation, optimistic revision behavior, authentication, and API
   error handling
 - add compatibility and accessibility tests
+
+Status: complete. `Irvine` is the seventh and final value in the current
+schema-version-1 canonical market order. The default criteria still contain the
+six pre-Irvine markets, so old profiles and newly initialized defaults do not
+silently opt in. Domain normalization, Application revision handling, the API
+DTO and authenticated endpoint, the browser client, and the React checkbox
+control all accept Irvine and preserve canonical order. The existing disclosure
+now describes a one-to-seven selection range without changing its interaction
+or layout.
+
+The acquisition map is deliberately partial during this staged commit. If a
+profile selects Irvine before Block 27.4 is installed, the worker throws the
+existing bounded invalid-market error before any provider request. It does not
+fall back to ZIP, radius, address, county, or another city.
+
+Eight focused test files and 205 tests cover the allowlist, unchanged defaults,
+exact-city matching, revision adoption, API canonicalization and authentication,
+browser parsing, checkbox accessibility, and the worker fail-closed boundary.
+The complete repository gate passes all 118 test files and 1,161 tests,
+repository-wide typecheck, and the production/AWS build. The existing ArcGIS
+chunk-size advisory is unchanged. No external service was called and no runtime
+wildfire artifact or production profile changed.
 
 ### Block 27.4: Worker Acquisition Integration
 

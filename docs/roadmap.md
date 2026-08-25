@@ -1719,6 +1719,13 @@ Planned sub-block mapping:
 6. `27.3` Append Irvine to the schema-version-1 Domain/API/React allowlist while
    keeping existing and default profiles unchanged. Preserve the current city
    checkbox UX, validation, revisions, authentication, and accessibility.
+   **Complete:** Irvine is appended as the seventh canonical market while the
+   default remains the six pre-Irvine markets. Domain, Application, API, browser
+   client, and React tests prove opt-in saving, canonical order, unchanged old
+   profiles, revision behavior, authentication, and accessible checkbox use.
+   Until 27.4 adds the direct-city provider mapping, the worker fails closed on
+   an Irvine selection before any RentCast request. All 118 test files and 1,161
+   tests, repository-wide typecheck, and the production/AWS build pass.
 7. `27.4` Map Irvine to one direct city area and prove 1-, 6-, and 7-market
    request counts, canonical order, per-area completeness, all-or-nothing
    behavior, overlap reconciliation, provider-data preservation, observation

@@ -156,6 +156,32 @@ describe("listing search criteria use cases", () => {
     });
   });
 
+  it("opts a pre-Irvine profile into Irvine with one revision change", async () => {
+    const repository = new FakeListingSearchProfileRepository({
+      profile: createProfile(),
+    });
+    const criteria = {
+      ...editableDefaultCriteria(),
+      cities: [...defaultListingSearchCriteria.cities, "Irvine"] as const,
+    };
+
+    const result = await createUpdateUseCase(repository).execute(
+      createUpdateInput({ criteria }),
+    );
+
+    expect(result).toEqual({ criteria, revision: 2, updatedAt });
+    expect(repository.calls).toHaveLength(1);
+    expect(repository.currentProfile).toMatchObject({
+      appliedRevision: 1,
+      criteria: {
+        ...defaultListingSearchCriteria,
+        cities: criteria.cities,
+      },
+      revision: 2,
+      updatedByUserId: actorUserId,
+    });
+  });
+
   it("returns a canonical no-op without changing revision or audit metadata", async () => {
     const repository = new FakeListingSearchProfileRepository({
       profile: createProfile(),

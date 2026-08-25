@@ -79,6 +79,15 @@ describe("RentCast search area selection", () => {
     ]);
   });
 
+  it("fails closed for Irvine until its reviewed worker mapping is enabled", () => {
+    expect(() => selectRentCastSaleListingsSearchAreas(["Irvine"])).toThrow(
+      InvalidRentCastSearchMarketsError,
+    );
+    expect(() =>
+      selectRentCastSaleListingsSearchAreas(["Corona", "Irvine"]),
+    ).toThrow(InvalidRentCastSearchMarketsError);
+  });
+
   it("returns frozen areas without mutating the selected markets", () => {
     const markets = ["Stevenson Ranch", "Corona", "Chino"] as const;
     const areas = selectRentCastSaleListingsSearchAreas(markets);

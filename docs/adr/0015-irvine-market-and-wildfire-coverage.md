@@ -36,7 +36,16 @@ archive clip: 12 LRA features and 2 SRA features, with no invalid geometry or
 area drift. The projected 110-feature successor remains within existing
 payload and parse gates. All audit candidates remain ignored; no runtime
 artifact, database, production profile, cloud resource, schedule, Telegram
-delivery, or deployment changed.
+delivery, or deployment changed. Block 27.3 appended Irvine to the
+schema-version-1 Domain/API/React allowlist and canonical order while preserving
+the six-market default and all existing profiles. The current React disclosure
+offers Irvine as an unchecked seventh market. Because provider acquisition is
+deferred to Block 27.4, the worker now fails closed before any RentCast request
+when an Irvine selection reaches the existing six-market acquisition map. Eight
+focused test files and 205 tests, all 118 repository test files and 1,161 tests,
+repository-wide typecheck, and the production/AWS build pass. No external
+service, database record, runtime wildfire artifact, production profile, or
+deployment changed.
 
 ## Context
 

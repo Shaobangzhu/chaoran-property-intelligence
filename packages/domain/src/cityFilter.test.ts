@@ -44,6 +44,21 @@ describe("product-market filtering", () => {
     ).toBe(false);
   });
 
+  it("matches an explicitly selected Irvine market by exact provider city", () => {
+    expect(
+      matchesListingSearchMarket(
+        { city: "Irvine", zipCode: "92618" },
+        ["Irvine"],
+      ),
+    ).toBe(true);
+    expect(
+      matchesListingSearchMarket(
+        { city: "Tustin", zipCode: "92618" },
+        ["Irvine"],
+      ),
+    ).toBe(false);
+  });
+
   it("matches the Stevenson Ranch product market by ZIP 91381", () => {
     expect(
       matchesListingSearchMarket(
