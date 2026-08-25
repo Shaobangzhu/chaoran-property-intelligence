@@ -2,20 +2,22 @@
 
 ## Status
 
-Blocks 25.0 through 25.2 are complete on
+Blocks 25.0 through 25.5 are complete on
 `feature/stevenson-ranch-wildfire-coverage`. Block 25.0 froze the product,
 authority, geography, artifact, compatibility, security, cost, rollback, test,
 and acceptance boundaries. Block 25.1 completed the separately authorized
 official-source, boundary, jurisdiction, spatial, geometry, size, and parse
 audit described below. Block 25.2 implemented the typed coverage-target and
-manifest schema version 2 contracts without publishing new runtime data.
+manifest schema version 2 contracts. Block 25.3 implemented deterministic
+six-target staging, Block 25.4 published the reviewed successor, and Block 25.5
+integrated that artifact into the shared React/ArcGIS 2D and 3D runtime.
 
-Block 25.1 used only public official sources and the existing checksum-pinned
-CAL FIRE archives. Audit candidates and responses remain under the ignored
-`.cache/wildfire-hazard` directory. No production artifact was rebuilt, and no
-runtime source, environment file, secret, database, AWS resource, RentCast
-request, Telegram delivery, or deployment changed. Every remaining executable
-sub-block still requires a fresh explanation and explicit confirmation.
+The source audit and deterministic builder used only public official sources
+and the existing checksum-pinned CAL FIRE archives. Audit candidates and
+responses remain under the ignored `.cache/wildfire-hazard` directory. No
+environment file, secret, database, AWS resource, RentCast request, Telegram
+delivery, or deployment changed. Every remaining executable sub-block still
+requires a fresh explanation and explicit confirmation.
 
 ## Purpose
 
@@ -490,10 +492,12 @@ The published manifest SHA-256 is
 Published-artifact tests now fail closed on artifact bytes, checksum, counts,
 bounds, transfer budgets, six typed targets, Census CDP provenance, Los Angeles
 County adoption evidence, and Stevenson Ranch per-severity area reconciliation.
-The prior `fhsz-five-cities-2025.1.geojson` remains present only for the
-Block 25.5 runtime-reference transition. Block 25.4 does not change the React
-artifact URL, renderer, map behavior, database, provider, secret, cloud
-resource, or deployment. Verification completed on 2026-08-24: wildfire data
+At the end of Block 25.4, the prior `fhsz-five-cities-2025.1.geojson` remained
+present for the Block 25.5 runtime-reference transition; after that switch it
+is retained only as a bounded rollback asset through the final release gate.
+Block 25.4 did not change the React artifact URL, renderer, map behavior,
+database, provider, secret, cloud resource, or deployment. Verification
+completed on 2026-08-24: wildfire data
 tests pass 24/24, all 114 repository test files and 1,071 tests pass,
 repository-wide typecheck passes, and the production application and AWS
 infrastructure build passes. The existing ArcGIS chunk-size warning remains
@@ -501,10 +505,29 @@ unchanged.
 
 ### Block 25.5: React and ArcGIS integration
 
-- update the browser metadata contract and versioned artifact reference
-- present mixed jurisdiction/market-context provenance accurately
-- preserve 2D/3D rendering, colors, opacity, ordering, lifecycle, and retries
-- prove zero listings do not suppress Stevenson Ranch polygons
+**Complete:** the shared wildfire loader now requests
+`fhsz-supported-markets-2025.1-r2.geojson`, so both ArcGIS 2D and 3D Terrain
+consume the same 96-feature, six-target artifact published in Block 25.4. No
+renderer, symbol, opacity, outline, layer-order, lifecycle, Abort, retry,
+rollback, teardown, terrain, listing, or camera behavior changed.
+
+The visible provenance contract keeps the five incorporated-jurisdiction
+status sentence unchanged and adds `Stevenson Ranch market context locally
+adopted.` The legend also exposes the exact Census CDP product-coverage
+disclosure and `Product market selector: ZIP 91381`; it does not relabel the
+CDP as a city, ZIP boundary, parcel determination, or CAL FIRE severity edge,
+and it does not use provider city `Valencia` as hazard authority. Legacy schema
+version 1 parsing remains available for rollback while schema version 2 is the
+active public contract.
+
+A React driver test now enables, loads, hides, and retries the overlay with
+`listings=[]`, proving that listing count does not gate hazard visibility.
+Focused 2D/3D, metadata, lifecycle, control, and zero-listing tests pass 45/45;
+wildfire data tests pass 24/24; all 114 repository test files and 1,072 tests
+pass; repository-wide typecheck passes; and the production application and AWS
+infrastructure build passes. The existing ArcGIS chunk-size warning remains
+unchanged. The old five-city artifact is retained as a bounded rollback asset
+until the final Block 25 release gate; no deployment occurred in Block 25.5.
 
 ### Block 25.6: Automated and browser acceptance
 

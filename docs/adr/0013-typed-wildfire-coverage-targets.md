@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted and implemented through Block 25.4. Block 25.0 records the architecture,
+Accepted and implemented through Block 25.5. Block 25.0 records the architecture,
 Block 25.1 records the authorized boundary and source-audit decision, and Block
 25.2 implements the typed config, schema version 2 producer, and strict browser
 parser with temporary version 1 read compatibility. Block 25.3 tracks the
@@ -10,8 +10,11 @@ reviewed Census CDP snapshot and implements explicit boundary-source and typed
 selector clipping with offline staging and a publication lock. Block 25.4
 publishes the reviewed successor artifact and schema version 2 manifest while
 retaining the prior five-city artifact for the Block 25.5 runtime-reference
-transition. No environment, database, provider, secret, cloud resource,
-schedule, or deployment changed through Block 25.4.
+transition. Block 25.5 switches the shared 2D/3D React loader to the successor
+and presents the market-context disclosure while retaining legacy schema read
+compatibility and the old artifact as a bounded rollback asset. No environment,
+database, provider, secret, cloud resource, schedule, or deployment changed
+through Block 25.5.
 
 ## Context
 
@@ -171,8 +174,9 @@ offline and published artifact SHA-256
 `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`
 with schema version 2 manifest SHA-256
 `e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`.
-The public manifest now points to the successor; the React loader remains on
-the retained five-city filename until the coordinated Block 25.5 change.
+The public manifest and React loader now point to the successor. Both ArcGIS
+modes use the same loader; the retained five-city file exists only as a bounded
+rollback asset pending the final Block 25 release gate.
 
 ## Rejected Alternatives
 

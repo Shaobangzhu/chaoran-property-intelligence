@@ -407,13 +407,13 @@ describe("ListingsMap", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
-  it("wires the wildfire switch, status, visibility, and retry to the driver", async () => {
+  it("wires wildfire visibility independently from a zero-listing result", async () => {
     const user = userEvent.setup();
     const harness = createDriverHarness();
     render(
       <ListingsMap
         createMap={harness.createMap}
-        listings={[eastvaleListing]}
+        listings={[]}
         onSelect={() => undefined}
         selectedListingId={null}
       />,

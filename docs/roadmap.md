@@ -1433,7 +1433,15 @@ Planned sub-block mapping:
 6. `25.5` Integrate the strict schema and artifact into React and both ArcGIS
    modes. Preserve visual tokens, layer order, lazy loading, Abort, retry,
    rollback, teardown, terrain semantics, and compact/mobile provenance. Prove
-   zero listings do not suppress Stevenson Ranch hazard polygons.
+   zero listings do not suppress Stevenson Ranch hazard polygons. **Complete:**
+   the shared runtime loader now requests the six-target successor; 2D and 3D
+   retain one artifact and lifecycle contract; the legend distinguishes the
+   Stevenson Ranch market context, Census CDP coverage edge, and ZIP `91381`
+   product selector; and a zero-listing React test proves the toggle remains
+   independent from listing results. Focused tests pass 45/45, wildfire tests
+   pass 24/24, all 114 repository files and 1,072 tests pass, typecheck passes,
+   and the production application and infrastructure build passes. Browser
+   visual, Console, Network, WebGL, and teardown acceptance remains Block 25.6.
 7. `25.6` Run focused and repository-wide tests, typecheck, builds, CSP and
    payload review, then complete desktop/mobile 2D/3D visual acceptance for
    Stevenson Ranch and all five existing cities. Inspect Console, Network,

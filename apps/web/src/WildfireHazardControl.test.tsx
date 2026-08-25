@@ -61,9 +61,15 @@ describe("WildfireHazardControl", () => {
     );
     expect(legend).toHaveTextContent("Eastvale recommended");
     expect(legend).toHaveTextContent(
+      "Stevenson Ranch market context locally adopted",
+    );
+    expect(legend).toHaveTextContent(
+      "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary",
+    );
+    expect(legend).toHaveTextContent("Product market selector: ZIP 91381");
+    expect(legend).toHaveTextContent(
       "Blank areas may be outside mapped hazard zones",
     );
-    expect(legend).not.toHaveTextContent("Stevenson Ranch");
     expect(screen.getByRole("link", { name: "CAL FIRE / OSFM" })).toHaveAttribute(
       "href",
       metadata.sourceUrl,
@@ -178,6 +184,68 @@ function createMetadata(): WildfireHazardMetadata {
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "locally-adopted" },
     ],
-    coverageTargets: [],
+    coverageTargets: [
+      {
+        id: "chino",
+        label: "Chino",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "chino-valley-ordinance-2025-01",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+      {
+        id: "chino-hills",
+        label: "Chino Hills",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "chino-valley-ordinance-2025-01",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+      {
+        id: "corona",
+        label: "Corona",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "corona-ordinance-3418",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+      {
+        id: "eastvale",
+        label: "Eastvale",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "recommended",
+        evidenceId: "eastvale-proposal-review",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+      {
+        id: "jurupa-valley",
+        label: "Jurupa Valley",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "city-boundaries",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "jurupa-valley-ordinance-2025-13",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+      {
+        id: "stevenson-ranch-91381",
+        label: "Stevenson Ranch",
+        kind: "market-context",
+        boundarySourceId: "census-stevenson-ranch-cdp",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "los-angeles-county-ordinance-2025-0027",
+        coverageDisclosure:
+          "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
+        productSelector: { kind: "zip", value: "91381" },
+      },
+    ],
   };
 }

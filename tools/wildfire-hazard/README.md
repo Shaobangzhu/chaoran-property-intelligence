@@ -112,9 +112,9 @@ apps/web/public/data/wildfire-hazard/manifest.json
 ```
 
 The public schema version 2 manifest describes the successor artifact and all
-six typed coverage targets. The React artifact URL remains on the retained
-five-city file until Block 25.5 changes the runtime reference and completes
-browser acceptance.
+six typed coverage targets. Block 25.5 moved the shared React 2D/3D artifact URL
+to the successor. The retained five-city file is a bounded rollback asset until
+the final Block 25 release gate; browser acceptance remains Block 25.6.
 
 The manifest contains source and artifact checksums, versions, attribution,
 designation evidence, coverage-target status, per-target and combined category
