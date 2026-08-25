@@ -1549,7 +1549,17 @@ Planned sub-block mapping:
 6. `26.4` Integrate direct areas into the source and production composition
    while preserving all-or-nothing reads, completeness gates, overlap
    reconciliation, observation time, alert state, and zero partial Telegram
-   effects.
+   effects. **Complete:** the source now requires an explicit non-empty area
+   list and has no Brea fallback. Six-market source coverage proves canonical
+   sequential reads, a shared post-success observation time, and independent
+   completeness gates; a sixth-request provider failure and a later-area
+   incomplete page return no rows and do not read the observation clock.
+   Production workflow integration proves that the same late failure causes no
+   persistence, revision advancement, listing snapshot, alert event, or
+   Telegram request. Existing canonical-address overlap reconciliation,
+   tracked price-drop delivery, and ZIP `91381` provider city `Valencia`
+   preservation remain covered. All 116 test files and 1,107 tests, root
+   typecheck, and the production/AWS build pass.
 7. `26.5` Replace active Brea-default audit and operations guidance with
    explicit market-scoped commands and visible request-count/quota gates. No
    ordinary command may silently execute five or six provider requests.

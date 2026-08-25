@@ -16,15 +16,16 @@ made. Block 26.1B then used that isolated path, with fresh authorization, to
 make exactly five sequential real requests without retry. All five direct city
 areas passed provider-city, fixed-filter, schema, and completeness gates; 112
 matching rows were returned in total, with zero filter violations and no area
-near its 500-row limit. Production composition remains unchanged pending the
-implementation blocks.
+near its 500-row limit. At that stage, production composition remained
+unchanged pending the implementation blocks.
 
 Block 26.2 implements the package-level city search-area contract. RentCast
 client methods now require an explicit area, city requests emit only city and
 fixed California geography, and conflicting city/ZIP/radius runtime fields are
-rejected before provider access. The explicit legacy Brea area remains in the
-worker until the separately reviewed market mapping and production integration
-stages; it is no longer an implicit client fallback.
+rejected before provider access. At the end of that stage, the explicit legacy
+Brea area remained in the worker pending the separately reviewed market mapping
+and production integration stages; it was no longer an implicit client
+fallback.
 
 Block 26.3 implements the accepted product-market mapping in the active worker
 selector. The five incorporated markets now compose one direct city area each
@@ -32,16 +33,26 @@ in Domain canonical order, and Stevenson Ranch remains ZIP `91381`. The
 selector rejects empty, duplicate, unsupported, and malformed runtime input
 before provider access. Production composition now receives direct areas, but
 no worker execution, provider call, schedule change, or deployment occurred in
-this stage. Source-level atomicity and alert workflow integration remain gated
-by Block 26.4.
+this stage. Source-level atomicity and alert workflow integration remained
+gated until Block 26.4.
+
+Block 26.4 completes the source and production workflow integration. The source
+now requires an explicit non-empty area list and cannot fall back to Brea.
+Fixture-backed six-market tests preserve canonical sequential acquisition,
+per-area completeness, one shared post-success observation time,
+canonical-address overlap handling, tracked price-drop behavior, and provider
+city `Valencia`. A failure on the sixth required request produces no partial
+persistence, revision advancement, listing snapshot, alert event, clock read,
+or Telegram request. No real provider, database, Telegram, AWS, schedule, or
+deployment operation occurred in this stage.
 
 ## Context
 
 The application supports Chino, Chino Hills, Eastvale, Corona, Jurupa Valley,
-and Stevenson Ranch as product listing markets. The first five markets are
-currently acquired through one RentCast sale-listings request within 20 miles
-of `1065 Brea Mall, Brea, CA 92821`; Domain city matching later removes
-non-selected locations. Stevenson Ranch is separately acquired by ZIP `91381`
+and Stevenson Ranch as product listing markets. Before Block 26, the first five
+markets were acquired through one RentCast sale-listings request within 20
+miles of `1065 Brea Mall, Brea, CA 92821`; Domain city matching later removed
+non-selected locations. Stevenson Ranch was separately acquired by ZIP `91381`
 because RentCast labels matching listings `Valencia`.
 
 The regional Brea radius is not the product boundary for any supported city.

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  defaultRentCastSaleListingsSearchArea,
   defaultRentCastSaleListingsSearchCriteria,
   type RentCastListingsPort,
   type RentCastSaleListing,
   type RentCastSaleListingsPage,
+  type RentCastSaleListingsSearchArea,
 } from "@chaoran-property-intelligence/rentcast";
 
 import {
@@ -14,7 +14,16 @@ import {
   RentCastListingCoverageExceededError,
   RentCastListingSource,
 } from "./rentCastListingSource.js";
-import { stevensonRanchRentCastSaleListingsSearchArea } from "./rentCastSearchAreas.js";
+import { selectRentCastSaleListingsSearchAreas } from "./rentCastSearchAreas.js";
+
+const allSixMarketSearchAreas = selectRentCastSaleListingsSearchAreas([
+  "Stevenson Ranch",
+  "Jurupa Valley",
+  "Corona",
+  "Eastvale",
+  "Chino Hills",
+  "Chino",
+]);
 
 describe("RentCastListingSource", () => {
   it("forwards one typed search and normalizes a complete response page", async () => {
@@ -27,6 +36,7 @@ describe("RentCastListingSource", () => {
     const source = new RentCastListingSource({
       client,
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+      searchAreas: [{ kind: "city", city: "Corona" }],
       now: () => new Date("2026-08-22T20:00:00.000Z"),
     });
 
@@ -41,68 +51,60 @@ describe("RentCastListingSource", () => {
     expect(client.searchSaleListings).toHaveBeenCalledOnce();
     expect(client.searchSaleListings).toHaveBeenCalledWith(
       defaultRentCastSaleListingsSearchCriteria,
-      defaultRentCastSaleListingsSearchArea,
+      { kind: "city", city: "Corona" },
     );
   });
 
-  it("fetches two areas sequentially and flattens only after both succeed", async () => {
-    const firstListing = createListing({ id: "rentcast-brea" });
-    const secondListing = createListing({
-      id: "rentcast-stevenson-ranch",
-      city: "Valencia",
-      zipCode: "91381",
-    });
-    const client = createSequentialClient([
-      createPage([firstListing]),
-      createPage([secondListing]),
-    ]);
+  it("fetches all six market areas sequentially and flattens only after every area succeeds", async () => {
+    const pages = allSixMarketSearchAreas.map((area, index) =>
+      createPage([
+        createListing({
+          id: `rentcast-${index + 1}`,
+          city: area.kind === "city" ? area.city : "Valencia",
+          zipCode: area.kind === "zip" ? area.zipCode : "92882",
+        }),
+      ]),
+    );
+    const client = createSequentialClient(pages);
     const now = vi.fn(() => new Date("2026-08-24T20:00:00.000Z"));
     const source = new RentCastListingSource({
       client,
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
-      searchAreas: [
-        defaultRentCastSaleListingsSearchArea,
-        stevensonRanchRentCastSaleListingsSearchArea,
-      ],
+      searchAreas: allSixMarketSearchAreas,
       now,
     });
 
-    await expect(source.getActiveSaleListings()).resolves.toMatchObject([
-      {
-        sourceListingId: "rentcast-brea",
-        firstDiscoveredAt: "2026-08-24T20:00:00.000Z",
-      },
-      {
-        sourceListingId: "rentcast-stevenson-ranch",
-        city: "Valencia",
-        zipCode: "91381",
-        firstDiscoveredAt: "2026-08-24T20:00:00.000Z",
-      },
-    ]);
-    expect(client.searchSaleListings.mock.calls).toEqual([
-      [
+    const listings = await source.getActiveSaleListings();
+
+    expect(listings).toHaveLength(6);
+    expect(listings.at(-1)).toMatchObject({
+      sourceListingId: "rentcast-6",
+      city: "Valencia",
+      zipCode: "91381",
+      firstDiscoveredAt: "2026-08-24T20:00:00.000Z",
+    });
+    expect(client.searchSaleListings.mock.calls).toEqual(
+      allSixMarketSearchAreas.map((area) => [
         defaultRentCastSaleListingsSearchCriteria,
-        defaultRentCastSaleListingsSearchArea,
-      ],
-      [
-        defaultRentCastSaleListingsSearchCriteria,
-        stevensonRanchRentCastSaleListingsSearchArea,
-      ],
-    ]);
+        area,
+      ]),
+    );
     expect(now).toHaveBeenCalledOnce();
   });
 
-  it("does not return or normalize the first area when the second request fails", async () => {
+  it("does not return or normalize earlier areas when the sixth request fails", async () => {
     const providerFailure = new Error("RentCast request failed");
     const client = createSequentialClient([
-      createPage([createListing()]),
+      ...allSixMarketSearchAreas.slice(0, -1).map(() =>
+        createPage([createListing()]),
+      ),
       providerFailure,
     ]);
     const now = vi.fn(() => new Date("2026-08-24T20:00:00.000Z"));
-    const source = createTwoAreaSource(client, now);
+    const source = createSource(client, allSixMarketSearchAreas, now);
 
     await expect(source.getActiveSaleListings()).rejects.toBe(providerFailure);
-    expect(client.searchSaleListings).toHaveBeenCalledTimes(2);
+    expect(client.searchSaleListings).toHaveBeenCalledTimes(6);
     expect(now).not.toHaveBeenCalled();
   });
 
@@ -117,16 +119,19 @@ describe("RentCastListingSource", () => {
       page: createPage([createListing()], { totalCount: 2 }),
       error: IncompleteRentCastListingPageError,
     },
-  ])("fails closed when the second area $name", async ({ page, error }) => {
+  ])("fails closed when a later area $name", async ({ page, error }) => {
     const client = createSequentialClient([
-      createPage([createListing()]),
+      ...allSixMarketSearchAreas.slice(0, 4).map(() =>
+        createPage([createListing()]),
+      ),
       page,
     ]);
     const now = vi.fn(() => new Date("2026-08-24T20:00:00.000Z"));
 
     await expect(
-      createTwoAreaSource(client, now).getActiveSaleListings(),
+      createSource(client, allSixMarketSearchAreas, now).getActiveSaleListings(),
     ).rejects.toBeInstanceOf(error);
+    expect(client.searchSaleListings).toHaveBeenCalledTimes(5);
     expect(now).not.toHaveBeenCalled();
   });
 
@@ -138,24 +143,34 @@ describe("RentCastListingSource", () => {
     ]);
 
     await expect(
-      createTwoAreaSource(client).getActiveSaleListings(),
+      createSource(client, [
+        { kind: "city", city: "Corona" },
+        { kind: "city", city: "Jurupa Valley" },
+      ]).getActiveSaleListings(),
     ).resolves.toMatchObject([
       { sourceListingId: "rentcast-1" },
       { sourceListingId: "rentcast-1" },
     ]);
   });
 
-  it("rejects an explicitly empty search-area list", () => {
-    expect(
-      () =>
-        new RentCastListingSource({
-          client: createClient(createPage([])),
-          searchCriteria: defaultRentCastSaleListingsSearchCriteria,
-          searchAreas: [],
-          now: () => new Date("2026-08-22T20:00:00.000Z"),
-        }),
-    ).toThrow(InvalidRentCastListingSearchAreasError);
-  });
+  it.each([
+    ["missing", undefined],
+    ["empty", []],
+  ] as const)(
+    "rejects a %s search-area list without falling back",
+    (_name, searchAreas) => {
+      expect(
+        () =>
+          new RentCastListingSource({
+            client: createClient(createPage([])),
+            searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+            searchAreas:
+              searchAreas as readonly RentCastSaleListingsSearchArea[],
+            now: () => new Date("2026-08-22T20:00:00.000Z"),
+          }),
+      ).toThrow(InvalidRentCastListingSearchAreasError);
+    },
+  );
 
   it("fails before returning listings when total count exceeds the page cap", async () => {
     const client = createClient({
@@ -167,6 +182,7 @@ describe("RentCastListingSource", () => {
     const source = new RentCastListingSource({
       client,
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+      searchAreas: [{ kind: "city", city: "Corona" }],
       now: () => new Date("2026-08-22T20:00:00.000Z"),
     });
 
@@ -185,6 +201,7 @@ describe("RentCastListingSource", () => {
     const source = new RentCastListingSource({
       client,
       searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+      searchAreas: [{ kind: "city", city: "Corona" }],
       now: () => new Date("2026-08-22T20:00:00.000Z"),
     });
 
@@ -223,17 +240,15 @@ function createSequentialClient(
   } satisfies RentCastListingsPort;
 }
 
-function createTwoAreaSource(
+function createSource(
   client: RentCastListingsPort,
+  searchAreas: readonly RentCastSaleListingsSearchArea[],
   now: () => Date = () => new Date("2026-08-24T20:00:00.000Z"),
 ): RentCastListingSource {
   return new RentCastListingSource({
     client,
     searchCriteria: defaultRentCastSaleListingsSearchCriteria,
-    searchAreas: [
-      defaultRentCastSaleListingsSearchArea,
-      stevensonRanchRentCastSaleListingsSearchArea,
-    ],
+    searchAreas,
     now,
   });
 }

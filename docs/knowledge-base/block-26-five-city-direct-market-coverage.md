@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 26.0 through 26.3 are complete on
+Blocks 26.0 through 26.4 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
@@ -12,7 +12,10 @@ authorized five-request provider audit and recorded aggregate-only evidence.
 Block 26.2 added the strict typed city-area client contract and removed
 implicit client-level geography defaults without changing worker area mapping.
 Block 26.3 replaced the active product-market selector and production
-composition expectations with canonical direct-market areas.
+composition expectations with canonical direct-market areas. Block 26.4
+removed the source-level Brea fallback and completed fake-provider production
+workflow integration for sequential acquisition, completeness, overlap,
+provider-city preservation, and zero-partial-effect failure behavior.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -371,7 +374,7 @@ The full repository gate passes 116 test files and 1,106 tests, root typecheck,
 and the production/AWS build. The existing ArcGIS chunk-size warning is
 unchanged. Deeper source paging, all-or-nothing acquisition, overlap
 reconciliation, observation time, persistence, and notification integration
-acceptance remains the scope of Block 26.4.
+acceptance was reserved for Block 26.4.
 
 ### Block 26.4: Source and production integration
 
@@ -380,6 +383,39 @@ acceptance remains the scope of Block 26.4.
 - preserve canonical-address overlap reconciliation and price-drop behavior
 - prove one failed area causes no persistence or Telegram effects
 - prove provider city values remain unchanged end to end
+
+Status: complete. `RentCastListingSourceOptions.searchAreas` is now required,
+and the source rejects missing or empty runtime area lists instead of selecting
+the legacy Brea radius. Every production construction path supplies an explicit
+area list derived from the normalized persisted profile. The source still
+executes areas sequentially, validates each page before retaining it, reads one
+shared observation time only after every area succeeds, and returns the
+flattened normalized rows only after the complete selected-market set passes.
+
+Six-market source tests verify canonical Chino, Chino Hills, Eastvale, Corona,
+Jurupa Valley, then ZIP `91381` request order. A provider failure on request six
+does not return or normalize the first five pages and does not read the source
+clock. Separate later-area tests preserve the strict `totalCount <= 500` and
+`listings.length === totalCount` gates. Equivalent overlapping provider rows
+remain available to the application layer for canonical-address
+reconciliation.
+
+Production workflow integration now exercises a six-market profile whose ZIP
+`91381` request fails after five valid direct-city pages. The workflow closes
+the database but makes no repository call, does not advance the search-profile
+revision, does not create a listing snapshot or alert event, does not read the
+observation clock, and does not issue a Telegram request. Existing integration
+coverage continues to collapse equivalent direct-city/ZIP overlap into one
+record, persist the audited provider city `Valencia` unchanged, and deliver a
+tracked below-floor price drop with both prices.
+
+Twenty-six focused source, production-composition, local-adapter, and workflow
+integration tests pass. The full repository gate passes all 116 test files and
+1,107 tests, root typecheck, and the production/AWS build. The existing ArcGIS
+chunk-size warning is unchanged. No environment file was read; no real
+RentCast, PostgreSQL, Telegram, or AWS call was made; and no migration,
+schedule, wildfire artifact, deployment, or production data changed in Block
+26.4.
 
 ### Block 26.5: Audit and operational integration
 

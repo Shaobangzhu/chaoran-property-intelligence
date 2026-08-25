@@ -481,7 +481,7 @@ describe("listing alert production workflow integration", () => {
     expect(steps).toContain("database:close");
   });
 
-  it("does not partially persist mixed inventory when the 91381 request fails", async () => {
+  it("does not partially persist or notify when the sixth market request fails", async () => {
     const steps: string[] = [];
     const initialListing = createNormalizedListing();
     const repository = new IntegrationListingAlertRepository(
@@ -491,11 +491,13 @@ describe("listing alert production workflow integration", () => {
     );
     const database = new RecordingSqlDatabase(steps);
     let providerCall = 0;
+    const rentCastUrls: URL[] = [];
     const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
       const url = input as URL;
       if (url.origin === "https://api.rentcast.io") {
         providerCall += 1;
-        if (providerCall === 1) {
+        rentCastUrls.push(url);
+        if (providerCall < 6) {
           return Response.json([createRentCastListing()], {
             headers: { "X-Total-Count": "1" },
           });
@@ -516,7 +518,14 @@ describe("listing alert production workflow integration", () => {
           createSearchProfile({
             criteria: {
               ...defaultListingSearchCriteria,
-              cities: ["Corona", "Stevenson Ranch"],
+              cities: [
+                "Chino",
+                "Chino Hills",
+                "Eastvale",
+                "Corona",
+                "Jurupa Valley",
+                "Stevenson Ranch",
+              ],
             },
             revision: 2,
             appliedRevision: 1,
@@ -552,7 +561,20 @@ describe("listing alert production workflow integration", () => {
       ),
     ).rejects.toThrow("RentCast request failed");
 
-    expect(providerCall).toBe(2);
+    expect(providerCall).toBe(6);
+    expect(
+      rentCastUrls.map((url) =>
+        url.searchParams.get("city") ?? url.searchParams.get("zipCode"),
+      ),
+    ).toEqual([
+      "Chino",
+      "Chino Hills",
+      "Eastvale",
+      "Corona",
+      "Jurupa Valley",
+      "91381",
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(6);
     expect(repository.calls).toEqual([]);
     expect(repository.observations).toEqual([createObservation(initialListing)]);
     expect(repository.listingSnapshots).toEqual([]);
