@@ -13,15 +13,22 @@ const manifestUrl = new URL(
 );
 const artifactText = readFileSync(artifactUrl, "utf8");
 const artifact = JSON.parse(artifactText);
-const manifest = JSON.parse(readFileSync(manifestUrl, "utf8"));
+const manifestText = readFileSync(manifestUrl, "utf8");
+const manifest = JSON.parse(manifestText);
 const expectedArtifactSha256 =
   "7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd";
+const expectedManifestSha256 =
+  "e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366";
 
 describe("published wildfire hazard artifact", () => {
   it("matches its committed provenance and budget contract", () => {
     const sha256 = createHash("sha256").update(artifactText).digest("hex");
+    const manifestSha256 = createHash("sha256")
+      .update(manifestText)
+      .digest("hex");
 
     expect(sha256).toBe(expectedArtifactSha256);
+    expect(manifestSha256).toBe(expectedManifestSha256);
     expect(sha256).toBe(manifest.artifact.sha256);
     expect(Buffer.byteLength(artifactText)).toBe(manifest.artifact.bytes);
     expect(artifact.features).toHaveLength(manifest.artifact.featureCount);
@@ -152,5 +159,66 @@ describe("published wildfire hazard artifact", () => {
         },
       },
     });
+  });
+
+  it("keeps every incorporated market on official city geometry with non-empty hazard coverage", () => {
+    const expectedTargets = {
+      chino: {
+        evidenceId: "chino-valley-ordinance-2025-01",
+        label: "Chino",
+        lraDesignationStatus: "locally-adopted",
+      },
+      "chino-hills": {
+        evidenceId: "chino-valley-ordinance-2025-01",
+        label: "Chino Hills",
+        lraDesignationStatus: "locally-adopted",
+      },
+      corona: {
+        evidenceId: "corona-ordinance-3418",
+        label: "Corona",
+        lraDesignationStatus: "locally-adopted",
+      },
+      eastvale: {
+        evidenceId: "eastvale-proposal-review",
+        label: "Eastvale",
+        lraDesignationStatus: "recommended",
+      },
+      "jurupa-valley": {
+        evidenceId: "jurupa-valley-ordinance-2025-13",
+        label: "Jurupa Valley",
+        lraDesignationStatus: "locally-adopted",
+      },
+    } as const;
+
+    const incorporatedTargets = Object.fromEntries(
+      manifest.coverageTargets
+        .filter(
+          (target: { kind: string }) =>
+            target.kind === "incorporated-jurisdiction",
+        )
+        .map((target: { id: string }) => [target.id, target]),
+    );
+
+    expect(Object.keys(incorporatedTargets).sort()).toEqual(
+      Object.keys(expectedTargets).sort(),
+    );
+    for (const [id, expected] of Object.entries(expectedTargets)) {
+      expect(incorporatedTargets[id]).toMatchObject({
+        ...expected,
+        boundarySourceId: "city-boundaries",
+        kind: "incorporated-jurisdiction",
+      });
+      expect(incorporatedTargets[id]).not.toHaveProperty("productSelector");
+      expect(manifest.quality.byCoverageTarget[id]).toMatchObject({
+        label: expected.label,
+        invalidGeometryCount: 0,
+      });
+      expect(
+        manifest.quality.byCoverageTarget[id].inputEligibleFeatureCount,
+      ).toBeGreaterThan(0);
+      expect(
+        manifest.quality.byCoverageTarget[id].inputAreaSquareMeters,
+      ).toBeGreaterThan(0);
+    }
   });
 });

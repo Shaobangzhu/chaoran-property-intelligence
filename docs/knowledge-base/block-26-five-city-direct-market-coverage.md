@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 26.0 through 26.5 are complete on
+Blocks 26.0 through 26.6 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
@@ -18,7 +18,10 @@ workflow integration for sequential acquisition, completeness, overlap,
 provider-city preservation, and zero-partial-effect failure behavior.
 Block 26.5 retired the old Brea-default audit path, retained separately guarded
 five-direct-city and ZIP `91381` audits, and made request cost and quota planning
-visible in command output and operations guidance.
+visible in command output and operations guidance. Block 26.6 pinned the
+unchanged six-target wildfire publication, added incorporated-market and
+zero-listing 2D/3D regressions, and completed desktop/mobile acceptance without
+changing production data or the published hazard artifact.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -461,13 +464,32 @@ in Block 26.5.
 
 ### Block 26.6: Wildfire and web regression acceptance
 
-- verify the existing six-target artifact and manifest remain byte-for-byte
-  unchanged unless a defect requires a separately approved correction
-- verify all five incorporated-city polygons in ArcGIS 2D and 3D
-- verify zero matching listings do not disable the overlay
-- verify opacity, classification colors, marker ordering, provenance,
-  disclosures, retry, responsive layout, and teardown remain unchanged
-- confirm Search Criteria has no unintended redesign or schema change
+**Complete.** The published six-target artifact and manifest remain unchanged:
+
+- GeoJSON SHA-256:
+  `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`
+- manifest SHA-256:
+  `e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`
+
+Published-artifact tests now require each of Chino, Chino Hills, Corona,
+Eastvale, and Jurupa Valley to remain an `incorporated-jurisdiction` target
+with the city-boundary source, expected evidence/designation status, positive
+feature and area totals, and zero invalid geometries. Web regressions also
+prove that an empty listing set still fits both map drivers, leaves the
+wildfire overlay available across the 2D-to-3D transition, destroys the prior
+driver, and retains the terrain-context disclosure.
+
+The eight focused wildfire/web files pass all 71 tests. Repository-wide
+verification passes root typecheck, all 114 test files and 1,098 tests, and the
+production/AWS build; the existing ArcGIS chunk-size advisory is unchanged.
+The repository owner manually accepted desktop and mobile behavior: ArcGIS 2D
+and 3D Terrain render the existing classifications, overlay, legend,
+provenance, disclosures, markers, responsive controls, and List/Map behavior
+without unintended Search Criteria redesign or new Console errors.
+
+The acceptance run used the existing local PostgreSQL-backed login and ArcGIS
+browser key only. It did not call RentCast, Telegram, or AWS; mutate criteria or
+database state; rebuild or deploy the wildfire artifact; or change schedules.
 
 ### Block 26.7: Final integration and release gate
 

@@ -1584,6 +1584,14 @@ Planned sub-block mapping:
 8. `26.6` Verify the existing six-target wildfire artifact remains unchanged
    and complete 2D/3D, zero-listing, responsive, provenance, disclosure,
    interaction, and teardown regression acceptance for all five cities.
+   **Complete:** pinned SHA-256 checks protect the unchanged GeoJSON and
+   manifest; incorporated-target and empty-listing 2D/3D regressions pass;
+   all 71 focused tests, all 114 repository test files and 1,098 tests,
+   typecheck, and the production/AWS build pass. Desktop and mobile manual
+   acceptance confirmed the authoritative overlay, terrain context, markers,
+   controls, provenance, disclosures, List/Map behavior, unchanged Search
+   Criteria UX, and a clean application Console. No provider, database-write,
+   Telegram, AWS, schedule, artifact-build, or deployment side effect occurred.
 9. `26.7` Run fake-provider one-, five-, and six-market integrations, full
    tests/typecheck/builds, browser and security acceptance, final diff,
    rollback, quota, and as-built documentation gates. Commit, push, PR, merge,
