@@ -2,7 +2,7 @@
 
 ## Status
 
-Blocks 26.0 through 26.6 are complete on
+Blocks 26.0 through 26.7 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
@@ -21,7 +21,10 @@ five-direct-city and ZIP `91381` audits, and made request cost and quota plannin
 visible in command output and operations guidance. Block 26.6 pinned the
 unchanged six-target wildfire publication, added incorporated-market and
 zero-listing 2D/3D regressions, and completed desktop/mobile acceptance without
-changing production data or the published hazard artifact.
+changing production data or the published hazard artifact. Block 26.7 added
+the final successful one-, five-, and six-market production-composition matrix,
+passed the full release and security gates, reconciled rollback and quota
+guidance, and closed Block 26 for repository-owner review and merge.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -493,12 +496,44 @@ database state; rebuild or deploy the wildfire artifact; or change schedules.
 
 ### Block 26.7: Final integration and release gate
 
-- run fixture-based one-, five-, and six-market production integrations
-- run focused and repository-wide tests, typecheck, builds, and security review
-- complete desktop/mobile browser acceptance and Console/Network checks
-- reconcile request counts, rollback behavior, and final branch diff
-- write the as-built record and leave commit, push, PR, merge, schedule, and
-  deployment under repository-owner control
+**Complete.** The final fixture-backed production-composition matrix executes
+the real worker composition and real RentCast/Telegram adapter boundaries with
+intercepted local fetches. It proves that:
+
+- a one-market `Corona` profile emits exactly one city request
+- the five incorporated markets emit exactly five city requests
+- all six product markets emit those five city requests followed by ZIP
+  `91381`
+- every request follows canonical market order and emits no `address` or
+  `radius` parameter
+- successful pending revisions quietly baseline all returned markets, advance
+  the applied revision, close the database, and send no Telegram message
+- ZIP `91381` inventory retains provider city `Valencia`
+- the clock reads remain constant per successful run rather than increasing
+  with provider request fan-out
+
+The focused release matrix passes 175 tests across 10 production, RentCast,
+Domain, security, and wildfire files. The repository-wide gate passes all 114
+test files and 1,101 tests, root runtime/web/AWS typecheck, and the complete
+production/AWS build. The build retains the known ArcGIS chunk-size advisory
+and introduces no new warning. The accepted Block 26.6 desktop/mobile,
+Console, 2D/3D, wildfire, responsive, and Search Criteria evidence remains the
+browser release evidence because Block 26.7 changes no Web runtime code.
+
+The final `main...HEAD` review contains the expected RentCast package, worker,
+tests, operations documentation, and protected audit-script changes. It adds
+no tracked local environment file, credential, dependency lock change,
+migration, workflow, or infrastructure runtime change. A secret-pattern scan
+found no credential material. The retained Brea values are limited to the
+explicit typed radius capability used for reviewed maintenance/rollback and a
+dry-run fake listing; neither the production selector/source nor either
+successor audit has an implicit Brea fallback. The published wildfire GeoJSON
+and manifest remain unchanged at the Block 26.6 pinned hashes.
+
+No real provider request, PostgreSQL operation, profile mutation, Telegram
+send, AWS action, schedule change, artifact build, deployment, commit, push, or
+merge occurred in Block 26.7. Commit, push, PR, merge, production cadence, and
+deployment remain under repository-owner control.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.

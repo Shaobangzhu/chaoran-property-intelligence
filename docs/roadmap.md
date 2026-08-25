@@ -44,13 +44,18 @@ unincorporated jurisdiction and Ordinance `2025-0027` LRA adoption evidence;
 reconciled five LRA and seven SRA source intersections; and selected an exact
 hard clip that projects the combined artifact at 1,158,246 raw and 289,420 gzip
 bytes. Audit candidates remain ignored and no runtime artifact changed.
-Blocks 25.2-25.7 are complete and merged into `main`. Blocks 26.0-26.5 are
+Blocks 25.2-25.7 are complete and merged into `main`. Blocks 26.0-26.7 are
 complete on `refactor/five-city-direct-market-coverage`: the five incorporated
 markets now use direct city acquisition, Stevenson Ranch retains ZIP `91381`,
 the source and production workflow require explicit sequential areas, and the
 legacy Brea-default audit path is retired. Request-cost guidance now treats 50
 requests as a planning reference and requires current account-plan and usage
 verification before any real audit or production run.
+The final release matrix proves successful one-, five-, and six-market worker
+composition with exactly 1, 5, and 6 canonical provider requests. All 114 test
+files and 1,101 tests, typecheck, production/AWS build, browser evidence, and
+security/diff gates pass; merge, schedule, and deployment remain under
+repository-owner control.
 Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
@@ -1596,6 +1601,15 @@ Planned sub-block mapping:
    tests/typecheck/builds, browser and security acceptance, final diff,
    rollback, quota, and as-built documentation gates. Commit, push, PR, merge,
    schedule, and deployment remain under repository-owner control.
+   **Complete:** the production-composition matrix proves exact canonical
+   request counts of 1, 5, and 6 with no implicit Brea parameters, no partial
+   state, and no Telegram during revision baseline. All 175 focused tests and
+   all 114 repository test files / 1,101 tests pass with root typecheck and the
+   production/AWS build. The accepted 26.6 browser evidence remains valid
+   because 26.7 changes no Web runtime. Final security and diff review found no
+   credential, tracked local environment, dependency-lock, migration,
+   workflow, infrastructure-runtime, wildfire-artifact, schedule, or
+   deployment change.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. A full six-market worker run consumes six successful RentCast

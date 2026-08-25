@@ -2,10 +2,10 @@
 
 ## Status
 
-Accepted for implementation by Block 26.0. This ADR supersedes the active
-five-city Brea-radius selection and default-audit decisions in ADR 0012. It does
-not supersede ADR 0012's ZIP `91381` Stevenson Ranch mapping, provider-data
-preservation, per-area completeness, all-or-nothing failure, or
+Implemented and release-gated by Blocks 26.0 through 26.7. This ADR supersedes
+the active five-city Brea-radius selection and default-audit decisions in ADR
+0012. It does not supersede ADR 0012's ZIP `91381` Stevenson Ranch mapping,
+provider-data preservation, per-area completeness, all-or-nothing failure, or
 canonical-address reconciliation decisions.
 
 No runtime implementation or provider audit occurred in Block 26.0.
@@ -53,6 +53,14 @@ require exact request-count and market confirmations. No ordinary combined
 six-request command exists. Aggregate output discloses actual audit request
 cost plus the 50-request planning reference and tells operators to verify the
 current account plan and usage before execution.
+
+Block 26.6 pinned the unchanged six-target wildfire artifact and manifest,
+added incorporated-target and zero-listing 2D/3D regressions, and completed
+desktop/mobile acceptance. Block 26.7 added successful one-, five-, and
+six-market production-composition tests and completed the full test, typecheck,
+build, browser-evidence, security, diff, quota, and rollback gates. All 114 test
+files and 1,101 tests pass. No production schedule, deployment, profile,
+database, Telegram, AWS, or wildfire artifact changed.
 
 ## Context
 

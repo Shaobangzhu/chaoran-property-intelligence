@@ -481,6 +481,162 @@ describe("listing alert production workflow integration", () => {
     expect(steps).toContain("database:close");
   });
 
+  it.each([
+    {
+      name: "one selected market",
+      cities: ["Corona"],
+      expectedAreas: ["Corona"],
+    },
+    {
+      name: "all five incorporated markets",
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+      ],
+    },
+    {
+      name: "all six product markets",
+      cities: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "Stevenson Ranch",
+      ],
+      expectedAreas: [
+        "Chino",
+        "Chino Hills",
+        "Eastvale",
+        "Corona",
+        "Jurupa Valley",
+        "91381",
+      ],
+    },
+  ] as const)(
+    "quietly baselines $name with one request per canonical provider area",
+    async ({ cities, expectedAreas }) => {
+      const steps: string[] = [];
+      const repository = new IntegrationListingAlertRepository(
+        steps,
+        createObservation(createNormalizedListing()),
+        { revision: 2, appliedRevision: 1 },
+      );
+      const database = new RecordingSqlDatabase(steps);
+      const rentCastUrls: URL[] = [];
+      const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+        const url = input as URL;
+        if (url.origin === "https://api.rentcast.io") {
+          rentCastUrls.push(url);
+          const index = rentCastUrls.length;
+          const providerCity = url.searchParams.get("city") ?? "Valencia";
+          const zipCode = url.searchParams.get("zipCode") ?? "92882";
+          return Response.json(
+            [
+              createRentCastListing({
+                id: `rentcast-market-${index}`,
+                formattedAddress: `${100 + index} Market St, ${providerCity}, CA ${zipCode}`,
+                addressLine1: `${100 + index} Market St`,
+                city: providerCity,
+                zipCode,
+                mlsNumber: `MATRIX${index}`,
+              }),
+            ],
+            { headers: { "X-Total-Count": "1" } },
+          );
+        }
+        if (url.origin === "https://api.telegram.org") {
+          throw new Error("Revision baseline must not send Telegram alerts");
+        }
+        throw new Error(`Unexpected HTTP request: ${url.origin}`);
+      });
+      const now = vi.fn(() => new Date("2026-08-25T19:00:00.000Z"));
+      const dependencies: ProductionDependencies = {
+        createDatabase: () => database,
+        runMigrations: async () => {},
+        createSearchProfileQuery: () => ({
+          findPrimaryProfile: async () =>
+            createSearchProfile({
+              criteria: {
+                ...defaultListingSearchCriteria,
+                cities,
+              },
+              revision: 2,
+              appliedRevision: 1,
+            }),
+        }),
+        createRepository: () => repository,
+        createSource: (options) =>
+          new RentCastListingSource({
+            client: new RentCastSaleListingsClient({
+              apiKey: options.apiKey,
+              fetch: options.fetch,
+            }),
+            searchCriteria: options.searchCriteria,
+            searchAreas: options.searchAreas,
+            now: options.now,
+          }),
+        createNotifications: (options) => new TelegramBotClient(options),
+      };
+
+      await runProduction(
+        {
+          environment: {
+            DATABASE_URL: "postgresql://database.example/app",
+            RENTCAST_API_KEY: "rentcast-secret",
+            TELEGRAM_BOT_TOKEN: "telegram-secret",
+            TELEGRAM_CHAT_ID: "123456789",
+          },
+          fetch,
+          now,
+        },
+        dependencies,
+      );
+
+      expect(rentCastUrls).toHaveLength(expectedAreas.length);
+      expect(
+        rentCastUrls.map(
+          (url) =>
+            url.searchParams.get("city") ?? url.searchParams.get("zipCode"),
+        ),
+      ).toEqual(expectedAreas);
+      for (const url of rentCastUrls) {
+        expect(url.searchParams.get("address")).toBeNull();
+        expect(url.searchParams.get("radius")).toBeNull();
+      }
+      expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
+      expect(repository.listingSnapshots).toHaveLength(expectedAreas.length);
+      expect(repository.events).toEqual([]);
+      expect(now).toHaveBeenCalledTimes(2);
+      expect(steps).toContain("database:close");
+      expect(
+        fetch.mock.calls.filter(
+          ([input]) => (input as URL).origin === "https://api.telegram.org",
+        ),
+      ).toHaveLength(0);
+      if (
+        rentCastUrls.some(
+          (url) => url.searchParams.get("zipCode") === "91381",
+        )
+      ) {
+        expect(repository.listingSnapshots.at(-1)).toMatchObject({
+          city: "Valencia",
+          zipCode: "91381",
+        });
+      }
+    },
+  );
+
   it("does not partially persist or notify when the sixth market request fails", async () => {
     const steps: string[] = [];
     const initialListing = createNormalizedListing();
