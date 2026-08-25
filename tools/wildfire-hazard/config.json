@@ -1,13 +1,17 @@
 {
   "artifact": {
     "version": "2025.1",
-    "fileName": "fhsz-five-cities-2025.1.geojson",
+    "fileName": "fhsz-supported-markets-2025.1-r2.geojson",
     "manifestFileName": "manifest.json",
     "snapshotAt": "2026-08-22T00:29:56Z",
     "coordinatePrecision": 7,
     "maximumRawBytes": 10485760,
     "maximumGzipBytes": 2097152,
     "maximumAreaDriftRatio": 0.001
+  },
+  "publication": {
+    "enabled": false,
+    "blockedUntilBlock": "25.4"
   },
   "gdal": {
     "version": "3.13.2",
@@ -61,6 +65,20 @@
       "gdalLayer": "target_city_boundaries",
       "license": "Creative Commons Attribution",
       "attribution": "CAL FIRE FRAP / California Board of Equalization"
+    },
+    {
+      "id": "census-stevenson-ranch-cdp",
+      "title": "ACS 2025 Stevenson Ranch Census Designated Place",
+      "canonicalUrl": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12",
+      "fileName": "stevenson-ranch-cdp-acs25.geojson",
+      "trackedPath": "tools/wildfire-hazard/sources/stevenson-ranch-cdp-acs25.geojson",
+      "sha256": "2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf",
+      "maximumBytes": 50000,
+      "version": "ACS 2025 PLACE 0674130",
+      "gdalDataSource": "/work/sources/stevenson-ranch-cdp-acs25.geojson",
+      "gdalLayer": "stevenson-ranch-cdp-acs25",
+      "license": "U.S. Government public domain",
+      "attribution": "U.S. Census Bureau TIGERweb"
     }
   ],
   "coverageTargets": [
@@ -69,6 +87,7 @@
       "label": "Chino",
       "kind": "incorporated-jurisdiction",
       "boundarySourceId": "city-boundaries",
+      "boundarySelector": { "field": "CITY", "equals": "Chino" },
       "lraDesignationStatus": "locally-adopted",
       "evidenceId": "chino-valley-ordinance-2025-01",
       "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
@@ -78,6 +97,7 @@
       "label": "Chino Hills",
       "kind": "incorporated-jurisdiction",
       "boundarySourceId": "city-boundaries",
+      "boundarySelector": { "field": "CITY", "equals": "Chino Hills" },
       "lraDesignationStatus": "locally-adopted",
       "evidenceId": "chino-valley-ordinance-2025-01",
       "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
@@ -87,6 +107,7 @@
       "label": "Corona",
       "kind": "incorporated-jurisdiction",
       "boundarySourceId": "city-boundaries",
+      "boundarySelector": { "field": "CITY", "equals": "Corona" },
       "lraDesignationStatus": "locally-adopted",
       "evidenceId": "corona-ordinance-3418",
       "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
@@ -96,6 +117,7 @@
       "label": "Eastvale",
       "kind": "incorporated-jurisdiction",
       "boundarySourceId": "city-boundaries",
+      "boundarySelector": { "field": "CITY", "equals": "Eastvale" },
       "lraDesignationStatus": "recommended",
       "evidenceId": "eastvale-proposal-review",
       "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
@@ -105,9 +127,21 @@
       "label": "Jurupa Valley",
       "kind": "incorporated-jurisdiction",
       "boundarySourceId": "city-boundaries",
+      "boundarySelector": { "field": "CITY", "equals": "Jurupa Valley" },
       "lraDesignationStatus": "locally-adopted",
       "evidenceId": "jurupa-valley-ordinance-2025-13",
       "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
+    },
+    {
+      "id": "stevenson-ranch-91381",
+      "label": "Stevenson Ranch",
+      "kind": "market-context",
+      "boundarySourceId": "census-stevenson-ranch-cdp",
+      "boundarySelector": { "field": "GEOID", "equals": "0674130" },
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "los-angeles-county-ordinance-2025-0027",
+      "coverageDisclosure": "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
+      "productSelector": { "kind": "zip", "value": "91381" }
     }
   ],
   "designationEvidence": [
@@ -134,6 +168,12 @@
       "title": "City of Jurupa Valley Ordinance 2025-13 adoption minutes",
       "url": "https://www.jurupavalley.org/DocumentCenter/View/4218",
       "finding": "Adopted the State Fire Marshal recommendations on 2025-06-26."
+    },
+    {
+      "id": "los-angeles-county-ordinance-2025-0027",
+      "title": "Los Angeles County Ordinance 2025-0027 proceedings",
+      "url": "https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf",
+      "finding": "The Board adopted Ordinance 2025-0027 on 2025-07-22, operative 2025-08-21, for LRA FHSZ designations in the Consolidated Fire Protection District."
     }
   ]
 }

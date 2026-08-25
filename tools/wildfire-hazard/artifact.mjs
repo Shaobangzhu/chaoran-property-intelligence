@@ -151,12 +151,7 @@ export function createWildfireHazardManifest({
     designationEvidence: designationEvidence.map((evidence) => ({
       ...evidence,
     })),
-    coverageTargets: coverageTargets.map((target) => ({
-      ...target,
-      ...(target.productSelector === undefined
-        ? {}
-        : { productSelector: { ...target.productSelector } }),
-    })),
+    coverageTargets: coverageTargets.map(toManifestCoverageTarget),
     quality,
     exclusions: {
       nonWildlandFeatureCount:
@@ -168,6 +163,21 @@ export function createWildfireHazardManifest({
       "Blank areas are not evidence of no hazard.",
       "This display artifact is not a parcel-level hazard determination.",
     ],
+  };
+}
+
+function toManifestCoverageTarget(target) {
+  return {
+    id: target.id,
+    label: target.label,
+    kind: target.kind,
+    boundarySourceId: target.boundarySourceId,
+    lraDesignationStatus: target.lraDesignationStatus,
+    evidenceId: target.evidenceId,
+    coverageDisclosure: target.coverageDisclosure,
+    ...(target.productSelector === undefined
+      ? {}
+      : { productSelector: { ...target.productSelector } }),
   };
 }
 

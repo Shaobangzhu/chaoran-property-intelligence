@@ -165,6 +165,7 @@ describe("createWildfireHazardManifest", () => {
     expect(manifest.sources).toContainEqual(
       expect.objectContaining({ id: "lra", license: "CC BY" }),
     );
+    expect(manifest.coverageTargets[0]).not.toHaveProperty("boundarySelector");
   });
 
   it.each([
@@ -269,6 +270,7 @@ function createManifestInput(): Record<string, any> {
         label: "Chino",
         kind: "incorporated-jurisdiction",
         boundarySourceId: "city-boundaries",
+        boundarySelector: { field: "CITY", equals: "Chino" },
         lraDesignationStatus: "locally-adopted",
         evidenceId: "chino-valley-ordinance-2025-01",
         coverageDisclosure: "Official incorporated-city boundary.",
@@ -278,6 +280,7 @@ function createManifestInput(): Record<string, any> {
         label: "Stevenson Ranch",
         kind: "market-context",
         boundarySourceId: "census-zcta-91381",
+        boundarySelector: { field: "GEOID", equals: "0674130" },
         lraDesignationStatus: "recommended",
         evidenceId: "stevenson-ranch-cal-fire-recommended",
         coverageDisclosure: "ZIP 91381 is a market context, not a city boundary.",

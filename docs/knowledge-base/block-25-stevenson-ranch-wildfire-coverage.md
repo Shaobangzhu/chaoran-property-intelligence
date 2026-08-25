@@ -210,9 +210,9 @@ boundary and designation decision. Block 25.3 remains responsible for adding a
 reviewed tracked snapshot and reproducible build support; nothing from the
 ignored audit cache is a runtime or release artifact.
 
-## Existing System Constraint
+## Pre-25.3 System Constraint
 
-The Block 19 pipeline currently:
+Before Block 25.3, the Block 19 pipeline:
 
 - ingests checksum-pinned CAL FIRE LRA `FHSZLRA25_1` and SRA
   `FHSZSRA_23_3` archives
@@ -419,11 +419,47 @@ existing ArcGIS bundle-size warning remains unchanged.
 
 ### Block 25.3: Deterministic boundary and build pipeline
 
-- add the reviewed, license-compatible, checksum-pinned boundary snapshot
-- generalize GDAL clipping to explicit boundary sources and selectors
-- preserve geometry repair, area drift, allowlist, budgets, and deterministic
-  output
-- fail closed when Stevenson Ranch provenance is incomplete
+**Complete:** the exact 24,175-byte ACS 2025 Stevenson Ranch CDP snapshot is
+tracked with its audited SHA-256
+`2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf`.
+The builder now resolves every target through an explicit tracked
+`boundarySourceId` and typed `{ field, equals }` selector, requires exactly one
+matching boundary, quotes selector values for GDAL, and fails closed for unsafe
+fields, missing or duplicate matches, untracked boundaries, or incomplete
+designation provenance.
+
+The existing five jurisdictions use their reviewed `CITY` selectors;
+Stevenson Ranch uses Census `GEOID = 0674130`. ZIP `91381` remains only the
+separate product selector. The pipeline retains target identity through GDAL QA
+for per-target counts and EPSG:3310 area, while the browser artifact still
+contains only the minimum official rendering properties.
+
+`pnpm wildfire:data:stage` runs with cached pinned inputs and GDAL
+`3.13.2` under Docker `--network=none`, then writes only ignored files under
+`.cache/wildfire-hazard/staged`. The publication command is locked until Block
+25.4, and both current production asset checksums remained unchanged.
+
+Two consecutive staging builds produced identical bytes:
+
+| Measurement | Deterministic result |
+| --- | ---: |
+| Combined features | 96 |
+| Stevenson Ranch supported features | 11 |
+| Stevenson Ranch severity counts | 1 Moderate / 7 High / 3 Very High |
+| Stevenson Ranch eligible area | 15,476,630.378 square meters |
+| Combined raw bytes | 1,158,246 |
+| Combined gzip bytes | 292,581 |
+| Artifact SHA-256 | `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd` |
+| Staged manifest SHA-256 | `e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366` |
+
+The exact build matched the 25.1 raw-byte projection. Its measured gzip result
+is 3,161 bytes above the audit-only projection but still uses only about 14% of
+the 2 MiB limit. Geometry validity, area drift, severity allowlisting,
+`NonWildland` exclusion, coordinate precision, and both transfer budgets pass.
+No runtime artifact was published. Verification completed on 2026-08-24: all
+114 test files and 1,071 tests pass, repository-wide typecheck passes, and the
+production application and infrastructure build passes. The existing ArcGIS
+bundle-size warning remains unchanged.
 
 ### Block 25.4: Publish the successor artifact
 

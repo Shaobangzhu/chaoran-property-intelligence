@@ -11,7 +11,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,11 @@ import {
   createWildfireHazardManifest,
   serializeManifest,
 } from "./artifact.mjs";
+import {
+  createBoundaryClip,
+  resolveCoverageTargetBoundary,
+  validateBuildConfig,
+} from "./pipelineConfig.mjs";
 
 const toolDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(toolDirectory, "../..");
@@ -27,6 +32,7 @@ const cacheRoot = join(repositoryRoot, ".cache/wildfire-hazard");
 const sourceDirectory = join(cacheRoot, "sources");
 const workDirectory = join(cacheRoot, "work");
 const intermediateDirectory = join(workDirectory, "intermediate");
+const stagingDirectory = join(cacheRoot, "staged");
 const outputDirectory = join(
   repositoryRoot,
   "apps/web/public/data/wildfire-hazard",
@@ -35,11 +41,18 @@ const outputDirectory = join(
 const config = JSON.parse(
   await readFile(new URL("./config.json", import.meta.url), "utf8"),
 );
+const buildOptions = parseBuildOptions(process.argv.slice(2));
 
-await main();
+await main(buildOptions);
 
-async function main() {
-  validateConfig();
+async function main(options) {
+  const { sourcesById } = validateBuildConfig(config);
+  if (options.mode === "publish" && !config.publication.enabled) {
+    throw new Error(
+      `Wildfire publication is locked until Block ${config.publication.blockedUntilBlock}. ` +
+        "Use pnpm wildfire:data:stage for an offline candidate build.",
+    );
+  }
   assertPinnedNodeVersion();
 
   await mkdir(sourceDirectory, { recursive: true });
@@ -49,14 +62,21 @@ async function main() {
   console.log("Preparing checksum-pinned official sources...");
   const sourceFiles = new Map();
   for (const source of config.sources) {
-    sourceFiles.set(source.id, await prepareSource(source));
+    sourceFiles.set(source.id, await prepareSource(source, options));
   }
 
-  validateCoverageTargetBoundaries(
-    JSON.parse(
-      await readFile(sourceFiles.get("city-boundaries").path, "utf8"),
-    ),
-  );
+  const boundaryCollections = new Map();
+  for (const target of config.coverageTargets) {
+    const boundarySource = sourcesById.get(target.boundarySourceId);
+    let boundaryCollection = boundaryCollections.get(boundarySource.id);
+    if (boundaryCollection === undefined) {
+      boundaryCollection = JSON.parse(
+        await readFile(sourceFiles.get(boundarySource.id).path, "utf8"),
+      );
+      boundaryCollections.set(boundarySource.id, boundaryCollection);
+    }
+    resolveCoverageTargetBoundary(target, boundarySource, boundaryCollection);
+  }
 
   const gdalVersion = verifyGdalImage();
   console.log(`Using ${gdalVersion}.`);
@@ -65,12 +85,13 @@ async function main() {
   const clippedFeatures = [];
   const rawFeatures = [];
   let removedNonPolygonComponentCount = 0;
-  const citySource = findSource("city-boundaries");
   const hazardSources = config.sources.filter(
     (source) => source.responsibilityArea !== undefined,
   );
 
   for (const target of config.coverageTargets) {
+    const boundarySource = sourcesById.get(target.boundarySourceId);
+    const boundaryClip = createBoundaryClip(target, boundarySource);
     for (const source of hazardSources) {
       const designationStatus =
         source.responsibilityArea === "sra"
@@ -95,11 +116,11 @@ async function main() {
         "-sql",
         `SELECT FHSZ_Description AS FHSZ FROM ${quoteIdentifier(source.gdalLayer)}`,
         "-clipsrc",
-        citySource.gdalDataSource,
+        boundaryClip.dataSource,
         "-clipsrclayer",
-        citySource.gdalLayer,
+        boundaryClip.layer,
         "-clipsrcwhere",
-        `CITY = ${quoteSqlString(target.label)}`,
+        boundaryClip.where,
         "-t_srs",
         "EPSG:4326",
         "-dim",
@@ -128,6 +149,8 @@ async function main() {
             designationStatus,
             sourceVersion: source.version,
             jurisdiction: target.label,
+            coverageTargetId: target.id,
+            coverageTargetLabel: target.label,
           },
         });
       }
@@ -181,6 +204,8 @@ async function main() {
             designationStatus,
             sourceVersion: source.version,
             jurisdiction: target.label,
+            coverageTargetId: target.id,
+            coverageTargetLabel: target.label,
           },
         });
       }
@@ -218,12 +243,17 @@ async function main() {
     "artifact",
     "severity",
   );
+  const inputQualityByTarget = queryGeometryQualityByTarget(
+    "/work/work/repaired_input.geojson",
+    "repaired_input",
+  );
   const quality = reconcileQuality(
     clippedInputQuality,
     repairedInputQuality,
     outputQuality,
     artifact,
     removedNonPolygonComponentCount,
+    inputQualityByTarget,
   );
 
   const manifest = createWildfireHazardManifest({
@@ -254,65 +284,38 @@ async function main() {
     quality,
   });
 
-  await publishArtifact(artifact.json, serializeManifest(manifest));
+  const manifestJson = serializeManifest(manifest);
+  await writeArtifactFiles(stagingDirectory, artifact.json, manifestJson);
+  if (options.mode === "publish") {
+    await writeArtifactFiles(outputDirectory, artifact.json, manifestJson);
+  }
 
   console.log(
-    `Published ${artifact.statistics.featureCount} features: ` +
+    `${options.mode === "publish" ? "Published" : "Staged"} ` +
+      `${artifact.statistics.featureCount} features: ` +
       `${artifact.statistics.rawBytes} raw bytes, ` +
       `${artifact.statistics.gzipBytes} gzip bytes.`,
   );
   console.log(`Artifact SHA-256: ${artifact.sha256}`);
 }
 
-function validateConfig() {
-  const sourceIds = new Set();
-  for (const source of config.sources) {
-    if (sourceIds.has(source.id)) {
-      throw new Error(`Duplicate source id: ${source.id}.`);
-    }
-    sourceIds.add(source.id);
-
-    if (basename(source.fileName) !== source.fileName) {
-      throw new Error(`Unsafe source file name: ${source.fileName}.`);
-    }
-    if (!source.downloadUrl.startsWith("https://")) {
-      throw new Error(`Source ${source.id} must use HTTPS.`);
-    }
-    if (!/^[a-f0-9]{64}$/.test(source.sha256)) {
-      throw new Error(`Source ${source.id} has an invalid SHA-256.`);
+function parseBuildOptions(arguments_) {
+  const allowed = new Set(["--offline", "--publish", "--stage-only"]);
+  for (const argument of arguments_) {
+    if (!allowed.has(argument)) {
+      throw new Error(`Unknown wildfire build argument: ${argument}.`);
     }
   }
 
-  if (!sourceIds.has("lra") || !sourceIds.has("sra")) {
-    throw new Error("Both LRA and SRA sources are required.");
+  const stageOnly = arguments_.includes("--stage-only");
+  const publish = arguments_.includes("--publish");
+  if (stageOnly === publish) {
+    throw new Error("Choose exactly one wildfire build mode: --stage-only or --publish.");
   }
-  if (!sourceIds.has("city-boundaries")) {
-    throw new Error("The incorporated-city boundary source is required.");
-  }
-
-  if (!Array.isArray(config.coverageTargets) || config.coverageTargets.length === 0) {
-    throw new Error("At least one coverage target is required.");
-  }
-  const targetIds = new Set();
-  const targetLabels = new Set();
-  for (const target of config.coverageTargets) {
-    if (targetIds.has(target.id)) {
-      throw new Error(`Duplicate coverage target id: ${target.id}.`);
-    }
-    if (targetLabels.has(target.label)) {
-      throw new Error(`Duplicate coverage target label: ${target.label}.`);
-    }
-    targetIds.add(target.id);
-    targetLabels.add(target.label);
-    if (
-      target.kind !== "incorporated-jurisdiction" ||
-      target.boundarySourceId !== "city-boundaries"
-    ) {
-      throw new Error(
-        `Coverage target ${target.id} requires the Block 25.3 boundary pipeline.`,
-      );
-    }
-  }
+  return {
+    mode: stageOnly ? "stage" : "publish",
+    offline: arguments_.includes("--offline"),
+  };
 }
 
 function assertPinnedNodeVersion() {
@@ -324,7 +327,7 @@ function assertPinnedNodeVersion() {
   }
 }
 
-async function prepareSource(source) {
+async function prepareSource(source, options) {
   const destination = join(sourceDirectory, source.fileName);
   if (source.trackedPath !== undefined) {
     const trackedPath = resolve(repositoryRoot, source.trackedPath);
@@ -351,6 +354,12 @@ async function prepareSource(source) {
       );
     }
     return { path: destination, bytes: existing.bytes };
+  }
+
+  if (options.offline) {
+    throw new Error(
+      `Offline wildfire build requires cached source ${source.fileName}.`,
+    );
   }
 
   const partial = `${destination}.partial`;
@@ -436,27 +445,6 @@ async function sha256File(path) {
     hash.update(chunk);
   }
   return hash.digest("hex");
-}
-
-function validateCoverageTargetBoundaries(cityCollection) {
-  if (
-    cityCollection?.type !== "FeatureCollection" ||
-    !Array.isArray(cityCollection.features)
-  ) {
-    throw new Error("City boundary source is not a GeoJSON FeatureCollection.");
-  }
-
-  for (const target of config.coverageTargets) {
-    const matches = cityCollection.features.filter(
-      (feature) => feature.properties?.CITY === target.label,
-    );
-    if (matches.length !== 1) {
-      throw new Error(
-        `Expected one official boundary for ${target.label}; ` +
-          `received ${matches.length}.`,
-      );
-    }
-  }
 }
 
 function verifyGdalImage() {
@@ -545,12 +533,80 @@ function queryGeometryQuality(containerPath, layerName, severityField) {
   return bySeverity;
 }
 
+function queryGeometryQualityByTarget(containerPath, layerName) {
+  const sql =
+    'SELECT "coverageTargetId" AS target_id, ' +
+    '"coverageTargetLabel" AS target_label, "FHSZ" AS severity, ' +
+    "COUNT(*) AS feature_count, " +
+    "SUM(ST_Area(ST_Transform(geometry, 3310))) AS area_square_meters, " +
+    "SUM(CASE WHEN ST_IsValid(geometry) THEN 0 ELSE 1 END) " +
+    `AS invalid_geometry_count FROM ${quoteIdentifier(layerName)} ` +
+    "WHERE \"FHSZ\" IN ('Moderate','High','Very High') " +
+    'GROUP BY "coverageTargetId", "coverageTargetLabel", "FHSZ"';
+
+  const output = runGdal([
+    "ogrinfo",
+    "-ro",
+    "-q",
+    "-json",
+    "-features",
+    "-geom=no",
+    "-dialect",
+    "SQLite",
+    "-sql",
+    sql,
+    containerPath,
+  ]);
+  const rows = JSON.parse(output).layers?.[0]?.features ?? [];
+  const byCoverageTarget = Object.fromEntries(
+    config.coverageTargets.map((target) => [
+      target.id,
+      {
+        label: target.label,
+        inputEligibleFeatureCount: 0,
+        inputAreaSquareMeters: 0,
+        invalidGeometryCount: 0,
+        bySeverity: {},
+      },
+    ]),
+  );
+
+  for (const row of rows) {
+    const targetId = row.properties.target_id;
+    const target = byCoverageTarget[targetId];
+    if (target === undefined) {
+      throw new Error(`GDAL QA returned unknown coverage target ${String(targetId)}.`);
+    }
+    if (row.properties.target_label !== target.label) {
+      throw new Error(`GDAL QA label mismatch for coverage target ${targetId}.`);
+    }
+    const severity = normalizeQualitySeverity(row.properties.severity);
+    const metrics = {
+      featureCount: Number(row.properties.feature_count),
+      areaSquareMeters: roundMetric(Number(row.properties.area_square_meters)),
+      invalidGeometryCount: Number(row.properties.invalid_geometry_count),
+    };
+    if (metrics.invalidGeometryCount !== 0) {
+      throw new Error(`Invalid ${severity} geometry detected for ${targetId}.`);
+    }
+    target.bySeverity[severity] = metrics;
+    target.inputEligibleFeatureCount += metrics.featureCount;
+    target.inputAreaSquareMeters += metrics.areaSquareMeters;
+  }
+
+  for (const target of Object.values(byCoverageTarget)) {
+    target.inputAreaSquareMeters = roundMetric(target.inputAreaSquareMeters);
+  }
+  return byCoverageTarget;
+}
+
 function reconcileQuality(
   clippedInput,
   repairedInput,
   output,
   artifact,
   removedNonPolygonComponentCount,
+  inputQualityByTarget,
 ) {
   const bySeverity = {};
   let inputFeatureCount = 0;
@@ -619,7 +675,8 @@ function reconcileQuality(
   }
 
   return {
-    clippingBoundary: "union of five target incorporated-city boundaries",
+    clippingBoundary:
+      `union of ${config.coverageTargets.length} reviewed coverage-target boundaries`,
     outputCrs: "EPSG:4326",
     coordinatePrecision: config.artifact.coordinatePrecision,
     clippedInvalidGeometryCount: Object.values(clippedInput).reduce(
@@ -644,6 +701,7 @@ function reconcileQuality(
     removedZeroAreaNonPolygonComponentCount:
       removedNonPolygonComponentCount,
     bySeverity,
+    byCoverageTarget: inputQualityByTarget,
     budgets: {
       maximumRawBytes: config.artifact.maximumRawBytes,
       actualRawBytes: artifact.statistics.rawBytes,
@@ -714,10 +772,10 @@ function enforceArtifactBudgets(artifact) {
   }
 }
 
-async function publishArtifact(artifactJson, manifestJson) {
-  await mkdir(outputDirectory, { recursive: true });
-  const artifactPath = join(outputDirectory, config.artifact.fileName);
-  const manifestPath = join(outputDirectory, config.artifact.manifestFileName);
+async function writeArtifactFiles(directory, artifactJson, manifestJson) {
+  await mkdir(directory, { recursive: true });
+  const artifactPath = join(directory, config.artifact.fileName);
+  const manifestPath = join(directory, config.artifact.manifestFileName);
   const artifactTemporaryPath = `${artifactPath}.tmp`;
   const manifestTemporaryPath = `${manifestPath}.tmp`;
 
@@ -727,21 +785,9 @@ async function publishArtifact(artifactJson, manifestJson) {
   await rename(manifestTemporaryPath, manifestPath);
 }
 
-function findSource(id) {
-  const source = config.sources.find((candidate) => candidate.id === id);
-  if (source === undefined) {
-    throw new Error(`Missing source configuration: ${id}.`);
-  }
-  return source;
-}
-
 function quoteIdentifier(value) {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
     throw new Error(`Unsafe OGR identifier: ${value}.`);
   }
   return `"${value}"`;
-}
-
-function quoteSqlString(value) {
-  return `'${String(value).replaceAll("'", "''")}'`;
 }

@@ -1410,7 +1410,13 @@ Planned sub-block mapping:
    deterministic GDAL pipeline to explicit target boundary sources and
    selectors. Preserve geometry repair, area reconciliation, severity
    allowlisting, `NonWildland` exclusion, transfer budgets, and fail-closed
-   behavior.
+   behavior. **Complete:** the ACS 2025 Stevenson Ranch CDP is tracked at its
+   audited checksum; all six targets use typed selectors that must match one
+   tracked boundary; per-target GDAL QA is recorded; offline staging and a
+   Block 25.4 publication lock are enforced. Two offline builds produced the
+   same 96-feature, 1,158,246-byte artifact with SHA-256
+   `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+   The current public GeoJSON and manifest remain byte-for-byte unchanged.
 5. `25.4` Generate and review the successor versioned artifact and manifest.
    Reconcile per-target and combined counts, severities, bounds, geometry,
    areas, checksums, attribution, raw/gzip size, and deterministic rebuilds

@@ -253,6 +253,25 @@ Official evidence:
 - [CAL FIRE LRA jurisdiction layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZLRA_FULLJurisPolys_PubContactTablev4_JOIN_VIEW/FeatureServer/0)
 - [Los Angeles County jurisdiction layer](https://services1.arcgis.com/vdxp8SwMGji0hqly/ArcGIS/rest/services/jurisdiction_la_WFL1/FeatureServer/0)
 
+### Block 25.3 deterministic staging reconciliation
+
+The audited ACS 2025 CDP response is now tracked byte-for-byte at
+`tools/wildfire-hazard/sources/stevenson-ranch-cdp-acs25.geojson`. Its checksum,
+single-feature count, GEOID, and geometry type are validated before clipping.
+The generalized builder resolves Stevenson Ranch with `GEOID = 0674130`; the
+five existing incorporated jurisdictions retain their explicit `CITY`
+selectors. Raw SQL selectors are not accepted.
+
+Two offline builds using the existing checksum-pinned CAL FIRE archives and
+GDAL `3.13.2` produced identical candidate bytes. Stevenson Ranch reconciled to
+11 valid supported geometries, 15,476,630.378 square meters, and severity counts
+of 1 Moderate, 7 High, and 3 Very High. The combined candidate contains 96
+features and measures 1,158,246 raw / 292,581 gzip bytes with SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+The prior gzip figure was an audit-only projection; the measured result remains
+well within the unchanged 2 MiB gate. Publication is locked until Block 25.4,
+and no browser asset changed in Block 25.3.
+
 ### Source and intersection reconciliation
 
 The current CAL FIRE service metadata still identifies LRA layer

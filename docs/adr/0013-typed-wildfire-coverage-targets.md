@@ -2,11 +2,14 @@
 
 ## Status
 
-Accepted and implemented through Block 25.2. Block 25.0 records the architecture,
+Accepted and implemented through Block 25.3. Block 25.0 records the architecture,
 Block 25.1 records the authorized boundary and source-audit decision, and Block
 25.2 implements the typed config, schema version 2 producer, and strict browser
-parser with temporary version 1 read compatibility. No runtime artifact,
-environment, database, provider, or cloud resource changed through Block 25.2.
+parser with temporary version 1 read compatibility. Block 25.3 tracks the
+reviewed Census CDP snapshot and implements explicit boundary-source and typed
+selector clipping with offline staging and a publication lock. No runtime
+artifact, environment, database, provider, or cloud resource changed through
+Block 25.3.
 
 ## Context
 
@@ -82,6 +85,12 @@ reconciliation. The browser artifact retains only the minimum properties needed
 to render official source meaning unless a reviewed provenance need requires an
 additional field.
 
+Block 25.3 implements selectors as the closed shape `{ field, equals }` rather
+than raw SQL. Each selector must resolve exactly one feature in its referenced
+tracked GeoJSON source before GDAL starts. Existing cities select `CITY`; the
+Stevenson Ranch market selects Census `GEOID` `0674130`. The selector remains a
+maintainer build concern and is not copied into the browser manifest.
+
 ### Retain the derived same-origin artifact
 
 Continue to generate a versioned GeoJSON artifact from checksum-pinned official
@@ -153,6 +162,11 @@ Tradeoffs:
 - source/adoption evidence is more complex for unincorporated county territory
 - a second geographic region increases artifact and browser parse cost
 - clipping to a product context requires careful disclosure at artificial edges
+
+Block 25.3 measured a deterministic six-target staging candidate of 96 features,
+1,158,246 raw bytes, and 292,581 gzip bytes. Two offline builds produced artifact
+SHA-256 `7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`.
+Publication remains disabled until Block 25.4 reviews that candidate.
 
 ## Rejected Alternatives
 
