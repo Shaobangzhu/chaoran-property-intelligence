@@ -34,7 +34,7 @@ export async function runRentCastCoverageAuditCommand(
   try {
     const summary = await runRentCastCoverageAudit(runtime);
     runtime.stdout.write(formatRentCastCoverageAuditSummary(summary));
-    return summary.coverageGatePassed ? 0 : 1;
+    return summary.combined.coverageGatePassed ? 0 : 1;
   } catch (error) {
     runtime.stderr.write(
       `RentCast coverage audit failed: ${redactApiKey(

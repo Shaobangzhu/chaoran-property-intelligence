@@ -23,12 +23,14 @@ import {
 } from "@chaoran-property-intelligence/postgres";
 import {
   RentCastSaleListingsClient,
+  type RentCastSaleListingsSearchArea,
   type RentCastSaleListingsSearchCriteria,
 } from "@chaoran-property-intelligence/rentcast";
 import { TelegramBotClient } from "@chaoran-property-intelligence/telegram";
 
 import { loadProductionConfig } from "./productionConfig.js";
 import { RentCastListingSource } from "./rentCastListingSource.js";
+import { selectRentCastSaleListingsSearchAreas } from "./rentCastSearchAreas.js";
 
 export interface ProductionRuntime {
   environment: Readonly<Record<string, string | undefined>>;
@@ -40,6 +42,7 @@ export interface ProductionSourceOptions {
   apiKey: string;
   fetch: typeof fetch;
   now: () => Date;
+  searchAreas: readonly RentCastSaleListingsSearchArea[];
   searchCriteria: RentCastSaleListingsSearchCriteria;
 }
 
@@ -84,6 +87,7 @@ const defaultDependencies: ProductionDependencies = {
         apiKey: options.apiKey,
         fetch: options.fetch,
       }),
+      searchAreas: options.searchAreas,
       searchCriteria: options.searchCriteria,
       now: options.now,
     });
@@ -112,6 +116,9 @@ export async function runProduction(
       throw new ListingSearchProfileUnavailableError();
     }
     const profile = normalizeListingSearchProfile(rawProfile);
+    const searchAreas = selectRentCastSaleListingsSearchAreas(
+      profile.criteria.cities,
+    );
     const repository = dependencies.createRepository(database);
     await repository.initializeLegacyListingAlertState();
 
@@ -120,6 +127,7 @@ export async function runProduction(
         apiKey: config.rentCastApiKey,
         fetch: runtime.fetch,
         now: runtime.now,
+        searchAreas,
         searchCriteria: projectRentCastSearchCriteria(profile.criteria),
       }),
       repository,

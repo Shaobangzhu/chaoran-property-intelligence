@@ -18,7 +18,7 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, 24.3, and 24.4 are complete on
+into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, 24.3, 24.4, and 24.5 are complete on
 `feat/add-new-city-stevensonranch`. The controlled provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
@@ -27,7 +27,9 @@ version-1 product market and exact-city/or-ZIP Domain matcher without migrating
 existing five-market profiles. Block 24.3 added typed radius/ZIP RentCast
 geography while preserving the Brea default. Block 24.4 added conditional,
 sequential, all-or-nothing multi-area source reads while leaving production on
-the Brea compatibility default; Block 24.5 is next. Block 21.8
+the Brea compatibility default. Block 24.5 now projects persisted markets into
+production areas and adds safe per-area/combined audit reporting; Block 24.6 is
+next. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1293,6 +1295,13 @@ Planned sub-block mapping:
    real provider request or external side effect occurred.
 6. `24.5` Wire persisted criteria into production acquisition areas and update
    per-area/combined coverage audit reporting without changing AWS or schedule.
+   **Complete:** normalized persisted markets now select one Brea area, one ZIP
+   `91381` area, or stable Brea-then-ZIP areas in production composition. Audit
+   reporting supports explicit sequential areas, per-area completeness and
+   capacity, and combined provider rows labeled before reconciliation. The
+   guarded CLI remains a single default-Brea request. All 1039 repository tests,
+   root typecheck, and root build pass without a real request, profile mutation,
+   cloud operation, schedule change, or deployment.
 7. `24.6` Expose the sixth city through the existing API and React criteria UI,
    preserving revision, accessibility, responsive, and conflict behavior.
 8. `24.7` Run fake multi-area integration, full automated/browser acceptance,

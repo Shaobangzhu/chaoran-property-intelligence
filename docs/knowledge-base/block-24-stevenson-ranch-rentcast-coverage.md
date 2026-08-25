@@ -8,15 +8,16 @@ fixture-gated second audit proved that RentCast classifies every matching ZIP
 `91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
 therefore failed closed. The product/domain decision is now accepted:
 `Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
-and provider city `Valencia` remains unchanged. Blocks 24.2 through 24.4 are
+and provider city `Valencia` remains unchanged. Blocks 24.2 through 24.5 are
 complete: the version-1 Domain market set now contains six choices, the shared
 matcher applies exact-city semantics to the original five markets and ZIP
 semantics to Stevenson Ranch, the RentCast client accepts typed radius or ZIP
 search areas, and the worker source supports sequential, all-or-nothing reads
-across one or two selected areas. Production composition still omits explicit
-areas and therefore retains the Brea default until Block 24.5. No persisted
-search profile, database, Telegram message, AWS resource, schedule, real
-provider request, or deployment changed in Block 24.4.
+across one or two selected areas. Production composition now derives those
+areas from the normalized persisted profile, and the coverage-audit model
+reports per-area and pre-reconciliation combined metrics. No persisted profile,
+database, Telegram message, AWS resource, schedule, real provider request, or
+deployment changed in Block 24.5.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -424,10 +425,10 @@ Verification completed for this sub-block:
 - fails the whole source read when a later area has a provider, parse,
   completeness, or result-limit failure, without returning the earlier page
 
-Production composition does not yet pass persisted markets into this mapping.
-That wiring remains Block 24.5, so the current production worker still makes
-the same single Brea request. This boundary proves the multi-area source before
-changing the production request count.
+At the Block 24.4 boundary, production composition did not yet pass persisted
+markets into this mapping and still made the same single Brea request. That
+separation proved the multi-area source before Block 24.5 changed production
+composition as recorded below.
 
 Verification completed for this sub-block:
 
@@ -440,11 +441,43 @@ Verification completed for this sub-block:
 
 ### Block 24.5: Production composition and audit reporting
 
-- project the persisted profile into conditional provider areas
-- update coverage audit summaries to report each area and combined totals
-- prove existing-only, Stevenson-only, and mixed request counts
-- preserve silent revision baseline and no-partial-notification behavior
-- keep AWS schedules and provider credentials unchanged
+**Complete.** The implementation:
+
+- projects `profile.criteria.cities` through the Block 24.4 shared area selector
+  immediately after the persisted profile is normalized
+- passes the resulting typed area list through `ProductionSourceOptions` into
+  `RentCastListingSource`
+- proves original-only profiles select one Brea request, Stevenson-only profiles
+  select one ZIP `91381` request, and mixed profiles select stable Brea-then-ZIP
+  requests
+- preserves profile-contract fail-closed behavior before source construction
+- leaves `CheckListingAlerts`, revision-baseline ordering, canonical-address
+  reconciliation, persistence, and Telegram delivery semantics unchanged
+- makes the coverage-audit runner accept an explicit reviewed area list while
+  retaining the Brea area as its compatibility default
+- reports completeness, count, capacity margin, bytes, and latency for each
+  area, plus summed provider metrics explicitly labeled as rows before
+  reconciliation
+- fails without returning a partial audit summary when a later area request
+  fails
+- avoids logging radius anchor addresses, request URLs, API keys, raw responses,
+  listing IDs, MLS numbers, or street addresses
+
+The existing `rentcast:coverage-audit:execute-one-request` command still omits
+an explicit area list and therefore executes exactly one Brea request. Block
+24.5 does not silently widen that authorization gate. Multi-area audit behavior
+is covered with fixtures; any real multi-area audit still requires a separately
+reviewed command and explicit authorization.
+
+Verification completed for this sub-block:
+
+- 21 production composition, area-aware audit, and audit-command tests passed
+- 142 targeted alert-worker and Application tests passed
+- all 113 test files and all 1039 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production web bundle
+- no real RentCast request, database access, Telegram send, AWS operation,
+  profile mutation, schedule change, or deployment occurred
 
 ### Block 24.6: API and React city selection
 

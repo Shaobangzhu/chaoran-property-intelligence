@@ -1,6 +1,9 @@
 import {
+  defaultRentCastSaleListingsSearchArea,
+  defaultRentCastSaleListingsSearchCriteria,
   RentCastSaleListingsClient,
   type RentCastSaleListingsCoveragePage,
+  type RentCastSaleListingsSearchArea,
 } from "@chaoran-property-intelligence/rentcast";
 
 import { readRequiredVariable } from "./productionConfig.js";
@@ -22,7 +25,7 @@ export interface RentCastCoverageAuditRuntime {
   now: () => number;
 }
 
-export interface RentCastCoverageAuditSummary {
+export interface RentCastCoverageAuditMetrics {
   belowProductionFloorListings: number;
   coverageGatePassed: boolean;
   elapsedMilliseconds: number;
@@ -38,9 +41,33 @@ export interface RentCastCoverageAuditSummary {
   totalMatchingListings: number;
 }
 
+export interface RentCastCoverageAuditAreaSummary
+  extends RentCastCoverageAuditMetrics {
+  areaLabel: string;
+}
+
+export interface RentCastCoverageAuditSummary {
+  areas: readonly RentCastCoverageAuditAreaSummary[];
+  combined: RentCastCoverageAuditMetrics;
+}
+
+export interface RentCastCoverageAuditOptions {
+  searchAreas?: readonly RentCastSaleListingsSearchArea[];
+}
+
+const defaultCoverageAuditSearchAreas = Object.freeze([
+  defaultRentCastSaleListingsSearchArea,
+]);
+
 export async function runRentCastCoverageAudit(
   runtime: RentCastCoverageAuditRuntime,
+  options: RentCastCoverageAuditOptions = {},
 ): Promise<RentCastCoverageAuditSummary> {
+  const searchAreas = options.searchAreas ?? defaultCoverageAuditSearchAreas;
+  if (!Array.isArray(searchAreas) || searchAreas.length === 0) {
+    throw new Error("RentCast coverage audit search areas were invalid");
+  }
+
   const apiKey = readRequiredVariable(
     runtime.environment,
     "RENTCAST_API_KEY",
@@ -49,40 +76,71 @@ export async function runRentCastCoverageAudit(
     apiKey,
     fetch: runtime.fetch,
   });
-  const startedAt = runtime.now();
-  const page = await client.searchSaleListingsForCoverageAudit();
-  const elapsedMilliseconds = Math.max(0, runtime.now() - startedAt);
+  const areas: RentCastCoverageAuditAreaSummary[] = [];
 
-  return summarizeCoveragePage(page, elapsedMilliseconds);
+  for (const [index, searchArea] of searchAreas.entries()) {
+    const startedAt = runtime.now();
+    const page = await client.searchSaleListingsForCoverageAudit(
+      defaultRentCastSaleListingsSearchCriteria,
+      searchArea,
+    );
+    const elapsedMilliseconds = Math.max(0, runtime.now() - startedAt);
+    areas.push({
+      areaLabel: describeSearchArea(searchArea, index),
+      ...summarizeCoveragePage(page, elapsedMilliseconds),
+    });
+  }
+
+  return {
+    areas: Object.freeze(areas),
+    combined: combineCoverageMetrics(areas),
+  };
 }
 
 export function formatRentCastCoverageAuditSummary(
   summary: RentCastCoverageAuditSummary,
 ): string {
+  const combined = summary.combined;
   const priceRange =
-    summary.minimumPrice === null || summary.maximumPrice === null
+    combined.minimumPrice === null || combined.maximumPrice === null
       ? "none"
-      : `${formatCurrency(summary.minimumPrice)} to ${formatCurrency(summary.maximumPrice)}`;
+      : `${formatCurrency(combined.minimumPrice)} to ${formatCurrency(
+          combined.maximumPrice,
+        )}`;
 
   return [
     "RentCast price-drop coverage audit completed.",
     "Request profile: price-drop-coverage-audit",
-    `Coverage gate: ${summary.coverageGatePassed ? "PASS" : "FAIL"}`,
-    `Total matching listings: ${summary.totalMatchingListings}`,
-    `Returned listings: ${summary.returnedListings}`,
-    `Result limit: ${summary.resultLimit}`,
-    `Result limit margin: ${summary.resultLimitMargin}`,
-    `Returned page complete: ${summary.returnedPageComplete ? "yes" : "no"}`,
-    `Below $780,000: ${summary.belowProductionFloorListings}`,
+    `Audited areas: ${summary.areas.length}`,
+    "Combined provider rows before reconciliation:",
+    `Coverage gate: ${combined.coverageGatePassed ? "PASS" : "FAIL"}`,
+    `Total matching listings: ${combined.totalMatchingListings}`,
+    `Returned listings: ${combined.returnedListings}`,
+    `Result limit: ${combined.resultLimit}`,
+    `Result limit margin: ${combined.resultLimitMargin}`,
+    `Returned page complete: ${combined.returnedPageComplete ? "yes" : "no"}`,
+    `Below $780,000: ${combined.belowProductionFloorListings}`,
     `Returned price range: ${priceRange}`,
-    `Response body bytes: ${summary.responseBodyBytes}`,
-    `Elapsed milliseconds: ${summary.elapsedMilliseconds}`,
+    `Response body bytes: ${combined.responseBodyBytes}`,
+    `Elapsed milliseconds: ${combined.elapsedMilliseconds}`,
     "Target-city returned listings:",
     ...targetCities.map(
-      (city) => `  ${city}: ${summary.targetCityListings[city]}`,
+      (city) => `  ${city}: ${combined.targetCityListings[city]}`,
     ),
-    `Non-target-city returned listings: ${summary.nonTargetCityListings}`,
-    "Production request profile was not changed.",
+    `Non-target-city returned listings: ${combined.nonTargetCityListings}`,
+    "Per-area coverage:",
+    ...summary.areas.flatMap((area, index) => [
+      `Area ${index + 1}: ${area.areaLabel}`,
+      `  Coverage gate: ${area.coverageGatePassed ? "PASS" : "FAIL"}`,
+      `  Total matching listings: ${area.totalMatchingListings}`,
+      `  Returned listings: ${area.returnedListings}`,
+      `  Result limit: ${area.resultLimit}`,
+      `  Result limit margin: ${area.resultLimitMargin}`,
+      `  Returned page complete: ${area.returnedPageComplete ? "yes" : "no"}`,
+      `  Response body bytes: ${area.responseBodyBytes}`,
+      `  Elapsed milliseconds: ${area.elapsedMilliseconds}`,
+    ]),
+    "This audit did not mutate the production request profile.",
     "No credentials, request URL, raw response, or street address was logged.",
     "",
   ].join("\n");
@@ -91,7 +149,7 @@ export function formatRentCastCoverageAuditSummary(
 function summarizeCoveragePage(
   page: RentCastSaleListingsCoveragePage,
   elapsedMilliseconds: number,
-): RentCastCoverageAuditSummary {
+): RentCastCoverageAuditMetrics {
   const targetCityListings = createEmptyTargetCityCounts();
   let belowProductionFloorListings = 0;
   let nonTargetCityListings = 0;
@@ -138,6 +196,98 @@ function summarizeCoveragePage(
     targetCityListings,
     totalMatchingListings: page.totalCount,
   };
+}
+
+function combineCoverageMetrics(
+  areas: readonly RentCastCoverageAuditAreaSummary[],
+): RentCastCoverageAuditMetrics {
+  const targetCityListings = createEmptyTargetCityCounts();
+  let minimumPrice: number | null = null;
+  let maximumPrice: number | null = null;
+
+  for (const area of areas) {
+    minimumPrice = minimumNullable(minimumPrice, area.minimumPrice);
+    maximumPrice = maximumNullable(maximumPrice, area.maximumPrice);
+    for (const city of targetCities) {
+      targetCityListings[city] += area.targetCityListings[city];
+    }
+  }
+
+  return {
+    belowProductionFloorListings: sumBy(
+      areas,
+      (area) => area.belowProductionFloorListings,
+    ),
+    coverageGatePassed: areas.every((area) => area.coverageGatePassed),
+    elapsedMilliseconds: sumBy(areas, (area) => area.elapsedMilliseconds),
+    maximumPrice,
+    minimumPrice,
+    nonTargetCityListings: sumBy(
+      areas,
+      (area) => area.nonTargetCityListings,
+    ),
+    responseBodyBytes: sumBy(areas, (area) => area.responseBodyBytes),
+    resultLimit: sumBy(areas, (area) => area.resultLimit),
+    resultLimitMargin: sumBy(areas, (area) => area.resultLimitMargin),
+    returnedPageComplete: areas.every((area) => area.returnedPageComplete),
+    returnedListings: sumBy(areas, (area) => area.returnedListings),
+    targetCityListings,
+    totalMatchingListings: sumBy(
+      areas,
+      (area) => area.totalMatchingListings,
+    ),
+  };
+}
+
+function describeSearchArea(
+  area: RentCastSaleListingsSearchArea,
+  index: number,
+): string {
+  if (area.kind === "zip") {
+    return `ZIP ${area.zipCode}`;
+  }
+
+  if (
+    area.address === defaultRentCastSaleListingsSearchArea.address &&
+    area.radiusMiles === defaultRentCastSaleListingsSearchArea.radiusMiles
+  ) {
+    return `Brea radius (${area.radiusMiles} mi)`;
+  }
+
+  return `Radius area ${index + 1} (${area.radiusMiles} mi)`;
+}
+
+function minimumNullable(
+  left: number | null,
+  right: number | null,
+): number | null {
+  if (left === null) {
+    return right;
+  }
+  if (right === null) {
+    return left;
+  }
+  return Math.min(left, right);
+}
+
+function maximumNullable(
+  left: number | null,
+  right: number | null,
+): number | null {
+  if (left === null) {
+    return right;
+  }
+  if (right === null) {
+    return left;
+  }
+  return Math.max(left, right);
+}
+
+function sumBy<T>(
+  values: readonly T[],
+  select: (value: T) => number,
+): number {
+  return values.reduce((total, value) => total + select(value), 0);
 }
 
 function createEmptyTargetCityCounts(): Record<TargetCity, number> {

@@ -8,8 +8,10 @@ Ranch` as the selectable market, matches that market by ZIP, and preserves the
 provider city unchanged. Block 24.3 implements the typed radius/ZIP client
 contract and exports the existing Brea radius as its compatible default. Block
 24.4 implements pure market-to-area selection and sequential, all-or-nothing
-multi-area source reads. Production profile composition remains a separate
-Block 24.5 concern, so omitting explicit areas still uses only the Brea default.
+multi-area source reads. Block 24.5 wires the normalized persisted profile into
+that selection for production composition. Existing profiles therefore retain
+their saved request area, while an explicit Stevenson Ranch selection adds the
+reviewed ZIP area without changing provider listing data.
 
 ## Context
 
@@ -64,6 +66,12 @@ display are separate concerns.
 The additional area may double RentCast requests per worker run. Block 24 does
 not enable or change the disabled daily AWS schedule. Quota and cadence remain
 an operational gate.
+
+Coverage audit reporting accepts an explicit reviewed area list, executes it
+sequentially, reports completeness and capacity per area, and labels summed
+provider rows as pre-reconciliation totals. The existing guarded audit command
+continues to default to the single Brea area, so its one-request authorization
+contract is not silently widened.
 
 ## Consequences
 
