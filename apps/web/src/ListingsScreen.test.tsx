@@ -11,7 +11,11 @@ import {
   type ListingsMapViewProps,
 } from "./ListingsScreen.js";
 import type { ManualListingUpdater } from "./ManualListingForm.js";
-import { coronaListing, eastvaleListing } from "./listingFixtures.js";
+import {
+  coronaListing,
+  eastvaleListing,
+  stevensonRanchListing,
+} from "./listingFixtures.js";
 import {
   ManualListingValidationError,
   type ListingSummary,
@@ -179,6 +183,23 @@ describe("ListingsScreen", () => {
     expect(screen.getByText("2.5 ba")).toBeInTheDocument();
     expect(screen.getByText(/CRMLS #IG26000001/)).toBeInTheDocument();
     expect(screen.getByText("1 stored listing")).toBeInTheDocument();
+  });
+
+  it("preserves RentCast provider city for the ZIP 91381 market", async () => {
+    render(
+      <ListingsScreen
+        loadListings={async () => [stevensonRanchListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: stevensonRanchListing.addressLine1,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Valencia, CA 91381")).toBeInTheDocument();
+    expect(screen.queryByText(/Stevenson Ranch/)).not.toBeInTheDocument();
   });
 
   it("renders one current card and map point with the latest price and stable selection", async () => {

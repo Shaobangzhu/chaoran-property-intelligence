@@ -15,7 +15,17 @@ reviewed ZIP area without changing provider listing data. Block 24.6 verifies
 that the bounded authenticated API and React criteria UI preserve a legacy
 five-market profile until the operator explicitly selects and saves Stevenson
 Ranch; that save serializes canonical markets and advances the profile revision
-exactly once without changing the applied alert baseline.
+exactly once without changing the applied alert baseline. Block 24.7 proves the
+production composition end to end with fake HTTP adapters: stable Brea-then-ZIP
+requests, canonical-address overlap reconciliation, quiet revision baseline,
+provider-city preservation, and no partial persistence or Telegram delivery
+when the second area fails. Automated 2D and 3D ArcGIS tests also prove the
+cross-region viewpoint while leaving CAL FIRE scope and classifications
+unchanged. The operator completed the logged-in local criteria flow, explicitly
+saved Stevenson Ranch, verified the resulting Listings and map behavior, and
+accepted Block 24 for merge. The CAL FIRE blank-area disclosure remains
+authoritative because the artifact is still intentionally limited to the
+reviewed five-city scope.
 
 ## Context
 
@@ -69,7 +79,9 @@ display are separate concerns.
 
 The additional area may double RentCast requests per worker run. Block 24 does
 not enable or change the disabled daily AWS schedule. Quota and cadence remain
-an operational gate.
+an operational gate. With a 50-request allowance, mixed profiles support at
+most 25 runs before audits, retries, or other provider use; a daily mixed
+schedule is therefore not approved by this decision.
 
 Coverage audit reporting accepts an explicit reviewed area list, executes it
 sequentially, reports completeness and capacity per area, and labels summed

@@ -2,16 +2,13 @@
 
 ## Status
 
-Block 24.0 is complete in documentation only on
-`feat/add-new-city-stevensonranch`. Block 24.1A and 24.1B are complete. The
+Block 24 is complete on `feat/add-new-city-stevensonranch`. The
 fixture-gated second audit proved that RentCast classifies every matching ZIP
 `91381` listing as `Valencia`, not `Stevenson Ranch`; the expected-city gate
 therefore failed closed. The product/domain decision is now accepted:
 `Stevenson Ranch` remains the selectable market, eligibility uses ZIP `91381`,
-and provider city `Valencia` remains unchanged. Blocks 24.2 through 24.5 are
-complete, and Block 24.6 implementation and automated verification are
-complete with browser visual acceptance pending: the version-1 Domain market
-set now contains six choices, the shared
+and provider city `Valencia` remains unchanged. The version-1 Domain market set
+now contains six choices, the shared
 matcher applies exact-city semantics to the original five markets and ZIP
 semantics to Stevenson Ranch, the RentCast client accepts typed radius or ZIP
 search areas, and the worker source supports sequential, all-or-nothing reads
@@ -20,8 +17,11 @@ areas from the normalized persisted profile, and the coverage-audit model
 reports per-area and pre-reconciliation combined metrics. The authenticated API
 and React criteria boundary now has explicit six-market load, opt-in save,
 canonical serialization, actor attribution, and revision-increment coverage.
-No persisted profile, database, Telegram message, AWS resource, schedule, real
-provider request, or deployment changed in Block 24.6.
+Block 24.7 closes production-composition, overlap, failure, ArcGIS, quota,
+security, and browser acceptance. The operator explicitly saved Stevenson Ranch
+to the authenticated local profile and accepted the resulting Listings and map
+behavior. This local acceptance did not run the worker, call RentCast, send
+Telegram, alter AWS or the disabled schedule, or deploy the branch.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -520,23 +520,90 @@ Verification completed for this sub-block:
   profile mutation, database write, Telegram send, AWS operation, schedule
   change, or deployment occurred
 
-Desktop/mobile visual acceptance remains pending because the isolated browser
-session had no administrator login. The local servers were stopped without
-entering credentials or saving criteria. Block 24.6 should be marked fully
-complete only after the operator signs in and confirms the six-option city
-control at desktop and mobile widths without saving the real profile unless
-that mutation is separately intended.
+**Complete.** The operator signed in and explicitly selected and saved
+Stevenson Ranch in the local authenticated profile. The criteria boundary
+accepted the sixth market and the application returned to the Listings and map
+views normally. Responsive, focus, conflict, dirty/discard, canonical-order,
+and revision behavior remain covered by the automated React and API suites.
 
 ### Block 24.7: Integration and final gate
 
-- run full tests, root typecheck, production builds, and diff/security checks
-- run a fake two-area worker integration with overlap and failure cases
-- run local authenticated API/React acceptance
-- verify ArcGIS two-region fit and the CAL FIRE blank-area disclosure
-- record quota and rollout instructions
-- update ADR, knowledge base, and roadmap as built
-- leave deployment, schedule enablement, real worker execution, Telegram, and
-  production profile mutation to separately approved operations
+**Complete.** Automated implementation, verification, documentation, quota and
+security review, and operator browser acceptance are complete. This sub-block
+adds production-composition integration evidence that:
+
+- a mixed `Corona` plus `Stevenson Ranch` profile issues the Brea radius request
+  followed by the ZIP `91381` request
+- an identical provider row returned by both areas is reconciled by canonical
+  address instead of creating a duplicate observation or listing snapshot
+- the ZIP-defined record retains provider city `Valencia` through normalization
+  and persistence
+- a pending search revision quietly baselines both areas, advances only the
+  applied revision, and sends no Telegram notification
+- failure of the second area leaves repository calls, observations, listing
+  snapshots, events, and applied revision unchanged, while still closing the
+  database
+
+The ArcGIS acceptance fixtures now include a distinct `Valencia, CA 91381`
+listing. Driver tests prove that both the 2D extent and bounded 3D terrain camera
+contain the legacy Inland Empire point and the ZIP `91381` point. React keeps the
+provider city in the listing card. CAL FIRE tests continue to show the tracked
+severity classes and blank-area disclosure without adding Stevenson Ranch to
+the five-city artifact or implying hazard coverage where none was reviewed.
+
+Verification completed for the automated gate:
+
+- 56 focused production-integration, ArcGIS, React, and CAL FIRE tests passed
+- all 113 test files and all 1048 tests passed
+- root `pnpm typecheck` passed, including runtime, web, and AWS infrastructure
+- root `pnpm build` passed, including the production ArcGIS web bundle
+- `git diff --check` passed
+- the diff contains test fixtures, tests, and documentation only; it contains no
+  environment file, credential, migration, dependency, production runtime,
+  infrastructure, or workflow change
+- no real RentCast request, profile mutation, database write, Telegram send, AWS
+  operation, schedule change, or deployment occurred
+
+#### Quota and cadence
+
+| Saved market selection | RentCast requests per worker run |
+| --- | ---: |
+| original five markets only | 1 |
+| Stevenson Ranch only | 1 |
+| original market plus Stevenson Ranch | 2 |
+
+At the current 50-request allowance, a mixed profile permits at most 25 worker
+runs before audits, retries, or other RentCast use. A daily mixed schedule would
+therefore exceed the allowance in a 30- or 31-day month. Block 24 does not enable
+the disabled schedule; request allowance and intended cadence must be reviewed
+before any schedule change.
+
+#### Rollout and rollback
+
+Roll out code independently from criteria adoption. After deployment, the
+operator signs in, explicitly selects Stevenson Ranch, reviews the projected
+request count, and saves once. That save advances the criteria revision. The
+next successful worker run applies a quiet historical baseline across both
+areas; only later new listings and qualifying price drops are eligible for
+Telegram delivery.
+
+To roll back the market without a code rollback, deselect Stevenson Ranch and
+save the profile. To roll back the implementation, revert Block 24. Neither path
+requires a database migration or cloud-resource repair. Keep the schedule
+disabled until cadence and quota are separately approved.
+
+#### Operator browser acceptance
+
+The operator completed the logged-in local flow, explicitly selected and saved
+Stevenson Ranch, and accepted Block 24 for merge. The Listings page continued to
+show stored snapshots, as designed; saving criteria does not perform an
+immediate RentCast fetch. The map navigated normally and the CAL FIRE overlay
+loaded its toggle, legend, provenance, and blank-area disclosure. No polygon at
+Stevenson Ranch is expected from the unchanged five-city artifact and must not
+be interpreted as an absence of hazard. Expanding authoritative hazard coverage
+is a separate data-pipeline block. Deployment, schedule enablement, a real
+worker run, Telegram, and production profile mutation remain separately
+approved operations.
 
 ## Expected Files
 
@@ -556,6 +623,12 @@ that mutation is separately intended.
 - `apps/alert-worker/src/runRentCastCoverageAudit.test.ts`
 - `apps/web/src/SearchCriteriaScreen.tsx`
 - `apps/web/src/SearchCriteriaScreen.test.tsx`
+- `apps/web/src/listingFixtures.ts`
+- `apps/web/src/arcgisListingsMap.test.ts`
+- `apps/web/src/arcgisTerrainListingsScene.test.ts`
+- `apps/web/src/ListingsScreen.test.tsx`
+- `apps/web/src/WildfireHazardControl.test.tsx`
+- `apps/alert-worker/src/listingAlertWorkflow.integration.test.ts`
 - focused API/application integration tests as required
 - `docs/adr/0012-conditional-rentcast-search-areas.md`
 - `docs/knowledge-base/block-24-stevenson-ranch-rentcast-coverage.md`
@@ -563,7 +636,7 @@ that mutation is separately intended.
 
 ## Completion Criteria
 
-Block 24 is complete only when:
+Block 24 is complete. The final accepted evidence satisfies these criteria:
 
 - Stevenson Ranch is a selectable sixth market
 - existing five-city profiles remain valid and unchanged until saved

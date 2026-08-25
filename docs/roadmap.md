@@ -18,10 +18,9 @@ Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
 credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
-into `main`. Blocks 24.0, 24.1A, 24.1B, 24.2, 24.3, 24.4, and 24.5 are complete on
-`feat/add-new-city-stevensonranch`; Block 24.6 implementation and automated
-verification are complete with logged-in desktop/mobile visual acceptance
-pending. The controlled provider gate found 17
+into `main`. Blocks 24.0-24.7 are complete on
+`feat/add-new-city-stevensonranch` and are ready to merge. The controlled
+provider gate found 17
 complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
 Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
 while preserving provider city `Valencia`. Block 24.2 added the sixth
@@ -31,9 +30,14 @@ geography while preserving the Brea default. Block 24.4 added conditional,
 sequential, all-or-nothing multi-area source reads while leaving production on
 the Brea compatibility default. Block 24.5 now projects persisted markets into
 production areas and adds safe per-area/combined audit reporting. Block 24.6
-now proves the legacy five-market load and explicit six-market API/React save
-path through 1043 passing tests without changing production source or persisted
-criteria. Block 21.8
+proves the legacy five-market load and explicit six-market API/React save path.
+Block 24.7 now proves production mixed-area overlap reconciliation, quiet
+revision baseline, all-or-nothing second-area failure, provider-city
+preservation, and ArcGIS 2D/3D cross-region fit through all 1048 passing tests,
+full typecheck, and production build. The operator completed the logged-in local
+criteria flow, explicitly saved Stevenson Ranch, accepted the stored-snapshot
+Listings behavior, and verified that the unchanged five-city CAL FIRE artifact
+loads with its blank-area disclosure. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1308,16 +1312,28 @@ Planned sub-block mapping:
    cloud operation, schedule change, or deployment.
 7. `24.6` Expose the sixth city through the existing API and React criteria UI,
    preserving revision, accessibility, responsive, and conflict behavior.
-   **Implementation and automated verification complete; visual acceptance
-   pending:** five-market profiles remain unchanged, Stevenson Ranch is an
+   **Complete:** five-market profiles remain unchanged, Stevenson Ranch is an
    explicit unchecked opt-in, six-market loads and canonical saves are covered
    through React, Web adapter, authenticated HTTP, and Application tests, and a
    save increments revision exactly once while retaining the applied baseline.
-   All 1043 tests, root typecheck, root build, and diff checks pass. The isolated
-   browser had no administrator session, so logged-in desktop/mobile layout
-   confirmation remains before this sub-block is fully complete.
+   All 1043 tests, root typecheck, root build, and diff checks pass. The operator
+   completed the authenticated local save flow and accepted the resulting UI.
 8. `24.7` Run fake multi-area integration, full automated/browser acceptance,
    quota and security review, as-built documentation, and the final merge gate.
+   **Complete:** production
+   integration proves stable Brea-then-ZIP requests, canonical overlap collapse,
+   quiet revision baseline, preserved provider city `Valencia`, and zero partial
+   repository or Telegram effects when the second area fails. ArcGIS fixtures
+   prove 2D and 3D cross-region fit while CAL FIRE remains the unchanged
+   five-city artifact with its blank-area disclosure. All 1048 tests, root
+   typecheck, root build, and diff/security checks pass. A mixed profile consumes
+   two requests per run, so 50 requests permit at most 25 runs before
+   audits/retries. The operator completed logged-in local acceptance and
+   explicitly saved Stevenson Ranch. Listings correctly remained stored
+   snapshots until a worker run, and the CAL FIRE overlay correctly retained its
+   five-city scope and blank-area disclosure. No deployment, schedule change,
+   real worker run, Telegram send, AWS operation, or production profile mutation
+   occurred.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
