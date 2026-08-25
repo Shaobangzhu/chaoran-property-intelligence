@@ -12,8 +12,20 @@ and 1,128 tests, repository-wide typecheck, and the production/AWS build pass.
 Block 27.1B then made exactly one authorized real Irvine request without retry.
 The valid response was complete at zero rows under the frozen product filters,
 so it confirmed request acceptance but could not verify a provider city label;
-the coverage gate failed closed. A separately reviewed provider identity probe
-is required before production enablement. No official GIS request, source
+the coverage gate failed closed. Block 27.1C then added and executed the
+separately reviewed provider identity probe. It queries only
+`city=Irvine`, `state=CA`, and `status=Active`, deliberately omits all product
+filters, requires exact one-request, `irvine-ca`, and
+`active-market-identity` confirmations, and reports aggregate identity evidence
+only. A saturated 500-row sample is explicitly bounded geography evidence, not
+product-inventory completeness. The one authorized request completed without
+retry and passed the identity gate: RentCast reported 865 matching Active
+listings, the bounded 500-row sample contained 500 Irvine rows and zero invalid
+scope rows, and the response was 570,092 bytes in 1,338 ms. The provider
+geography gate is cleared, while production Irvine mapping remains unchanged
+until the later implementation stages. All 24 new probe tests, all 99 audit
+regressions, all 118 repository test files and 1,152 tests, repository-wide
+typecheck, and the production/AWS build pass. No official GIS request, source
 download, wildfire artifact, database change, production profile mutation,
 cloud action, schedule change, Telegram delivery, or deployment occurred in
 these stages.

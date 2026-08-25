@@ -204,6 +204,7 @@ load `.env.local` and exit before `fetch`:
 ```bash
 pnpm rentcast:five-city-direct-coverage-audit
 pnpm rentcast:irvine-coverage-audit
+pnpm rentcast:irvine-provider-identity-probe
 pnpm rentcast:stevenson-ranch-coverage-audit
 ```
 
@@ -212,17 +213,21 @@ The real-request forms require exact request-count and market confirmations:
 ```bash
 pnpm rentcast:five-city-direct-coverage-audit:execute-five-requests
 pnpm rentcast:irvine-coverage-audit:execute-one-request
+pnpm rentcast:irvine-provider-identity-probe:execute-one-request
 pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
 ```
 
 The first command makes exactly five sequential direct-city requests. The
-Irvine command makes exactly one direct-city request, and the Stevenson Ranch
-command makes exactly one ZIP `91381` request. The Irvine real-request form is
-reserved for the separately authorized Block 27.1B audit. There is no ordinary
-combined six- or seven-request audit command. Output contains aggregate
-coverage, completeness, request cost, and a 50-request monthly planning
-reference, but never claims the account's current plan or remaining quota.
-Verify current RentCast plan and usage before every approved execution.
+Irvine coverage command makes exactly one direct-city product-filter request,
+and the Stevenson Ranch command makes exactly one ZIP `91381` request. The
+Irvine identity-probe command is a separately guarded Active-market geography
+check that omits product type, price, bedroom, and bathroom filters; it must not
+be interpreted as product inventory completeness. Both Irvine real-request
+forms require their own explicit authorization. There is no ordinary combined
+six- or seven-request audit command. Output contains aggregate coverage,
+completeness or identity-sample evidence, request cost, and a 50-request monthly
+planning reference, but never claims the account's current plan or remaining
+quota. Verify current RentCast plan and usage before every approved execution.
 Credentials, full request URLs, raw responses, and street addresses are never
 printed.
 

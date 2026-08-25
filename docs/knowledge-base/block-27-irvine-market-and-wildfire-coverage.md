@@ -2,16 +2,19 @@
 
 ## Status
 
-Blocks 27.0, 27.1A, and the authorized request portion of 27.1B are complete on
+Blocks 27.0, 27.1A, 27.1B, and 27.1C are complete on
 `feat/add-city-of-Irvine`. Block 27.0
 froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
 adding Irvine, California. Block 27.1A added an isolated, fixture-gated Irvine
 direct-city audit entrypoint without changing Domain markets, production
 acquisition, saved criteria, or wildfire coverage. Block 27.1B then made exactly
-one authorized real request with no retry. The valid zero-row response did not
-clear the provider-city evidence gate, so Irvine remains disabled pending a
-separately reviewed identity probe. No official GIS query, source download,
+one authorized real request with no retry. Its valid zero-row response could
+not clear the provider-city evidence gate. Block 27.1C therefore executed a
+separately reviewed, bounded Active-market identity probe; all 500 sampled rows
+used provider city `Irvine`, so the provider-geography gate is now cleared.
+Production Irvine mapping remains unchanged until the later implementation
+stages. No official GIS query, source download,
 wildfire artifact, database record, saved search profile, AWS resource,
 schedule, Telegram delivery, deployment, commit, push, or merge changed in
 these stages.
@@ -280,8 +283,9 @@ city matching in production.
 No retry or wider request was made. No raw response, street address, full URL,
 header, or credential was recorded. The audit did not change production
 acquisition, criteria, listings, PostgreSQL, Telegram, AWS, schedules, wildfire
-data, or deployment state. Block 27.3 and 27.4 remain gated until a separately
-reviewed and authorized provider identity probe verifies Irvine geography.
+data, or deployment state. At the end of 27.1B, Blocks 27.3 and 27.4 remained
+gated on a separately reviewed provider identity probe; Block 27.1C subsequently
+cleared that provider-geography gate.
 
 ### Block 27.1C: Controlled Irvine Provider Identity Probe
 
@@ -296,8 +300,65 @@ reviewed and authorized provider identity probe verifies Irvine geography.
   claim product inventory completeness from a broad sample
 - require fresh explicit authorization before one real request
 
-Status: proposed after the inconclusive zero-row 27.1B result; not authorized or
-implemented.
+Status: complete. The probe sends one exact `city=Irvine`, `state=CA`,
+`status=Active` request with
+`limit=500` and `includeTotalCount=true`. It emits no property type, price,
+bedroom, bathroom, ZIP, address, radius, or county parameter.
+
+The identity gate requires at least one returned row, exact Irvine provider
+city on every returned row, fixed California and Active scope, and a returned
+row count equal to `min(X-Total-Count, 500)`. A total below 500 can therefore be
+fully returned; a total of 500 or more can provide a complete bounded identity
+sample while explicitly reporting that not all matching rows were returned.
+Neither case alters or replaces the product filters.
+
+The CLI requires all three exact arguments before reading the key or calling
+`fetch`:
+
+```text
+--execute-one-request
+--market=irvine-ca
+--probe=active-market-identity
+```
+
+The safe command omits `.env.local`, exits nonzero before `fetch`, and confirms
+that no request was made:
+
+```bash
+pnpm rentcast:irvine-provider-identity-probe
+```
+
+The protected real form was executed once after fresh explicit authorization:
+
+```bash
+pnpm rentcast:irvine-provider-identity-probe:execute-one-request
+```
+
+Fourteen runner tests and ten command tests cover exact request scope, omitted
+product and alternate-geography parameters, complete and saturated samples,
+zero rows, incomplete samples, provider-city mismatch, state/status violations,
+invalid total counts and schema, strict three-token confirmation and order,
+extra arguments, missing key, no retry, aggregate-only output, and secret/full
+URL redaction. All 24 new focused tests and all 99 RentCast audit regressions
+pass.
+
+The complete repository gate passes all 118 test files and 1,152 tests,
+repository-wide typecheck, and the production/AWS build. The existing ArcGIS
+chunk-size advisory is unchanged. During fixture-tooling verification before
+authorization, no environment file was read and no real RentCast, PostgreSQL,
+Telegram, GIS, ArcGIS-account, AWS, schedule, artifact, profile, migration, or
+deployment action occurred.
+
+The one authorized real request completed successfully without retry and
+consumed one RentCast request. RentCast reported 865 matching Active listings;
+the probe returned the expected bounded sample of 500 rows, all 500 carried
+provider city `Irvine`, and zero rows violated the California/Active scope. The
+sample reached the 500-row limit, so `allMatchingRowsReturned=no` and the result
+is provider-geography evidence only, not product-inventory completeness. The
+response body was 570,092 bytes and provider elapsed time was 1,338 ms. No API
+key, full request URL, request header, raw response, or street address was
+logged. No production filters, acquisition profile, database, Telegram, AWS,
+GIS artifact, schedule, migration, or deployment state changed.
 
 ### Block 27.2: Official Irvine Wildfire Audit
 

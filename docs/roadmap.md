@@ -1682,7 +1682,24 @@ Planned sub-block mapping:
    only with fresh explicit authorization, make one real request without retry.
    Record aggregate city distribution and sample evidence only; do not change
    product filters or treat a broad sample as product inventory completeness.
-   **Proposed, not authorized or implemented.**
+   **Complete; provider-geography gate cleared:** the probe
+   sends only `city=Irvine`, `state=CA`, `status=Active`, `limit=500`, and
+   `includeTotalCount=true`, omitting property type, price, bedroom, bathroom,
+   address, radius, ZIP, and county filters. Its real form requires exact
+   one-request, `irvine-ca`, and `active-market-identity` confirmations and has
+   no retry path. A full 500-row page is reported as a saturated, bounded
+   identity sample rather than complete inventory. Fourteen runner tests and
+   ten command tests cover identity, state/status, count, sample saturation,
+   aggregate-only output, strict arguments, no retry, missing key, and
+   secret/URL redaction. All 99 audit regressions and all 118 repository test
+   files / 1,152 tests pass, along with repository-wide typecheck and the
+   production/AWS build. The safe preview loads no environment file and makes
+   no request. After fresh authorization, exactly one real request completed
+   without retry. RentCast reported 865 matching Active listings; the bounded
+   sample returned the expected 500 rows, all 500 used provider city `Irvine`,
+   and zero rows violated the California/Active scope. The saturated sample
+   correctly reported that not all matching rows were returned. The response
+   was 570,092 bytes in 1,338 ms. No production change occurred.
 5. `27.2` With fresh explicit authorization, audit official Irvine boundary,
    CAL FIRE LRA/SRA metadata and intersections, City of Irvine designation
    evidence, geometry, severity, responsibility area, bounds, area, checksum,
