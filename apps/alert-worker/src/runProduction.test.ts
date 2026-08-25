@@ -15,6 +15,9 @@ import type {
   SqlDatabase,
   SqlQueryResult,
 } from "@chaoran-property-intelligence/postgres";
+import type {
+  RentCastSaleListingsSearchArea,
+} from "@chaoran-property-intelligence/rentcast";
 
 import {
   runProduction,
@@ -36,7 +39,7 @@ describe("runProduction", () => {
       "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      "source:rentcast-secret:Single Family:850000:4:2.5",
+      "source:rentcast-secret:Single Family:850000:4:2.5:radius,zip-91381",
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "database:close",
@@ -80,14 +83,17 @@ describe("runProduction", () => {
   });
 
   it.each([
-    ["one city", ["Corona"]],
+    ["one original market", ["Corona"], "radius"],
     [
-      "five cities",
+      "all original markets",
       ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
+      "radius",
     ],
+    ["Stevenson Ranch only", ["Stevenson Ranch"], "zip-91381"],
+    ["mixed markets", ["Stevenson Ranch", "Corona"], "radius,zip-91381"],
   ] as const)(
-    "projects provider fields without projecting cities for %s",
-    async (_label, cities) => {
+    "projects provider fields and acquisition areas for %s",
+    async (_label, cities, expectedAreas) => {
       const events: string[] = [];
       const database = new FakeSqlDatabase(events);
       const criteria: ListingSearchCriteriaV1 = {
@@ -106,7 +112,9 @@ describe("runProduction", () => {
 
       expect(
         events.filter((event) => event.startsWith("source:rentcast-secret")),
-      ).toEqual(["source:rentcast-secret:Condo:1250000:0:0"]);
+      ).toEqual([
+        `source:rentcast-secret:Condo:1250000:0:0:${expectedAreas}`,
+      ]);
       expect(events.filter((event) => event === "source:fetch")).toHaveLength(
         1,
       );
@@ -131,7 +139,7 @@ describe("runProduction", () => {
       "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      "source:rentcast-secret:Single Family:850000:4:2.5",
+      "source:rentcast-secret:Single Family:850000:4:2.5:radius,zip-91381",
       "notifications:telegram-secret:123456789",
       "source:fetch",
       "repository:revision-baseline:2:1:0",
@@ -262,6 +270,7 @@ function createDependencies(
           options.searchCriteria.maximumPrice,
           options.searchCriteria.minimumBedrooms,
           options.searchCriteria.minimumBathrooms,
+          options.searchAreas.map(describeSearchArea).join(","),
         ].join(":"),
       );
       return {
@@ -280,6 +289,10 @@ function createDependencies(
       };
     },
   };
+}
+
+function describeSearchArea(area: RentCastSaleListingsSearchArea): string {
+  return area.kind === "radius" ? "radius" : `zip-${area.zipCode}`;
 }
 
 function createProfile(

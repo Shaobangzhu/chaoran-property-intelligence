@@ -63,6 +63,7 @@ describe("WildfireHazardControl", () => {
     expect(legend).toHaveTextContent(
       "Blank areas may be outside mapped hazard zones",
     );
+    expect(legend).not.toHaveTextContent("Stevenson Ranch");
     expect(screen.getByRole("link", { name: "CAL FIRE / OSFM" })).toHaveAttribute(
       "href",
       metadata.sourceUrl,

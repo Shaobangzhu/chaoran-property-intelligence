@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  defaultRentCastSaleListingsSearchArea,
   defaultRentCastSaleListingsSearchCriteria,
   rentCastSaleListingPropertyTypes,
   RentCastSaleListingsClient,
+  type RentCastSaleListingsSearchArea,
   type RentCastSaleListingsSearchCriteria,
 } from "./rentCastSaleListingsClient.js";
 
@@ -75,6 +77,88 @@ describe("RentCastSaleListingsClient", () => {
         "X-Api-Key": "test-api-key",
       },
     });
+  });
+
+  it("exports the current Brea radius as the typed default search area", () => {
+    expect(defaultRentCastSaleListingsSearchArea).toEqual({
+      kind: "radius",
+      address: "1065 Brea Mall, Brea, CA 92821",
+      radiusMiles: 20,
+    });
+    expect(Object.isFrozen(defaultRentCastSaleListingsSearchArea)).toBe(true);
+  });
+
+  it("builds a custom radius request without a ZIP parameter", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json([], { headers: { "X-Total-Count": "0" } }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria, {
+      kind: "radius",
+      address: "100 Main St, Corona, CA 92882",
+      radiusMiles: 12,
+    });
+
+    const url = fetch.mock.calls[0]?.[0];
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).searchParams.get("address")).toBe(
+      "100 Main St, Corona, CA 92882",
+    );
+    expect((url as URL).searchParams.get("radius")).toBe("12");
+    expect((url as URL).searchParams.get("zipCode")).toBeNull();
+  });
+
+  it("builds a ZIP request without radius parameters", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json([], { headers: { "X-Total-Count": "0" } }),
+    );
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await client.searchSaleListings(defaultRentCastSaleListingsSearchCriteria, {
+      kind: "zip",
+      zipCode: "91381",
+    });
+
+    const url = fetch.mock.calls[0]?.[0];
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).searchParams.get("zipCode")).toBe("91381");
+    expect((url as URL).searchParams.get("address")).toBeNull();
+    expect((url as URL).searchParams.get("radius")).toBeNull();
+    expect((url as URL).searchParams.get("state")).toBe("CA");
+    expect((url as URL).searchParams.get("status")).toBe("Active");
+    expect((url as URL).searchParams.get("limit")).toBe("500");
+    expect((url as URL).searchParams.get("includeTotalCount")).toBe("true");
+  });
+
+  it.each([
+    null,
+    { kind: "radius", address: "", radiusMiles: 20 },
+    { kind: "radius", address: "Brea, CA", radiusMiles: 0 },
+    { kind: "radius", address: "Brea, CA", radiusMiles: 1.5 },
+    { kind: "zip", zipCode: "9138" },
+    { kind: "zip", zipCode: "91381-1234" },
+    { kind: "city", city: "Stevenson Ranch" },
+  ])("rejects an invalid search area before fetch: %o", async (searchArea) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const client = new RentCastSaleListingsClient({
+      apiKey: "test-api-key",
+      fetch,
+    });
+
+    await expect(
+      client.searchSaleListings(
+        defaultRentCastSaleListingsSearchCriteria,
+        searchArea as RentCastSaleListingsSearchArea,
+      ),
+    ).rejects.toThrow("RentCast sale listings search area was invalid");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns validated sale listings and ignores extra API fields", async () => {

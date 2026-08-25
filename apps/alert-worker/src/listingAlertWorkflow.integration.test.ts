@@ -100,6 +100,7 @@ describe("listing alert production workflow integration", () => {
             fetch: options.fetch,
           }),
           searchCriteria: options.searchCriteria,
+          searchAreas: options.searchAreas,
           now: options.now,
         });
       },
@@ -210,6 +211,7 @@ describe("listing alert production workflow integration", () => {
             fetch: options.fetch,
           }),
           searchCriteria: options.searchCriteria,
+          searchAreas: options.searchAreas,
           now: options.now,
         });
       },
@@ -315,6 +317,7 @@ describe("listing alert production workflow integration", () => {
             fetch: options.fetch,
           }),
           searchCriteria: options.searchCriteria,
+          searchAreas: options.searchAreas,
           now: options.now,
         }),
       createNotifications: (options) => new TelegramBotClient(options),
@@ -364,6 +367,195 @@ describe("listing alert production workflow integration", () => {
       ]),
     );
     expect(steps.filter((step) => step === "telegram:request")).toHaveLength(1);
+  });
+
+  it("quietly baselines mixed Brea and 91381 inventory after reconciling overlap", async () => {
+    const steps: string[] = [];
+    const mixedCriteria = {
+      ...defaultListingSearchCriteria,
+      cities: ["Corona", "Stevenson Ranch"] as const,
+    };
+    const repository = new IntegrationListingAlertRepository(
+      steps,
+      createObservation(createNormalizedListing()),
+      { revision: 2, appliedRevision: 1 },
+    );
+    const database = new RecordingSqlDatabase(steps);
+    const stevensonRanchListing = createRentCastListing({
+      id: "rentcast-91381",
+      formattedAddress: "25900 Example Rd, Valencia, CA 91381",
+      addressLine1: "25900 Example Rd",
+      city: "Valencia",
+      zipCode: "91381",
+      latitude: 34.3905,
+      longitude: -118.573,
+      mlsNumber: "SR26000003",
+      price: 839000,
+    });
+    const rentCastUrls: URL[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = input as URL;
+      if (url.origin === "https://api.rentcast.io") {
+        rentCastUrls.push(url);
+        const listings =
+          url.searchParams.get("zipCode") === "91381"
+            ? [stevensonRanchListing]
+            : [createRentCastListing(), stevensonRanchListing];
+        return Response.json(listings, {
+          headers: { "X-Total-Count": String(listings.length) },
+        });
+      }
+      if (url.origin === "https://api.telegram.org") {
+        throw new Error("Revision baseline must not send Telegram alerts");
+      }
+      throw new Error(`Unexpected HTTP request: ${url.origin}`);
+    });
+    const dependencies: ProductionDependencies = {
+      createDatabase: () => database,
+      runMigrations: async () => {},
+      createSearchProfileQuery: () => ({
+        findPrimaryProfile: async () =>
+          createSearchProfile({
+            criteria: mixedCriteria,
+            revision: 2,
+            appliedRevision: 1,
+          }),
+      }),
+      createRepository: () => repository,
+      createSource: (options) =>
+        new RentCastListingSource({
+          client: new RentCastSaleListingsClient({
+            apiKey: options.apiKey,
+            fetch: options.fetch,
+          }),
+          searchCriteria: options.searchCriteria,
+          searchAreas: options.searchAreas,
+          now: options.now,
+        }),
+      createNotifications: (options) => new TelegramBotClient(options),
+    };
+
+    await runProduction(
+      {
+        environment: {
+          DATABASE_URL: "postgresql://database.example/app",
+          RENTCAST_API_KEY: "rentcast-secret",
+          TELEGRAM_BOT_TOKEN: "telegram-secret",
+          TELEGRAM_CHAT_ID: "123456789",
+        },
+        fetch,
+        now: () => new Date("2026-08-24T19:00:00.000Z"),
+      },
+      dependencies,
+    );
+
+    expect(rentCastUrls).toHaveLength(2);
+    expect(rentCastUrls[0]?.searchParams.get("address")).toBe(
+      "1065 Brea Mall, Brea, CA 92821",
+    );
+    expect(rentCastUrls[0]?.searchParams.get("radius")).toBe("20");
+    expect(rentCastUrls[0]?.searchParams.get("zipCode")).toBeNull();
+    expect(rentCastUrls[1]?.searchParams.get("zipCode")).toBe("91381");
+    expect(rentCastUrls[1]?.searchParams.get("address")).toBeNull();
+    expect(repository.listingSearchRevisions.appliedRevision).toBe(2);
+    expect(repository.observations).toHaveLength(2);
+    expect(repository.listingSnapshots).toHaveLength(2);
+    expect(repository.listingSnapshots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          city: "Valencia",
+          zipCode: "91381",
+        }),
+      ]),
+    );
+    expect(repository.events).toEqual([]);
+    expect(
+      fetch.mock.calls.filter(
+        ([input]) => (input as URL).origin === "https://api.telegram.org",
+      ),
+    ).toHaveLength(0);
+    expect(steps).toContain("database:close");
+  });
+
+  it("does not partially persist mixed inventory when the 91381 request fails", async () => {
+    const steps: string[] = [];
+    const initialListing = createNormalizedListing();
+    const repository = new IntegrationListingAlertRepository(
+      steps,
+      createObservation(initialListing),
+      { revision: 2, appliedRevision: 1 },
+    );
+    const database = new RecordingSqlDatabase(steps);
+    let providerCall = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = input as URL;
+      if (url.origin === "https://api.rentcast.io") {
+        providerCall += 1;
+        if (providerCall === 1) {
+          return Response.json([createRentCastListing()], {
+            headers: { "X-Total-Count": "1" },
+          });
+        }
+        throw new Error("RentCast request failed");
+      }
+      if (url.origin === "https://api.telegram.org") {
+        throw new Error("Failed source collection must not send Telegram alerts");
+      }
+      throw new Error(`Unexpected HTTP request: ${url.origin}`);
+    });
+    const now = vi.fn(() => new Date("2026-08-24T19:00:00.000Z"));
+    const dependencies: ProductionDependencies = {
+      createDatabase: () => database,
+      runMigrations: async () => {},
+      createSearchProfileQuery: () => ({
+        findPrimaryProfile: async () =>
+          createSearchProfile({
+            criteria: {
+              ...defaultListingSearchCriteria,
+              cities: ["Corona", "Stevenson Ranch"],
+            },
+            revision: 2,
+            appliedRevision: 1,
+          }),
+      }),
+      createRepository: () => repository,
+      createSource: (options) =>
+        new RentCastListingSource({
+          client: new RentCastSaleListingsClient({
+            apiKey: options.apiKey,
+            fetch: options.fetch,
+          }),
+          searchCriteria: options.searchCriteria,
+          searchAreas: options.searchAreas,
+          now: options.now,
+        }),
+      createNotifications: (options) => new TelegramBotClient(options),
+    };
+
+    await expect(
+      runProduction(
+        {
+          environment: {
+            DATABASE_URL: "postgresql://database.example/app",
+            RENTCAST_API_KEY: "rentcast-secret",
+            TELEGRAM_BOT_TOKEN: "telegram-secret",
+            TELEGRAM_CHAT_ID: "123456789",
+          },
+          fetch,
+          now,
+        },
+        dependencies,
+      ),
+    ).rejects.toThrow("RentCast request failed");
+
+    expect(providerCall).toBe(2);
+    expect(repository.calls).toEqual([]);
+    expect(repository.observations).toEqual([createObservation(initialListing)]);
+    expect(repository.listingSnapshots).toEqual([]);
+    expect(repository.events).toEqual([]);
+    expect(repository.listingSearchRevisions.appliedRevision).toBe(1);
+    expect(now).not.toHaveBeenCalled();
+    expect(steps).toContain("database:close");
   });
 });
 

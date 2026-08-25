@@ -611,7 +611,17 @@ describe("createApp", () => {
   });
 
   it("updates listing search criteria with authenticated actor attribution", async () => {
-    const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria();
+    const updatedCriteria = {
+      ...createListingSearchCriteriaResult().criteria,
+      cities: ["Corona", "Stevenson Ranch"] as const,
+    };
+    const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria(
+      undefined,
+      createListingSearchCriteriaResult({
+        criteria: updatedCriteria,
+        revision: 2,
+      }),
+    );
     const logger = new RecordingLogger();
     const response = await request(
       createTestApp({ logger, updateListingSearchCriteria }),
@@ -621,7 +631,7 @@ describe("createApp", () => {
           expectedRevision: 1,
           criteria: {
             ...createListingSearchCriteriaResult().criteria,
-            cities: ["Corona", "Chino"],
+            cities: ["Stevenson Ranch", "Corona"],
           },
         }),
         headers: manualListingHeaders(),
@@ -634,14 +644,14 @@ describe("createApp", () => {
       {
         actorUserId: authenticatedUser.id,
         expectedRevision: 1,
-        criteria: {
-          ...createListingSearchCriteriaResult().criteria,
-          cities: ["Chino", "Corona"],
-        },
+        criteria: updatedCriteria,
       },
     ]);
     await expect(response.json()).resolves.toEqual({
-      searchCriteria: createListingSearchCriteriaResult({ revision: 2 }),
+      searchCriteria: createListingSearchCriteriaResult({
+        criteria: updatedCriteria,
+        revision: 2,
+      }),
     });
     expect(logger.infos).toContainEqual({
       context: { requestId },
@@ -1551,7 +1561,11 @@ class FakeUpdateListingSearchCriteria
 {
   readonly inputs: UpdateListingSearchCriteriaInput[] = [];
 
-  constructor(private readonly failure?: Error) {}
+  constructor(
+    private readonly failure?: Error,
+    private readonly result: ListingSearchCriteriaResult =
+      createListingSearchCriteriaResult({ revision: 2 }),
+  ) {}
 
   async execute(
     input: UpdateListingSearchCriteriaInput,
@@ -1560,7 +1574,7 @@ class FakeUpdateListingSearchCriteria
     if (this.failure !== undefined) {
       throw this.failure;
     }
-    return createListingSearchCriteriaResult({ revision: 2 });
+    return this.result;
   }
 }
 

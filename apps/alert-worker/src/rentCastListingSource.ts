@@ -1,14 +1,22 @@
 import type { ListingSourcePort } from "@chaoran-property-intelligence/application";
 import type { RentCastNormalizedListing } from "@chaoran-property-intelligence/domain";
-import type {
-  RentCastListingsPort,
-  RentCastSaleListing,
-  RentCastSaleListingsSearchCriteria,
+import {
+  defaultRentCastSaleListingsSearchArea,
+  type RentCastListingsPort,
+  type RentCastSaleListing,
+  type RentCastSaleListingsPage,
+  type RentCastSaleListingsSearchArea,
+  type RentCastSaleListingsSearchCriteria,
 } from "@chaoran-property-intelligence/rentcast";
+
+const defaultRentCastListingSearchAreas = Object.freeze([
+  defaultRentCastSaleListingsSearchArea,
+]);
 
 export interface RentCastListingSourceOptions {
   client: RentCastListingsPort;
   searchCriteria: RentCastSaleListingsSearchCriteria;
+  searchAreas?: readonly RentCastSaleListingsSearchArea[];
   now: () => Date;
 }
 
@@ -26,31 +34,59 @@ export class IncompleteRentCastListingPageError extends Error {
   }
 }
 
+export class InvalidRentCastListingSearchAreasError extends Error {
+  constructor() {
+    super("RentCast listing search areas were invalid");
+    this.name = "InvalidRentCastListingSearchAreasError";
+  }
+}
+
 export class RentCastListingSource implements ListingSourcePort {
   private readonly client: RentCastListingsPort;
   private readonly searchCriteria: RentCastSaleListingsSearchCriteria;
+  private readonly searchAreas: readonly RentCastSaleListingsSearchArea[];
   private readonly now: () => Date;
 
   constructor(options: RentCastListingSourceOptions) {
+    const searchAreas =
+      options.searchAreas ?? defaultRentCastListingSearchAreas;
+    if (!Array.isArray(searchAreas) || searchAreas.length === 0) {
+      throw new InvalidRentCastListingSearchAreasError();
+    }
+
     this.client = options.client;
     this.searchCriteria = options.searchCriteria;
+    this.searchAreas = Object.freeze([...searchAreas]);
     this.now = options.now;
   }
 
   async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
-    const page = await this.client.searchSaleListings(this.searchCriteria);
-    if (page.totalCount > page.resultLimit) {
-      throw new RentCastListingCoverageExceededError();
-    }
-    if (page.listings.length !== page.totalCount) {
-      throw new IncompleteRentCastListingPageError();
+    const pages: RentCastSaleListingsPage[] = [];
+    for (const searchArea of this.searchAreas) {
+      const page = await this.client.searchSaleListings(
+        this.searchCriteria,
+        searchArea,
+      );
+      validateCompletePage(page);
+      pages.push(page);
     }
 
     const firstDiscoveredAt = this.now().toISOString();
 
-    return page.listings.map((listing) =>
-      normalizeRentCastListing(listing, firstDiscoveredAt),
+    return pages.flatMap((page) =>
+      page.listings.map((listing) =>
+        normalizeRentCastListing(listing, firstDiscoveredAt),
+      ),
     );
+  }
+}
+
+function validateCompletePage(page: RentCastSaleListingsPage): void {
+  if (page.totalCount > page.resultLimit) {
+    throw new RentCastListingCoverageExceededError();
+  }
+  if (page.listings.length !== page.totalCount) {
+    throw new IncompleteRentCastListingPageError();
   }
 }
 

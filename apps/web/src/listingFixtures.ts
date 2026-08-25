@@ -36,3 +36,17 @@ export const coronaListing: ListingSummary = {
   longitude: -117.5664,
   price: 749000,
 };
+
+export const stevensonRanchListing: ListingSummary = {
+  ...eastvaleListing,
+  id: "0198c7d2-7668-7775-b0fc-b789690a60c3",
+  sourceListingId: "rentcast-listing-id-91381",
+  mlsNumber: "SR26000003",
+  formattedAddress: "25900 Example Rd, Valencia, CA 91381",
+  addressLine1: "25900 Example Rd",
+  city: "Valencia",
+  zipCode: "91381",
+  latitude: 34.3905,
+  longitude: -118.573,
+  price: 839000,
+};

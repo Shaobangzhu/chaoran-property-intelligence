@@ -29,6 +29,27 @@ export const defaultRentCastSaleListingsSearchCriteria = Object.freeze({
   minimumBathrooms: 2.5,
 } satisfies RentCastSaleListingsSearchCriteria);
 
+export interface RentCastRadiusSearchArea {
+  readonly kind: "radius";
+  readonly address: string;
+  readonly radiusMiles: number;
+}
+
+export interface RentCastZipSearchArea {
+  readonly kind: "zip";
+  readonly zipCode: string;
+}
+
+export type RentCastSaleListingsSearchArea =
+  | RentCastRadiusSearchArea
+  | RentCastZipSearchArea;
+
+export const defaultRentCastSaleListingsSearchArea = Object.freeze({
+  kind: "radius",
+  address: "1065 Brea Mall, Brea, CA 92821",
+  radiusMiles: 20,
+} satisfies RentCastRadiusSearchArea);
+
 export interface RentCastSaleListingsClientOptions {
   apiKey: string;
   fetch: typeof fetch;
@@ -68,6 +89,7 @@ export type RentCastSaleListingsCoveragePage = RentCastSaleListingsPage;
 export interface RentCastListingsPort {
   searchSaleListings(
     criteria: RentCastSaleListingsSearchCriteria,
+    searchArea?: RentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsPage>;
 }
 
@@ -84,23 +106,29 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
 
   async searchSaleListings(
     criteria: RentCastSaleListingsSearchCriteria,
+    searchArea: RentCastSaleListingsSearchArea =
+      defaultRentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsPage> {
-    return this.requestSaleListings(criteria);
+    return this.requestSaleListings(criteria, searchArea);
   }
 
   async searchSaleListingsForCoverageAudit(
     criteria: RentCastSaleListingsSearchCriteria =
       defaultRentCastSaleListingsSearchCriteria,
+    searchArea: RentCastSaleListingsSearchArea =
+      defaultRentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsCoveragePage> {
-    return this.requestSaleListings(criteria);
+    return this.requestSaleListings(criteria, searchArea);
   }
 
   private async requestSaleListings(
     criteria: RentCastSaleListingsSearchCriteria,
+    searchArea: RentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsPage> {
     const normalizedCriteria = normalizeSearchCriteria(criteria);
+    const normalizedSearchArea = normalizeSearchArea(searchArea);
     const result = await this.fetchSaleListings(
-      createSaleListingsUrl(normalizedCriteria),
+      createSaleListingsUrl(normalizedCriteria, normalizedSearchArea),
     );
     const totalCount = readCoverageTotalCount(result.response);
 
@@ -188,10 +216,15 @@ interface SaleListingsRequestResult {
 
 function createSaleListingsUrl(
   criteria: RentCastSaleListingsSearchCriteria,
+  searchArea: RentCastSaleListingsSearchArea,
 ): URL {
   const url = new URL(rentCastSaleListingsUrl);
-  url.searchParams.set("address", "1065 Brea Mall, Brea, CA 92821");
-  url.searchParams.set("radius", "20");
+  if (searchArea.kind === "radius") {
+    url.searchParams.set("address", searchArea.address);
+    url.searchParams.set("radius", String(searchArea.radiusMiles));
+  } else {
+    url.searchParams.set("zipCode", searchArea.zipCode);
+  }
   url.searchParams.set("state", "CA");
   url.searchParams.set("status", "Active");
   url.searchParams.set("propertyType", criteria.propertyType);
@@ -202,6 +235,41 @@ function createSaleListingsUrl(
   url.searchParams.set("includeTotalCount", "true");
 
   return url;
+}
+
+function normalizeSearchArea(
+  searchArea: RentCastSaleListingsSearchArea,
+): RentCastSaleListingsSearchArea {
+  if (searchArea === null || typeof searchArea !== "object") {
+    throw new Error("RentCast sale listings search area was invalid");
+  }
+
+  if (
+    searchArea.kind === "radius" &&
+    typeof searchArea.address === "string" &&
+    searchArea.address.trim().length > 0 &&
+    Number.isSafeInteger(searchArea.radiusMiles) &&
+    searchArea.radiusMiles > 0
+  ) {
+    return Object.freeze({
+      kind: "radius",
+      address: searchArea.address.trim(),
+      radiusMiles: searchArea.radiusMiles,
+    });
+  }
+
+  if (
+    searchArea.kind === "zip" &&
+    typeof searchArea.zipCode === "string" &&
+    /^\d{5}$/.test(searchArea.zipCode)
+  ) {
+    return Object.freeze({
+      kind: "zip",
+      zipCode: searchArea.zipCode,
+    });
+  }
+
+  throw new Error("RentCast sale listings search area was invalid");
 }
 
 function normalizeSearchCriteria(

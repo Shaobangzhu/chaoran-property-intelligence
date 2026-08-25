@@ -17,9 +17,27 @@ Blocks 0-14.1, Blocks 15.0-15.5, Blocks 16.0-16.7, Blocks 17.1-17.6,
 Blocks 18.1-18.9, Blocks 19.0-19.5, Blocks 20.0-20.7, and Blocks 21.0-21.8 are
 complete. Blocks 22.0-22.6 are complete and merged into `main`; the ArcGIS
 migration passed automated, desktop/mobile, CAL FIRE, Console, network,
-credential, and bundle acceptance. Blocks 23.0-23.7 are complete on
-`feature/3d-fire-terrain`; Block 23 is merge-ready and the repository owner
-retains the merge into `main`. Block 21.8
+credential, and bundle acceptance. Blocks 23.0-23.7 are complete and merged
+into `main`. Blocks 24.0-24.7 are complete on
+`feat/add-new-city-stevensonranch` and are ready to merge. The controlled
+provider gate found 17
+complete ZIP `91381` results, all labeled `Valencia` rather than `Stevenson
+Ranch`. The product decision now keeps Stevenson Ranch as a ZIP-defined market
+while preserving provider city `Valencia`. Block 24.2 added the sixth
+version-1 product market and exact-city/or-ZIP Domain matcher without migrating
+existing five-market profiles. Block 24.3 added typed radius/ZIP RentCast
+geography while preserving the Brea default. Block 24.4 added conditional,
+sequential, all-or-nothing multi-area source reads while leaving production on
+the Brea compatibility default. Block 24.5 now projects persisted markets into
+production areas and adds safe per-area/combined audit reporting. Block 24.6
+proves the legacy five-market load and explicit six-market API/React save path.
+Block 24.7 now proves production mixed-area overlap reconciliation, quiet
+revision baseline, all-or-nothing second-area failure, provider-city
+preservation, and ArcGIS 2D/3D cross-region fit through all 1048 passing tests,
+full typecheck, and production build. The operator completed the logged-in local
+criteria flow, explicitly saved Stevenson Ranch, accepted the stored-snapshot
+Listings behavior, and verified that the unchanged five-city CAL FIRE artifact
+loads with its blank-area disclosure. Block 21.8
 closed its offline, disposable migration,
 authenticated HTTP, React
 automated, fake-worker, user-confirmed browser visual, and separately approved
@@ -1214,3 +1232,113 @@ See the
 [Block 23 3D Fire Terrain Knowledge Base](knowledge-base/block-23-3d-fire-terrain.md)
 and
 [ADR 0011: Optional 3D Fire Terrain Context](adr/0011-3d-fire-terrain-context.md).
+
+### Block 24: Stevenson Ranch RentCast Coverage
+
+Add `Stevenson Ranch`, California `91381` as a sixth selectable listing market
+without weakening the existing RentCast page-completeness, Domain eligibility,
+price-drop, revision-baseline, or notification guarantees.
+
+The current Brea 20-mile request remains the acquisition area for Chino, Chino
+Hills, Eastvale, Corona, and Jurupa Valley. A separately bounded ZIP `91381`
+request covers Stevenson Ranch. Existing-only or Stevenson-only profiles issue
+one provider request; mixed profiles issue two sequential requests. Every page
+must independently remain below the 500-result cap, and one failed area fails
+the whole source read before persistence or Telegram delivery.
+
+The criteria schema remains version 1. Existing profiles are not silently
+rewritten; the operator opts in by selecting Stevenson Ranch and saving. The
+search-revision baseline prevents historical inventory from becoming new-
+listing notifications. The additional area can double requests per worker run,
+so quota and future schedule cadence remain explicit operational gates.
+
+Block 24 does not expand the tracked five-city CAL FIRE artifact, create a new
+hazard model, migrate the database, alter AWS, enable a schedule, deploy, send
+Telegram, or mutate the production profile.
+
+Planned sub-block mapping:
+
+1. `24.0` Freeze product, provider-area, quota, compatibility, failure,
+   security, rollout, rollback, test, and acceptance boundaries. **Complete in
+   documentation only:** ADR 0012 and the Block 24 knowledge base are accepted.
+   No runtime source or external system changed.
+2. `24.1` Verify the official ZIP query contract and, after separate approval,
+   execute exactly one real aggregate-only RentCast coverage audit for `91381`.
+   **Inconclusive:** the one authorized request returned a successful 2xx JSON
+   array, but an over-escaped local total-count regular expression stopped the
+   aggregate validator before it retained totals or city labels. No retry was
+   made. Local fixture gates and a new explicit authorization are required
+   before a second real request; production wiring remains unchanged.
+   **24.1A complete:** an isolated aggregate-only audit runner, explicit
+   one-request CLI guard, safe default command, and deterministic fixtures now
+   prove the ZIP URL, strict decimal header, complete-page, expected-city/ZIP,
+   filter, schema, no-retry, and redaction gates without provider access.
+   **24.1B complete, provider gate failed closed:** one newly authorized request
+   returned all 17 matching records in one complete page with 483 result slots
+   remaining. ZIP, property type, status, and configured filters passed, but all
+   17 city labels were `Valencia`; no retry occurred and no raw listing data was
+   retained. **Decision accepted:** retain `Stevenson Ranch` as the product
+   market, match it by ZIP `91381`, and preserve provider city `Valencia`.
+3. `24.2` Add Stevenson Ranch to the version-1 Domain market set, introduce the
+   explicit exact-city/or-ZIP market matcher, preserve provider city data, and
+   prove backward compatibility with existing five-city profiles. **Complete:**
+   the shared Domain matcher uses ZIP `91381` only for Stevenson Ranch, original
+   markets retain exact-city matching, legacy profiles do not auto-expand, and
+   Domain/API/React tests, all 1009 repository tests, root typecheck, and root
+   build pass without an external request.
+4. `24.3` Add typed radius/ZIP geography to the RentCast client and preserve its
+   strict URL, timeout, parser, key-header, and completeness contracts.
+   **Complete:** the client accepts validated, mutually exclusive radius/ZIP
+   areas, exports the current Brea radius as its compatible default, and passes
+   42 targeted tests, all 1019 repository tests, root typecheck, and root build
+   without a real provider request.
+5. `24.4` Implement conditional one/two-area source routing, sequential fetch,
+   all-or-nothing failure, and existing canonical-address reconciliation.
+   **Complete:** pure market mapping selects Brea once for original markets,
+   ZIP `91381` for Stevenson Ranch, and stable Brea-then-ZIP order for mixed
+   selections. The source validates every page before returning any result,
+   preserves downstream canonical-address reconciliation, and passes 46
+   targeted tests, all 1034 repository tests, root typecheck, and root build.
+   Production composition still uses the single Brea default until 24.5; no
+   real provider request or external side effect occurred.
+6. `24.5` Wire persisted criteria into production acquisition areas and update
+   per-area/combined coverage audit reporting without changing AWS or schedule.
+   **Complete:** normalized persisted markets now select one Brea area, one ZIP
+   `91381` area, or stable Brea-then-ZIP areas in production composition. Audit
+   reporting supports explicit sequential areas, per-area completeness and
+   capacity, and combined provider rows labeled before reconciliation. The
+   guarded CLI remains a single default-Brea request. All 1039 repository tests,
+   root typecheck, and root build pass without a real request, profile mutation,
+   cloud operation, schedule change, or deployment.
+7. `24.6` Expose the sixth city through the existing API and React criteria UI,
+   preserving revision, accessibility, responsive, and conflict behavior.
+   **Complete:** five-market profiles remain unchanged, Stevenson Ranch is an
+   explicit unchecked opt-in, six-market loads and canonical saves are covered
+   through React, Web adapter, authenticated HTTP, and Application tests, and a
+   save increments revision exactly once while retaining the applied baseline.
+   All 1043 tests, root typecheck, root build, and diff checks pass. The operator
+   completed the authenticated local save flow and accepted the resulting UI.
+8. `24.7` Run fake multi-area integration, full automated/browser acceptance,
+   quota and security review, as-built documentation, and the final merge gate.
+   **Complete:** production
+   integration proves stable Brea-then-ZIP requests, canonical overlap collapse,
+   quiet revision baseline, preserved provider city `Valencia`, and zero partial
+   repository or Telegram effects when the second area fails. ArcGIS fixtures
+   prove 2D and 3D cross-region fit while CAL FIRE remains the unchanged
+   five-city artifact with its blank-area disclosure. All 1048 tests, root
+   typecheck, root build, and diff/security checks pass. A mixed profile consumes
+   two requests per run, so 50 requests permit at most 25 runs before
+   audits/retries. The operator completed logged-in local acceptance and
+   explicitly saved Stevenson Ranch. Listings correctly remained stored
+   snapshots until a worker run, and the CAL FIRE overlay correctly retained its
+   five-city scope and blank-area disclosure. No deployment, schedule change,
+   real worker run, Telegram send, AWS operation, or production profile mutation
+   occurred.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation.
+
+See the
+[Block 24 Stevenson Ranch RentCast Coverage Knowledge Base](knowledge-base/block-24-stevenson-ranch-rentcast-coverage.md)
+and
+[ADR 0012: Conditional RentCast Search Areas](adr/0012-conditional-rentcast-search-areas.md).

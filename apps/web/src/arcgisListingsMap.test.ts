@@ -18,7 +18,11 @@ import {
   type ArcgisListingsMapDependencies,
 } from "./arcgisListingsMap.js";
 import type { CreateArcgisWildfireHazardOverlayOptions } from "./arcgisWildfireHazardOverlay.js";
-import { coronaListing, eastvaleListing } from "./listingFixtures.js";
+import {
+  coronaListing,
+  eastvaleListing,
+  stevensonRanchListing,
+} from "./listingFixtures.js";
 import type { CreateListingsMapOptions } from "./listingsMapDriver.js";
 
 afterEach(() => {
@@ -557,6 +561,29 @@ describe("ArcGIS listings map driver", () => {
       },
       { animate: true, duration: 450 },
     );
+  });
+
+  it("fits the legacy market and ZIP 91381 into one cross-region extent", async () => {
+    const harness = createArcgisHarness();
+    const driver = createArcgisListingsMapWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    await harness.resolveReady();
+
+    driver.fitToListings([eastvaleListing, stevensonRanchListing]);
+
+    const target = harness.goTo.mock.calls.at(-1)?.[0];
+    expect(target).toBeInstanceOf(Extent);
+    const extent = target as Extent;
+    expect(extent.xmin).toBeCloseTo(stevensonRanchListing.longitude);
+    expect(extent.xmax).toBeCloseTo(eastvaleListing.longitude);
+    expect(extent.ymin).toBeCloseTo(eastvaleListing.latitude);
+    expect(extent.ymax).toBeCloseTo(stevensonRanchListing.latitude);
+    expect(extent.spatialReference.wkid).toBe(4326);
+    expect(harness.goTo).toHaveBeenLastCalledWith(extent, {
+      animate: false,
+    });
   });
 
   it("runs the latest pre-ready navigation before reporting ready", async () => {

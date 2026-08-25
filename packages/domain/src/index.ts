@@ -1,6 +1,12 @@
 export const domainPackageName = "@chaoran-property-intelligence/domain";
 
-export { isTargetCity } from "./cityFilter.js";
+export {
+  isTargetCity,
+  matchesListingSearchMarket,
+  stevensonRanchListingSearchMarket,
+  stevensonRanchListingSearchZipCode,
+  type ListingSearchMarketLocation,
+} from "./cityFilter.js";
 export {
   matchesListingAcquisitionCriteria,
   matchesMvpSearchCriteria,

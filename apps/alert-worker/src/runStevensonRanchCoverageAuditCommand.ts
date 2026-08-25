@@ -1,24 +1,25 @@
 import {
-  formatRentCastCoverageAuditSummary,
-  runRentCastCoverageAudit,
-} from "./runRentCastCoverageAudit.js";
+  formatStevensonRanchCoverageAuditSummary,
+  runStevensonRanchCoverageAudit,
+} from "./runStevensonRanchCoverageAudit.js";
 import type { TextWriter } from "./runAlertWorker.js";
 
 const executionConfirmation = "--execute-one-request";
 const usage =
-  "Usage: pnpm rentcast:coverage-audit:execute-one-request\n";
+  "Usage: pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request\n";
 
-export interface RentCastCoverageAuditCommandRuntime {
+export interface StevensonRanchCoverageAuditCommandRuntime {
   args: string[];
   environment: Readonly<Record<string, string | undefined>>;
   fetch: typeof fetch;
   now: () => number;
   stderr: TextWriter;
   stdout: TextWriter;
+  timeoutMs?: number;
 }
 
-export async function runRentCastCoverageAuditCommand(
-  runtime: RentCastCoverageAuditCommandRuntime,
+export async function runStevensonRanchCoverageAuditCommand(
+  runtime: StevensonRanchCoverageAuditCommandRuntime,
 ): Promise<number> {
   if (
     runtime.args.length !== 1 ||
@@ -32,12 +33,14 @@ export async function runRentCastCoverageAuditCommand(
   }
 
   try {
-    const summary = await runRentCastCoverageAudit(runtime);
-    runtime.stdout.write(formatRentCastCoverageAuditSummary(summary));
-    return summary.combined.coverageGatePassed ? 0 : 1;
+    const summary = await runStevensonRanchCoverageAudit(runtime);
+    runtime.stdout.write(
+      formatStevensonRanchCoverageAuditSummary(summary),
+    );
+    return summary.coverageGatePassed ? 0 : 1;
   } catch (error) {
     runtime.stderr.write(
-      `RentCast coverage audit failed: ${redactApiKey(
+      `RentCast Stevenson Ranch coverage audit failed: ${redactApiKey(
         getErrorMessage(error),
         runtime.environment.RENTCAST_API_KEY,
       )}\n`,

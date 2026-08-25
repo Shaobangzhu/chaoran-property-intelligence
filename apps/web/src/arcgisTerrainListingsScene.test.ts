@@ -15,7 +15,11 @@ import {
   createArcgisTerrainListingsSceneWithDependencies,
   type ArcgisTerrainListingsSceneDependencies,
 } from "./arcgisTerrainListingsScene.js";
-import { coronaListing, eastvaleListing } from "./listingFixtures.js";
+import {
+  coronaListing,
+  eastvaleListing,
+  stevensonRanchListing,
+} from "./listingFixtures.js";
 import type { CreateListingsMapOptions } from "./listingsMapDriver.js";
 import type { WildfireHazardOverlayState } from "./wildfireHazardOverlay.js";
 
@@ -237,6 +241,33 @@ describe("ArcGIS terrain listings scene driver", () => {
       { animate: true },
     );
     expect(harness.sceneElement.cameraTilt).toBe(62);
+  });
+
+  it("fits the legacy market and ZIP 91381 into one bounded terrain camera", async () => {
+    const harness = createTerrainHarness();
+    const driver = createArcgisTerrainListingsSceneWithDependencies(
+      harness.options,
+      harness.dependencies,
+    );
+    await harness.resolveReady();
+
+    driver.fitToListings([eastvaleListing, stevensonRanchListing]);
+
+    const target = harness.goTo.mock.calls.at(-1)?.[0] as {
+      center: [number, number];
+      zoom: number;
+    };
+    expect(target.center[0]).toBeCloseTo(
+      (eastvaleListing.longitude + stevensonRanchListing.longitude) / 2,
+    );
+    expect(target.center[1]).toBeCloseTo(
+      (eastvaleListing.latitude + stevensonRanchListing.latitude) / 2,
+    );
+    expect(target.zoom).toBeGreaterThanOrEqual(9.5);
+    expect(target.zoom).toBeLessThan(12.5);
+    expect(harness.goTo).toHaveBeenLastCalledWith(target, {
+      animate: false,
+    });
   });
 
   it("runs only the latest pre-ready camera command before reporting ready", async () => {

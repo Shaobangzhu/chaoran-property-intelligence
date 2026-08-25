@@ -1,4 +1,4 @@
-import { isTargetCity } from "./cityFilter.js";
+import { matchesListingSearchMarket } from "./cityFilter.js";
 import {
   defaultListingSearchCriteria,
   type ListingSearchCriteriaV1,
@@ -6,6 +6,7 @@ import {
 
 export interface ListingCandidate {
   city: string | null;
+  zipCode?: string | null;
   state: string | null;
   status: string | null;
   propertyType: string | null;
@@ -30,8 +31,10 @@ export function matchesListingAcquisitionCriteria(
   criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
 ): boolean {
   if (
-    listing.city === null ||
-    !isTargetCity(listing.city, criteria.cities)
+    !matchesListingSearchMarket(
+      { city: listing.city, zipCode: listing.zipCode },
+      criteria.cities,
+    )
   ) {
     return false;
   }
