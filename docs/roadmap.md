@@ -1659,7 +1659,16 @@ Planned sub-block mapping:
 2. `27.1A` Add fixture-gated Irvine direct-city audit tooling with exact
    one-request confirmation, aggregate-only output, dry-run behavior, filter,
    completeness, provider-city, redaction, and no-retry tests. Do not read
-   `.env.local` or call RentCast.
+   `.env.local` or call RentCast. **Complete:** the isolated runner reuses the
+   strict direct-city core and constructs one bounded Irvine request; the CLI
+   requires exact one-request and `irvine-ca` confirmations. Its safe preview
+   omits `.env.local`, exits before `fetch`, and reports that no request was
+   made. Eighteen runner and nine command tests cover geography, filters,
+   schema, total counts, completeness, capacity, provider city, aggregate-only
+   output, strict arguments, no retry, missing key, and secret/URL redaction.
+   All 75 audit regressions and all 116 repository test files / 1,128 tests
+   pass, along with repository-wide typecheck and the production/AWS build. No
+   external request or runtime production change occurred.
 3. `27.1B` With fresh explicit authorization, make exactly one real Irvine
    RentCast request without retry and record only aggregate provider geography,
    completeness, capacity, price, byte, and timing evidence.

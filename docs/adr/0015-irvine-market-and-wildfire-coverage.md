@@ -2,10 +2,16 @@
 
 ## Status
 
-Accepted for staged implementation by Block 27.0. No runtime implementation,
-provider audit, official GIS request, source download, wildfire artifact,
-database change, production profile mutation, cloud action, schedule change,
-Telegram delivery, or deployment occurred in this decision stage.
+Accepted for staged implementation by Block 27.0. Block 27.1A subsequently
+added a fixture-gated Irvine direct-city audit runner and strict CLI without
+changing production acquisition or the product-market allowlist. Its safe
+preview loads no environment file and makes no request; its real form requires
+exact one-request and `irvine-ca` confirmations and remains gated on fresh
+authorization. All 75 focused audit regressions, all 116 repository test files
+and 1,128 tests, repository-wide typecheck, and the production/AWS build pass.
+No real provider audit, official GIS request, source download, wildfire
+artifact, database change, production profile mutation, cloud action, schedule
+change, Telegram delivery, or deployment occurred in these stages.
 
 ## Context
 
@@ -153,4 +159,3 @@ provider or wildfire fallback.
 - [Block 26 Five-City Direct Market Coverage](../knowledge-base/block-26-five-city-direct-market-coverage.md)
 - [ADR 0013: Typed Wildfire Coverage Targets](0013-typed-wildfire-coverage-targets.md)
 - [ADR 0014: Direct Market RentCast Acquisition](0014-direct-market-rentcast-acquisition.md)
-

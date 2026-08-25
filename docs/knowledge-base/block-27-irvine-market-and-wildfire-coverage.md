@@ -2,13 +2,15 @@
 
 ## Status
 
-Block 27.0 is complete in documentation only on `feat/add-city-of-Irvine`.
-It freezes the product-market, provider-geography, wildfire-authority, quota,
+Blocks 27.0 and 27.1A are complete on `feat/add-city-of-Irvine`. Block 27.0
+froze the product-market, provider-geography, wildfire-authority, quota,
 compatibility, rollout, rollback, security, test, and acceptance boundaries for
-adding Irvine, California. No runtime code, provider request, official GIS
-query, source download, wildfire artifact, database record, saved search
-profile, AWS resource, schedule, Telegram delivery, deployment, commit, push,
-or merge changed in Block 27.0.
+adding Irvine, California. Block 27.1A added an isolated, fixture-gated Irvine
+direct-city audit entrypoint without changing Domain markets, production
+acquisition, saved criteria, or wildfire coverage. No real provider request,
+official GIS query, source download, wildfire artifact, database record, saved
+search profile, AWS resource, schedule, Telegram delivery, deployment, commit,
+push, or merge changed in either stage.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -194,7 +196,48 @@ Status: complete in documentation only.
 - test fixed filters, provider-city distribution, 500-row completeness,
   redaction, no retry, and invalid confirmation behavior
 
-This stage must not read an environment file or make a real request.
+Status: complete. The Irvine runner reuses the same strict direct-city request,
+schema, fixed-filter, count, and completeness core as the five-city audit. It
+constructs one `city=Irvine&state=CA` request with the existing Active, Single
+Family, maximum-price, bedroom, bathroom, 500-row, and `X-Total-Count` gates. It
+emits only aggregate counts, completeness, capacity, price range, response
+bytes, elapsed time, request cost, and quota-planning evidence.
+
+The CLI requires both exact arguments before it can read the key or call
+`fetch`:
+
+```text
+--execute-one-request
+--market=irvine-ca
+```
+
+The safe command intentionally omits `.env.local`, prints guarded usage,
+confirms that no request was made, and exits nonzero:
+
+```bash
+pnpm rentcast:irvine-coverage-audit
+```
+
+The real form is present for Block 27.1B but must not be run without fresh
+explicit authorization:
+
+```bash
+pnpm rentcast:irvine-coverage-audit:execute-one-request
+```
+
+Eighteen focused runner tests and nine command tests cover exact mutually
+exclusive geography, fixed filters, aggregate-only output, price and count
+summaries, zero-result failure, provider-city mismatch, incomplete and
+500-row pages, invalid total counts and schema, missing credentials, strict
+argument order, extra arguments, no retry, API-key redaction, and full RentCast
+URL redaction. Together with the existing five-city and Stevenson Ranch audit
+regressions, all 75 focused tests pass.
+
+The complete repository gate passes all 116 test files and 1,128 tests,
+repository-wide typecheck, and the production/AWS build. The existing ArcGIS
+chunk-size advisory is unchanged. No environment file was read and no real
+RentCast, PostgreSQL, Telegram, GIS, ArcGIS-account, AWS, schedule, artifact,
+profile, migration, or deployment action occurred.
 
 ### Block 27.1B: Controlled Real RentCast Audit
 
@@ -315,4 +358,3 @@ gate, leave Irvine disabled and preserve the six-market release.
 - [ADR 0013: Typed Wildfire Coverage Targets](../adr/0013-typed-wildfire-coverage-targets.md)
 - [ADR 0014: Direct Market RentCast Acquisition](../adr/0014-direct-market-rentcast-acquisition.md)
 - [ADR 0015: Irvine Market And Wildfire Coverage](../adr/0015-irvine-market-and-wildfire-coverage.md)
-

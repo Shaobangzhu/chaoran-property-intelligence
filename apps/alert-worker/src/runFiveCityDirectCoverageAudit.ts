@@ -22,20 +22,25 @@ export const fiveCityDirectCoverageAuditMarkets = Object.freeze([
 type FiveCityDirectCoverageAuditMarket =
   (typeof fiveCityDirectCoverageAuditMarkets)[number];
 
-export interface FiveCityDirectCoverageAuditRuntime {
+export interface DirectCityCoverageAuditRuntime {
   environment: Readonly<Record<string, string | undefined>>;
   fetch: typeof fetch;
   now: () => number;
   timeoutMs?: number;
 }
 
-export interface FiveCityDirectCoverageAuditAreaSummary {
+export type FiveCityDirectCoverageAuditRuntime =
+  DirectCityCoverageAuditRuntime;
+
+export interface DirectCityCoverageAuditAreaSummary<
+  Market extends string = string,
+> {
   cityCounts: Readonly<Record<string, number>>;
   coverageGatePassed: boolean;
   elapsedMilliseconds: number;
   expectedCityVerified: boolean;
   invalidFilterRows: number;
-  market: FiveCityDirectCoverageAuditMarket;
+  market: Market;
   maximumPrice: number | null;
   minimumPrice: number | null;
   responseBodyBytes: number;
@@ -45,6 +50,9 @@ export interface FiveCityDirectCoverageAuditAreaSummary {
   returnedPageComplete: boolean;
   totalMatchingListings: number;
 }
+
+export type FiveCityDirectCoverageAuditAreaSummary =
+  DirectCityCoverageAuditAreaSummary<FiveCityDirectCoverageAuditMarket>;
 
 export interface FiveCityDirectCoverageAuditCombinedSummary {
   cityCounts: Readonly<Record<string, number>>;
@@ -97,6 +105,18 @@ export async function runFiveCityDirectCoverageAudit(
   });
 }
 
+export async function runDirectCityCoverageAudit<Market extends string>(
+  runtime: DirectCityCoverageAuditRuntime,
+  market: Market,
+): Promise<DirectCityCoverageAuditAreaSummary<Market>> {
+  const apiKey = readRequiredVariable(
+    runtime.environment,
+    "RENTCAST_API_KEY",
+  );
+
+  return auditCity(runtime, apiKey, market);
+}
+
 export function formatFiveCityDirectCoverageAuditSummary(
   summary: FiveCityDirectCoverageAuditSummary,
 ): string {
@@ -145,11 +165,11 @@ export function formatFiveCityDirectCoverageAuditSummary(
   ].join("\n");
 }
 
-async function auditCity(
-  runtime: FiveCityDirectCoverageAuditRuntime,
+async function auditCity<Market extends string>(
+  runtime: DirectCityCoverageAuditRuntime,
   apiKey: string,
-  market: FiveCityDirectCoverageAuditMarket,
-): Promise<FiveCityDirectCoverageAuditAreaSummary> {
+  market: Market,
+): Promise<DirectCityCoverageAuditAreaSummary<Market>> {
   const abortController = new AbortController();
   const timeout = setTimeout(() => {
     abortController.abort();
@@ -200,7 +220,7 @@ async function auditCity(
 }
 
 function createCoverageAuditUrl(
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): URL {
   const url = new URL(rentCastSaleListingsUrl);
   url.searchParams.set("city", market);
@@ -218,7 +238,7 @@ function createCoverageAuditUrl(
 
 async function readResponseText(
   response: Response,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): Promise<string> {
   try {
     return await response.text();
@@ -231,7 +251,7 @@ async function readResponseText(
 
 function parseAuditListings(
   responseText: string,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): AuditListing[] {
   let body: unknown;
   try {
@@ -249,7 +269,7 @@ function parseAuditListings(
 
 function parseAuditListing(
   value: unknown,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): AuditListing {
   if (!isRecord(value)) {
     throwInvalidSchemaError(market);
@@ -268,7 +288,7 @@ function parseAuditListing(
 
 function readTotalCount(
   response: Response,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): number {
   const value = response.headers.get("X-Total-Count");
   if (value === null || !/^\d+$/.test(value)) {
@@ -283,13 +303,13 @@ function readTotalCount(
   return totalCount;
 }
 
-function summarizeArea(input: {
+function summarizeArea<Market extends string>(input: {
   elapsedMilliseconds: number;
   listings: readonly AuditListing[];
-  market: FiveCityDirectCoverageAuditMarket;
+  market: Market;
   responseBodyBytes: number;
   totalMatchingListings: number;
-}): FiveCityDirectCoverageAuditAreaSummary {
+}): DirectCityCoverageAuditAreaSummary<Market> {
   const cityCounts = countBy(input.listings, (listing) => listing.city);
   const returnedListings = input.listings.length;
   const expectedCityVerified =
@@ -451,7 +471,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readString(
   record: Record<string, unknown>,
   key: string,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): string {
   const value = record[key];
   if (typeof value !== "string") {
@@ -464,7 +484,7 @@ function readString(
 function readFiniteNumber(
   record: Record<string, unknown>,
   key: string,
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): number {
   const value = record[key];
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -475,7 +495,7 @@ function readFiniteNumber(
 }
 
 function throwInvalidSchemaError(
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): never {
   throw new Error(
     `RentCast direct city coverage response for ${market} did not match the expected audit schema`,
@@ -483,7 +503,7 @@ function throwInvalidSchemaError(
 }
 
 function throwInvalidTotalCountError(
-  market: FiveCityDirectCoverageAuditMarket,
+  market: string,
 ): never {
   throw new Error(
     `RentCast direct city coverage response for ${market} did not include a valid X-Total-Count header`,
