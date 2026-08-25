@@ -1526,7 +1526,14 @@ Planned sub-block mapping:
 4. `26.2` Add the strict typed city-area client contract, mutually exclusive
    query parameters, and required explicit production geography. Remove the
    implicit Brea default while retaining explicit radius capability for
-   reviewed maintenance or rollback.
+   reviewed maintenance or rollback. **Complete:** the RentCast package exports
+   a strict city variant; city, ZIP, and radius runtime fields are mutually
+   exclusive; city labels are normalized without changing provider case; and
+   invalid areas fail before fetch. Both client entrypoints require an explicit
+   area, so omitted geography can no longer fall back to Brea. Existing worker
+   mapping remains explicitly Brea-based until Blocks 26.3 and 26.4. All 39
+   focused client tests, all 116 test files and 1,104 repository tests, root
+   typecheck, and the production/AWS build pass.
 5. `26.3` Map each selected incorporated city to one city area and Stevenson
    Ranch to ZIP `91381` in canonical order. Reject empty, duplicate, and
    unsupported inputs before network access.

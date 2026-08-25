@@ -292,7 +292,11 @@ function createDependencies(
 }
 
 function describeSearchArea(area: RentCastSaleListingsSearchArea): string {
-  return area.kind === "radius" ? "radius" : `zip-${area.zipCode}`;
+  if (area.kind === "radius") {
+    return "radius";
+  }
+
+  return area.kind === "city" ? `city-${area.city}` : `zip-${area.zipCode}`;
 }
 
 function createProfile(

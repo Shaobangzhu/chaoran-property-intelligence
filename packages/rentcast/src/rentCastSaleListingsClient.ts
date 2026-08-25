@@ -35,12 +35,18 @@ export interface RentCastRadiusSearchArea {
   readonly radiusMiles: number;
 }
 
+export interface RentCastCitySearchArea {
+  readonly kind: "city";
+  readonly city: string;
+}
+
 export interface RentCastZipSearchArea {
   readonly kind: "zip";
   readonly zipCode: string;
 }
 
 export type RentCastSaleListingsSearchArea =
+  | RentCastCitySearchArea
   | RentCastRadiusSearchArea
   | RentCastZipSearchArea;
 
@@ -89,7 +95,7 @@ export type RentCastSaleListingsCoveragePage = RentCastSaleListingsPage;
 export interface RentCastListingsPort {
   searchSaleListings(
     criteria: RentCastSaleListingsSearchCriteria,
-    searchArea?: RentCastSaleListingsSearchArea,
+    searchArea: RentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsPage>;
 }
 
@@ -106,17 +112,14 @@ export class RentCastSaleListingsClient implements RentCastListingsPort {
 
   async searchSaleListings(
     criteria: RentCastSaleListingsSearchCriteria,
-    searchArea: RentCastSaleListingsSearchArea =
-      defaultRentCastSaleListingsSearchArea,
+    searchArea: RentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsPage> {
     return this.requestSaleListings(criteria, searchArea);
   }
 
   async searchSaleListingsForCoverageAudit(
-    criteria: RentCastSaleListingsSearchCriteria =
-      defaultRentCastSaleListingsSearchCriteria,
-    searchArea: RentCastSaleListingsSearchArea =
-      defaultRentCastSaleListingsSearchArea,
+    criteria: RentCastSaleListingsSearchCriteria,
+    searchArea: RentCastSaleListingsSearchArea,
   ): Promise<RentCastSaleListingsCoveragePage> {
     return this.requestSaleListings(criteria, searchArea);
   }
@@ -222,8 +225,10 @@ function createSaleListingsUrl(
   if (searchArea.kind === "radius") {
     url.searchParams.set("address", searchArea.address);
     url.searchParams.set("radius", String(searchArea.radiusMiles));
-  } else {
+  } else if (searchArea.kind === "zip") {
     url.searchParams.set("zipCode", searchArea.zipCode);
+  } else {
+    url.searchParams.set("city", searchArea.city);
   }
   url.searchParams.set("state", "CA");
   url.searchParams.set("status", "Active");
@@ -249,7 +254,8 @@ function normalizeSearchArea(
     typeof searchArea.address === "string" &&
     searchArea.address.trim().length > 0 &&
     Number.isSafeInteger(searchArea.radiusMiles) &&
-    searchArea.radiusMiles > 0
+    searchArea.radiusMiles > 0 &&
+    !hasConflictingGeographyFields(searchArea, ["address", "radiusMiles"])
   ) {
     return Object.freeze({
       kind: "radius",
@@ -261,7 +267,8 @@ function normalizeSearchArea(
   if (
     searchArea.kind === "zip" &&
     typeof searchArea.zipCode === "string" &&
-    /^\d{5}$/.test(searchArea.zipCode)
+    /^\d{5}$/.test(searchArea.zipCode) &&
+    !hasConflictingGeographyFields(searchArea, ["zipCode"])
   ) {
     return Object.freeze({
       kind: "zip",
@@ -269,7 +276,45 @@ function normalizeSearchArea(
     });
   }
 
+  if (
+    searchArea.kind === "city" &&
+    typeof searchArea.city === "string" &&
+    isValidCityName(searchArea.city) &&
+    !hasConflictingGeographyFields(searchArea, ["city"])
+  ) {
+    return Object.freeze({
+      kind: "city",
+      city: searchArea.city.trim(),
+    });
+  }
+
   throw new Error("RentCast sale listings search area was invalid");
+}
+
+const geographyFields = Object.freeze([
+  "address",
+  "radiusMiles",
+  "zipCode",
+  "city",
+] as const);
+
+type GeographyField = (typeof geographyFields)[number];
+
+function hasConflictingGeographyFields(
+  searchArea: object,
+  allowedFields: readonly GeographyField[],
+): boolean {
+  return geographyFields.some(
+    (field) => field in searchArea && !allowedFields.includes(field),
+  );
+}
+
+function isValidCityName(city: string): boolean {
+  const normalizedCity = city.trim();
+  return (
+    normalizedCity.length > 0 &&
+    !/[\u0000-\u001f\u007f]/.test(normalizedCity)
+  );
 }
 
 function normalizeSearchCriteria(

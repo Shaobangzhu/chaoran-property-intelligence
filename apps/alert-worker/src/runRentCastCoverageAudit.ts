@@ -247,6 +247,10 @@ function describeSearchArea(
     return `ZIP ${area.zipCode}`;
   }
 
+  if (area.kind === "city") {
+    return `City ${area.city}, CA`;
+  }
+
   if (
     area.address === defaultRentCastSaleListingsSearchArea.address &&
     area.radiusMiles === defaultRentCastSaleListingsSearchArea.radiusMiles

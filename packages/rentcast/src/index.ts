@@ -3,6 +3,7 @@ export {
   defaultRentCastSaleListingsSearchCriteria,
   rentCastSaleListingPropertyTypes,
   RentCastSaleListingsClient,
+  type RentCastCitySearchArea,
   type RentCastListingsPort,
   type RentCastRadiusSearchArea,
   type RentCastSaleListingsCoveragePage,

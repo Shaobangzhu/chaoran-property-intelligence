@@ -2,13 +2,15 @@
 
 ## Status
 
-Blocks 26.0, 26.1A, and 26.1B are complete on
+Blocks 26.0 through 26.2 are complete on
 `refactor/five-city-direct-market-coverage`. Block 26.0 froze the product,
 provider geography, hazard authority, request-count, failure, compatibility,
 security, rollout, rollback, test, and acceptance boundaries. Block 26.1A
 added an isolated, fixture-gated five-city audit entrypoint without changing
 production acquisition. Block 26.1B used that guarded entrypoint for the
 authorized five-request provider audit and recorded aggregate-only evidence.
+Block 26.2 added the strict typed city-area client contract and removed
+implicit client-level geography defaults without changing worker area mapping.
 
 Block 26.1B read only the existing server-side RentCast key and made exactly
 five sequential requests with no retry. No credential value, raw response,
@@ -296,6 +298,34 @@ provider gate for Block 26.2; it does not itself enable production behavior.
 - remove optional or implicit Brea defaults from production-facing client calls
 - retain radius support only for explicit reviewed maintenance or rollback use
 - add URL, validation, immutability, timeout, parser, and redaction tests
+
+Status: complete. The RentCast package now exports
+`RentCastCitySearchArea` and includes it in the strict search-area union. A city
+area contains only `kind: "city"` and a provider city string. The client trims
+outer whitespace, preserves provider case and internal spacing, rejects empty
+or control-character city values, and rejects runtime objects that combine
+city, ZIP, or radius geography fields.
+
+City requests emit `city=<provider city>` and fixed `state=CA`; they emit no
+`address`, `radius`, or `zipCode`. Radius and ZIP requests retain their existing
+query contracts and now receive the same conflicting-geography validation.
+Validation completes before `fetch`, and normalization creates a frozen copy
+without mutating caller input.
+
+Both `RentCastListingsPort.searchSaleListings` and the concrete coverage-audit
+method now require an explicit search area. The client no longer defaults an
+omitted geography to Brea. The legacy Brea radius constant remains available
+only as an explicit area while Block 26 is staged; the worker still selects it
+explicitly until Block 26.3 replaces market mapping and Block 26.4 integrates
+that mapping into production composition.
+
+The package regression suite covers explicit city, radius, and ZIP URLs,
+mutually exclusive parameters, invalid and hybrid runtime input, caller-input
+immutability, fixed filters, response parsing, total-count handling, timeout,
+and credential-safe HTTP errors. All 39 focused client tests pass. The full
+repository gate passes 116 test files and 1,104 tests, root typecheck, and the
+production/AWS build. The existing ArcGIS bundle-size output is unchanged. No
+environment file was read and no real provider request was made in Block 26.2.
 
 ### Block 26.3: Market-to-area mapping
 

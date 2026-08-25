@@ -19,6 +19,13 @@ matching rows were returned in total, with zero filter violations and no area
 near its 500-row limit. Production composition remains unchanged pending the
 implementation blocks.
 
+Block 26.2 implements the package-level city search-area contract. RentCast
+client methods now require an explicit area, city requests emit only city and
+fixed California geography, and conflicting city/ZIP/radius runtime fields are
+rejected before provider access. The explicit legacy Brea area remains in the
+worker until the separately reviewed market mapping and production integration
+stages; it is no longer an implicit client fallback.
+
 ## Context
 
 The application supports Chino, Chino Hills, Eastvale, Corona, Jurupa Valley,

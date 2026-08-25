@@ -170,6 +170,32 @@ describe("runRentCastCoverageAudit", () => {
     expect(output).not.toContain("test-secret");
   });
 
+  it("labels an explicitly supplied direct city area without exposing geography details", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json([], { headers: { "X-Total-Count": "0" } }),
+    );
+
+    const summary = await runRentCastCoverageAudit(
+      {
+        environment: { RENTCAST_API_KEY: "test-secret" },
+        fetch,
+        now: () => 1_000,
+      },
+      {
+        searchAreas: [{ kind: "city", city: "Chino Hills" }],
+      },
+    );
+
+    const url = fetch.mock.calls[0]?.[0];
+    expect(url).toBeInstanceOf(URL);
+    expect((url as URL).searchParams.get("city")).toBe("Chino Hills");
+    expect((url as URL).searchParams.get("state")).toBe("CA");
+    expect((url as URL).searchParams.get("address")).toBeNull();
+    expect((url as URL).searchParams.get("radius")).toBeNull();
+    expect((url as URL).searchParams.get("zipCode")).toBeNull();
+    expect(summary.areas[0]?.areaLabel).toBe("City Chino Hills, CA");
+  });
+
   it("fails the coverage gate when the total reaches the page limit", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Response.json([createListing()], {
