@@ -48,7 +48,8 @@ They are never committed. A partial or mismatched download is deleted or
 rejected before GDAL can read it.
 
 CAL FIRE's incorporated-city export is a mutable endpoint. To keep builds
-reproducible, the repository tracks only the five reviewed city boundaries in:
+reproducible, the repository tracks the five previously reviewed city
+boundaries in:
 
 ```text
 sources/target-city-boundaries-24_1.geojson
@@ -57,6 +58,18 @@ sources/target-city-boundaries-24_1.geojson
 The config records both the tracked subset checksum and the complete upstream
 snapshot checksum. The snapshot is CC BY data attributed to CAL FIRE FRAP and
 the California Board of Equalization.
+
+Irvine is held as a separate one-feature reviewed snapshot so extending the
+coverage set does not rewrite the checksum-pinned five-city source:
+
+```text
+sources/irvine-city-boundary-2026-08-25.geojson
+```
+
+Its tracked SHA-256 is
+`368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`.
+It resolves exactly one `CITY=Irvine` feature and is topologically equal to
+the audited official `24_1` geometry.
 
 The separately reviewed Stevenson Ranch delivery boundary is the official
 U.S. Census Bureau ACS 2025 Census Designated Place, GEOID `0674130`:
@@ -98,9 +111,12 @@ change, area drift over `0.001`, or size-budget failure stops the build.
 Staging atomically writes only ignored review candidates:
 
 ```text
-.cache/wildfire-hazard/staged/fhsz-supported-markets-2025.1-r2.geojson
+.cache/wildfire-hazard/staged/fhsz-supported-markets-2025.1-r3.geojson
 .cache/wildfire-hazard/staged/manifest.json
 ```
+
+During Block 27.5 publication is locked in `config.json`; the `r3` candidate
+and its manifest remain ignored until Block 27.6.
 
 Block 25.4 published the reviewed successor while retaining the previous
 five-city artifact for the Block 25.5 runtime-reference transition:
@@ -115,6 +131,10 @@ The public schema version 2 manifest describes the successor artifact and all
 six typed coverage targets. Block 25.5 moved the shared React 2D/3D artifact URL
 to the successor. The retained five-city file is a bounded rollback asset until
 the final Block 25 release gate; browser acceptance remains Block 25.6.
+
+Block 27.5 does not alter those public files. The public manifest still
+describes the six-target `r2` artifact, and the shared React 2D/3D loader stays
+on `r2` until the coordinated Block 27.6 publication and integration gate.
 
 The manifest contains source and artifact checksums, versions, attribution,
 designation evidence, coverage-target status, per-target and combined category

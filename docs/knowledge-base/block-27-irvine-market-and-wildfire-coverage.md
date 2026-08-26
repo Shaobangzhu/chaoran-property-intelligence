@@ -501,6 +501,60 @@ production profile, schedule, deployment, or wildfire runtime artifact changed.
   checksum, size, and deterministic rebuilds
 - retain the current public artifact and enforce a publication lock
 
+**Complete:** the repository now tracks the separately reviewed, normalized
+Irvine incorporated-city boundary at
+`tools/wildfire-hazard/sources/irvine-city-boundary-2026-08-25.geojson`.
+The one-feature snapshot is 39,079 bytes with SHA-256
+`368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`;
+selector `CITY=Irvine` resolves exactly once. Its provenance records the
+80,713-byte official upstream response checksum and the Block 27.2 finding
+that the selected current geometry is topologically equal to official `24_1`.
+Irvine is the seventh typed target, remains an
+`incorporated-jurisdiction`, uses City Ordinance `25-19` as
+`locally-adopted` LRA evidence, and has no product selector.
+
+Two independent offline builds used Node `24.19.0`, the already-installed
+digest-pinned GDAL `3.13.2` image, and container networking `none`. The staged
+`fhsz-supported-markets-2025.1-r3.geojson` and schema-version-2 manifest were
+byte-for-byte identical across both builds:
+
+| Candidate metric | Result |
+| --- | ---: |
+| Artifact SHA-256 | `766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427` |
+| Manifest SHA-256 | `f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3` |
+| Features / coordinates | 110 / 52,460 |
+| Moderate / High / Very High | 33 / 38 / 39 |
+| LRA / SRA | 83 / 27 |
+| Raw / gzip bytes | 1,374,114 / 354,030 |
+| Bounds | `[-118.622305, 33.5993963, -117.3673113, 34.417989]` |
+| Invalid output geometry / normalization area drift | 0 / 0 |
+
+The candidate uses 13.10% of the 10 MiB raw limit and 16.88% of the 2 MiB
+gzip limit. Combined eligible area is `273,369,541.738 m2`. Irvine contributes
+14 features and `65,514,371.608 m2`: 4 Moderate
+(`5,637,434.955 m2`), 4 High (`17,279,370.955 m2`), and 6 Very High
+(`42,597,565.698 m2`), with zero invalid geometry. The small difference from
+the Block 27.2 current-service area is the reviewed pipeline's seven-decimal
+clip/normalization path; feature and severity counts are unchanged and final
+normalization area drift is zero.
+
+Publication remains deliberately locked until Block 27.6. An attempted
+`wildfire:data:build` fails closed before GDAL work. No `r3` file or successor
+manifest was written under `apps/web/public`; the public `r2` artifact and
+manifest retain SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`
+and `e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366`.
+The React loader therefore remains on `r2` until coordinated publication and
+integration in Block 27.6.
+
+All three focused wildfire test files and 26 tests pass, including tracked
+boundary byte/checksum verification and the unchanged public `r2` regression.
+The complete repository gate passes all 118 test files and 1,170 tests,
+repository-wide typecheck, and the production/AWS build. The existing ArcGIS
+chunk-size advisory is unchanged. No environment file, real provider, database,
+cloud account, Telegram delivery, production profile, schedule, deployment,
+or public runtime artifact changed.
+
 ### Block 27.6: Artifact Publication And ArcGIS Integration
 
 - publish the reviewed versioned artifact and manifest without overwriting `r2`

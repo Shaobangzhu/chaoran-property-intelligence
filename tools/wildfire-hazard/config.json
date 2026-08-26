@@ -1,7 +1,7 @@
 {
   "artifact": {
     "version": "2025.1",
-    "fileName": "fhsz-supported-markets-2025.1-r2.geojson",
+    "fileName": "fhsz-supported-markets-2025.1-r3.geojson",
     "manifestFileName": "manifest.json",
     "snapshotAt": "2026-08-22T00:29:56Z",
     "coordinatePrecision": 7,
@@ -10,8 +10,8 @@
     "maximumAreaDriftRatio": 0.001
   },
   "publication": {
-    "enabled": true,
-    "approvedInBlock": "25.4"
+    "enabled": false,
+    "blockedUntilBlock": "27.6"
   },
   "gdal": {
     "version": "3.13.2",
@@ -79,6 +79,22 @@
       "gdalLayer": "stevenson-ranch-cdp-acs25",
       "license": "U.S. Government public domain",
       "attribution": "U.S. Census Bureau TIGERweb"
+    },
+    {
+      "id": "irvine-city-boundary",
+      "title": "California Incorporated Cities - Irvine reviewed subset",
+      "canonicalUrl": "https://lab.data.ca.gov/dataset/california-incorporated-cities",
+      "fileName": "irvine-city-boundary-2026-08-25.geojson",
+      "trackedPath": "tools/wildfire-hazard/sources/irvine-city-boundary-2026-08-25.geojson",
+      "sha256": "368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23",
+      "maximumBytes": 50000,
+      "upstreamSnapshotSha256": "aec82ae16a4a5c454073ea21a05e3961166d76d0484478323754b8a0879ee5a0",
+      "upstreamSnapshotBytes": 80713,
+      "version": "audited 2026-08-25; topologically equal to 24_1",
+      "gdalDataSource": "/work/sources/irvine-city-boundary-2026-08-25.geojson",
+      "gdalLayer": "irvine-boundary-current",
+      "license": "Creative Commons Attribution",
+      "attribution": "CAL FIRE FRAP / California Board of Equalization"
     }
   ],
   "coverageTargets": [
@@ -142,6 +158,16 @@
       "evidenceId": "los-angeles-county-ordinance-2025-0027",
       "coverageDisclosure": "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
       "productSelector": { "kind": "zip", "value": "91381" }
+    },
+    {
+      "id": "irvine",
+      "label": "Irvine",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "irvine-city-boundary",
+      "boundarySelector": { "field": "CITY", "equals": "Irvine" },
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "irvine-ordinance-25-19",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     }
   ],
   "designationEvidence": [
@@ -174,6 +200,12 @@
       "title": "Los Angeles County Ordinance 2025-0027 proceedings",
       "url": "https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf",
       "finding": "The Board adopted Ordinance 2025-0027 on 2025-07-22, operative 2025-08-21, for LRA FHSZ designations in the Consolidated Fire Protection District."
+    },
+    {
+      "id": "irvine-ordinance-25-19",
+      "title": "City of Irvine Ordinance 25-19",
+      "url": "https://irvine.granicus.com/MetaViewer.php?event_id=2641&meta_id=167078&view_id=",
+      "finding": "The City Council adopted Ordinance 25-19 on 2025-06-24, designating the 2025 Moderate, High, and Very High LRA Fire Hazard Severity Zones; effective 30 days after adoption."
     }
   ]
 }

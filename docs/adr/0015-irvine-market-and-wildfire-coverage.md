@@ -57,6 +57,18 @@ seventh request fails. All five focused test files and 82 tests, all 118
 repository test files and 1,169 tests, repository-wide typecheck, and the
 production/AWS build pass. No real provider request, production profile,
 database record, schedule, wildfire artifact, or deployment changed.
+Block 27.5 then pinned the reviewed 39,079-byte Irvine boundary snapshot and
+added Irvine as the seventh typed wildfire target. Two offline builds with the
+existing digest-pinned GDAL image and container networking disabled produced
+byte-identical 110-feature `r3` candidates. The artifact is 1,374,114 raw /
+354,030 gzip bytes with SHA-256
+`766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427`;
+all output geometry is valid and normalization area drift is zero. Irvine
+contributes 4 Moderate, 4 High, and 6 Very High features. Publication is locked
+until Block 27.6, the committed public `r2` artifact and manifest checksums are
+unchanged, and the React loader still references `r2`. All 118 repository test
+files and 1,170 tests, repository-wide typecheck, and the production/AWS build
+pass.
 
 ## Context
 

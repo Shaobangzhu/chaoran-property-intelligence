@@ -1741,6 +1741,19 @@ Planned sub-block mapping:
 8. `27.5` Add the reviewed boundary snapshot, stage the seven-target artifact,
    and reconcile deterministic provenance, geometry, counts, severity, area,
    checksums, and raw/gzip limits while retaining the current public artifact.
+   **Complete:** the 39,079-byte tracked Irvine boundary is pinned at SHA-256
+   `368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`
+   and resolves exactly one `CITY=Irvine` feature. Two offline, network-disabled
+   builds produced byte-identical 110-feature `r3` candidates at 1,374,114 raw
+   / 354,030 gzip bytes with artifact SHA-256
+   `766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427`
+   and manifest SHA-256
+   `f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3`.
+   All output geometry is valid, normalization area drift is zero, and Irvine
+   contributes the audited 4 Moderate / 4 High / 6 Very High features. The
+   publication command fails closed until 27.6; committed public `r2` bytes and
+   the React loader remain unchanged. All 118 test files / 1,170 tests,
+   repository-wide typecheck, and the production/AWS build pass.
 9. `27.6` Publish the versioned successor and integrate it into the shared
    ArcGIS 2D/3D loader, metadata, provenance, disclosures, viewport, and
    zero-listing behavior without changing classification or terrain semantics.

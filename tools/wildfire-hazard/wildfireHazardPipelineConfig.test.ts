@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -13,10 +14,17 @@ const config = JSON.parse(
 );
 
 describe("wildfire hazard pipeline config", () => {
-  it("models five jurisdictions and the Stevenson Ranch ZIP market separately", () => {
+  it("models six jurisdictions and the Stevenson Ranch ZIP market separately", () => {
     expect(() => validateBuildConfig(config)).not.toThrow();
-    expect(config.coverageTargets).toHaveLength(6);
-    expect(config.coverageTargets.at(-1)).toMatchObject({
+    expect(config.artifact.fileName).toBe(
+      "fhsz-supported-markets-2025.1-r3.geojson",
+    );
+    expect(config.publication).toEqual({
+      enabled: false,
+      blockedUntilBlock: "27.6",
+    });
+    expect(config.coverageTargets).toHaveLength(7);
+    expect(config.coverageTargets.at(-2)).toMatchObject({
       id: "stevenson-ranch-91381",
       label: "Stevenson Ranch",
       kind: "market-context",
@@ -25,6 +33,16 @@ describe("wildfire hazard pipeline config", () => {
       lraDesignationStatus: "locally-adopted",
       productSelector: { kind: "zip", value: "91381" },
     });
+    expect(config.coverageTargets.at(-1)).toMatchObject({
+      id: "irvine",
+      label: "Irvine",
+      kind: "incorporated-jurisdiction",
+      boundarySourceId: "irvine-city-boundary",
+      boundarySelector: { field: "CITY", equals: "Irvine" },
+      lraDesignationStatus: "locally-adopted",
+      evidenceId: "irvine-ordinance-25-19",
+    });
+    expect(config.coverageTargets.at(-1)).not.toHaveProperty("productSelector");
   });
 
   it("resolves each selector to exactly one feature in its tracked source", () => {
@@ -37,6 +55,20 @@ describe("wildfire hazard pipeline config", () => {
       expect(
         resolveCoverageTargetBoundary(target, source, collection).geometry,
       ).toBeDefined();
+    }
+  });
+
+  it("pins every tracked boundary source to its reviewed bytes", () => {
+    for (const source of config.sources.filter(
+      (candidate: { trackedPath?: string }) => candidate.trackedPath !== undefined,
+    )) {
+      const bytes = readFileSync(
+        new URL(`../../${source.trackedPath}`, import.meta.url),
+      );
+      expect(bytes.byteLength).toBeLessThanOrEqual(source.maximumBytes);
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+        source.sha256,
+      );
     }
   });
 
@@ -111,7 +143,7 @@ describe("wildfire hazard pipeline config", () => {
 
   it("fails closed when target provenance is incomplete", () => {
     const candidate = structuredClone(config);
-    candidate.coverageTargets.at(-1).evidenceId = "missing-evidence";
+    candidate.coverageTargets.at(-1)!.evidenceId = "missing-evidence";
 
     expect(() => validateBuildConfig(candidate)).toThrow(
       /unknown designation evidence missing-evidence/,
