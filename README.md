@@ -196,13 +196,15 @@ This command runs bundled PostgreSQL migrations, fetches RentCast listings, and
 can send Telegram notifications. The database connection is closed before the
 process exits.
 
-Block 26.5 retires the legacy Brea-default coverage audit. The two supported
+Block 26.5 retires the legacy Brea-default coverage audit. The supported
 maintenance paths are market-scoped and do not run through the production
 worker, connect to PostgreSQL, or send Telegram. These safe previews do not
 load `.env.local` and exit before `fetch`:
 
 ```bash
 pnpm rentcast:five-city-direct-coverage-audit
+pnpm rentcast:irvine-coverage-audit
+pnpm rentcast:irvine-provider-identity-probe
 pnpm rentcast:stevenson-ranch-coverage-audit
 ```
 
@@ -210,17 +212,24 @@ The real-request forms require exact request-count and market confirmations:
 
 ```bash
 pnpm rentcast:five-city-direct-coverage-audit:execute-five-requests
+pnpm rentcast:irvine-coverage-audit:execute-one-request
+pnpm rentcast:irvine-provider-identity-probe:execute-one-request
 pnpm rentcast:stevenson-ranch-coverage-audit:execute-one-request
 ```
 
 The first command makes exactly five sequential direct-city requests. The
-second makes exactly one ZIP `91381` request. Auditing all six markets requires
-two separate approvals and both commands; there is no ordinary combined
-six-request command. Output contains aggregate coverage, completeness, request
-cost, and a 50-request monthly planning reference, but never claims the
-account's current plan or remaining quota. Verify current RentCast plan and
-usage before every approved execution. Credentials, full request URLs, raw
-responses, and street addresses are never printed.
+Irvine coverage command makes exactly one direct-city product-filter request,
+and the Stevenson Ranch command makes exactly one ZIP `91381` request. The
+Irvine identity-probe command is a separately guarded Active-market geography
+check that omits product type, price, bedroom, and bathroom filters; it must not
+be interpreted as product inventory completeness. Both Irvine real-request
+forms require their own explicit authorization. There is no ordinary combined
+six- or seven-request audit command. Output contains aggregate coverage,
+completeness or identity-sample evidence, request cost, and a 50-request monthly
+planning reference, but never claims the account's current plan or remaining
+quota. Verify current RentCast plan and usage before every approved execution.
+Credentials, full request URLs, raw responses, and street addresses are never
+printed.
 
 The retired Block 20 Brea audit and its one approved historical result remain
 documented in the Block 20 knowledge base as historical evidence only.

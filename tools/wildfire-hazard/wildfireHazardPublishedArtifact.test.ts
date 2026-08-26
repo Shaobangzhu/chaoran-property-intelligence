@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const artifactUrl = new URL(
+  "../../apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r3.geojson",
+  import.meta.url,
+);
+const rollbackArtifactUrl = new URL(
   "../../apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson",
   import.meta.url,
 );
@@ -16,9 +20,11 @@ const artifact = JSON.parse(artifactText);
 const manifestText = readFileSync(manifestUrl, "utf8");
 const manifest = JSON.parse(manifestText);
 const expectedArtifactSha256 =
-  "7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd";
+  "766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427";
 const expectedManifestSha256 =
-  "e926c7de239970180fdc52aaa55a850cf6bd58686518c2576f94fd7fe8b95366";
+  "f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3";
+const expectedRollbackArtifactSha256 =
+  "7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd";
 
 describe("published wildfire hazard artifact", () => {
   it("matches its committed provenance and budget contract", () => {
@@ -33,36 +39,36 @@ describe("published wildfire hazard artifact", () => {
     expect(Buffer.byteLength(artifactText)).toBe(manifest.artifact.bytes);
     expect(artifact.features).toHaveLength(manifest.artifact.featureCount);
     expect(manifest.artifact).toMatchObject({
-      fileName: "fhsz-supported-markets-2025.1-r2.geojson",
+      fileName: "fhsz-supported-markets-2025.1-r3.geojson",
       version: "2025.1",
       sha256: expectedArtifactSha256,
-      bytes: 1_158_246,
-      gzipBytes: 292_581,
-      featureCount: 96,
-      coordinateCount: 44_204,
-      bounds: [-118.622305, 33.8000861, -117.3673113, 34.417989],
+      bytes: 1_374_114,
+      gzipBytes: 354_030,
+      featureCount: 110,
+      coordinateCount: 52_460,
+      bounds: [-118.622305, 33.5993963, -117.3673113, 34.417989],
       severityCounts: {
-        moderate: 29,
-        high: 34,
-        "very-high": 33,
+        moderate: 33,
+        high: 38,
+        "very-high": 39,
       },
       responsibilityAreaCounts: {
-        sra: 25,
-        lra: 71,
+        sra: 27,
+        lra: 83,
       },
       designationStatusCounts: {
-        effective: 25,
+        effective: 27,
         recommended: 11,
-        "locally-adopted": 60,
+        "locally-adopted": 72,
       },
     });
     expect(manifest.quality).toMatchObject({
       clippedInvalidGeometryCount: 1,
       repairedInvalidGeometryCount: 0,
       invalidGeometryCount: 0,
-      excludedNonWildlandFeatureCount: 9,
-      inputEligibleFeatureCount: 96,
-      outputFeatureCount: 96,
+      excludedNonWildlandFeatureCount: 11,
+      inputEligibleFeatureCount: 110,
+      outputFeatureCount: 110,
       removedZeroAreaNonPolygonComponentCount: 1,
     });
     expect(manifest.quality.budgets.actualRawBytes).toBeLessThanOrEqual(
@@ -71,6 +77,11 @@ describe("published wildfire hazard artifact", () => {
     expect(manifest.quality.budgets.actualGzipBytes).toBeLessThanOrEqual(
       manifest.quality.budgets.maximumGzipBytes,
     );
+    expect(
+      createHash("sha256")
+        .update(readFileSync(rollbackArtifactUrl, "utf8"))
+        .digest("hex"),
+    ).toBe(expectedRollbackArtifactSha256);
   });
 
   it("contains only the minimal accepted browser geometry and properties", () => {
@@ -89,9 +100,9 @@ describe("published wildfire hazard artifact", () => {
     }
   });
 
-  it("keeps all six reviewed coverage targets and their designation evidence explicit", () => {
+  it("keeps all seven reviewed coverage targets and their designation evidence explicit", () => {
     expect(manifest.schemaVersion).toBe(2);
-    expect(manifest.coverageTargets).toHaveLength(6);
+    expect(manifest.coverageTargets).toHaveLength(7);
     expect(
       Object.fromEntries(
         manifest.coverageTargets.map(
@@ -108,9 +119,10 @@ describe("published wildfire hazard artifact", () => {
       eastvale: "recommended",
       "jurupa-valley": "locally-adopted",
       "stevenson-ranch-91381": "locally-adopted",
+      irvine: "locally-adopted",
     });
 
-    expect(manifest.coverageTargets.at(-1)).toEqual({
+    expect(manifest.coverageTargets.at(-2)).toEqual({
       id: "stevenson-ranch-91381",
       label: "Stevenson Ranch",
       kind: "market-context",
@@ -120,6 +132,16 @@ describe("published wildfire hazard artifact", () => {
       coverageDisclosure:
         "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
       productSelector: { kind: "zip", value: "91381" },
+    });
+    expect(manifest.coverageTargets.at(-1)).toEqual({
+      id: "irvine",
+      label: "Irvine",
+      kind: "incorporated-jurisdiction",
+      boundarySourceId: "irvine-city-boundary",
+      lraDesignationStatus: "locally-adopted",
+      evidenceId: "irvine-ordinance-25-19",
+      coverageDisclosure:
+        "Official incorporated-city boundary supplied by California Incorporated Cities.",
     });
     expect(
       manifest.coverageTargets.every(
@@ -134,6 +156,15 @@ describe("published wildfire hazard artifact", () => {
         sha256:
           "2405aaedb264e5854c933f6e461aa3bf6b5e9109f73d6baba0fa65baf47292cf",
         bytes: 24_175,
+      }),
+    );
+    expect(manifest.sources).toContainEqual(
+      expect.objectContaining({
+        id: "irvine-city-boundary",
+        version: "audited 2026-08-25; topologically equal to 24_1",
+        sha256:
+          "368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23",
+        bytes: 39_079,
       }),
     );
     expect(manifest.quality.byCoverageTarget["stevenson-ranch-91381"]).toEqual({
@@ -159,33 +190,67 @@ describe("published wildfire hazard artifact", () => {
         },
       },
     });
+    expect(manifest.quality.byCoverageTarget.irvine).toEqual({
+      label: "Irvine",
+      inputEligibleFeatureCount: 14,
+      inputAreaSquareMeters: 65_514_371.608,
+      invalidGeometryCount: 0,
+      bySeverity: {
+        high: {
+          featureCount: 4,
+          areaSquareMeters: 17_279_370.955,
+          invalidGeometryCount: 0,
+        },
+        moderate: {
+          featureCount: 4,
+          areaSquareMeters: 5_637_434.955,
+          invalidGeometryCount: 0,
+        },
+        "very-high": {
+          featureCount: 6,
+          areaSquareMeters: 42_597_565.698,
+          invalidGeometryCount: 0,
+        },
+      },
+    });
   });
 
   it("keeps every incorporated market on official city geometry with non-empty hazard coverage", () => {
     const expectedTargets = {
       chino: {
+        boundarySourceId: "city-boundaries",
         evidenceId: "chino-valley-ordinance-2025-01",
         label: "Chino",
         lraDesignationStatus: "locally-adopted",
       },
       "chino-hills": {
+        boundarySourceId: "city-boundaries",
         evidenceId: "chino-valley-ordinance-2025-01",
         label: "Chino Hills",
         lraDesignationStatus: "locally-adopted",
       },
       corona: {
+        boundarySourceId: "city-boundaries",
         evidenceId: "corona-ordinance-3418",
         label: "Corona",
         lraDesignationStatus: "locally-adopted",
       },
       eastvale: {
+        boundarySourceId: "city-boundaries",
         evidenceId: "eastvale-proposal-review",
         label: "Eastvale",
         lraDesignationStatus: "recommended",
       },
       "jurupa-valley": {
+        boundarySourceId: "city-boundaries",
         evidenceId: "jurupa-valley-ordinance-2025-13",
         label: "Jurupa Valley",
+        lraDesignationStatus: "locally-adopted",
+      },
+      irvine: {
+        boundarySourceId: "irvine-city-boundary",
+        evidenceId: "irvine-ordinance-25-19",
+        label: "Irvine",
         lraDesignationStatus: "locally-adopted",
       },
     } as const;
@@ -205,7 +270,6 @@ describe("published wildfire hazard artifact", () => {
     for (const [id, expected] of Object.entries(expectedTargets)) {
       expect(incorporatedTargets[id]).toMatchObject({
         ...expected,
-        boundarySourceId: "city-boundaries",
         kind: "incorporated-jurisdiction",
       });
       expect(incorporatedTargets[id]).not.toHaveProperty("productSelector");

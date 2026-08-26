@@ -52,6 +52,31 @@ describe("listing search criteria API", () => {
     ).resolves.toEqual(sixMarketSnapshot);
   });
 
+  it("loads an explicitly saved seven-market response with Irvine last", async () => {
+    const sevenMarketSnapshot = snapshot({
+      criteria: {
+        ...snapshot().criteria,
+        cities: [
+          "Chino",
+          "Chino Hills",
+          "Eastvale",
+          "Corona",
+          "Jurupa Valley",
+          "Stevenson Ranch",
+          "Irvine",
+        ],
+      },
+      revision: 4,
+    });
+
+    await expect(
+      fetchListingSearchCriteria({
+        fetchImplementation: async () =>
+          jsonResponse({ searchCriteria: sevenMarketSnapshot }),
+      }),
+    ).resolves.toEqual(sevenMarketSnapshot);
+  });
+
   it("saves only revision and canonical editable criteria", async () => {
     const fetchImplementation = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -64,7 +89,7 @@ describe("listing search criteria API", () => {
           expectedRevision: 2,
           criteria: {
             ...snapshot().criteria,
-            cities: ["Stevenson Ranch", "Corona", "Chino"],
+            cities: ["Irvine", "Stevenson Ranch", "Corona", "Chino"],
           },
         },
         { fetchImplementation },
@@ -84,7 +109,7 @@ describe("listing search criteria API", () => {
       expectedRevision: 2,
       criteria: {
         ...snapshot().criteria,
-        cities: ["Chino", "Corona", "Stevenson Ranch"],
+        cities: ["Chino", "Corona", "Stevenson Ranch", "Irvine"],
       },
     });
     expect(String(init?.body)).not.toContain("state");

@@ -1622,3 +1622,190 @@ See the
 [Block 26 Five-City Direct Market Coverage Knowledge Base](knowledge-base/block-26-five-city-direct-market-coverage.md)
 and
 [ADR 0014: Direct Market RentCast Acquisition](adr/0014-direct-market-rentcast-acquisition.md).
+
+### Block 27: Irvine Market And Wildfire Coverage
+
+Add Irvine in Orange County as an opt-in seventh listing market and as a
+reviewed CAL FIRE wildfire coverage target. Irvine follows the incorporated
+city pattern: one direct RentCast `city=Irvine&state=CA` area and one official
+incorporated-jurisdiction boundary. It does not use the Stevenson Ranch ZIP/CDP
+exception.
+
+Existing schema-version-1 profiles and default selections remain the six
+pre-Irvine markets until a user explicitly selects Irvine. Listing acquisition
+retains canonical ordering, strict per-area completeness, sequential
+all-or-nothing failure, canonical-address reconciliation, provider-data
+preservation, and existing new-listing and price-drop behavior. A seven-market
+run costs seven provider requests; the current 50-request planning reference
+fits at most seven complete runs with one request left before audits, retries,
+or other usage.
+
+The wildfire extension uses a checksum-pinned official Irvine city boundary
+and independently reviewed CAL FIRE LRA/SRA intersections and City of Irvine
+designation/adoption evidence. It preserves exact authoritative severities,
+the deterministic same-origin artifact, existing payload gates, 2D/3D parity,
+transparent styling, provenance, and disclosures. Irvine polygons remain
+available when no listing matches. Terrain is context only and blank space is
+not a safety conclusion.
+
+Planned sub-block mapping:
+
+1. `27.0` Freeze product, provider geography, wildfire authority, quota,
+   compatibility, security, rollout, rollback, test, and acceptance boundaries.
+   **Complete in documentation only:** ADR 0015, the Block 27 knowledge base,
+   and this roadmap are accepted. No runtime code, environment file, provider
+   request, official GIS query, download, artifact, database, profile, AWS,
+   schedule, Telegram, deployment, commit, push, or merge changed.
+2. `27.1A` Add fixture-gated Irvine direct-city audit tooling with exact
+   one-request confirmation, aggregate-only output, dry-run behavior, filter,
+   completeness, provider-city, redaction, and no-retry tests. Do not read
+   `.env.local` or call RentCast. **Complete:** the isolated runner reuses the
+   strict direct-city core and constructs one bounded Irvine request; the CLI
+   requires exact one-request and `irvine-ca` confirmations. Its safe preview
+   omits `.env.local`, exits before `fetch`, and reports that no request was
+   made. Eighteen runner and nine command tests cover geography, filters,
+   schema, total counts, completeness, capacity, provider city, aggregate-only
+   output, strict arguments, no retry, missing key, and secret/URL redaction.
+   All 75 audit regressions and all 116 repository test files / 1,128 tests
+   pass, along with repository-wide typecheck and the production/AWS build. No
+   external request or runtime production change occurred.
+3. `27.1B` With fresh explicit authorization, make exactly one real Irvine
+   RentCast request without retry and record only aggregate provider geography,
+   completeness, capacity, price, byte, and timing evidence. **Request complete,
+   provider gate not cleared:** the one authorized request returned a valid,
+   complete zero-row page with a 500-row limit margin, zero filter violations,
+   a 2-byte body, and 651 ms provider elapsed time. No retry occurred. The
+   result proves request acceptance and zero current inventory under the frozen
+   filters, but it cannot verify the provider city label, so production Irvine
+   mapping remains disabled.
+4. `27.1C` Add a separately guarded, wider Irvine provider-identity probe and,
+   only with fresh explicit authorization, make one real request without retry.
+   Record aggregate city distribution and sample evidence only; do not change
+   product filters or treat a broad sample as product inventory completeness.
+   **Complete; provider-geography gate cleared:** the probe
+   sends only `city=Irvine`, `state=CA`, `status=Active`, `limit=500`, and
+   `includeTotalCount=true`, omitting property type, price, bedroom, bathroom,
+   address, radius, ZIP, and county filters. Its real form requires exact
+   one-request, `irvine-ca`, and `active-market-identity` confirmations and has
+   no retry path. A full 500-row page is reported as a saturated, bounded
+   identity sample rather than complete inventory. Fourteen runner tests and
+   ten command tests cover identity, state/status, count, sample saturation,
+   aggregate-only output, strict arguments, no retry, missing key, and
+   secret/URL redaction. All 99 audit regressions and all 118 repository test
+   files / 1,152 tests pass, along with repository-wide typecheck and the
+   production/AWS build. The safe preview loads no environment file and makes
+   no request. After fresh authorization, exactly one real request completed
+   without retry. RentCast reported 865 matching Active listings; the bounded
+   sample returned the expected 500 rows, all 500 used provider city `Irvine`,
+   and zero rows violated the California/Active scope. The saturated sample
+   correctly reported that not all matching rows were returned. The response
+   was 570,092 bytes in 1,338 ms. No production change occurred.
+5. `27.2` With fresh explicit authorization, audit official Irvine boundary,
+   CAL FIRE LRA/SRA metadata and intersections, City of Irvine designation
+   evidence, geometry, severity, responsibility area, bounds, area, checksum,
+   payload, and parse-cost projections. Publish no runtime artifact.
+   **Complete:** current official services returned one qualifying incorporated
+   Irvine jurisdiction and one valid current city boundary. The normalized
+   boundary has SHA-256
+   `368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`
+   and is topologically equal to the cached `24_1` geometry. City Council
+   Ordinance `25-19`, adopted 2025-06-24, establishes `locally-adopted` LRA
+   evidence. Current service counts and pinned-archive hard clips agree on 12
+   LRA features and 2 SRA features with zero invalid geometry, zero repair
+   drift, and zero LRA/SRA overlap area. The projected 110-feature successor is
+   1,374,114 raw / 354,030 gzip bytes; 200 Node `24.19.0` parses averaged 2.990
+   ms with p95 3.438 ms. All candidates remain ignored and no runtime artifact
+   or production system changed.
+6. `27.3` Append Irvine to the schema-version-1 Domain/API/React allowlist while
+   keeping existing and default profiles unchanged. Preserve the current city
+   checkbox UX, validation, revisions, authentication, and accessibility.
+   **Complete:** Irvine is appended as the seventh canonical market while the
+   default remains the six pre-Irvine markets. Domain, Application, API, browser
+   client, and React tests prove opt-in saving, canonical order, unchanged old
+   profiles, revision behavior, authentication, and accessible checkbox use.
+   The isolated 27.3 stage failed closed on an Irvine selection before any
+   RentCast request; 27.4 replaces that temporary guard with the reviewed
+   direct-city mapping. All 118 test files and 1,161 tests, repository-wide
+   typecheck, and the production/AWS build pass.
+7. `27.4` Map Irvine to one direct city area and prove 1-, 6-, and 7-market
+   request counts, canonical order, per-area completeness, all-or-nothing
+   behavior, overlap reconciliation, provider-data preservation, observation
+   time, alerts, and zero partial Telegram effects.
+   **Complete:** Irvine maps to one exact `city=Irvine&state=CA` provider area
+   without ZIP, address, radius, or county fallback. Tests prove Irvine-only,
+   six-incorporated-city, pre-Irvine six-market, and all-seven-market request
+   plans in canonical order. A failed or incomplete seventh request returns no
+   partial rows and causes no persistence, observation, revision advancement,
+   alert, or Telegram side effect. All 118 test files and 1,169 tests,
+   repository-wide typecheck, and the production/AWS build pass.
+8. `27.5` Add the reviewed boundary snapshot, stage the seven-target artifact,
+   and reconcile deterministic provenance, geometry, counts, severity, area,
+   checksums, and raw/gzip limits while retaining the current public artifact.
+   **Complete:** the 39,079-byte tracked Irvine boundary is pinned at SHA-256
+   `368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`
+   and resolves exactly one `CITY=Irvine` feature. Two offline, network-disabled
+   builds produced byte-identical 110-feature `r3` candidates at 1,374,114 raw
+   / 354,030 gzip bytes with artifact SHA-256
+   `766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427`
+   and manifest SHA-256
+   `f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3`.
+   All output geometry is valid, normalization area drift is zero, and Irvine
+   contributes the audited 4 Moderate / 4 High / 6 Very High features. The
+   publication command fails closed until 27.6; committed public `r2` bytes and
+   the React loader remain unchanged. All 118 test files / 1,170 tests,
+   repository-wide typecheck, and the production/AWS build pass.
+9. `27.6` Publish the versioned successor and integrate it into the shared
+   ArcGIS 2D/3D loader, metadata, provenance, disclosures, viewport, and
+   zero-listing behavior without changing classification or terrain semantics.
+   **Complete:** the committed `r3` artifact and manifest exactly match the
+   Block 27.5 staged checksums, while `r2` remains unchanged for rollback. The
+   shared same-origin loader now serves all 110 features and seven typed targets
+   to both ArcGIS modes. Metadata and control regressions expose Irvine's
+   incorporated-city boundary and locally-adopted evidence; zero-listing tests
+   preserve overlay loading and 2D/3D mode switching independently from
+   markers. Existing styling, layer order, lazy load, Abort/retry/rollback,
+   teardown, CSP, and terrain-context semantics are unchanged. All eight
+   focused test files and 58 tests pass. All 118 repository test files and
+   1,170 tests, repository-wide typecheck, and the production/AWS build also
+   pass; browser acceptance remains 27.7.
+10. `27.7` Complete focused and repository-wide tests, typecheck, production/AWS
+   builds, and desktop/mobile 2D/3D visual, Console, Network, WebGL, responsive,
+   interaction, and teardown acceptance for Irvine and all prior markets.
+   **Complete:** all 118 test files and 1,170 tests, repository-wide typecheck,
+   and the production/AWS build pass. Authorized `1440 x 900` desktop and
+   `390 x 844` mobile acceptance verifies Irvine coverage without listings,
+   prior-market listing markers, all seven provenance disclosures, 2D/3D
+   Terrain, zoom, responsive framing with zero overflow, and two structural
+   teardown cycles with no retained canvas or ArcGIS component. The saved six
+   predecessor markets remain selected and Irvine remains unchecked. Two
+   bounded ArcGIS basemap `AbortError` cancellation logs occurred while a
+   still-loading map was replaced; no CSP, authorization, data, Terrain3D,
+   WebGL, or application failure occurred.
+11. `27.8` Complete final security, quota, artifact, CSP, compatibility,
+    rollout, rollback, diff, and as-built release gates. Leave commit, push, PR,
+    merge, production profile changes, schedules, and deployment under
+    repository-owner control. **Complete:** the final 10-commit, 44-path branch
+    diff is confined to the reviewed Irvine market, provider tooling, wildfire
+    pipeline/assets, ArcGIS integration, tests, scripts, and documentation. No
+    migration, environment file, lockfile, CI/CD, AWS, auth/session, database,
+    Telegram, schedule, CSP, credential, or deployment boundary changed. Secret
+    and whitespace scans pass. A fresh digest-pinned, network-disabled offline
+    GDAL stage reproduced the public 110-feature `r3` artifact and manifest
+    byte-for-byte while the `r2` and five-city rollback hashes remained
+    unchanged. Focused release tests pass 293/293; all 118 repository test files
+    and 1,170 tests plus repository-wide typecheck pass. An isolated production
+    web build containing no `.env*` file passes with a synthetic ArcGIS key and
+    contains no MapLibre/OpenFreeMap residue. Quota remains one request for
+    Irvine or seven for all markets, Irvine remains opt-in, and rollback order
+    remains remove saved Irvine selections before restoring the six-market
+    runtime and retained `r2` asset. Commit, push, PR, merge, profile edits,
+    schedule changes, and deployment remain under owner control.
+
+Every executable sub-block requires a fresh explanation and explicit
+confirmation. Real provider or official GIS access is never implied by a plan
+or fixture test.
+
+See the
+[Block 27 Irvine Market And Wildfire Coverage Knowledge Base](knowledge-base/block-27-irvine-market-and-wildfire-coverage.md)
+and
+[ADR 0015: Irvine Market And Wildfire Coverage](adr/0015-irvine-market-and-wildfire-coverage.md).

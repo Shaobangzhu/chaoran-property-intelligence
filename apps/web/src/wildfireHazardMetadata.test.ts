@@ -30,6 +30,7 @@ describe("wildfire hazard manifest metadata", () => {
         { name: "Corona", status: "locally-adopted" },
         { name: "Eastvale", status: "recommended" },
         { name: "Jurupa Valley", status: "locally-adopted" },
+        { name: "Irvine", status: "locally-adopted" },
       ],
       coverageTargets: [
         {
@@ -92,6 +93,16 @@ describe("wildfire hazard manifest metadata", () => {
           coverageDisclosure:
             "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
           productSelector: { kind: "zip", value: "91381" },
+        },
+        {
+          id: "irvine",
+          label: "Irvine",
+          kind: "incorporated-jurisdiction",
+          boundarySourceId: "irvine-city-boundary",
+          lraDesignationStatus: "locally-adopted",
+          evidenceId: "irvine-ordinance-25-19",
+          coverageDisclosure:
+            "Official incorporated-city boundary supplied by California Incorporated Cities.",
         },
       ],
     });

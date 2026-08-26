@@ -26,8 +26,10 @@ import {
 
 const allFiveDirectCityAreas =
   "city-Chino,city-Chino Hills,city-Eastvale,city-Corona,city-Jurupa Valley";
+const allSixDirectCityAreas = `${allFiveDirectCityAreas},city-Irvine`;
 const defaultSixMarketSourceEvent =
   `source:rentcast-secret:Single Family:850000:4:2.5:${allFiveDirectCityAreas},zip-91381`;
+const allSevenMarketAreas = `${allFiveDirectCityAreas},zip-91381,city-Irvine`;
 
 describe("runProduction", () => {
   it("migrates, executes the use case, and closes the database", async () => {
@@ -89,12 +91,38 @@ describe("runProduction", () => {
 
   it.each([
     ["one incorporated market", ["Corona"], "city-Corona"],
+    ["Irvine only", ["Irvine"], "city-Irvine"],
     [
       "all incorporated markets",
       ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
       allFiveDirectCityAreas,
     ],
     ["Stevenson Ranch only", ["Stevenson Ranch"], "zip-91381"],
+    [
+      "all six incorporated markets",
+      [
+        "Irvine",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ],
+      allSixDirectCityAreas,
+    ],
+    [
+      "all seven product markets",
+      [
+        "Irvine",
+        "Stevenson Ranch",
+        "Jurupa Valley",
+        "Corona",
+        "Eastvale",
+        "Chino Hills",
+        "Chino",
+      ],
+      allSevenMarketAreas,
+    ],
     [
       "mixed markets",
       ["Stevenson Ranch", "Corona"],

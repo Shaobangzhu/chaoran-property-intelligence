@@ -17,6 +17,7 @@ export const listingSearchCities = Object.freeze([
   "Corona",
   "Jurupa Valley",
   "Stevenson Ranch",
+  "Irvine",
 ] as const);
 
 export type ListingSearchCity = (typeof listingSearchCities)[number];
@@ -151,7 +152,14 @@ export const defaultListingSearchCriteria = normalizeListingSearchCriteria({
   maximumPrice: 850000,
   minimumBedrooms: 4,
   minimumBathrooms: 2.5,
-  cities: listingSearchCities,
+  cities: [
+    "Chino",
+    "Chino Hills",
+    "Eastvale",
+    "Corona",
+    "Jurupa Valley",
+    "Stevenson Ranch",
+  ],
 });
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

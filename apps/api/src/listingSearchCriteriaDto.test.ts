@@ -50,6 +50,21 @@ describe("listing search criteria DTO", () => {
     });
   });
 
+  it("accepts Irvine and keeps it last in canonical market order", () => {
+    expect(
+      parseUpdateListingSearchCriteriaRequest({
+        expectedRevision: 7,
+        criteria: {
+          ...validCriteria(),
+          cities: ["Irvine", "Corona", "Stevenson Ranch"],
+        },
+      }),
+    ).toMatchObject({
+      expectedRevision: 7,
+      criteria: { cities: ["Corona", "Stevenson Ranch", "Irvine"] },
+    });
+  });
+
   it.each([
     null,
     [],

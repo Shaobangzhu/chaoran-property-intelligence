@@ -45,7 +45,7 @@ describe("listing search criteria", () => {
     expect(normalizeListingSearchCriteria(validInput())).toEqual(validInput());
   });
 
-  it("adds Stevenson Ranch to new default profiles", () => {
+  it("keeps Irvine opt-in while preserving the pre-Irvine default profile", () => {
     expect(defaultListingSearchCriteria).toEqual({
       ...validInput(),
       cities: [
@@ -59,6 +59,18 @@ describe("listing search criteria", () => {
     });
     expect(Object.isFrozen(defaultListingSearchCriteria)).toBe(true);
     expect(Object.isFrozen(defaultListingSearchCriteria.cities)).toBe(true);
+  });
+
+  it("appends Irvine to the schema-v1 canonical market allowlist", () => {
+    expect(listingSearchCities).toEqual([
+      "Chino",
+      "Chino Hills",
+      "Eastvale",
+      "Corona",
+      "Jurupa Valley",
+      "Stevenson Ranch",
+      "Irvine",
+    ]);
   });
 
   it.each(listingPropertyTypes)("accepts property type %s", (propertyType) => {
@@ -81,10 +93,22 @@ describe("listing search criteria", () => {
     ).toEqual(["Stevenson Ranch"]);
   });
 
+  it("accepts Irvine as an opt-in product market", () => {
+    expect(
+      normalizeListingSearchCriteria(validInput({ cities: ["Irvine"] })).cities,
+    ).toEqual(["Irvine"]);
+  });
+
   it("canonicalizes selected cities into the supported city order", () => {
     const criteria = normalizeListingSearchCriteria(
       validInput({
-        cities: ["Stevenson Ranch", "Jurupa Valley", "Chino", "Corona"],
+        cities: [
+          "Irvine",
+          "Stevenson Ranch",
+          "Jurupa Valley",
+          "Chino",
+          "Corona",
+        ],
       }),
     );
 
@@ -93,6 +117,7 @@ describe("listing search criteria", () => {
       "Corona",
       "Jurupa Valley",
       "Stevenson Ranch",
+      "Irvine",
     ]);
   });
 

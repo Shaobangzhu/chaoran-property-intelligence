@@ -613,7 +613,7 @@ describe("createApp", () => {
   it("updates listing search criteria with authenticated actor attribution", async () => {
     const updatedCriteria = {
       ...createListingSearchCriteriaResult().criteria,
-      cities: ["Corona", "Stevenson Ranch"] as const,
+      cities: ["Corona", "Stevenson Ranch", "Irvine"] as const,
     };
     const updateListingSearchCriteria = new FakeUpdateListingSearchCriteria(
       undefined,
@@ -631,7 +631,7 @@ describe("createApp", () => {
           expectedRevision: 1,
           criteria: {
             ...createListingSearchCriteriaResult().criteria,
-            cities: ["Stevenson Ranch", "Corona"],
+            cities: ["Irvine", "Stevenson Ranch", "Corona"],
           },
         }),
         headers: manualListingHeaders(),

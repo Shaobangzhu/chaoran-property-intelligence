@@ -365,6 +365,100 @@ and 2 MiB gzip limits. Block 25.3 reproduced the transformation from a tracked
 boundary snapshot, and Block 25.4 recorded the final deterministic checksums
 and quality reconciliation before the coordinated runtime-reference change.
 
+## Block 27.2 Irvine Extension Audit
+
+Block 27.2 completed on 2026-08-25 under separate authorization. It made
+read-only requests to official CAL FIRE / OSFM, California Open Data, and City
+of Irvine services, then used the existing digest-pinned GDAL `3.13.2` image
+with container networking disabled. It did not read application secrets, call
+RentCast, PostgreSQL, Telegram, AWS, or an ArcGIS account, publish a runtime
+artifact, or retain listing addresses. Audit evidence remains ignored under
+`.cache/wildfire-hazard/audit/block-27-2` and totals about 4.7 MiB.
+
+### Irvine boundary and designation evidence
+
+The current CAL FIRE `City Boundaries` service returned exactly one feature
+with `CITY=Irvine` and `COUNTY=Orange`. The selected normalized boundary is
+39,079 bytes with SHA-256
+`368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23`.
+It is valid, has EPSG:3310 area `170,869,605.704035` square meters and bounds
+`[-117.868766, 33.599396, -117.678038, 33.773657]`. Its geometry is
+topologically equal to the Irvine geometry in the existing official `24_1`
+snapshot, with identical area.
+
+The CAL FIRE jurisdiction service identifies Irvine as a qualifying
+incorporated city. City Council Ordinance `25-19` was introduced on 2025-06-10
+and adopted on 2025-06-24. It repeals Ordinance `12-03`, designates the 2025
+Moderate, High, and Very High FHSZ map, and becomes effective 30 days after
+adoption. The ordinance, rather than the CAL FIRE contact-workflow status, is
+the evidence for `locally-adopted` LRA status. SRA retains `effective` status.
+
+Official boundary and designation sources:
+
+- [California Incorporated Cities](https://lab.data.ca.gov/dataset/california-incorporated-cities)
+- [CAL FIRE LRA jurisdiction layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZLRA_FULLJurisPolys_PubContactTablev4_JOIN_VIEW/FeatureServer/0)
+- [City of Irvine Ordinance 25-19](https://irvine.granicus.com/MetaViewer.php?event_id=2641&meta_id=167078&view_id=)
+- [City of Irvine current LRA GIS layer](https://gis.cityofirvine.org/arcgis/rest/services/ParcelClariti/MapServer/160)
+
+### Source and intersection reconciliation
+
+Current metadata still identifies CAL FIRE LRA layer `FHSZLRA25_v1_All` and
+SRA layer `FHSZSRA_23_3`. The local source archives remain byte-identical to
+their configured checksums. At audit time, LRA service item
+`018035e18cdc4778afcbe06185c01426` reported data last edited on 2025-09-10,
+SRA item `6000aebca6f24b3892ecb01b598f7545` reported 2025-06-27, and the current
+City Boundaries layer reported data last edited on 2026-04-09. These metadata
+checks validate source identity; they do not replace the pinned archive bytes
+used for deterministic clipping.
+
+The verified archives are:
+
+| Source | Bytes | SHA-256 |
+| --- | ---: | --- |
+| LRA `FHSZLRA251Allgdb.zip` | 9,840,158 | `736fa5231c70b844550784cd13c8d414c239cf9573c9cae6139554ef0bf464b6` |
+| SRA `FHSZSRA_23_3.zip` | 36,001,656 | `e744eb8eb7895157f4025109f29ff5312180a52fdb4648ff9fe9328edf4db3b2` |
+
+Exact current-service polygon queries and local hard clips agree:
+
+| Responsibility area | Moderate | High | Very High | Features | Area (m2) | Invalid geometries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LRA | 4 | 4 | 4 | 12 | 65,497,365.692 | 0 |
+| SRA | 0 | 0 | 2 | 2 | 17,014.666 | 0 |
+| Combined | 4 | 4 | 6 | 14 | 65,514,380.358 | 0 |
+
+No raw clipped feature required repair and `ST_MakeValid` introduced zero area
+drift. Two LRA/SRA feature pairs touch at their boundaries, but their overlap
+area is zero. Supported FHSZ geometry covers about 38.342% of the Irvine city
+boundary. Responsibility area and severity remain source attributes, not
+application inference.
+
+Official classification sources:
+
+- [CAL FIRE / OSFM Fire Hazard Severity Zones](https://osfm.fire.ca.gov/what-we-do/community-wildfire-preparedness-and-mitigation/fire-hazard-severity-zones)
+- [2025 LRA feature layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSALRA25_v1_All/FeatureServer/0)
+- [2023 SRA feature layer](https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/ArcGIS/rest/services/FHSZSRA_23_3/FeatureServer/0)
+
+### Payload and parse projection
+
+The Irvine-only runtime-shaped candidate contains 14 features, 8,256
+coordinates, 62 rings, 215,910 raw bytes, and 61,665 gzip bytes. Its bounds are
+`[-117.8537862, 33.5993963, -117.6780379, 33.773657]`.
+
+Rebuilding the current six-target artifact plus Irvine through the existing
+artifact builder projects:
+
+| Metric | Current artifact | Projected successor | Growth |
+| --- | ---: | ---: | ---: |
+| Features | 96 | 110 | 14 |
+| Raw bytes | 1,158,246 | 1,374,114 | 215,868 |
+| Gzip bytes | 292,581 | 354,030 | 61,449 |
+
+The projected artifact uses about 13.10% of the 10 MiB raw limit and 16.88% of
+the 2 MiB gzip limit. On Node `24.19.0`, 200 warm-cache `JSON.parse` iterations
+averaged 2.990 ms, with p50 2.907 ms, p95 3.438 ms, and maximum 7.000 ms. This
+projection is not a published artifact; Block 27.5 must reproduce the result
+through the reviewed deterministic pipeline.
+
 ## Limitations
 
 - This is a display-data audit, not parcel-level hazard certification.

@@ -461,7 +461,7 @@ export function SearchCriteriaScreen({
             <MapPinned aria-hidden="true" size={18} />
             <div>
               <h2 id="city-criteria-title">Cities</h2>
-              <p>Select between one and six cities.</p>
+              <p>Select between one and seven cities.</p>
             </div>
           </div>
           <div

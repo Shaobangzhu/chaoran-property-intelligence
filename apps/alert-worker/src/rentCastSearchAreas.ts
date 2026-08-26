@@ -19,6 +19,7 @@ const rentCastSaleListingsSearchAreasByMarket = Object.freeze({
   Corona: Object.freeze({ kind: "city", city: "Corona" }),
   "Jurupa Valley": Object.freeze({ kind: "city", city: "Jurupa Valley" }),
   "Stevenson Ranch": stevensonRanchRentCastSaleListingsSearchArea,
+  Irvine: Object.freeze({ kind: "city", city: "Irvine" }),
 } satisfies Readonly<
   Record<ListingSearchCity, RentCastSaleListingsSearchArea>
 >);
@@ -45,9 +46,13 @@ export function selectRentCastSaleListingsSearchAreas(
     selectedMarkets.add(market);
   }
 
-  return Object.freeze(
-    listingSearchCities
-      .filter((market) => selectedMarkets.has(market))
-      .map((market) => rentCastSaleListingsSearchAreasByMarket[market]),
-  );
+  const searchAreas: RentCastSaleListingsSearchArea[] = [];
+  for (const market of listingSearchCities) {
+    if (!selectedMarkets.has(market)) {
+      continue;
+    }
+    searchAreas.push(rentCastSaleListingsSearchAreasByMarket[market]);
+  }
+
+  return Object.freeze(searchAreas);
 }
