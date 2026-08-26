@@ -57,7 +57,7 @@ describe("WildfireHazardControl", () => {
     expect(legend).toHaveTextContent("Version 2025.1");
     expect(legend).toHaveTextContent("Snapshot Aug 22, 2026 UTC");
     expect(legend).toHaveTextContent(
-      "Chino, Chino Hills, Corona, and Jurupa Valley locally adopted",
+      "Chino, Chino Hills, Corona, Jurupa Valley, and Irvine locally adopted",
     );
     expect(legend).toHaveTextContent("Eastvale recommended");
     expect(legend).toHaveTextContent(
@@ -183,6 +183,7 @@ function createMetadata(): WildfireHazardMetadata {
       { name: "Corona", status: "locally-adopted" },
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "locally-adopted" },
+      { name: "Irvine", status: "locally-adopted" },
     ],
     coverageTargets: [
       {
@@ -245,6 +246,16 @@ function createMetadata(): WildfireHazardMetadata {
         coverageDisclosure:
           "The ACS 2025 Stevenson Ranch CDP is a statistical product coverage boundary. Its clip edge is not an official CAL FIRE severity transition, city limit, postal boundary, or parcel determination.",
         productSelector: { kind: "zip", value: "91381" },
+      },
+      {
+        id: "irvine",
+        label: "Irvine",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "irvine-city-boundary",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "irvine-ordinance-25-19",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
       },
     ],
   };

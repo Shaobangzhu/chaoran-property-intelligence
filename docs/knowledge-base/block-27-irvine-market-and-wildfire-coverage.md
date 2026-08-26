@@ -563,6 +563,44 @@ or public runtime artifact changed.
   CSP, and terrain-context semantics
 - prove Irvine hazard coverage remains visible with zero matching listings
 
+**Complete:** the reviewed offline publication path generated and committed
+`fhsz-supported-markets-2025.1-r3.geojson` plus its schema-version-2 manifest.
+The public bytes exactly match both deterministic Block 27.5 staging builds:
+artifact SHA-256
+`766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427`
+and manifest SHA-256
+`f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3`.
+The prior `r2` rollback artifact remains present and unchanged at SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`;
+the earlier five-city asset is also retained.
+
+The shared same-origin artifact URL now points to `r3`, so ArcGIS 2D and 3D
+Terrain consume the same 110-feature collection and seven-target manifest.
+The generic schema-v2 metadata parser exposes Irvine as an
+`incorporated-jurisdiction` with `locally-adopted` status, source
+`irvine-city-boundary`, and evidence `irvine-ordinance-25-19`. The visible
+legend includes Irvine in the adopted-city sentence while preserving the
+Stevenson Ranch market-context and ZIP disclosure, CAL FIRE source versions,
+blank-area warning, and terrain-is-context-only warning.
+
+No renderer implementation changed. The three severity colors and opacity,
+ground draping, popup/legend suppression, hazard-before-listing layer order,
+lazy loading, metadata-before-geometry gate, Abort handling, retry, rollback,
+mode-switch preservation, and teardown remain covered by existing tests. A
+zero-listing `ListingsMap` test now also proves the overlay can load in 2D,
+survive a switch to 3D Terrain, and expose Irvine provenance independently of
+listing markers. The artifact and manifest remain same-origin, so no CSP or
+network allowlist change was required.
+
+All eight focused publication, metadata, control, lifecycle, 2D/3D renderer,
+and zero-listing integration test files and 58 tests pass. Browser visual,
+Console, Network, WebGL, and responsive acceptance remain deliberately assigned
+to Block 27.7. The complete repository gate also passes all 118 test files and
+1,170 tests, repository-wide typecheck, and the production/AWS build. The
+existing ArcGIS chunk-size advisory is unchanged. No environment file, real
+provider, database, cloud account, production profile, schedule, Telegram
+delivery, or deployment changed.
+
 ### Block 27.7: Automated And Browser Acceptance
 
 - run focused and repository-wide tests, typecheck, production build, and AWS

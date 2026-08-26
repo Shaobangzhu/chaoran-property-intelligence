@@ -4,7 +4,7 @@ import {
 } from "./wildfireHazardMetadata.js";
 
 export const WILDFIRE_HAZARD_ARTIFACT_URL =
-  "/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson";
+  "/data/wildfire-hazard/fhsz-supported-markets-2025.1-r3.geojson";
 
 const acceptedSeverities = new Set<WildfireHazardSeverity>([
   "moderate",

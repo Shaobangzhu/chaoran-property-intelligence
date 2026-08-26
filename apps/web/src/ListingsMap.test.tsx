@@ -455,6 +455,9 @@ describe("ListingsMap", () => {
     expect(
       screen.getByLabelText("Fire Hazard Severity Zone legend"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Fire Hazard Severity Zone legend"),
+    ).toHaveTextContent("Irvine locally adopted");
 
     await user.click(toggle);
     expect(harness.driver.setWildfireHazardVisible).toHaveBeenLastCalledWith(
@@ -630,7 +633,19 @@ function createWildfireHazardMetadata(): WildfireHazardMetadata {
       { name: "Corona", status: "locally-adopted" },
       { name: "Eastvale", status: "recommended" },
       { name: "Jurupa Valley", status: "locally-adopted" },
+      { name: "Irvine", status: "locally-adopted" },
     ],
-    coverageTargets: [],
+    coverageTargets: [
+      {
+        id: "irvine",
+        label: "Irvine",
+        kind: "incorporated-jurisdiction",
+        boundarySourceId: "irvine-city-boundary",
+        lraDesignationStatus: "locally-adopted",
+        evidenceId: "irvine-ordinance-25-19",
+        coverageDisclosure:
+          "Official incorporated-city boundary supplied by California Incorporated Cities.",
+      },
+    ],
   };
 }

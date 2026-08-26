@@ -1757,6 +1757,17 @@ Planned sub-block mapping:
 9. `27.6` Publish the versioned successor and integrate it into the shared
    ArcGIS 2D/3D loader, metadata, provenance, disclosures, viewport, and
    zero-listing behavior without changing classification or terrain semantics.
+   **Complete:** the committed `r3` artifact and manifest exactly match the
+   Block 27.5 staged checksums, while `r2` remains unchanged for rollback. The
+   shared same-origin loader now serves all 110 features and seven typed targets
+   to both ArcGIS modes. Metadata and control regressions expose Irvine's
+   incorporated-city boundary and locally-adopted evidence; zero-listing tests
+   preserve overlay loading and 2D/3D mode switching independently from
+   markers. Existing styling, layer order, lazy load, Abort/retry/rollback,
+   teardown, CSP, and terrain-context semantics are unchanged. All eight
+   focused test files and 58 tests pass. All 118 repository test files and
+   1,170 tests, repository-wide typecheck, and the production/AWS build also
+   pass; browser acceptance remains 27.7.
 10. `27.7` Complete focused and repository-wide tests, typecheck, production/AWS
    builds, and desktop/mobile 2D/3D visual, Console, Network, WebGL, responsive,
    interaction, and teardown acceptance for Irvine and all prior markets.

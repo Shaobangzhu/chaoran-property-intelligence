@@ -10,8 +10,8 @@
     "maximumAreaDriftRatio": 0.001
   },
   "publication": {
-    "enabled": false,
-    "blockedUntilBlock": "27.6"
+    "enabled": true,
+    "approvedInBlock": "27.6"
   },
   "gdal": {
     "version": "3.13.2",

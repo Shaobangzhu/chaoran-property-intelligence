@@ -69,6 +69,17 @@ until Block 27.6, the committed public `r2` artifact and manifest checksums are
 unchanged, and the React loader still references `r2`. All 118 repository test
 files and 1,170 tests, repository-wide typecheck, and the production/AWS build
 pass.
+Block 27.6 then published the byte-identical `r3` artifact and seven-target
+manifest while retaining the unchanged `r2` rollback asset. The shared
+same-origin loader now points both ArcGIS 2D and 3D Terrain at `r3`; the generic
+metadata/control path exposes Irvine's incorporated-city source and Ordinance
+`25-19` locally-adopted status. Renderer code, severity classifications,
+palette, opacity, layer order, terrain draping, lazy load, Abort, retry,
+rollback, teardown, CSP, and listing workflows remain unchanged. Focused tests
+also prove Irvine provenance and the overlay lifecycle remain available with
+zero listings. All 118 repository test files and 1,170 tests,
+repository-wide typecheck, and the production/AWS build pass. Browser
+acceptance remains Block 27.7.
 
 ## Context
 

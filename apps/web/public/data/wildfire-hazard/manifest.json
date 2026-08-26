@@ -1,33 +1,33 @@
 {
   "schemaVersion": 2,
   "artifact": {
-    "fileName": "fhsz-supported-markets-2025.1-r2.geojson",
+    "fileName": "fhsz-supported-markets-2025.1-r3.geojson",
     "mediaType": "application/geo+json",
     "version": "2025.1",
-    "sha256": "7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd",
-    "bytes": 1158246,
-    "gzipBytes": 292581,
-    "featureCount": 96,
-    "coordinateCount": 44204,
+    "sha256": "766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427",
+    "bytes": 1374114,
+    "gzipBytes": 354030,
+    "featureCount": 110,
+    "coordinateCount": 52460,
     "bounds": [
       -118.622305,
-      33.8000861,
+      33.5993963,
       -117.3673113,
       34.417989
     ],
     "severityCounts": {
-      "moderate": 29,
-      "high": 34,
-      "very-high": 33
+      "moderate": 33,
+      "high": 38,
+      "very-high": 39
     },
     "responsibilityAreaCounts": {
-      "sra": 25,
-      "lra": 71
+      "sra": 27,
+      "lra": 83
     },
     "designationStatusCounts": {
-      "effective": 25,
+      "effective": 27,
       "recommended": 11,
-      "locally-adopted": 60
+      "locally-adopted": 72
     }
   },
   "generatedFromSnapshotAt": "2026-08-22T00:29:56Z",
@@ -80,6 +80,18 @@
       "version": "ACS 2025 PLACE 0674130",
       "license": "U.S. Government public domain",
       "attribution": "U.S. Census Bureau TIGERweb"
+    },
+    {
+      "id": "irvine-city-boundary",
+      "title": "California Incorporated Cities - Irvine reviewed subset",
+      "canonicalUrl": "https://lab.data.ca.gov/dataset/california-incorporated-cities",
+      "sha256": "368205802647ca6d9c476682edf8425a9ef781ffda7c4e171697a67920ec8b23",
+      "bytes": 39079,
+      "upstreamSnapshotSha256": "aec82ae16a4a5c454073ea21a05e3961166d76d0484478323754b8a0879ee5a0",
+      "upstreamSnapshotBytes": 80713,
+      "version": "audited 2026-08-25; topologically equal to 24_1",
+      "license": "Creative Commons Attribution",
+      "attribution": "CAL FIRE FRAP / California Board of Equalization"
     }
   ],
   "designationEvidence": [
@@ -112,6 +124,12 @@
       "title": "Los Angeles County Ordinance 2025-0027 proceedings",
       "url": "https://file.lacounty.gov/SDSInter/bos/sop/1189345_072225.pdf",
       "finding": "The Board adopted Ordinance 2025-0027 on 2025-07-22, operative 2025-08-21, for LRA FHSZ designations in the Consolidated Fire Protection District."
+    },
+    {
+      "id": "irvine-ordinance-25-19",
+      "title": "City of Irvine Ordinance 25-19",
+      "url": "https://irvine.granicus.com/MetaViewer.php?event_id=2641&meta_id=167078&view_id=",
+      "finding": "The City Council adopted Ordinance 25-19 on 2025-06-24, designating the 2025 Moderate, High, and Very High LRA Fire Hazard Severity Zones; effective 30 days after adoption."
     }
   ],
   "coverageTargets": [
@@ -172,54 +190,63 @@
         "kind": "zip",
         "value": "91381"
       }
+    },
+    {
+      "id": "irvine",
+      "label": "Irvine",
+      "kind": "incorporated-jurisdiction",
+      "boundarySourceId": "irvine-city-boundary",
+      "lraDesignationStatus": "locally-adopted",
+      "evidenceId": "irvine-ordinance-25-19",
+      "coverageDisclosure": "Official incorporated-city boundary supplied by California Incorporated Cities."
     }
   ],
   "quality": {
-    "clippingBoundary": "union of 6 reviewed coverage-target boundaries",
+    "clippingBoundary": "union of 7 reviewed coverage-target boundaries",
     "outputCrs": "EPSG:4326",
     "coordinatePrecision": 7,
     "clippedInvalidGeometryCount": 1,
     "repairedInvalidGeometryCount": 0,
-    "inputEligibleFeatureCount": 96,
-    "outputFeatureCount": 96,
-    "excludedNonWildlandFeatureCount": 9,
-    "inputAreaSquareMeters": 207855170.13,
-    "outputAreaSquareMeters": 207855170.13,
+    "inputEligibleFeatureCount": 110,
+    "outputFeatureCount": 110,
+    "excludedNonWildlandFeatureCount": 11,
+    "inputAreaSquareMeters": 273369541.738,
+    "outputAreaSquareMeters": 273369541.738,
     "areaDriftRatio": 0,
     "invalidGeometryCount": 0,
     "removedZeroAreaNonPolygonComponentCount": 1,
     "bySeverity": {
       "moderate": {
-        "clippedFeatureCount": 29,
+        "clippedFeatureCount": 33,
         "clippedInvalidGeometryCount": 0,
-        "inputFeatureCount": 29,
-        "outputFeatureCount": 29,
-        "clippedAreaSquareMeters": 25476636.496,
-        "inputAreaSquareMeters": 25476636.496,
-        "outputAreaSquareMeters": 25476636.496,
+        "inputFeatureCount": 33,
+        "outputFeatureCount": 33,
+        "clippedAreaSquareMeters": 31114071.451,
+        "inputAreaSquareMeters": 31114071.451,
+        "outputAreaSquareMeters": 31114071.451,
         "repairAreaDriftRatio": 0,
         "areaDriftRatio": 0
       },
       "high": {
-        "clippedFeatureCount": 34,
+        "clippedFeatureCount": 38,
         "clippedInvalidGeometryCount": 0,
-        "inputFeatureCount": 34,
-        "outputFeatureCount": 34,
-        "clippedAreaSquareMeters": 23275965.548,
-        "inputAreaSquareMeters": 23275965.548,
-        "outputAreaSquareMeters": 23275965.548,
+        "inputFeatureCount": 38,
+        "outputFeatureCount": 38,
+        "clippedAreaSquareMeters": 40555336.503,
+        "inputAreaSquareMeters": 40555336.503,
+        "outputAreaSquareMeters": 40555336.503,
         "repairAreaDriftRatio": 0,
         "areaDriftRatio": 0
       },
       "very-high": {
-        "clippedFeatureCount": 33,
+        "clippedFeatureCount": 39,
         "clippedInvalidGeometryCount": 1,
-        "inputFeatureCount": 33,
-        "outputFeatureCount": 33,
-        "clippedAreaSquareMeters": 159102568.277,
-        "inputAreaSquareMeters": 159102568.086,
-        "outputAreaSquareMeters": 159102568.086,
-        "repairAreaDriftRatio": 1.1993797e-9,
+        "inputFeatureCount": 39,
+        "outputFeatureCount": 39,
+        "clippedAreaSquareMeters": 201700133.975,
+        "inputAreaSquareMeters": 201700133.784,
+        "outputAreaSquareMeters": 201700133.784,
+        "repairAreaDriftRatio": 9.4607964e-10,
         "areaDriftRatio": 0
       }
     },
@@ -361,17 +388,40 @@
             "invalidGeometryCount": 0
           }
         }
+      },
+      "irvine": {
+        "label": "Irvine",
+        "inputEligibleFeatureCount": 14,
+        "inputAreaSquareMeters": 65514371.608,
+        "invalidGeometryCount": 0,
+        "bySeverity": {
+          "high": {
+            "featureCount": 4,
+            "areaSquareMeters": 17279370.955,
+            "invalidGeometryCount": 0
+          },
+          "moderate": {
+            "featureCount": 4,
+            "areaSquareMeters": 5637434.955,
+            "invalidGeometryCount": 0
+          },
+          "very-high": {
+            "featureCount": 6,
+            "areaSquareMeters": 42597565.698,
+            "invalidGeometryCount": 0
+          }
+        }
       }
     },
     "budgets": {
       "maximumRawBytes": 10485760,
-      "actualRawBytes": 1158246,
+      "actualRawBytes": 1374114,
       "maximumGzipBytes": 2097152,
-      "actualGzipBytes": 292581
+      "actualGzipBytes": 354030
     }
   },
   "exclusions": {
-    "nonWildlandFeatureCount": 9,
+    "nonWildlandFeatureCount": 11,
     "unsupportedSeverities": "fail-build"
   },
   "disclosures": [

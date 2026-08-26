@@ -20,8 +20,8 @@ describe("wildfire hazard pipeline config", () => {
       "fhsz-supported-markets-2025.1-r3.geojson",
     );
     expect(config.publication).toEqual({
-      enabled: false,
-      blockedUntilBlock: "27.6",
+      enabled: true,
+      approvedInBlock: "27.6",
     });
     expect(config.coverageTargets).toHaveLength(7);
     expect(config.coverageTargets.at(-2)).toMatchObject({

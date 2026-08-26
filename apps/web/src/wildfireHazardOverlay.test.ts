@@ -17,11 +17,11 @@ import {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("wildfire hazard artifact validation", () => {
-  it("accepts the published six-target Block 25.4 artifact", () => {
+  it("accepts the published seven-target Block 27.6 artifact", () => {
     const publishedArtifact = JSON.parse(
       readFileSync(
         new URL(
-          "../public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson",
+          "../public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r3.geojson",
           import.meta.url,
         ),
         "utf8",
@@ -29,13 +29,13 @@ describe("wildfire hazard artifact validation", () => {
     );
 
     expect(parseWildfireHazardArtifact(publishedArtifact).features).toHaveLength(
-      96,
+      110,
     );
   });
 
   it("points the runtime loader at the reviewed successor filename", () => {
     expect(WILDFIRE_HAZARD_ARTIFACT_URL).toBe(
-      "/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson",
+      "/data/wildfire-hazard/fhsz-supported-markets-2025.1-r3.geojson",
     );
   });
 

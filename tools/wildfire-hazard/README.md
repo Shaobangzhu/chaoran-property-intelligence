@@ -115,8 +115,9 @@ Staging atomically writes only ignored review candidates:
 .cache/wildfire-hazard/staged/manifest.json
 ```
 
-During Block 27.5 publication is locked in `config.json`; the `r3` candidate
-and its manifest remain ignored until Block 27.6.
+Block 27.5 kept publication locked while the `r3` candidate was reviewed.
+Block 27.6 enabled the reviewed publication gate and committed the exact staged
+bytes.
 
 Block 25.4 published the reviewed successor while retaining the previous
 five-city artifact for the Block 25.5 runtime-reference transition:
@@ -124,6 +125,7 @@ five-city artifact for the Block 25.5 runtime-reference transition:
 ```text
 apps/web/public/data/wildfire-hazard/fhsz-five-cities-2025.1.geojson
 apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r2.geojson
+apps/web/public/data/wildfire-hazard/fhsz-supported-markets-2025.1-r3.geojson
 apps/web/public/data/wildfire-hazard/manifest.json
 ```
 
@@ -132,9 +134,9 @@ six typed coverage targets. Block 25.5 moved the shared React 2D/3D artifact URL
 to the successor. The retained five-city file is a bounded rollback asset until
 the final Block 25 release gate; browser acceptance remains Block 25.6.
 
-Block 27.5 does not alter those public files. The public manifest still
-describes the six-target `r2` artifact, and the shared React 2D/3D loader stays
-on `r2` until the coordinated Block 27.6 publication and integration gate.
+Block 27.6 moved the public manifest and shared React 2D/3D loader to the
+seven-target `r3` artifact. The six-target `r2` file remains unchanged as the
+immediate rollback asset; the earlier five-city file is also retained.
 
 The manifest contains source and artifact checksums, versions, attribution,
 designation evidence, coverage-target status, per-target and combined category
