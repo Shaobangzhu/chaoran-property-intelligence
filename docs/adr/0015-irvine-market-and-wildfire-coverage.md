@@ -79,7 +79,14 @@ rollback, teardown, CSP, and listing workflows remain unchanged. Focused tests
 also prove Irvine provenance and the overlay lifecycle remain available with
 zero listings. All 118 repository test files and 1,170 tests,
 repository-wide typecheck, and the production/AWS build pass. Browser
-acceptance remains Block 27.7.
+acceptance in Block 27.7 then passed at `1440 x 900` desktop and `390 x 844`
+mobile for 2D, 3D Terrain, Irvine-without-listings coverage, predecessor-market
+markers, provenance, disclosures, responsive framing, and structural teardown.
+The existing six-market profile remained unchanged with Irvine unchecked. Two
+bounded ArcGIS basemap `AbortError` cancellation logs were observed when a
+still-loading map was replaced; both destination modes rendered successfully,
+and no CSP, authorization, data, Terrain3D, WebGL, or application failure
+occurred.
 
 ## Context
 

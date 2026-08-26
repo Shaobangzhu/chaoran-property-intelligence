@@ -1771,6 +1771,16 @@ Planned sub-block mapping:
 10. `27.7` Complete focused and repository-wide tests, typecheck, production/AWS
    builds, and desktop/mobile 2D/3D visual, Console, Network, WebGL, responsive,
    interaction, and teardown acceptance for Irvine and all prior markets.
+   **Complete:** all 118 test files and 1,170 tests, repository-wide typecheck,
+   and the production/AWS build pass. Authorized `1440 x 900` desktop and
+   `390 x 844` mobile acceptance verifies Irvine coverage without listings,
+   prior-market listing markers, all seven provenance disclosures, 2D/3D
+   Terrain, zoom, responsive framing with zero overflow, and two structural
+   teardown cycles with no retained canvas or ArcGIS component. The saved six
+   predecessor markets remain selected and Irvine remains unchecked. Two
+   bounded ArcGIS basemap `AbortError` cancellation logs occurred while a
+   still-loading map was replaced; no CSP, authorization, data, Terrain3D,
+   WebGL, or application failure occurred.
 11. `27.8` Complete final security, quota, artifact, CSP, compatibility,
     rollout, rollback, diff, and as-built release gates. Leave commit, push, PR,
     merge, production profile changes, schedules, and deployment under

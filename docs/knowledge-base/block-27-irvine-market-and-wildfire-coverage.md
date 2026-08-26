@@ -610,6 +610,42 @@ delivery, or deployment changed.
 - verify all six previous markets remain unchanged
 - use real local or external services only with fresh explicit authorization
 
+**Complete on 2026-08-25:** all 118 repository test files and 1,170 tests,
+repository-wide typecheck, and the production/AWS build pass. The only build
+advisory is the existing ArcGIS large-chunk warning.
+
+Authorized local acceptance used the existing `.env.local` without printing
+values, the loopback PostgreSQL database for login and read-only API requests,
+and the existing ArcGIS browser key for normal basemap and Terrain3D traffic.
+No profile was saved and no RentCast, Telegram, AWS-account, schedule,
+deployment, migration, or production-data action occurred. Read-only loopback
+probes returned HTTP 200 for `/api/health`, the 1,374,114-byte `r3` GeoJSON,
+and the 16,199-byte manifest.
+
+Desktop `1440 x 900` acceptance covered the Irvine viewport with zero Irvine
+listings, transparent Moderate/High/Very High polygons, the full seven-target
+legend and provenance, and a selected Corona listing whose marker remained
+above the hazard layer. Switching to 3D Terrain preserved the overlay,
+selection, marker ordering, ground draping, zoom controls, and the explicit
+terrain-is-context-only disclosure. The current saved profile still has the
+six predecessor markets selected and Irvine unchecked, proving Irvine remains
+opt-in without modifying the profile.
+
+Mobile `390 x 844` acceptance covered List/Map switching, 2D and 3D Terrain,
+wildfire off/on, zoom, responsive controls, readable disclosures, nonblank
+basemap/terrain output, and listing markers. Document and body width both
+equaled the 390-pixel viewport in both map modes, with no horizontal overflow.
+Navigating away after desktop and mobile 3D use left zero `canvas`,
+`arcgis-map`, and `arcgis-scene` elements each time.
+
+The interaction window produced no CSP, authorization, GeoJSON, Terrain3D,
+WebGL, or application failure. It did record two ArcGIS map-component basemap
+`AbortError: Aborted` messages when a still-loading map was replaced during
+mode or view teardown. Both were bounded cancellation logs already associated
+with the documented component-disposal behavior: the destination mode loaded,
+remained interactive, and released all map elements. No other Console warning
+or error appeared.
+
 ### Block 27.8: Final Release Gate
 
 - review the final diff, secrets, artifact hashes, payload limits, CSP, request
