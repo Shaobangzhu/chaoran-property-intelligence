@@ -2,30 +2,24 @@
 
 ## Status
 
-Blocks 27.0, 27.1A, 27.1B, 27.1C, 27.2, 27.3, and 27.4 are complete on
-`feat/add-city-of-Irvine`. Block 27.0
-froze the product-market, provider-geography, wildfire-authority, quota,
-compatibility, rollout, rollback, security, test, and acceptance boundaries for
-adding Irvine, California. Block 27.1A added an isolated, fixture-gated Irvine
-direct-city audit entrypoint without changing Domain markets, production
-acquisition, saved criteria, or wildfire coverage. Block 27.1B then made exactly
-one authorized real request with no retry. Its valid zero-row response could
-not clear the provider-city evidence gate. Block 27.1C therefore executed a
-separately reviewed, bounded Active-market identity probe; all 500 sampled rows
-used provider city `Irvine`, so the provider-geography gate is now cleared.
-Block 27.2 selected and checksummed one official Irvine incorporated-city
-boundary, reconciled current CAL FIRE LRA/SRA service counts with the pinned
-archives, and verified City Council Ordinance `25-19` as local-adoption
-evidence. Block 27.3 appended Irvine to the schema-version-1 Domain allowlist,
-API contract, web client, and existing accessible city checkbox while retaining
-the pre-Irvine six-market default. Existing five- and six-market profiles remain
-valid and unchanged. Until Block 27.4 adds the reviewed provider mapping, the
-worker rejects any selected Irvine market before creating a RentCast request.
-Block 27.4 now maps Irvine to one exact direct-city provider area and restores
-the worker's exhaustive seven-market mapping. The public wildfire artifact
-remains unchanged. No database record, saved search profile, AWS resource,
-schedule, Telegram delivery, deployment, push, or merge changed in these
-stages.
+Blocks 27.0 through 27.8 are complete on `feat/add-city-of-Irvine`. Irvine is
+an opt-in seventh schema-version-1 market mapped to one exact RentCast
+direct-city area. The existing six-market default, provider-owned listing
+fields, all-or-nothing acquisition, alert behavior, and one-record-per-property
+contract remain unchanged. The reviewed Irvine incorporated-city boundary and
+City Council Ordinance `25-19` evidence now extend the deterministic wildfire
+artifact to seven targets without altering CAL FIRE classifications. ArcGIS 2D
+and 3D Terrain consume the same versioned `r3` artifact, while the prior `r2`
+and five-city artifacts remain unchanged rollback assets.
+
+The final release gate reproduced the public artifact and manifest byte for
+byte with the offline, network-disabled, digest-pinned GDAL pipeline. All 118
+repository test files and 1,170 tests, repository-wide typecheck, focused
+security and compatibility tests, and an isolated production web build with a
+synthetic ArcGIS key pass. The branch does not change a migration, AWS
+infrastructure or schedule, CI workflow, CSP boundary, credential, database
+record, saved search profile, Telegram delivery, deployment, push, PR, or
+merge.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation.
@@ -654,6 +648,55 @@ or error appeared.
   production-data, Telegram, or deployment change
 - leave commit, push, PR, merge, production profile edits, and deployment under
   repository-owner control
+
+**Complete on 2026-08-25:** the final `main...HEAD` review covers 10 Block 27
+commits and 44 changed paths with 3,331 insertions and 144 deletions. The diff
+is limited to the Irvine market contracts, guarded audit/acquisition tooling,
+wildfire pipeline/source/artifacts, ArcGIS web integration, tests, package
+scripts, and documentation. It contains no migration, tracked environment
+file, dependency-lock change, CI workflow, AWS infrastructure/runtime,
+authentication/session boundary, PostgreSQL adapter, Telegram adapter,
+OpenAI/PDF/S3 path, Dockerfile, schedule, or deployment change. The final
+whitespace check passes.
+
+The final secret scan found no private key, AWS access-key ID, OpenAI key,
+Telegram bot-token shape, or direct assignment to the ArcGIS, RentCast,
+OpenAI, Telegram, or JWT credential variables in the branch diff. The Irvine
+coverage and provider-identity commands still require their exact reviewed
+execution tokens before reading the server-side key or calling `fetch`; invalid
+or preview invocation remains request-free, and errors redact both the key and
+full RentCast URL. Browser CSP files and infrastructure security headers are
+unchanged because the runtime still loads a same-origin artifact through the
+existing ArcGIS allowlist.
+
+The already-installed GDAL image resolved to the configured multi-platform
+digest. A fresh `wildfire:data:stage` run used cached checksum-pinned official
+inputs, `--offline`, and Docker networking `none`. It reproduced 110 features,
+1,374,114 raw bytes, 354,030 gzip bytes, and artifact SHA-256
+`766a643e69b99c3d1e6442c94f2480a97c19a116fdb8b06c757045043fdf6427`.
+The staged artifact and schema-version-2 manifest are byte-for-byte equal to
+the public files; the manifest remains SHA-256
+`f521440a4f632e9b14b931bf145fab9b257843086db63495be538794d4f536f3`.
+The retained `r2` and five-city assets remain unchanged at SHA-256
+`7d8486b94ef6802ab5866d17b0a591634dfe3e16843ef58a21143a43df5e09fd`
+and `d02baebe5e5b1ddaab3b81c0fcff4e973c3cd363b645432712e9609d15e1863f`.
+
+Focused release tests pass 293/293. The complete repository gate passes all
+118 test files and 1,170 tests plus repository-wide runtime, web, and AWS
+typecheck. A production Vite build also passes from an isolated temporary web
+copy containing no `.env*` file and using only a synthetic ArcGIS browser key;
+the key appears in the expected application bundle, while `MapLibre` and
+`OpenFreeMap` do not appear in the output. The existing ArcGIS large-chunk
+advisory is unchanged.
+
+Quota and compatibility remain explicit: Irvine-only acquisition costs one
+successful provider request, all seven markets cost seven, and 50 requests is
+only a planning reference that must be reconciled against the live account
+before operation. Irvine remains unchecked in defaults and existing profiles;
+rollback first removes Irvine from saved profiles, then restores the retained
+six-market runtime and `r2` artifact. No external API, `.env.local`, database,
+cloud account, Telegram delivery, production profile, schedule, publication,
+commit, push, PR, merge, or deployment action occurred during 27.8.
 
 ## Acceptance Criteria
 

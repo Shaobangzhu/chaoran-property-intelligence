@@ -1784,7 +1784,22 @@ Planned sub-block mapping:
 11. `27.8` Complete final security, quota, artifact, CSP, compatibility,
     rollout, rollback, diff, and as-built release gates. Leave commit, push, PR,
     merge, production profile changes, schedules, and deployment under
-    repository-owner control.
+    repository-owner control. **Complete:** the final 10-commit, 44-path branch
+    diff is confined to the reviewed Irvine market, provider tooling, wildfire
+    pipeline/assets, ArcGIS integration, tests, scripts, and documentation. No
+    migration, environment file, lockfile, CI/CD, AWS, auth/session, database,
+    Telegram, schedule, CSP, credential, or deployment boundary changed. Secret
+    and whitespace scans pass. A fresh digest-pinned, network-disabled offline
+    GDAL stage reproduced the public 110-feature `r3` artifact and manifest
+    byte-for-byte while the `r2` and five-city rollback hashes remained
+    unchanged. Focused release tests pass 293/293; all 118 repository test files
+    and 1,170 tests plus repository-wide typecheck pass. An isolated production
+    web build containing no `.env*` file passes with a synthetic ArcGIS key and
+    contains no MapLibre/OpenFreeMap residue. Quota remains one request for
+    Irvine or seven for all markets, Irvine remains opt-in, and rollback order
+    remains remove saved Irvine selections before restoring the six-market
+    runtime and retained `r2` asset. Commit, push, PR, merge, profile edits,
+    schedule changes, and deployment remain under owner control.
 
 Every executable sub-block requires a fresh explanation and explicit
 confirmation. Real provider or official GIS access is never implied by a plan

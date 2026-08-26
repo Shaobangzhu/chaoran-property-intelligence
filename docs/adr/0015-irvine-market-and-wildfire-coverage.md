@@ -86,7 +86,19 @@ The existing six-market profile remained unchanged with Irvine unchecked. Two
 bounded ArcGIS basemap `AbortError` cancellation logs were observed when a
 still-loading map was replaced; both destination modes rendered successfully,
 and no CSP, authorization, data, Terrain3D, WebGL, or application failure
-occurred.
+occurred. Block 27.8 completed the final release gate. Its 10-commit, 44-path
+branch review found no migration, tracked environment, lockfile, CI/CD, AWS,
+authentication/session, database, Telegram, schedule, CSP, credential, or
+deployment change. Secret and whitespace scans pass. A fresh offline,
+network-disabled run with the existing digest-pinned GDAL image reproduced the
+public 110-feature `r3` artifact and manifest byte-for-byte while preserving
+the retained `r2` and five-city rollback hashes. Focused release tests pass
+293/293; all 118 repository test files and 1,170 tests plus repository-wide
+typecheck pass. An isolated production web build containing no `.env*` file
+passes with a synthetic ArcGIS key and no MapLibre/OpenFreeMap residue. Irvine
+remains opt-in, quota fan-out remains one request for Irvine and seven for all
+markets, and commit, push, PR, merge, profile edits, schedules, and deployment
+remain under repository-owner control.
 
 ## Context
 
