@@ -15,8 +15,10 @@ function createTemplate(): Template {
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
+    githubOwnerId: "8231137",
     githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
     githubRepository: "chaoran-property-intelligence",
+    githubRepositoryId: "1338908571",
   });
 
   return Template.fromStack(stack);
@@ -79,7 +81,7 @@ describe("AccountGuardrailsStack", () => {
                 "token.actions.githubusercontent.com:aud":
                   "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main",
+                  "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main",
               },
             },
             Effect: "Allow",
@@ -127,7 +129,7 @@ describe("AccountGuardrailsStack", () => {
                 "token.actions.githubusercontent.com:aud":
                   "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:Shaobangzhu/chaoran-property-intelligence:environment:development",
+                  "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development",
               },
             },
             Effect: "Allow",
@@ -202,7 +204,7 @@ describe("AccountGuardrailsStack", () => {
 
     expect(resources.GitHubDeployRoleED73FD64).toBeDefined();
     expect(JSON.stringify(resources.GitHubDeployRoleED73FD64)).toContain(
-      "repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main",
+      "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main",
     );
   });
 
