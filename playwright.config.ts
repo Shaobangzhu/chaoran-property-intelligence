@@ -74,7 +74,7 @@ export default defineConfig({
     ...(shouldStartWeb
       ? [
           {
-            command: `VITE_ARCGIS_API_KEY=playwright-local-key pnpm --dir apps/web dev --host 127.0.0.1 --port ${webPort}`,
+            command: `pnpm build:packages && VITE_ARCGIS_API_KEY=playwright-local-key pnpm --dir apps/web dev --host 127.0.0.1 --port ${webPort}`,
             reuseExistingServer: !process.env.CI,
             timeout: 30_000,
             url: webBaseURL,

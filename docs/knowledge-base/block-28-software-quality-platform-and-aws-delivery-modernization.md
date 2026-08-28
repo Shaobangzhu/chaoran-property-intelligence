@@ -121,7 +121,8 @@ servers, fakes, and bounded readiness checks. Do not require AWS, PostgreSQL
 Aurora, RentCast, OpenAI, Telegram, or production secrets.
 
 Implementation status: complete. The root Playwright config starts a dedicated
-local HTTP stub and, for UI runs, the Vite development server. API smoke uses
+local HTTP stub and, for UI runs, builds workspace packages before starting the
+Vite development server. API smoke uses
 Playwright `APIRequestContext` over HTTP only and does not import `createApp()`,
 application use cases, repositories, domain services, or database adapters. UI
 smoke covers sign-in, protected Listings rendering, and sign-out through stable
@@ -132,6 +133,12 @@ failure. The new scripts are `pnpm test:api`, `pnpm test:ui`,
 Chromium binary. The smoke tests abort non-loopback browser requests so this
 foundation does not depend on external ArcGIS availability or consume provider
 services.
+
+CI hardening note: GitHub runners start from a clean checkout, so the Vite dev
+server cannot rely on locally existing `packages/*/dist` artifacts. The
+Playwright UI web-server command builds workspace packages before Vite starts
+so `workspace:*` imports such as `@chaoran-property-intelligence/domain` resolve
+deterministically in both local and CI environments.
 
 ### 28.2 Quality Observability
 

@@ -285,7 +285,7 @@ shape for review:
 | `pnpm test:infra` | AWS/CDK and workflow contract tests | Vitest include patterns under `infra/aws/test`. |
 | `pnpm test:all` | Explicit complete test command | Alias to `pnpm test` or a composed suite after scripts split. |
 | `pnpm test:api` | Black-box API smoke automation | Playwright `APIRequestContext` against the local HTTP stub. |
-| `pnpm test:ui` | Browser UI smoke automation | Playwright Chromium against Vite plus the local HTTP stub. |
+| `pnpm test:ui` | Browser UI smoke automation | Playwright Chromium against Vite plus the local HTTP stub; workspace packages are built before Vite starts so clean CI checkouts can resolve `workspace:*` imports. |
 | `pnpm test:e2e` | All local Playwright automation | API plus UI with local bounded web servers. |
 | `pnpm test:e2e:install-browsers` | Local/CI browser setup | Installs the Playwright Chromium binary required by UI smoke. |
 | `pnpm test:e2e:smoke` | Tagged local smoke suite | Runs tests tagged `@smoke`; future DEV smoke can reuse this shape with a deployed base URL. |
