@@ -1,4 +1,5 @@
 export const deploymentStages = ["production", "dev"] as const;
+export const deploymentStageTagKey = "cpi:deployment-stage";
 
 export type DeploymentStage = (typeof deploymentStages)[number];
 

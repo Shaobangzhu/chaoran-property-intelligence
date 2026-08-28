@@ -30,6 +30,7 @@ function createTemplates() {
       databaseCredentialsSecret: foundation.databaseCredentialsSecret,
       databaseSecurityGroup: foundation.databaseSecurityGroup,
       deploymentStage: "dev",
+      deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
       env: environment,
       showingListArtifactBucket: foundation.showingListArtifactBucket,
       vpc: foundation.vpc,
@@ -45,6 +46,20 @@ function createTemplates() {
 }
 
 describe("PublicApplicationStack", () => {
+  it("publishes deployment failures to a dedicated confirmed email topic", () => {
+    const { publicApplication } = createTemplates();
+
+    publicApplication.hasResourceProperties("AWS::SNS::Topic", {
+      DisplayName: "CPI dev deployment failures",
+      TopicName: "cpi-dev-deployment-failures",
+    });
+    publicApplication.hasResourceProperties("AWS::SNS::Subscription", {
+      Endpoint: "dev-deploy-alerts@example.com",
+      Protocol: "email",
+    });
+    publicApplication.hasOutput("DeploymentFailureTopicArn", {});
+  });
+
   it("keeps public runtime resources out of the DEV foundation stack", () => {
     const { foundation } = createTemplates();
 
@@ -58,6 +73,7 @@ describe("PublicApplicationStack", () => {
     const { publicApplication } = createTemplates();
 
     publicApplication.hasResourceProperties("AWS::S3::Bucket", {
+      BucketName: "cpi-dev-web-111111111111-us-west-2",
       BucketEncryption: {
         ServerSideEncryptionConfiguration: [
           {
@@ -159,6 +175,10 @@ describe("PublicApplicationStack", () => {
     expect(config.WebACLId).toBe(
       "arn:aws:wafv2:us-east-1:111111111111:global/webacl/cpi-dev/test",
     );
+    expect(distribution.Properties.Tags).toContainEqual({
+      Key: "cpi:deployment-stage",
+      Value: "dev",
+    });
     expect(config.CustomErrorResponses).toBeUndefined();
     expect(config.DefaultCacheBehavior.CachePolicyId).toBe(
       "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",

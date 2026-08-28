@@ -65,6 +65,9 @@ describe("production runtime image", () => {
     expect(dockerignore).toContain("allure-report");
     expect(dockerignore).toContain("allure-results");
     expect(dockerignore).toContain("playwright-report");
+    expect(dockerignore).toContain("playwright.config.ts");
     expect(dockerignore).toContain("test-results");
+    expect(dockerignore).toContain("tests");
+    expect(dockerignore).toContain("tools");
   });
 });

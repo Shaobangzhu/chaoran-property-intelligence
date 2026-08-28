@@ -1899,8 +1899,15 @@ Planned sub-block mapping:
    data was accessed or changed.
 7. `28.6` Add protected DEV deployment from `dev` with health check, API smoke,
    UI smoke, rollback evidence, workflow artifacts, and bounded SNS failure
-   email. The first deployment remains separately authorized and must review
-   API startup migrations explicitly.
+   email. **Complete in source without deployment:** a two-approval
+   `development` workflow verifies the release, obtains an account-backed CDK
+   diff, blocks DELETE, deploys only explicit DEV stacks with schedules
+   disabled, publishes the verified web artifact, performs bounded readiness
+   and read-only remote Playwright smoke, and retains Allure plus rollback
+   evidence. The OIDC role has bounded direct delivery permissions and the DEV
+   public stack owns a dedicated failure topic. The first real run remains
+   separately authorized and its second approval must explicitly cover API
+   startup migrations. No AWS action or notification was executed.
 8. `28.7` Add nightly AWS DEV regression and flaky-test engineering controls:
    bounded retries, explicit quarantine metadata, owner, expiry, and
    remediation path.

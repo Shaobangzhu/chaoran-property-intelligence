@@ -1,0 +1,410 @@
+name: Deploy DEV
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: false
+  group: dev-deployment
+
+env:
+  AWS_REGION: us-west-2
+  CPI_ALERT_EMAIL: ${{ secrets.CPI_ALERT_EMAIL }}
+  CPI_MONTHLY_BUDGET_USD: ${{ vars.CPI_MONTHLY_BUDGET_USD || '20' }}
+
+jobs:
+  verify:
+    name: Verify release candidate
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit, component, and integration tests
+        run: pnpm test
+
+      - name: Install Playwright browser
+        run: pnpm test:e2e:install-browsers
+
+      - name: Run local Playwright smoke
+        env:
+          CPI_APPEND_ALLURE_RESULTS: "true"
+          CPI_PLAYWRIGHT_START_WEB: "true"
+        run: pnpm exec playwright test --grep @smoke
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build release candidate
+        run: pnpm build
+
+      - name: Synthesize isolated DEV stacks
+        run: pnpm --dir infra/aws synth:dev
+
+      - name: Generate Allure report
+        if: always()
+        run: |-
+          if [ -d allure-results ]; then
+            pnpm report:allure
+          else
+            echo "No Allure results were produced."
+          fi
+
+      - name: Upload verified web build
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: dev-web-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/dist/
+          retention-days: 7
+
+      - name: Upload verification diagnostics
+        id: verification-diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: dev-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            allure-results/
+            allure-report/
+            playwright-report/
+            test-results/playwright/
+          retention-days: 14
+
+      - name: Publish verification summary
+        if: always()
+        env:
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.verification-diagnostics.outputs.artifact-url }}
+        run: pnpm report:github-summary
+
+  plan:
+    name: Plan DEV deployment (approval 1; no migration)
+    needs: verify
+    environment:
+      name: development
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate deployment configuration
+        run: |-
+          test -n "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cpi-github-dev-plan
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy-dev
+
+      - name: Verify target AWS account
+        run: |-
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Build CDK application
+        run: pnpm --dir infra/aws build
+
+      - name: Capture account-backed CDK diff
+        run: |-
+          mkdir -p deployment-plan
+          set +e
+          pnpm --dir infra/aws exec cdk diff \
+            ChaoranPropertyIntelligenceGuardrails \
+            ChaoranPropertyIntelligenceDev \
+            ChaoranPropertyIntelligenceDevEdge \
+            ChaoranPropertyIntelligenceDevPublicApplication \
+            -c targetStage=dev \
+            --ci \
+            --fail \
+            --method template \
+            --no-color 2>&1 | tee deployment-plan/cdk-diff.txt
+          diff_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "$diff_status" -gt 1 ]; then
+            exit "$diff_status"
+          fi
+
+      - name: Classify CREATE UPDATE REPLACE DELETE
+        id: classify
+        run: |-
+          set +e
+          node tools/aws/classifyCdkDiff.mjs \
+            --input deployment-plan/cdk-diff.txt \
+            --output deployment-plan/cdk-diff-summary.md \
+            --github-output "$GITHUB_OUTPUT" \
+            --fail-on-delete
+          classification_status="$?"
+          set -e
+          cat deployment-plan/cdk-diff-summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$classification_status"
+
+      - name: Upload deployment plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: dev-cdk-diff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-plan/
+          retention-days: 30
+
+  deploy:
+    name: Deploy DEV (approval 2; API startup migrates DEV)
+    needs: plan
+    environment:
+      name: development
+      url: ${{ steps.runtime.outputs.application_url }}
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm test:e2e:install-browsers
+
+      - name: Download verified web build
+        uses: actions/download-artifact@v4
+        with:
+          name: dev-web-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/dist/
+
+      - name: Validate deployment configuration
+        run: |-
+          test -n "${{ vars.AWS_ACCOUNT_ID }}"
+          test -n "$CPI_ALERT_EMAIL"
+          test -n "$CPI_MONTHLY_BUDGET_USD"
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cpi-github-dev-deploy
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy-dev
+
+      - name: Verify target AWS account
+        run: |-
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Capture pre-deployment rollback evidence
+        run: |-
+          mkdir -p deployment-evidence
+          jq -n \
+            --arg commit "$GITHUB_SHA" \
+            --arg run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{commit: $commit, environment: "development", runUrl: $run_url}' \
+            > deployment-evidence/release.json
+          find apps/web/dist -type f -print0 | sort -z | \
+            xargs -0 sha256sum > deployment-evidence/web-sha256.txt
+          if aws cloudformation describe-stacks \
+            --stack-name ChaoranPropertyIntelligenceDevPublicApplication \
+            --query 'Stacks[0].Outputs' --output json \
+            > deployment-evidence/pre-deploy-outputs.json 2>/dev/null; then
+            web_bucket="$(jq -r '.[] | select(.OutputKey == "WebBucketName") | .OutputValue' deployment-evidence/pre-deploy-outputs.json)"
+            if [ -n "$web_bucket" ]; then
+              aws s3api list-object-versions \
+                --bucket "$web_bucket" \
+                --max-items 1000 \
+                --query '{Versions:Versions[].{Key:Key,VersionId:VersionId,IsLatest:IsLatest,LastModified:LastModified}}' \
+                --output json > deployment-evidence/pre-deploy-web-versions.json
+            fi
+            service_arn="$(aws apprunner list-services --query \"ServiceSummaryList[?ServiceName=='cpi-dev-api'].ServiceArn | [0]\" --output text)"
+            if [ "$service_arn" != "None" ]; then
+              aws apprunner describe-service \
+                --service-arn "$service_arn" \
+                --query '{ServiceName:Service.ServiceName,Status:Service.Status,ImageIdentifier:Service.SourceConfiguration.ImageRepository.ImageIdentifier}' \
+                --output json > deployment-evidence/pre-deploy-api.json
+            fi
+          else
+            printf '%s\n' '{"status":"not-yet-deployed"}' \
+              > deployment-evidence/pre-deploy-outputs.json
+          fi
+
+      - name: Build CDK application
+        run: pnpm --dir infra/aws build
+
+      - name: Deploy isolated DEV stacks with schedules disabled
+        run: |-
+          pnpm --dir infra/aws exec cdk deploy \
+            ChaoranPropertyIntelligenceGuardrails \
+            ChaoranPropertyIntelligenceDev \
+            ChaoranPropertyIntelligenceDevEdge \
+            ChaoranPropertyIntelligenceDevPublicApplication \
+            -c targetStage=dev \
+            -c scheduleEnabled=false \
+            -c showingListScheduleEnabled=false \
+            -c showingListScheduleWeekday=MON \
+            -c showingListScheduleHour=8 \
+            -c showingListScheduleMinute=0 \
+            -c showingListScheduleTimeZone=America/Los_Angeles \
+            --concurrency 1 \
+            --outputs-file "$GITHUB_WORKSPACE/deployment-evidence/cdk-outputs.json" \
+            --require-approval never \
+            --parameters ChaoranPropertyIntelligenceGuardrails:AlertEmail="$CPI_ALERT_EMAIL" \
+            --parameters ChaoranPropertyIntelligenceGuardrails:MonthlyBudgetUsd="$CPI_MONTHLY_BUDGET_USD" \
+            --parameters ChaoranPropertyIntelligenceDev:AlertEmail="$CPI_ALERT_EMAIL" \
+            --parameters ChaoranPropertyIntelligenceDevPublicApplication:DeploymentFailureAlertEmail="$CPI_ALERT_EMAIL"
+
+      - name: Publish verified web build
+        id: runtime
+        run: |-
+          outputs=deployment-evidence/cdk-outputs.json
+          application_url="$(jq -r '.ChaoranPropertyIntelligenceDevPublicApplication.ApplicationUrl' "$outputs")"
+          distribution_id="$(jq -r '.ChaoranPropertyIntelligenceDevPublicApplication.DistributionId' "$outputs")"
+          web_bucket="$(jq -r '.ChaoranPropertyIntelligenceDevPublicApplication.WebBucketName' "$outputs")"
+          test "$application_url" != "null"
+          test "$distribution_id" != "null"
+          test "$web_bucket" != "null"
+          aws s3 sync apps/web/dist/ "s3://$web_bucket/" \
+            --delete --only-show-errors
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$distribution_id" \
+            --paths '/*' \
+            --query Invalidation.Id --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$distribution_id" \
+            --id "$invalidation_id"
+          echo "application_url=$application_url" >> "$GITHUB_OUTPUT"
+          echo "CPI_PLAYWRIGHT_REMOTE_BASE_URL=$application_url" >> "$GITHUB_ENV"
+
+      - name: Wait for bounded health readiness
+        run: >-
+          node tools/aws/waitForHttp.mjs
+          --url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL/api/health"
+          --attempts 60
+          --interval-ms 5000
+          --request-timeout-ms 5000
+
+      - name: Run read-only API and UI smoke against AWS DEV
+        run: |-
+          pnpm allure:clean
+          pnpm exec playwright test --grep @smoke
+
+      - name: Capture post-deployment evidence
+        if: always()
+        run: |-
+          if [ -f deployment-evidence/cdk-outputs.json ]; then
+            web_bucket="$(jq -r '.ChaoranPropertyIntelligenceDevPublicApplication.WebBucketName // empty' deployment-evidence/cdk-outputs.json)"
+            if [ -n "$web_bucket" ]; then
+              aws s3api list-object-versions \
+                --bucket "$web_bucket" \
+                --max-items 1000 \
+                --query '{Versions:Versions[].{Key:Key,VersionId:VersionId,IsLatest:IsLatest,LastModified:LastModified}}' \
+                --output json > deployment-evidence/post-deploy-web-versions.json
+            fi
+          fi
+          service_arn="$(aws apprunner list-services --query \"ServiceSummaryList[?ServiceName=='cpi-dev-api'].ServiceArn | [0]\" --output text 2>/dev/null || true)"
+          if [ -n "$service_arn" ] && [ "$service_arn" != "None" ]; then
+            aws apprunner describe-service \
+              --service-arn "$service_arn" \
+              --query '{ServiceName:Service.ServiceName,Status:Service.Status,ImageIdentifier:Service.SourceConfiguration.ImageRepository.ImageIdentifier}' \
+              --output json > deployment-evidence/post-deploy-api.json
+          fi
+
+      - name: Generate Allure report
+        if: always()
+        run: |-
+          if [ -d allure-results ]; then
+            pnpm report:allure
+          else
+            echo "No remote smoke results were produced."
+          fi
+
+      - name: Upload deployment evidence and diagnostics
+        id: deployment-diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: dev-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            deployment-evidence/
+            allure-results/
+            allure-report/
+            playwright-report/
+            test-results/playwright/
+          retention-days: 30
+
+      - name: Publish deployment quality summary
+        if: always()
+        env:
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.deployment-diagnostics.outputs.artifact-url }}
+        run: pnpm report:github-summary
+
+      - name: Publish bounded DEV deployment failure notification
+        if: failure()
+        continue-on-error: true
+        run: |-
+          topic_arn="$(aws cloudformation describe-stacks \
+            --stack-name ChaoranPropertyIntelligenceDevPublicApplication \
+            --query \"Stacks[0].Outputs[?OutputKey=='DeploymentFailureTopicArn'].OutputValue | [0]\" \
+            --output text 2>/dev/null || true)"
+          if [ -n "$topic_arn" ] && [ "$topic_arn" != "None" ]; then
+            aws sns publish \
+              --topic-arn "$topic_arn" \
+              --subject "CPI DEV deployment failed" \
+              --message "DEV deployment failed for commit $GITHUB_SHA. Review $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi

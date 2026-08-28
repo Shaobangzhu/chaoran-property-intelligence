@@ -2,6 +2,14 @@ import { defineConfig, devices } from "@playwright/test";
 import * as os from "node:os";
 
 const shouldStartWeb = process.env.CPI_PLAYWRIGHT_START_WEB === "true";
+const remoteBaseURL = readRemoteBaseURL(
+  process.env.CPI_PLAYWRIGHT_REMOTE_BASE_URL,
+);
+if (remoteBaseURL !== undefined && shouldStartWeb) {
+  throw new Error(
+    "CPI_PLAYWRIGHT_REMOTE_BASE_URL cannot be combined with CPI_PLAYWRIGHT_START_WEB",
+  );
+}
 const apiPort = readPort(
   process.env.CPI_PLAYWRIGHT_API_PORT,
   shouldStartWeb ? 3_000 : 3_100,
@@ -12,8 +20,8 @@ const webPort = readPort(
   5_173,
   "CPI_PLAYWRIGHT_WEB_PORT",
 );
-const apiBaseURL = `http://127.0.0.1:${apiPort}`;
-const webBaseURL = `http://127.0.0.1:${webPort}`;
+const apiBaseURL = remoteBaseURL ?? `http://127.0.0.1:${apiPort}`;
+const webBaseURL = remoteBaseURL ?? `http://127.0.0.1:${webPort}`;
 const allureEnvironmentInfo = createAllureEnvironmentInfo("playwright");
 
 export default defineConfig({
@@ -64,25 +72,48 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  webServer: [
-    {
-      command: `node tests/support/local-api-stub.mjs --port ${apiPort}`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 15_000,
-      url: `${apiBaseURL}/api/health`,
-    },
-    ...(shouldStartWeb
-      ? [
+  ...(remoteBaseURL === undefined
+    ? {
+        webServer: [
           {
-            command: `pnpm build:packages && VITE_ARCGIS_API_KEY=playwright-local-key pnpm --dir apps/web dev --host 127.0.0.1 --port ${webPort}`,
+            command: `node tests/support/local-api-stub.mjs --port ${apiPort}`,
             reuseExistingServer: !process.env.CI,
-            timeout: 30_000,
-            url: webBaseURL,
+            timeout: 15_000,
+            url: `${apiBaseURL}/api/health`,
           },
-        ]
-      : []),
-  ],
+          ...(shouldStartWeb
+            ? [
+                {
+                  command: `pnpm build:packages && VITE_ARCGIS_API_KEY=playwright-local-key pnpm --dir apps/web dev --host 127.0.0.1 --port ${webPort}`,
+                  reuseExistingServer: !process.env.CI,
+                  timeout: 30_000,
+                  url: webBaseURL,
+                },
+              ]
+            : []),
+        ],
+      }
+    : {}),
 });
+
+function readRemoteBaseURL(value: string | undefined): string | undefined {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsed = new URL(value.trim());
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.pathname !== "/" ||
+    parsed.search.length > 0 ||
+    parsed.hash.length > 0
+  ) {
+    throw new Error(
+      "CPI_PLAYWRIGHT_REMOTE_BASE_URL must be an HTTPS origin without a path, query, or fragment",
+    );
+  }
+  return parsed.origin;
+}
 
 function readPort(
   value: string | undefined,

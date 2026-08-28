@@ -508,6 +508,19 @@ flowchart TD
 
 ### DEV Deployment Acceptance
 
+Block 28.6 implements this boundary in `.github/workflows/deploy-dev.yml`.
+`verify` runs without AWS credentials. A first protected `development`
+environment job performs account-backed CDK diff and publishes explicit
+`CREATE`, `UPDATE`, `REPLACE`, and `DELETE` sections. `DELETE` blocks
+automatically. A separate second environment job performs deployment only after
+reviewers can inspect the plan artifact; its name calls out the DEV API startup
+migration.
+
+The classifier intentionally reports CloudFormation resources only; parameters,
+outputs, nested property lines, and IAM summary tables are not counted as
+resource actions. It strips terminal color codes, emits bounded Markdown and
+GitHub outputs, and is covered with create/update/replace/delete fixtures.
+
 Deployment acceptance fails if any of these fail:
 
 - CDK deployment
@@ -526,6 +539,10 @@ Failure artifacts should include:
 
 Do not automatically roll back infrastructure until a safe rollback mechanism
 exists. Preserve diagnostics and document the last-known-good recovery path.
+The implemented workflow records the prior API image, versioned web objects,
+distribution output, commit, and static asset checksums. Recovery remains a
+reviewed manual operation because application rollback cannot reverse schema
+migrations safely.
 
 ### Release Candidate Identity
 
@@ -587,9 +604,10 @@ listing address. Before AWS DEV or production-adjacent screenshots are uploaded,
 review selectors, screenshots, traces, request payloads, cookies, and response
 bodies again against the privacy list above.
 
-Use a DEV/test SNS topic such as `cpi-dev-test-failures`. Do not reuse the
-production worker failure topic without a separately reviewed reason. Successful
-workflows should not generate email noise.
+Block 28.6 uses the dedicated `cpi-dev-deployment-failures` topic and a confirmed
+DEV email subscription. It does not reuse the production worker failure topic.
+Successful workflows generate no email. First-deployment notification is
+best-effort until the topic exists and its subscription is confirmed.
 
 ## Flaky-Test Engineering
 

@@ -4,6 +4,9 @@ const adminCredentials = {
   email: "admin@example.com",
   password: "correct horse battery staple!",
 };
+const isRemoteSmoke = Boolean(
+  process.env.CPI_PLAYWRIGHT_REMOTE_BASE_URL,
+);
 
 test.describe("@smoke API smoke", () => {
   test("serves the database-independent health contract", async ({
@@ -15,6 +18,12 @@ test.describe("@smoke API smoke", () => {
     expect(response.headers()["cache-control"]).toMatch(/no-store/u);
     expect(response.headers()["x-frame-options"]).toBe("DENY");
     expect(response.headers()["x-request-id"]).toMatch(/.+/u);
+    if (isRemoteSmoke) {
+      expect(response.headers()["strict-transport-security"]).toMatch(
+        /max-age=/u,
+      );
+      expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    }
     await expect(response.json()).resolves.toEqual({ status: "ok" });
   });
 
@@ -32,6 +41,10 @@ test.describe("@smoke API smoke", () => {
   test("logs in, reads the session, reads listings, and logs out", async ({
     request,
   }) => {
+    test.skip(
+      isRemoteSmoke,
+      "AWS DEV smoke must not depend on or mutate a deployed user session",
+    );
     const loginResponse = await request.post("/api/auth/login", {
       data: adminCredentials,
     });

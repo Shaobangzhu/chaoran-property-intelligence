@@ -2,9 +2,11 @@ import path from "node:path";
 
 import {
   CfnOutput,
+  CfnParameter,
   Duration,
   RemovalPolicy,
   Stack,
+  Tags,
   type StackProps,
 } from "aws-cdk-lib";
 import { CfnService, CfnVpcConnector } from "aws-cdk-lib/aws-apprunner";
@@ -52,9 +54,12 @@ import {
   type IBucket,
 } from "aws-cdk-lib/aws-s3";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
+import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
+import { Topic } from "aws-cdk-lib/aws-sns";
 import type { Construct } from "constructs";
 
 import {
+  deploymentStageTagKey,
   stageResourceName,
   type DeploymentStage,
 } from "./deploymentStage.js";
@@ -72,6 +77,7 @@ export interface PublicApplicationStackProps extends StackProps {
   databaseCredentialsSecret: Secret;
   databaseSecurityGroup: SecurityGroup;
   deploymentStage: DeploymentStage;
+  deploymentFailureAlertEmail?: string;
   repositoryRoot?: string;
   showingListArtifactBucket: IBucket;
   vpc: Vpc;
@@ -87,9 +93,32 @@ export class PublicApplicationStack extends Stack {
     super(scope, id, props);
 
     const isProduction = props.deploymentStage === "production";
+    const deploymentFailureAlertEmail =
+      props.deploymentFailureAlertEmail ??
+      new CfnParameter(this, "DeploymentFailureAlertEmail", {
+        allowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+        constraintDescription: "must be a valid email address",
+        type: "String",
+      }).valueAsString;
+    const deploymentFailureTopic = new Topic(
+      this,
+      "DeploymentFailureTopic",
+      {
+        displayName: `CPI ${props.deploymentStage} deployment failures`,
+        enforceSSL: true,
+        topicName: stageResourceName(
+          props.deploymentStage,
+          "deployment-failures",
+        ),
+      },
+    );
+    deploymentFailureTopic.addSubscription(
+      new EmailSubscription(deploymentFailureAlertEmail),
+    );
     const webBucket = new Bucket(this, "WebBucket", {
       autoDeleteObjects: !isProduction,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      bucketName: `${stageResourceName(props.deploymentStage, "web")}-${this.account}-${this.region}`,
       encryption: BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       lifecycleRules: [
@@ -340,6 +369,10 @@ export class PublicApplicationStack extends Stack {
       enableIpv6: true,
       webAclId: props.webAclArn,
     });
+    Tags.of(distribution).add(
+      deploymentStageTagKey,
+      props.deploymentStage,
+    );
     for (const pathPattern of ["/assets/*", "/data/*"]) {
       distribution.addBehavior(pathPattern, webOrigin, {
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
@@ -377,6 +410,9 @@ export class PublicApplicationStack extends Stack {
     });
     new CfnOutput(this, "DistributionId", {
       value: distribution.distributionId,
+    });
+    new CfnOutput(this, "DeploymentFailureTopicArn", {
+      value: deploymentFailureTopic.topicArn,
     });
     new CfnOutput(this, "WebBucketName", { value: webBucket.bucketName });
   }

@@ -119,5 +119,9 @@ worked around with manual SQL or arbitrary waits.
 - account-backed four-stack diff with explicit action classification
 - explicit approval for the DEV schema migration caused by API startup
 - protected GitHub `development` environment restricted to `dev`
-- reviewed health, API smoke, UI smoke, artifact, notification, and rollback
-  workflow in Block 28.6
+- Block 28.6 workflow source reviewed and its two approvals configured
+- first account-backed plan artifact reviewed before deployment approval
+
+Execution details are in the
+[AWS DEV Deployment Runbook](aws-dev-deployment.md). Source completion does not
+authorize the first real DEV deployment.

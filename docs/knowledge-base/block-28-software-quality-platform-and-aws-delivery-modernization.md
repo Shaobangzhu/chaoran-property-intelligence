@@ -295,8 +295,50 @@ See the [AWS Public Runtime Runbook](../runbooks/aws-public-runtime.md).
 
 ### 28.6 DEV Deployment And Smoke
 
-Add a protected DEV deployment workflow using OIDC, health checks, API smoke,
-UI smoke, rollback evidence, and bounded failure notifications.
+Implementation status: complete in source, not executed against AWS.
+
+`.github/workflows/deploy-dev.yml` runs only for the `dev` ref and separates
+release verification, account-backed planning, and deployment. The plan and
+deploy jobs each reference the protected GitHub `development` environment, so
+the reviewer first releases a read-only CDK diff and later gives a distinct
+approval after inspecting its `CREATE`, `UPDATE`, `REPLACE`, and `DELETE`
+classification. Any DELETE blocks automatically. The deploy job name explicitly
+states that App Runner startup runs bundled DEV migrations.
+
+The DEV OIDC role receives direct workflow permissions only for the reviewed
+DEV stacks, deterministic private DEV web bucket, DEV App Runner service,
+tag-scoped DEV CloudFront invalidation, and dedicated deployment-failure SNS
+topic. Bootstrap
+role access remains exact to `us-west-2` and `us-east-1`; production role
+identity and trust remain unchanged. Both worker schedules are passed as false,
+and only the four explicit DEV stacks can be selected.
+
+The workflow promotes the web artifact built by the verification job, captures
+pre/post web object versions and App Runner image metadata, uses bounded health
+polling, then runs Playwright API/UI smoke through the CloudFront HTTPS origin.
+Remote smoke checks health, unauthenticated authorization, sign-in rendering,
+and security headers. Local synthetic authenticated journeys are skipped, so
+the deployed suite does not require a DEV user or mutate DEV data. Allure,
+Playwright diagnostics, deployment metadata, and rollback evidence are uploaded
+and linked from the Actions summary.
+
+Failures publish bounded commit/run metadata to
+`cpi-dev-deployment-failures`; success is silent. Delivery is best-effort until
+the first stack creation and email confirmation. Automatic infrastructure or
+schema rollback is intentionally absent. No AWS call, deployment, secret read,
+migration, schedule, worker, provider, OpenAI, Telegram, or SNS publish occurred
+during implementation.
+
+The Block 28.5-to-28.6 local DEV template comparison classifies three SNS
+resources as CREATE, the DEV role policy, App Runner image, and CloudFront stage
+tag as UPDATE, two immutable DEV worker task definitions plus the undeployed web
+bucket/policy as REPLACE, and no DELETE. The bucket now has the stable
+`cpi-dev-web-<account>-us-west-2` identity needed for bounded direct OIDC
+permissions. The production application is not selected by the workflow; its
+local template shows only the two stateless worker task definition image
+revisions caused by the tightened Docker asset context. These offline results
+do not replace the mandatory account-backed plan. See the
+[AWS DEV Deployment Runbook](../runbooks/aws-dev-deployment.md).
 
 ### 28.7 Nightly DEV Regression And Flake Engineering
 

@@ -14,6 +14,8 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import type { Construct } from "constructs";
 
+import { deploymentStageTagKey } from "./deploymentStage.js";
+
 export interface AccountGuardrailsStackProps extends StackProps {
   githubDevDeploymentRegions?: string[];
   githubBranch: string;
@@ -152,13 +154,127 @@ export class AccountGuardrailsStack extends Stack {
     githubDevDeployRole.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
+        resources: (props.githubDevDeploymentRegions ?? [this.region]).map(
+          (region) =>
+            this.formatArn({
+              region,
+              resource: "parameter",
+              resourceName: "cdk-bootstrap/hnb659fds/version",
+              service: "ssm",
+            }),
+        ),
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sns:Publish"],
         resources: [
           this.formatArn({
-            resource: "parameter",
-            resourceName: "cdk-bootstrap/hnb659fds/version",
-            service: "ssm",
+            resource: "cpi-dev-deployment-failures",
+            service: "sns",
           }),
         ],
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "cloudformation:DescribeStacks",
+          "cloudformation:GetTemplate",
+        ],
+        resources: [
+          {
+            region: this.region,
+            stackName: "ChaoranPropertyIntelligenceGuardrails",
+          },
+          { region: this.region, stackName: "ChaoranPropertyIntelligenceDev" },
+          {
+            region: "us-east-1",
+            stackName: "ChaoranPropertyIntelligenceDevEdge",
+          },
+          {
+            region: this.region,
+            stackName: "ChaoranPropertyIntelligenceDevPublicApplication",
+          },
+        ].map(({ region, stackName }) =>
+          this.formatArn({
+            region,
+            resource: "stack",
+            resourceName: `${stackName}/*`,
+            service: "cloudformation",
+          }),
+        ),
+      }),
+    );
+    const devWebBucketName = `cpi-dev-web-${this.account}-${this.region}`;
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "s3:GetBucketVersioning",
+          "s3:ListBucket",
+          "s3:ListBucketVersions",
+        ],
+        resources: [
+          this.formatArn({
+            account: "",
+            region: "",
+            resource: devWebBucketName,
+            service: "s3",
+          }),
+        ],
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+        resources: [
+          this.formatArn({
+            account: "",
+            region: "",
+            resource: devWebBucketName,
+            resourceName: "*",
+            service: "s3",
+          }),
+        ],
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ],
+        resources: [
+          this.formatArn({
+            region: "",
+            resource: "distribution",
+            resourceName: "*",
+            service: "cloudfront",
+          }),
+        ],
+        conditions: {
+          StringEquals: {
+            [`aws:ResourceTag/${deploymentStageTagKey}`]: "dev",
+          },
+        },
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["apprunner:DescribeService"],
+        resources: [
+          this.formatArn({
+            resource: "service",
+            resourceName: "cpi-dev-api/*",
+            service: "apprunner",
+          }),
+        ],
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["apprunner:ListServices"],
+        resources: ["*"],
       }),
     );
 

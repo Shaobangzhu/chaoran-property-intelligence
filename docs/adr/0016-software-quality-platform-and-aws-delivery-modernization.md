@@ -24,6 +24,12 @@ React build, `/api/*` routing to App Runner, and private Aurora access through
 an App Runner VPC Connector. Block 28.5 implements that boundary in tested CDK;
 it remains undeployed.
 
+Block 28.6 implements the protected DEV workflow in source with separate plan
+and deploy environment approvals, account-backed diff classification, bounded
+readiness, read-only remote smoke, rollback evidence, and a dedicated failure
+topic. The workflow has not been run against AWS; first deployment and DEV
+migration authorization remain external gates.
+
 Block 28 must demonstrate Senior SDET and test automation architecture skills
 without weakening the existing production safety model. Quality automation
 should improve deterministic release confidence rather than maximize test
@@ -222,4 +228,5 @@ Tradeoffs:
 - [ADR 0003: API, Web, and Map Foundation](0003-api-web-map-foundation.md)
 - [ADR 0004: Single-User Authentication](0004-single-user-authentication.md)
 - [AWS Deployment Runbook](../runbooks/aws-deployment.md)
+- [AWS DEV Deployment Runbook](../runbooks/aws-dev-deployment.md)
 - [AWS System Design and Configuration](../aws-system-design.md)

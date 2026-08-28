@@ -11,7 +11,10 @@ coverage
 allure-report
 allure-results
 playwright-report
+playwright.config.ts
 test-results
+tests
+tools
 cdk.out
 infra
 docs

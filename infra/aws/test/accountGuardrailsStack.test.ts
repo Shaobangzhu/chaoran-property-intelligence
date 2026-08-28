@@ -161,7 +161,39 @@ describe("AccountGuardrailsStack", () => {
     expect(devPolicyDocument).toContain(
       "cdk-hnb659fds-deploy-role-111111111111-us-east-1",
     );
+    expect(devPolicyDocument).toContain("sns:Publish");
+    expect(devPolicyDocument).toContain(":sns:us-west-2:111111111111:");
+    expect(devPolicyDocument).toContain("cpi-dev-deployment-failures");
+    expect(devPolicyDocument).toContain(
+      "parameter/cdk-bootstrap/hnb659fds/version",
+    );
+    expect(devPolicyDocument).toContain("ssm:us-east-1:111111111111");
+    expect(devPolicyDocument).toContain("cloudformation:DescribeStacks");
+    expect(devPolicyDocument).toContain("cloudformation:GetTemplate");
+    expect(devPolicyDocument).toContain(
+      "ChaoranPropertyIntelligenceDevPublicApplication/*",
+    );
+    expect(devPolicyDocument).toContain("cpi-dev-web-");
+    expect(devPolicyDocument).toContain("cloudfront:CreateInvalidation");
+    expect(devPolicyDocument).toContain("aws:ResourceTag/cpi:deployment-stage");
+    expect(devPolicyDocument).toContain("apprunner:DescribeService");
     expect(devPolicyDocument).not.toContain("cdk-hnb659fds-*");
+
+    const statements = devPolicy?.Properties?.PolicyDocument?.Statement as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const cloudFrontStatement = statements?.find((statement) =>
+      JSON.stringify(statement.Action).includes(
+        "cloudfront:CreateInvalidation",
+      ),
+    );
+    const snsStatement = statements?.find(
+      (statement) => statement.Action === "sns:Publish",
+    );
+    expect(cloudFrontStatement?.Condition).toEqual({
+      StringEquals: { "aws:ResourceTag/cpi:deployment-stage": "dev" },
+    });
+    expect(snsStatement?.Condition).toBeUndefined();
   });
 
   it("preserves the production role identity and exact main-branch trust", () => {
