@@ -16,3 +16,4 @@ cdk.out
 infra
 docs
 README.md
+Dockerfile.api

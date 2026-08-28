@@ -21,7 +21,8 @@ disabled.
 
 The approved public application target remains CloudFront, private S3 for the
 React build, `/api/*` routing to App Runner, and private Aurora access through
-an App Runner VPC Connector. That public Web/API boundary is not deployed.
+an App Runner VPC Connector. Block 28.5 implements that boundary in tested CDK;
+it remains undeployed.
 
 Block 28 must demonstrate Senior SDET and test automation architecture skills
 without weakening the existing production safety model. Quality automation
@@ -102,13 +103,13 @@ changes must conservatively broaden the gate.
 5. `28.4` Define AWS DEV infrastructure and OIDC guardrails in CDK with tests,
    `cdk synth`, and reviewed `cdk diff` only; no real deployment in this
    sub-block.
-6. `28.5` Add the DEV deployment workflow with environment protection, health
-   check, API smoke, UI smoke, and failure notifications.
-7. `28.6` Add nightly DEV regression with artifacts, flake tracking, and a
+6. `28.5` Implement the CloudFront, private S3, App Runner, VPC Connector, WAF,
+   response-header, origin-protection, and rollback primitives in tested CDK.
+   Stop at synth and diff review.
+7. `28.6` Add the protected DEV deployment workflow with environment
+   protection, health check, API smoke, UI smoke, and failure notifications.
+8. `28.7` Add nightly DEV regression with artifacts, flake tracking, and a
    deterministic retry policy.
-8. `28.7` Implement the CloudFront, private S3, App Runner, VPC Connector, WAF,
-   response-header, origin-protection, rollback, and smoke-test controls in
-   incremental CDK changes after separate diff review.
 9. `28.8` Complete the dev-to-main regression gate and production-safe smoke
    workflow without broadening production mutation authority.
 

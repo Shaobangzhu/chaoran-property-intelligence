@@ -56,6 +56,7 @@ describe("manual listing authenticated API lifecycle integration", () => {
         deploymentMode: "local",
         originVerificationSecret: null,
         publicOrigin,
+        trustedPublicOriginHeaderName: null,
       },
       listListings: new ListListings({ query: repository }),
       logger,

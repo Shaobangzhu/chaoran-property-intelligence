@@ -407,7 +407,7 @@ Implemented resource strategy for `18.4` / Block 28.4:
 | Production deploy role | `cpi-github-deploy` trusted to `main` | `cpi-github-deploy-dev` trusted to protected `development` environment | High | Production trust is unchanged. The GitHub environment must permit only `dev`; DEV may assume only exact regional bootstrap roles. |
 | Database secret | `cpi/production/database` | `cpi/dev/database` | High | No collision; DEV must not reference production secret. |
 | Application secret | `cpi/production/application` | `cpi/dev/application` | High | Do not copy production provider credentials into DEV. |
-| API auth secret | Planned `cpi/production/api-auth` | `cpi/dev/api-auth` | High | Separate generated values per stage. |
+| API auth secrets | Planned `cpi/production/api-auth/*` | `cpi/dev/api-auth/jwt-signing` and `cpi/dev/api-auth/origin-verification` | High | Separate generated values per stage. DEV values are disposable. |
 | Aurora | Existing retained/deletion-protected production cluster | Separate low-cost DEV cluster preferred | High | Preserve production; use disposable DEV policy where safe. |
 | VPC/security groups | Existing production network | Separate DEV network | Medium | No cross-stage security group references. |
 | Worker schedules | Production named schedules, disabled unless authorized | DEV schedules disabled by default | High | Never enable by default. |
@@ -475,6 +475,20 @@ Controls to verify in CDK tests:
 - App Runner uses VPC Connector and a dedicated security group
 - DEV API cannot reference production database or secrets
 - outputs expose URLs and identifiers, not secrets
+
+Block 28.5 implements these controls in two additional DEV stacks. WAF is
+regionalized to `us-east-1` as required for CloudFront, while App Runner, S3,
+the VPC Connector, and Aurora stay in `us-west-2`. The API image is separate
+from the scheduled worker image and runs as the non-root Node user. The web
+bucket is versioned so a later deployment workflow can restore a prior static
+release without making rollback depend on source reconstruction.
+
+The default CloudFront hostname is not known before distribution creation.
+Instead of weakening exact Origin validation, a CloudFront Function overwrites
+`x-cpi-viewer-origin` from the accepted viewer `Host`. Express trusts that
+marker only in validated production configuration and only after the separate
+CloudFront-to-App Runner origin secret succeeds. Contract tests pin both sides
+of this boundary.
 
 ## Delivery Workflow
 

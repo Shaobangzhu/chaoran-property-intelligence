@@ -73,7 +73,11 @@ export interface PropertyAlertStackProps extends StackProps {
 }
 
 export class PropertyAlertStack extends Stack {
+  readonly database: DatabaseCluster;
+  readonly databaseCredentialsSecret: Secret;
+  readonly databaseSecurityGroup: SecurityGroup;
   readonly showingListArtifactBucket: Bucket;
+  readonly vpc: Vpc;
 
   constructor(
     scope: Construct,
@@ -85,7 +89,7 @@ export class PropertyAlertStack extends Stack {
     const deploymentStage = props.deploymentStage ?? "production";
     const isProduction = deploymentStage === "production";
 
-    const vpc = new Vpc(this, "Vpc", {
+    this.vpc = new Vpc(this, "Vpc", {
       maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [
@@ -108,19 +112,19 @@ export class PropertyAlertStack extends Stack {
       {
         allowAllOutbound: true,
         description: "Outbound-only access for the scheduled property worker",
-        vpc,
+        vpc: this.vpc,
       },
     );
-    const databaseSecurityGroup = new SecurityGroup(
+    this.databaseSecurityGroup = new SecurityGroup(
       this,
       "DatabaseSecurityGroup",
       {
         allowAllOutbound: false,
         description: "Aurora access restricted to the scheduled worker",
-        vpc,
+        vpc: this.vpc,
       },
     );
-    databaseSecurityGroup.addIngressRule(
+    this.databaseSecurityGroup.addIngressRule(
       workerSecurityGroup,
       Port.tcp(5_432),
       "Allow PostgreSQL from the scheduled worker",
@@ -141,7 +145,7 @@ export class PropertyAlertStack extends Stack {
         },
       },
     );
-    const databaseCredentialsSecret = new Secret(
+    this.databaseCredentialsSecret = new Secret(
       this,
       "DatabaseCredentialsSecret",
       {
@@ -159,11 +163,11 @@ export class PropertyAlertStack extends Stack {
         secretName: `cpi/${deploymentStage}/database`,
       },
     );
-    const database = new DatabaseCluster(this, "Database", {
+    this.database = new DatabaseCluster(this, "Database", {
       backup: {
         retention: Duration.days(isProduction ? 7 : 1),
       },
-      credentials: Credentials.fromSecret(databaseCredentialsSecret),
+      credentials: Credentials.fromSecret(this.databaseCredentialsSecret),
       defaultDatabaseName: databaseName,
       deletionProtection: isProduction,
       engine: databaseEngine,
@@ -171,12 +175,12 @@ export class PropertyAlertStack extends Stack {
       removalPolicy: isProduction
         ? RemovalPolicy.RETAIN
         : RemovalPolicy.DESTROY,
-      securityGroups: [databaseSecurityGroup],
+      securityGroups: [this.databaseSecurityGroup],
       serverlessV2AutoPauseDuration: Duration.minutes(5),
       serverlessV2MaxCapacity: 1,
       serverlessV2MinCapacity: 0,
       storageEncrypted: true,
-      vpc,
+      vpc: this.vpc,
       vpcSubnets: {
         subnetType: SubnetType.PRIVATE_ISOLATED,
       },
@@ -224,7 +228,7 @@ export class PropertyAlertStack extends Stack {
     );
 
     const cluster = new Cluster(this, "Cluster", {
-      vpc,
+      vpc: this.vpc,
     });
     const containerImage =
       props.containerImage ??
@@ -301,8 +305,8 @@ export class PropertyAlertStack extends Stack {
         NODE_ENV: "production",
         NODE_EXTRA_CA_CERTS: "/app/certs/global-bundle.pem",
         PGDATABASE: databaseName,
-        PGHOST: database.clusterEndpoint.hostname,
-        PGPORT: database.clusterEndpoint.port.toString(),
+        PGHOST: this.database.clusterEndpoint.hostname,
+        PGPORT: this.database.clusterEndpoint.port.toString(),
         PGSSLMODE: "verify-full",
       },
       image: containerImage,
@@ -312,11 +316,11 @@ export class PropertyAlertStack extends Stack {
       }),
       secrets: {
         PGPASSWORD: EcsSecret.fromSecretsManager(
-          databaseCredentialsSecret,
+          this.databaseCredentialsSecret,
           "password",
         ),
         PGUSER: EcsSecret.fromSecretsManager(
-          databaseCredentialsSecret,
+          this.databaseCredentialsSecret,
           "username",
         ),
         RENTCAST_API_KEY: EcsSecret.fromSecretsManager(
@@ -379,8 +383,8 @@ export class PropertyAlertStack extends Stack {
           NODE_ENV: "production",
           NODE_EXTRA_CA_CERTS: "/app/certs/global-bundle.pem",
           PGDATABASE: databaseName,
-          PGHOST: database.clusterEndpoint.hostname,
-          PGPORT: database.clusterEndpoint.port.toString(),
+          PGHOST: this.database.clusterEndpoint.hostname,
+          PGPORT: this.database.clusterEndpoint.port.toString(),
           PGSSLMODE: "verify-full",
           SHOWING_LIST_ARTIFACT_BUCKET:
             this.showingListArtifactBucket.bucketName,
@@ -398,11 +402,11 @@ export class PropertyAlertStack extends Stack {
             "OPENAI_API_KEY",
           ),
           PGPASSWORD: EcsSecret.fromSecretsManager(
-            databaseCredentialsSecret,
+            this.databaseCredentialsSecret,
             "password",
           ),
           PGUSER: EcsSecret.fromSecretsManager(
-            databaseCredentialsSecret,
+            this.databaseCredentialsSecret,
             "username",
           ),
           SHOWING_LIST_GENERATION_CONFIG: EcsSecret.fromSecretsManager(

@@ -9,8 +9,8 @@ enable schedules, call RentCast or OpenAI, send Telegram messages, or publish
 failure notifications under this runbook.
 
 The public CloudFront, private S3 web origin, App Runner API, VPC Connector,
-WAF, response headers, and origin protection are not part of this foundation.
-They remain separately reviewed work.
+WAF, response headers, and origin protection are owned by the separate Block
+28.5 public runtime stacks. They do not change this foundation's ownership.
 
 ## Fixed Identities
 
@@ -56,7 +56,7 @@ Review these DEV template facts before requesting deployment authorization:
 - PostgreSQL ingress only from the DEV worker security group
 - Aurora backup retention of one day and deletion protection disabled
 - both EventBridge schedules in `DISABLED` state
-- no public Web/API resources yet
+- no public Web/API resources inside the foundation stack
 
 ## Diff Review
 
@@ -112,5 +112,5 @@ and before any separately authorized deployment.
 - valid non-root federated identity and confirmed target account/region
 - protected GitHub `development` environment restricted to `dev`
 - distinct DEV alert email and later DEV-only application credentials
-- public Web/API CDK design and tests completed in its separate phase
+- public Web/API account-backed diff completed under its separate runbook
 - reviewed rollback and teardown plan

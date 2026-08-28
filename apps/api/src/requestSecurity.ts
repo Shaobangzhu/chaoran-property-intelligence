@@ -55,7 +55,15 @@ export function createUnsafeRequestOriginGuard(
       return;
     }
 
-    if (request.get("Origin") !== config.publicOrigin) {
+    const expectedOrigin =
+      config.publicOrigin ??
+      (config.trustedPublicOriginHeaderName === null
+        ? undefined
+        : request.get(config.trustedPublicOriginHeaderName));
+    if (
+      expectedOrigin === undefined ||
+      request.get("Origin") !== expectedOrigin
+    ) {
       onRejected?.(request, response);
       response.status(403).json({
         error: {

@@ -71,6 +71,7 @@ describe("authentication security integration", () => {
         deploymentMode: "local",
         originVerificationSecret: null,
         publicOrigin,
+        trustedPublicOriginHeaderName: null,
       },
       listListings: new ListListings({ query: new EmptyListingQuery() }),
       logger,

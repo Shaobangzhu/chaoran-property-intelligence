@@ -19,6 +19,7 @@ describe("loadApiConfig", () => {
       publicOrigin: "http://127.0.0.1:5173",
       originVerificationSecret: null,
       showingListArtifactStorage: null,
+      trustedPublicOriginHeaderName: null,
     });
   });
 
@@ -37,6 +38,75 @@ describe("loadApiConfig", () => {
     );
     expect(() => loadApiConfig({ DATABASE_URL: "   " })).toThrow(
       "Missing required environment variable: DATABASE_URL",
+    );
+  });
+
+  it("loads production PostgreSQL parameters for App Runner", () => {
+    expect(
+      loadApiConfig({
+        API_DEPLOYMENT_MODE: "production",
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+        API_PUBLIC_ORIGIN: "https://app.example.com",
+        DATABASE_CREDENTIALS_SECRET_JSON: JSON.stringify({
+          password: "secret-password",
+          username: "property_worker",
+        }),
+        PGDATABASE: "property_intelligence",
+        PGHOST: "database.internal",
+        PGPORT: "5432",
+        PORT: "3000",
+      }).databaseConnection,
+    ).toEqual({
+      kind: "parameters",
+      database: "property_intelligence",
+      host: "database.internal",
+      password: "secret-password",
+      port: 5432,
+      ssl: true,
+      user: "property_worker",
+    });
+  });
+
+  it("rejects malformed App Runner database credentials", () => {
+    expect(() =>
+      loadApiConfig({
+        API_DEPLOYMENT_MODE: "production",
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+        API_PUBLIC_ORIGIN: "https://app.example.com",
+        DATABASE_CREDENTIALS_SECRET_JSON: '{"username":"property_worker"}',
+        PGDATABASE: "property_intelligence",
+        PGHOST: "database.internal",
+        PGPORT: "5432",
+        PORT: "3000",
+      }),
+    ).toThrow(
+      "Invalid database credentials: DATABASE_CREDENTIALS_SECRET_JSON",
+    );
+  });
+
+  it("accepts only the CloudFront-owned trusted origin marker", () => {
+    const config = loadApiConfig({
+      API_DEPLOYMENT_MODE: "production",
+      API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+      API_TRUSTED_PUBLIC_ORIGIN_HEADER: "x-cpi-viewer-origin",
+      DATABASE_URL: "postgresql://private-host/cpi",
+      PORT: "3000",
+    });
+
+    expect(config.publicOrigin).toBeNull();
+    expect(config.trustedPublicOriginHeaderName).toBe(
+      "x-cpi-viewer-origin",
+    );
+    expect(() =>
+      loadApiConfig({
+        API_DEPLOYMENT_MODE: "production",
+        API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+        API_TRUSTED_PUBLIC_ORIGIN_HEADER: "x-forwarded-host",
+        DATABASE_URL: "postgresql://private-host/cpi",
+        PORT: "3000",
+      }),
+    ).toThrow(
+      "Invalid API trusted origin header: API_TRUSTED_PUBLIC_ORIGIN_HEADER",
     );
   });
 
@@ -72,6 +142,7 @@ describe("loadApiConfig", () => {
       publicOrigin: "https://app.example.com",
       originVerificationSecret: "o".repeat(32),
       showingListArtifactStorage: null,
+      trustedPublicOriginHeaderName: null,
     });
   });
 

@@ -158,8 +158,10 @@ AWS-hosted Express application. Vercel is not part of the current production
 plan. App Runner is the selected Express compute target: it preserves the
 container and `node-postgres` runtime, reaches private Aurora through a VPC
 Connector, and receives traffic through a CloudFront-protected origin. The API
-and web application remain undeployed until the separately reviewed App Runner,
-CloudFront, WAF, response-header, secrets, and rollback plan is implemented.
+and web application remain undeployed. Block 28.5 now defines the isolated DEV
+App Runner, CloudFront, private S3, WAF, response-header, secrets, and rollback
+primitives in tested CDK; account-backed diff, migration authorization, and a
+separate DEV deployment workflow remain required before any AWS mutation.
 
 ## Production runtime
 

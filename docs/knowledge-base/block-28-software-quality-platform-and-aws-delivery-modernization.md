@@ -245,23 +245,64 @@ worker run, migration, RentCast request, OpenAI call, Telegram message, or
 notification occurred. See the
 [AWS DEV Foundation Runbook](../runbooks/aws-dev-foundation.md).
 
-### 28.5 DEV Deployment And Smoke
+### 28.5 Public Web/API AWS Runtime
+
+Implementation status: complete in source and CDK, not deployed. The dependency
+order was corrected because health, API, and UI smoke cannot validate AWS DEV
+until a public runtime exists.
+
+The `ChaoranPropertyIntelligenceDevEdge` stack owns the CloudFront-scope WAF in
+`us-east-1`. It enables AWS managed common rules and an IP rate rule scoped to
+`POST /api/auth/login`. The managed 8 KB body-size rule is counted rather than
+blocked because existing strict API DTOs intentionally allow a larger Showing
+List payload; all other common rules retain their managed actions. The
+`ChaoranPropertyIntelligenceDevPublicApplication` stack remains in
+`us-west-2` and owns the private versioned web bucket, CloudFront distribution,
+response headers, viewer-request function, API image, App Runner service, VPC
+Connector, dedicated API security group, S3 Gateway Endpoint, and DEV API-auth
+secrets. The existing DEV foundation exports references but retains ownership
+of its VPC, Aurora, database secret, and Showing List bucket.
+
+CloudFront sends `/api/*` to App Runner over HTTPS with shared caching disabled,
+all viewer context except `Host`, and a deployment-time secret custom header.
+A viewer-request function overwrites `x-cpi-viewer-origin` from CloudFront's
+accepted `Host`; Express compares unsafe-request `Origin` to that marker only
+after the independent origin-secret check succeeds. The same function rewrites
+extensionless non-API routes to `index.html` and cannot turn `/api/*` failures
+into SPA responses. Direct App Runner access therefore reaches only the public,
+database-independent health exception.
+
+App Runner receives the whole existing Aurora credentials JSON secret as one
+secret environment variable, while host, port, database, and TLS mode remain
+non-sensitive variables. It uses isolated subnets with no NAT. Security-group
+egress allows Aurora on 5432 and HTTPS only where the isolated route table has a
+destination; S3 is reached through the Gateway Endpoint. No RentCast, OpenAI,
+Telegram, worker application secret, or schedule permission is granted.
+
+The production template comparison found only the two expected immutable ECS
+task-definition image digest changes. Guardrails adds exact `us-east-1` CDK
+bootstrap role ARNs to the existing DEV role. All public DEV resources remain
+undeployed CREATE candidates. The offline empty-template diff classifies four
+edge resources and 24 public-application resources as CREATE, excluding CDK
+metadata. Guardrails has one bounded IAM policy UPDATE, and the DEV foundation
+adds cross-stack Outputs without replacing its resources. There are no DELETE
+actions. An account-backed diff remains mandatory because the local AWS SSO
+session was expired. App Runner currently runs bundled
+migrations during API startup, so the first DEV deployment must treat migration
+execution as an explicit approval gate rather than an incidental side effect.
+
+See the [AWS Public Runtime Runbook](../runbooks/aws-public-runtime.md).
+
+### 28.6 DEV Deployment And Smoke
 
 Add a protected DEV deployment workflow using OIDC, health checks, API smoke,
 UI smoke, rollback evidence, and bounded failure notifications.
 
-### 28.6 Nightly DEV Regression And Flake Engineering
+### 28.7 Nightly DEV Regression And Flake Engineering
 
 Schedule nightly regression against AWS DEV with artifact retention and explicit
 flaky-test policy. Retries must be bounded and reported; quarantine requires an
 owner, reason, expiry, and remediation path.
-
-### 28.7 Public Web/API AWS Delivery
-
-Implement CloudFront, private S3, App Runner, VPC Connector, WAF,
-response-header, origin-protection, rollback, and smoke-test controls in
-reviewable CDK slices. Preserve retained production resources and do not deploy
-production without explicit authorization.
 
 ### 28.8 Mainline Production Safety Gate
 

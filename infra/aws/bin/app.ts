@@ -3,6 +3,8 @@ import path from "node:path";
 import { App } from "aws-cdk-lib";
 
 import { AccountGuardrailsStack } from "../lib/accountGuardrailsStack.js";
+import { EdgeSecurityStack } from "../lib/edgeSecurityStack.js";
+import { PublicApplicationStack } from "../lib/publicApplicationStack.js";
 import { resolveDeploymentEnvironment } from "../lib/deploymentEnvironment.js";
 import { resolveDeploymentStage } from "../lib/deploymentStage.js";
 import { PropertyAlertStack } from "../lib/propertyAlertStack.js";
@@ -19,6 +21,7 @@ const guardrailsStack = new AccountGuardrailsStack(
   {
     env: environment,
     githubBranch: "main",
+    githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubRepository: "chaoran-property-intelligence",
@@ -60,6 +63,43 @@ if (deploymentStage === "production") {
   devStack.addStackDependency(
     guardrailsStack,
     "Deploy account access guardrails before DEV application resources",
+  );
+  const edgeStack = new EdgeSecurityStack(
+    app,
+    "ChaoranPropertyIntelligenceDevEdge",
+    {
+      crossRegionReferences: true,
+      deploymentStage: "dev",
+      env: { account: environment.account, region: "us-east-1" },
+    },
+  );
+  edgeStack.addStackDependency(
+    guardrailsStack,
+    "Deploy account access guardrails before DEV edge resources",
+  );
+  const publicApplicationStack = new PublicApplicationStack(
+    app,
+    "ChaoranPropertyIntelligenceDevPublicApplication",
+    {
+      crossRegionReferences: true,
+      database: devStack.database,
+      databaseCredentialsSecret: devStack.databaseCredentialsSecret,
+      databaseSecurityGroup: devStack.databaseSecurityGroup,
+      deploymentStage: "dev",
+      env: environment,
+      repositoryRoot: path.resolve(process.cwd(), "../.."),
+      showingListArtifactBucket: devStack.showingListArtifactBucket,
+      vpc: devStack.vpc,
+      webAclArn: edgeStack.webAclArn,
+    },
+  );
+  publicApplicationStack.addStackDependency(
+    devStack,
+    "Deploy the isolated DEV foundation before its public runtime",
+  );
+  publicApplicationStack.addStackDependency(
+    edgeStack,
+    "Deploy the DEV CloudFront WAF before the public runtime",
   );
 }
 

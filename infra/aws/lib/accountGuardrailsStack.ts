@@ -15,6 +15,7 @@ import {
 import type { Construct } from "constructs";
 
 export interface AccountGuardrailsStackProps extends StackProps {
+  githubDevDeploymentRegions?: string[];
   githubBranch: string;
   githubDevEnvironment: string;
   githubOwner: string;
@@ -136,13 +137,15 @@ export class AccountGuardrailsStack extends Stack {
           "file-publishing-role",
           "image-publishing-role",
           "lookup-role",
-        ].map((roleType) =>
-          this.formatArn({
-            region: "",
-            resource: "role",
-            resourceName: `cdk-hnb659fds-${roleType}-${this.account}-${this.region}`,
-            service: "iam",
-          }),
+        ].flatMap((roleType) =>
+          (props.githubDevDeploymentRegions ?? [this.region]).map((region) =>
+            this.formatArn({
+              region: "",
+              resource: "role",
+              resourceName: `cdk-hnb659fds-${roleType}-${this.account}-${region}`,
+              service: "iam",
+            }),
+          ),
         ),
       }),
     );

@@ -207,6 +207,15 @@ exact configured `Origin` match before parsing credentials or executing a use
 case. Missing, opaque, or mismatched origins are rejected. `SameSite=Strict`
 provides an additional browser control but does not replace server validation.
 
+For a default CloudFront hostname, whose value is unavailable before the
+distribution is created, CloudFront's viewer-request function overwrites
+`x-cpi-viewer-origin` from the accepted viewer `Host`. Production API
+configuration may use only that exact trusted header name and only when
+`API_PUBLIC_ORIGIN` is absent. Express compares the browser `Origin` to the
+marker after the independent origin-verification secret succeeds. A viewer
+cannot choose the marker value through CloudFront, and a direct App Runner
+request cannot satisfy the secret boundary.
+
 In production, the App Runner origin-verification middleware runs before body
 parsing, rate limiting, and authentication. CloudFront overwrites the configured
 header value, and App Runner rejects a missing or mismatched value. Local mode

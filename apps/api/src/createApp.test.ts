@@ -153,6 +153,34 @@ describe("createApp", () => {
     expect(setCookie).not.toContain("Domain=");
   });
 
+  it("accepts CloudFront's overwritten viewer-origin marker", async () => {
+    const response = await request(
+      createTestApp({
+        httpSecurity: {
+          deploymentMode: "production",
+          originVerificationSecret,
+          publicOrigin: null,
+          trustedPublicOriginHeaderName: "x-cpi-viewer-origin",
+        },
+      }),
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: {
+          ...jsonHeaders(productionOrigin),
+          "x-cpi-origin-verification": originVerificationSecret,
+          "x-cpi-viewer-origin": productionOrigin,
+        },
+        body: JSON.stringify({
+          email: "admin@example.com",
+          password: "candidate password",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it("maps every credential failure to one public response", async () => {
     const login = new FakeLogin(new InvalidCredentialsError());
     const logger = new RecordingLogger();
@@ -1723,12 +1751,14 @@ const localHttpSecurity = {
   deploymentMode: "local" as const,
   publicOrigin: localOrigin,
   originVerificationSecret: null,
+  trustedPublicOriginHeaderName: null,
 };
 
 const productionHttpSecurity = {
   deploymentMode: "production" as const,
   publicOrigin: productionOrigin,
   originVerificationSecret,
+  trustedPublicOriginHeaderName: null,
 };
 
 function createTestApp(

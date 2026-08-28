@@ -82,9 +82,9 @@ flowchart TD
 
 ## Planned Authenticated Web and API Boundary
 
-**Status: approved target architecture; not deployed.** Public implementation
-is gated on Block 16 server-enforced authentication and a production security
-review.
+**Status: implemented for DEV in tested CDK; not deployed.** Production remains
+an approved target gated by DEV evidence, a separate production diff, and
+explicit authorization.
 
 ```mermaid
 flowchart LR
@@ -124,8 +124,11 @@ flowchart LR
 - Express performs authentication and authorization on every protected route.
   Neither CloudFront nor React route guards are an authorization boundary.
 - The browser and API use one CloudFront HTTPS origin. The accepted flow does
-  not enable CORS. Express requires an exact configured `Origin` for unsafe
-  methods and uses `SameSite=Strict` HttpOnly cookies as an additional control.
+  not enable CORS. Express requires an exact `Origin` for unsafe methods and
+  uses `SameSite=Strict` HttpOnly cookies as an additional control. With the
+  default CloudFront hostname, a viewer-request function overwrites
+  `x-cpi-viewer-origin` from the accepted viewer `Host`; Express uses that exact
+  marker only after origin-secret verification succeeds.
 - A short-lived JWT identifies a candidate user, but each protected request
   reloads current role and status from Aurora before authorization. Disabled or
   missing users are rejected before listing data is returned.
@@ -142,8 +145,9 @@ flowchart LR
   rotated through CDK and is never exposed to browser code. The only bypass is
   `GET /api/health`, which returns no application data and performs no database
   query so App Runner can probe the container directly.
-- The App Runner instance role can read only the production database secret and
-  the separate API-auth secret. It does not receive RentCast or Telegram
+- The App Runner instance role can read only its stage database secret, API-auth
+  secrets, and current Showing List artifact. It does not receive RentCast,
+  OpenAI, or Telegram
   credentials because the API does not call either service.
 - The first configuration uses `0.25 vCPU`, `0.5 GB`, and a minimum of one
   provisioned instance. At the current `us-west-2` memory rate, the idle memory
@@ -683,9 +687,11 @@ configuration required before publishing the workflow is:
 | `JWT_ISSUER` | `.env.local`; API-auth Secret | No | Express API only |
 | `JWT_AUDIENCE` | `.env.local`; API-auth Secret | No | Express API only |
 | `API_DEPLOYMENT_MODE` | `.env.local`; App Runner environment | No | Express listener and cookie policy |
-| `API_PUBLIC_ORIGIN` | `.env.local`; App Runner environment | No | Exact unsafe-request Origin check |
+| `API_PUBLIC_ORIGIN` | `.env.local`; fixed-domain App Runner environment | No | Exact unsafe-request Origin check |
+| `API_TRUSTED_PUBLIC_ORIGIN_HEADER` | App Runner environment | No | Exact CloudFront-owned origin marker; mutually exclusive with `API_PUBLIC_ORIGIN` |
 | `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
 | `PORT` | App Runner environment | No | Production Express listener |
+| `DATABASE_CREDENTIALS_SECRET_JSON` | App Runner secret environment | Yes | Existing Aurora username/password JSON secret |
 | `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |
 | `SHOWING_LIST_ARTIFACT_BUCKET` | Generated task environment | No | Weekly task and future API |
 | `SHOWING_LIST_TIME_ZONE` | Generated from CDK context | No | Weekly identity |

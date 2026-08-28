@@ -144,6 +144,8 @@ async function startApi(): Promise<void> {
         deploymentMode: config.deploymentMode,
         publicOrigin: config.publicOrigin,
         originVerificationSecret: config.originVerificationSecret,
+        trustedPublicOriginHeaderName:
+          config.trustedPublicOriginHeaderName,
       },
       logger: {
         error(event, context) {

@@ -9,6 +9,9 @@ const dockerfilePath = fileURLToPath(
 const dockerignorePath = fileURLToPath(
   new URL("../../../.dockerignore", import.meta.url),
 );
+const apiDockerfilePath = fileURLToPath(
+  new URL("../../../Dockerfile.api", import.meta.url),
+);
 
 describe("production runtime image", () => {
   it("makes the RDS CA bundle readable by the non-root runtime user", () => {
@@ -19,6 +22,23 @@ describe("production runtime image", () => {
       "COPY --from=rds-certificate --chmod=0444 /global-bundle.pem /app/certs/global-bundle.pem",
     );
     expect(dockerfile).toContain("USER node");
+  });
+
+  it("builds a dedicated non-root API image with the RDS trust bundle", () => {
+    const dockerfile = readFileSync(apiDockerfilePath, "utf8");
+
+    expect(dockerfile).toContain("RUN pnpm build:api");
+    expect(dockerfile).toContain(
+      "--filter @chaoran-property-intelligence/api",
+    );
+    expect(dockerfile).toContain(
+      "COPY --from=rds-certificate --chmod=0444 /global-bundle.pem /app/certs/global-bundle.pem",
+    );
+    expect(dockerfile).toContain("USER node");
+    expect(dockerfile).toContain(
+      'CMD ["node", "apps/api/dist/server.js"]',
+    );
+    expect(dockerfile).not.toContain("alert-worker");
   });
 
   it("builds only the alert worker runtime", () => {

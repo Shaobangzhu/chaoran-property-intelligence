@@ -1886,15 +1886,24 @@ Planned sub-block mapping:
    changed, and no schedule, worker, migration, provider, OpenAI, Telegram, or
    notification action ran. An account-backed diff remains mandatory before a
    separately authorized first DEV deployment.
-6. `28.5` Add protected DEV deployment from `dev` with health check, API smoke,
+6. `28.5` Implement the DEV public Web/API runtime in CDK and stop at synth and
+   diff review. **Complete without deployment:** separate DEV edge and public
+   application stacks now define a CloudFront WAF in `us-east-1`, private
+   versioned S3 with Origin Access Control, App Runner in `us-west-2`, an
+   isolated-subnet VPC Connector, Aurora security-group ingress, response
+   headers, SPA routing, disabled API caching, stage-specific API secrets, and
+   CloudFront origin protection. API configuration accepts the existing Aurora
+   credentials JSON secret and a CloudFront-overwritten exact viewer-origin
+   marker. Contract tests and both synth modes pass. No AWS resource, secret,
+   database, migration, schedule, worker, provider, notification, or production
+   data was accessed or changed.
+7. `28.6` Add protected DEV deployment from `dev` with health check, API smoke,
    UI smoke, rollback evidence, workflow artifacts, and bounded SNS failure
-   email.
-7. `28.6` Add nightly AWS DEV regression and flaky-test engineering controls:
+   email. The first deployment remains separately authorized and must review
+   API startup migrations explicitly.
+8. `28.7` Add nightly AWS DEV regression and flaky-test engineering controls:
    bounded retries, explicit quarantine metadata, owner, expiry, and
    remediation path.
-8. `28.7` Implement CloudFront, private S3, App Runner, VPC Connector, WAF,
-   response-header policy, origin-protection, rollback, and smoke-test controls
-   in incremental CDK slices after diff review.
 9. `28.8` Complete `dev -> main` full regression against AWS DEV and
    controlled production deployment with safe production smoke only.
 

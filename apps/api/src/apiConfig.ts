@@ -10,8 +10,9 @@ export type ApiDeploymentMode = "local" | "production";
 
 export interface ApiHttpSecurityConfig {
   deploymentMode: ApiDeploymentMode;
-  publicOrigin: string;
+  publicOrigin: string | null;
   originVerificationSecret: string | null;
+  trustedPublicOriginHeaderName: string | null;
 }
 
 export interface ApiConfig extends ApiHttpSecurityConfig {
@@ -30,23 +31,77 @@ export function loadApiConfig(
   const deploymentMode = readDeploymentMode(environment);
 
   return {
-    databaseConnection: {
-      kind: "connection-string",
-      connectionString: readRequiredVariable(environment, "DATABASE_URL"),
-    },
+    databaseConnection: readDatabaseConnection(environment, deploymentMode),
     deploymentMode,
     host: deploymentMode === "production" ? "0.0.0.0" : "127.0.0.1",
     port:
       deploymentMode === "production"
         ? readPort(readRequiredVariable(environment, "PORT"), "PORT")
         : readLocalApiPort(environment),
-    publicOrigin: readPublicOrigin(environment, deploymentMode),
+    ...readPublicOrigin(environment, deploymentMode),
     originVerificationSecret:
       deploymentMode === "production"
         ? readOriginVerificationSecret(environment)
         : null,
     showingListArtifactStorage: readShowingListArtifactStorage(environment),
   };
+}
+
+function readDatabaseConnection(
+  environment: Readonly<Record<string, string | undefined>>,
+  deploymentMode: ApiDeploymentMode,
+): PostgresConnectionConfig {
+  const connectionString = environment.DATABASE_URL;
+  if (connectionString !== undefined && connectionString.trim().length > 0) {
+    return { kind: "connection-string", connectionString };
+  }
+  if (deploymentMode === "local") {
+    throw new Error("Missing required environment variable: DATABASE_URL");
+  }
+
+  const credentials = readDatabaseCredentialsSecret(environment);
+
+  return {
+    kind: "parameters",
+    database: readRequiredVariable(environment, "PGDATABASE"),
+    host: readRequiredVariable(environment, "PGHOST"),
+    password: credentials.password,
+    port: readPort(readRequiredVariable(environment, "PGPORT"), "PGPORT"),
+    ssl: true,
+    user: credentials.username,
+  };
+}
+
+function readDatabaseCredentialsSecret(
+  environment: Readonly<Record<string, string | undefined>>,
+): { password: string; username: string } {
+  const value = readRequiredVariable(
+    environment,
+    "DATABASE_CREDENTIALS_SECRET_JSON",
+  );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(
+      "Invalid database credentials: DATABASE_CREDENTIALS_SECRET_JSON",
+    );
+  }
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("password" in parsed) ||
+    typeof parsed.password !== "string" ||
+    parsed.password.length === 0 ||
+    !("username" in parsed) ||
+    typeof parsed.username !== "string" ||
+    parsed.username.length === 0
+  ) {
+    throw new Error(
+      "Invalid database credentials: DATABASE_CREDENTIALS_SECRET_JSON",
+    );
+  }
+  return { password: parsed.password, username: parsed.username };
 }
 
 function readShowingListArtifactStorage(
@@ -117,8 +172,27 @@ function readPort(value: string, variableName: string): number {
 function readPublicOrigin(
   environment: Readonly<Record<string, string | undefined>>,
   deploymentMode: ApiDeploymentMode,
-): string {
+): Pick<
+  ApiHttpSecurityConfig,
+  "publicOrigin" | "trustedPublicOriginHeaderName"
+> {
   const configuredOrigin = environment.API_PUBLIC_ORIGIN;
+  const trustedHeader = environment.API_TRUSTED_PUBLIC_ORIGIN_HEADER;
+  if (trustedHeader !== undefined && trustedHeader.length > 0) {
+    if (
+      deploymentMode !== "production" ||
+      configuredOrigin !== undefined ||
+      trustedHeader !== "x-cpi-viewer-origin"
+    ) {
+      throw new Error(
+        "Invalid API trusted origin header: API_TRUSTED_PUBLIC_ORIGIN_HEADER",
+      );
+    }
+    return {
+      publicOrigin: null,
+      trustedPublicOriginHeaderName: trustedHeader,
+    };
+  }
   const value =
     configuredOrigin === undefined || configuredOrigin.length === 0
       ? deploymentMode === "local"
@@ -129,7 +203,7 @@ function readPublicOrigin(
   if (value === null || !isExactOrigin(value, deploymentMode)) {
     throw new Error("Invalid API public origin: API_PUBLIC_ORIGIN");
   }
-  return value;
+  return { publicOrigin: value, trustedPublicOriginHeaderName: null };
 }
 
 function isExactOrigin(

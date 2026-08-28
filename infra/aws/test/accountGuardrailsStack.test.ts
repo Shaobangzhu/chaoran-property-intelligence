@@ -12,6 +12,7 @@ function createTemplate(): Template {
       region: "us-west-2",
     },
     githubBranch: "main",
+    githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubRepository: "chaoran-property-intelligence",
@@ -154,6 +155,12 @@ describe("AccountGuardrailsStack", () => {
       "cdk-hnb659fds-image-publishing-role-",
     );
     expect(devPolicyDocument).toContain("cdk-hnb659fds-lookup-role-");
+    expect(devPolicyDocument).toContain(
+      "cdk-hnb659fds-deploy-role-111111111111-us-west-2",
+    );
+    expect(devPolicyDocument).toContain(
+      "cdk-hnb659fds-deploy-role-111111111111-us-east-1",
+    );
     expect(devPolicyDocument).not.toContain("cdk-hnb659fds-*");
   });
 
