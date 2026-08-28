@@ -79,7 +79,7 @@ pnpm build
 | `18.5` | Public Web/API AWS runtime architecture | Feasible after stage isolation | `18.4` complete | Implement in DEV first. Requires App Runner, private S3, CloudFront, WAF, response headers, origin protection, and CDK tests. |
 | `18.6` | First controlled AWS DEV deployment | Conditionally feasible | `18.4` and `18.5`, AWS credentials, explicit approval | May modify AWS DEV only. Must classify CDK diff and prove no production replacement. |
 | `18.7` | Automatic DEV continuous deployment | Feasible after first DEV deploy | Stable manual DEV deployment | Use DEV OIDC role and protected `development` environment. Production workflow remains manual. |
-| `18.8` | Playwright system-level automation | Feasible before or after DEV, best after local taxonomy | Local test framework and deterministic local servers | Start with 2-3 API tests and 2-3 UI tests. Do not replace Vitest. |
+| `18.8` | Playwright system-level automation | Feasible before or after DEV, best after local taxonomy | Local test framework and deterministic local servers | Initial local foundation is implemented in Block 28.1 with 3 API smoke tests and 3 UI smoke tests. Do not replace Vitest. |
 | `18.9` | Post-deployment acceptance on AWS DEV | Feasible after Playwright and DEV CD | `18.7` and smoke tags | Smoke only on merge to `dev`; full regression belongs to release and nightly gates. |
 | `18.10` | Unified observability and failure notification | Feasible after test outputs exist | Vitest/Playwright result artifacts | Public reports must be sanitized. SNS topic should be DEV/test-specific. |
 | `18.11` | Release-candidate quality gate | Feasible after DEV CD and regression suite | `dev -> main` PR model | Must verify the exact deployed SHA or immutable artifact identity. No production deployment from PR. |
@@ -281,10 +281,11 @@ shape for review:
 | `pnpm test:integration` | Cross-layer in-process workflows | Vitest include patterns for `*.integration.test.*` and explicitly named local integration tests. |
 | `pnpm test:infra` | AWS/CDK and workflow contract tests | Vitest include patterns under `infra/aws/test`. |
 | `pnpm test:all` | Explicit complete test command | Alias to `pnpm test` or a composed suite after scripts split. |
-| `pnpm test:api` | Future black-box API automation | Playwright API tests after `18.8`. |
-| `pnpm test:ui` | Future browser UI automation | Playwright UI tests after `18.8`. |
-| `pnpm test:e2e` | Future all Playwright automation | API plus UI after `18.8`. |
-| `pnpm test:e2e:smoke` | Future deployment smoke | Tagged smoke subset for local/DEV deployment acceptance. |
+| `pnpm test:api` | Black-box API smoke automation | Playwright `APIRequestContext` against the local HTTP stub. |
+| `pnpm test:ui` | Browser UI smoke automation | Playwright Chromium against Vite plus the local HTTP stub. |
+| `pnpm test:e2e` | All local Playwright automation | API plus UI with local bounded web servers. |
+| `pnpm test:e2e:install-browsers` | Local/CI browser setup | Installs the Playwright Chromium binary required by UI smoke. |
+| `pnpm test:e2e:smoke` | Tagged local smoke suite | Runs tests tagged `@smoke`; future DEV smoke can reuse this shape with a deployed base URL. |
 
 Coverage thresholds should not be invented. If coverage is introduced, first
 record the observed baseline and then propose thresholds from measured signal.

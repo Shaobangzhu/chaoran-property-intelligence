@@ -1841,7 +1841,14 @@ Planned sub-block mapping:
 2. `28.1` Add the local Playwright foundation with deterministic browser smoke
    and Playwright `APIRequestContext` black-box API smoke against local servers
    and fakes. Do not require AWS, Aurora, production secrets, RentCast, OpenAI,
-   Telegram, or a production migration.
+   Telegram, or a production migration. **Complete:** root Playwright config,
+   API/UI smoke suites, a local HTTP stub, failure screenshots/traces, and
+   `test:api`, `test:ui`, `test:e2e`, and `test:e2e:smoke` scripts are in
+   place. API smoke runs through HTTP only and does not import Express internals;
+   UI smoke uses Vite plus the local stub and stable accessible selectors. The
+   framework starts bounded local servers through Playwright readiness checks
+   and performs no AWS, database, provider, OpenAI, Telegram, schedule,
+   production notification, or migration action.
 3. `28.2` Add Allure and failure artifacts for Vitest and Playwright, including
    screenshots and traces on Playwright failure, with artifact privacy review.
 4. `28.3` Add dependency-aware PR Quality Gate rules for `feature/* -> dev`

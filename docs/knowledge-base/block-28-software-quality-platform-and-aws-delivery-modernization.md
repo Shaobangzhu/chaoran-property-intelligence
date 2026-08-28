@@ -119,6 +119,19 @@ Add Playwright with a deterministic local web smoke and API smoke. Use local
 servers, fakes, and bounded readiness checks. Do not require AWS, PostgreSQL
 Aurora, RentCast, OpenAI, Telegram, or production secrets.
 
+Implementation status: complete. The root Playwright config starts a dedicated
+local HTTP stub and, for UI runs, the Vite development server. API smoke uses
+Playwright `APIRequestContext` over HTTP only and does not import `createApp()`,
+application use cases, repositories, domain services, or database adapters. UI
+smoke covers sign-in, protected Listings rendering, and sign-out through stable
+roles, labels, and names. Playwright retains traces and captures screenshots on
+failure. The new scripts are `pnpm test:api`, `pnpm test:ui`,
+`pnpm test:e2e`, `pnpm test:e2e:smoke`, and
+`pnpm test:e2e:install-browsers`. Local UI smoke requires the Playwright
+Chromium binary. The smoke tests abort non-loopback browser requests so this
+foundation does not depend on external ArcGIS availability or consume provider
+services.
+
 ### 28.2 Quality Observability
 
 Add Allure and failure artifacts for Vitest and Playwright. Preserve readable

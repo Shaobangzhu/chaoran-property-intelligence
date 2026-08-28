@@ -27,7 +27,13 @@
     "build:runtime": "pnpm build:packages && tsc -p apps/alert-worker/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json && tsc -p apps/admin-cli/tsconfig.build.json && pnpm build:web",
     "build:web": "pnpm --dir apps/web build",
     "test": "vitest run",
-    "typecheck": "pnpm typecheck:runtime && pnpm --dir infra/aws typecheck",
+    "test:api": "playwright test --project=api-smoke",
+    "test:e2e": "CPI_PLAYWRIGHT_START_WEB=true playwright test",
+    "test:e2e:install-browsers": "playwright install chromium",
+    "test:e2e:smoke": "CPI_PLAYWRIGHT_START_WEB=true playwright test --grep @smoke",
+    "test:ui": "CPI_PLAYWRIGHT_START_WEB=true playwright test --project=ui-smoke",
+    "typecheck": "pnpm typecheck:runtime && pnpm typecheck:playwright && pnpm --dir infra/aws typecheck",
+    "typecheck:playwright": "tsc --noEmit -p tsconfig.playwright.json",
     "typecheck:runtime": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/rentcast/tsconfig.json && tsc --noEmit -p packages/application/tsconfig.json && tsc --noEmit -p packages/telegram/tsconfig.json && tsc --noEmit -p packages/openai/tsconfig.json && tsc --noEmit -p packages/pdf/tsconfig.json && tsc --noEmit -p packages/s3/tsconfig.json && tsc --noEmit -p packages/postgres/tsconfig.json && tsc --noEmit -p packages/auth/tsconfig.json && tsc --noEmit -p apps/alert-worker/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/admin-cli/tsconfig.json && pnpm --dir apps/web typecheck",
     "user:create-admin": "pnpm build:admin-cli && node --env-file-if-exists=.env.local apps/admin-cli/dist/index.js",
     "verify:local": "vitest run apps/alert-worker/src/localIntegration.test.ts",
@@ -37,6 +43,8 @@
     "wildfire:data:test": "vitest run tools/wildfire-hazard"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.13.3",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
