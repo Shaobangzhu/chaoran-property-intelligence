@@ -26,10 +26,10 @@ reviewed CDK extension.
 
 ## Phase Status
 
-| Phase | Operation | State at Block 29.0 | Authorization |
+| Phase | Operation | Current state | Authorization |
 | --- | --- | --- | --- |
 | 29.0 | Documentation and local verification | Prepared | None for AWS |
-| 29.1 | Read-only account inventory | Pending | Confirm before AWS login |
+| 29.1 | Read-only account inventory | Complete; blockers recorded | Read-only authorization completed |
 | 29.2a | Missing-region CDK bootstrap | Pending | Explicit mutation approval |
 | 29.2b | Guardrails/OIDC update | Pending | Diff review plus explicit approval |
 | 29.3 | First DEV plan/deploy/migration | Pending | Two GitHub environment approvals |
@@ -116,6 +116,12 @@ Repository/GitHub preflight:
 - no AWS access-key secret exists in GitHub
 
 Produce a redacted inventory summary and stop for review.
+
+Status: complete on 2026-08-28. See the
+[redacted Block 29.1 preflight record](../operations/block-29-1-read-only-launch-preflight.md).
+The record proves that `us-east-1` bootstrap, DEV OIDC, branch protection, and
+environment protections remain prerequisites. It does not authorize Block
+29.2 mutations.
 
 ## 29.2a CDK Bootstrap
 
