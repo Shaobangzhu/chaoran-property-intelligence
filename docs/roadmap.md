@@ -1944,3 +1944,58 @@ See the
 [Block 28 Software Quality Platform And AWS Delivery Modernization Knowledge Base](knowledge-base/block-28-software-quality-platform-and-aws-delivery-modernization.md)
 and
 [ADR 0016: Software Quality Platform And AWS Delivery Modernization](adr/0016-software-quality-platform-and-aws-delivery-modernization.md).
+
+### Block 29: AWS Public Launch And Operational Readiness
+
+Turn the source-complete Block 28 public Web/API architecture into a controlled,
+browser-accessible AWS launch. The supported initial entry point is the
+CloudFormation `ApplicationUrl`, an HTTPS CloudFront hostname such as
+`https://<generated-name>.cloudfront.net`; CloudFront does not provide this
+application with a stable user-facing IP address.
+
+Block 29 reuses the approved architecture and deployment workflows. It does not
+rename production resources, merge DEV and production, enable worker schedules,
+or introduce direct production deployment from a local machine. Every mutating
+sub-block requires exact account confirmation, account-backed diff
+classification, explicit authorization, immutable release evidence, safe
+smoke, and rollback evidence.
+
+Planned sub-block mapping:
+
+1. `29.0` Prepare ADR 0017, the Block 29 knowledge base, this roadmap entry,
+   and the staged launch operation runbook. **Complete in documentation only:**
+   no AWS login, diff, bootstrap, deployment, migration, DNS change, secret
+   access, database operation, worker, provider, Telegram, notification, or
+   production action is authorized or executed.
+2. `29.1` Perform a separately confirmed read-only AWS inventory for identity,
+   account, regions, current stacks, CDK bootstrap, OIDC roles, schedules,
+   budgets, and public-runtime absence/status. Stop before mutation.
+3. `29.2` Bootstrap only missing regions, then review and deploy the bounded
+   Guardrails/OIDC update through federated administrator access. Bootstrap and
+   Guardrails are separate mutation approvals; production trust and retained
+   identities must remain unchanged.
+4. `29.3` Configure protected GitHub DEV settings and perform the first manual
+   `dev` plan/deploy with two approvals. The second approval covers only the
+   reviewed DEV stacks and DEV API startup migration. Both schedules remain
+   disabled.
+5. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
+   identity, health, security-header, read-only API/UI smoke, and one manual
+   nightly regression run. Configure `CPI_AWS_DEV_BASE_URL` only after success.
+6. `29.5` Promote the exact deployed candidate through the protected
+   `dev -> main` release gate and require green main CI. Before production,
+   bind the production deployment job to a protected `production` environment
+   with required review and exact-main restriction, and test that contract.
+7. `29.6` Run the controlled production plan, review its approval digest, then
+   obtain separate authorization for the digest-bound deployment and production
+   API startup migration. Run safe, unauthenticated production smoke only.
+8. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
+   DNS changes after generated-hostname launch. Do not create console drift.
+9. `29.8` Complete operational handoff with URLs, release identities, plan and
+   deployment artifacts, schedule state, budget/SNS checks, rollback evidence,
+   ownership, and remaining risks.
+
+See the
+[Block 29 AWS Public Launch And Operational Readiness Knowledge Base](knowledge-base/block-29-aws-public-launch-and-operational-readiness.md),
+[Block 29 AWS Public Launch Runbook](runbooks/block-29-aws-public-launch.md),
+and
+[ADR 0017: AWS Public Launch And Operational Readiness](adr/0017-aws-public-launch-and-operational-readiness.md).
