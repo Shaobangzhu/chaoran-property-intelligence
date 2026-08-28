@@ -663,8 +663,12 @@ The OIDC trust conditions are exact:
 
 ```text
 aud = sts.amazonaws.com
-sub = repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main
+sub = repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main
 ```
+
+GitHub immutable OIDC subjects include both the owner ID and repository ID.
+The IAM trust must keep this complete value exact; do not replace either role
+subject with a repository wildcard.
 
 No AWS access key or secret access key is stored in GitHub. Repository
 configuration required before publishing the workflow is:

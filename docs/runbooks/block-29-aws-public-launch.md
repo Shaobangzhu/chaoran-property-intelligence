@@ -182,7 +182,7 @@ public-delivery permissions. The production trust subject must remain exactly
 the protected `main` ref, and DEV trust must be exactly:
 
 ```text
-repo:Shaobangzhu/chaoran-property-intelligence:environment:development
+repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development
 ```
 
 `MUTATING`: after a separate approval of that exact diff, deploy only the

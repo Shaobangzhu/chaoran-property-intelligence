@@ -59,7 +59,7 @@ Before the first run:
 8. Deploy the reviewed Guardrails change through an administrator-controlled
    path so `cpi-github-deploy-dev` exists before GitHub can assume it.
 9. Confirm that the DEV role trust subject is exactly
-   `repo:Shaobangzhu/chaoran-property-intelligence:environment:development`.
+   `repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development`.
 
 The role can assume only the four named CDK bootstrap role types in the two
 deployment regions. Direct workflow permissions are bounded to reviewed DEV

@@ -21,8 +21,10 @@ export interface AccountGuardrailsStackProps extends StackProps {
   githubBranch: string;
   githubDevEnvironment: string;
   githubOwner: string;
+  githubOwnerId: string;
   githubProductionDeploymentRegions?: string[];
   githubRepository: string;
+  githubRepositoryId: string;
 }
 
 export class AccountGuardrailsStack extends Stack {
@@ -70,8 +72,12 @@ export class AccountGuardrailsStack extends Stack {
       clientIdList: ["sts.amazonaws.com"],
       url: "https://token.actions.githubusercontent.com",
     });
+    const githubRepositorySubject = [
+      `repo:${props.githubOwner}@${props.githubOwnerId}`,
+      `${props.githubRepository}@${props.githubRepositoryId}`,
+    ].join("/");
     const githubSubject = [
-      `repo:${props.githubOwner}/${props.githubRepository}`,
+      githubRepositorySubject,
       `ref:refs/heads/${props.githubBranch}`,
     ].join(":");
     const githubDeployRole = new Role(this, "GitHubDeployRole", {
@@ -234,7 +240,7 @@ export class AccountGuardrailsStack extends Stack {
     );
 
     const githubDevSubject = [
-      `repo:${props.githubOwner}/${props.githubRepository}`,
+      githubRepositorySubject,
       `environment:${props.githubDevEnvironment}`,
     ].join(":");
     const githubDevDeployRole = new Role(this, "GitHubDevDeployRole", {
