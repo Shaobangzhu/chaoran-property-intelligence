@@ -149,9 +149,13 @@ The root CI workflow now installs the Playwright Chromium browser, runs the
 local `@smoke` Playwright suite, generates the Allure report when result files
 exist, and uploads bounded quality diagnostics from `allure-results`,
 `allure-report`, `playwright-report`, and `test-results/playwright`.
-Generated report directories are ignored by Git. No SNS topic, AWS resource,
-deployment, database mutation, provider call, production notification, schedule,
-or migration is part of this sub-block.
+Generated report directories are ignored by Git. Local test scripts clean
+`allure-results` and `allure-report` before each run so stale results do not
+accumulate; CI uses `CPI_APPEND_ALLURE_RESULTS=true` only for the later
+Playwright smoke step so Vitest and Playwright evidence stay together in one
+workflow report. No SNS topic, AWS resource, deployment, database mutation,
+provider call, production notification, schedule, or migration is part of this
+sub-block.
 
 ### 28.3 Dependency-Aware PR Gate
 

@@ -38,6 +38,8 @@ jobs:
         run: pnpm test:e2e:install-browsers
 
       - name: Run Playwright smoke tests
+        env:
+          CPI_APPEND_ALLURE_RESULTS: "true"
         run: pnpm test:e2e:smoke
 
       - name: Build

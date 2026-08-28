@@ -511,7 +511,11 @@ Block 28.2 implementation records git SHA, git ref, CI/local mode, OS platform,
 OS release, Node.js version, and test framework for Vitest and Playwright
 result files. CI uploads `allure-results`, `allure-report`,
 `playwright-report`, and `test-results/playwright` as a single bounded
-diagnostic artifact with 14-day retention.
+diagnostic artifact with 14-day retention. Local test scripts clean
+`allure-results` and `allure-report` before running so each local command
+overwrites stale Allure evidence; CI sets `CPI_APPEND_ALLURE_RESULTS=true` only
+for the Playwright smoke step so the same workflow report can include both
+Vitest and Playwright results.
 
 Public repositories require artifact privacy review. Do not publicly expose:
 
