@@ -28,6 +28,7 @@
     "build:web": "pnpm --dir apps/web build",
     "allure:clean": "node tests/support/clean-allure-artifacts.mjs",
     "report:allure": "allure generate allure-results -o allure-report",
+    "report:github-summary": "node tests/support/write-github-quality-summary.mjs",
     "test": "pnpm allure:clean && vitest run",
     "test:api": "pnpm allure:clean && playwright test --project=api-smoke",
     "test:e2e": "pnpm allure:clean && CPI_PLAYWRIGHT_START_WEB=true playwright test",

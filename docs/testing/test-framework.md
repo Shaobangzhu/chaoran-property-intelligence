@@ -290,6 +290,7 @@ shape for review:
 | `pnpm test:e2e:install-browsers` | Local/CI browser setup | Installs the Playwright Chromium binary required by UI smoke. |
 | `pnpm test:e2e:smoke` | Tagged local smoke suite | Runs tests tagged `@smoke`; future DEV smoke can reuse this shape with a deployed base URL. |
 | `pnpm report:allure` | Static quality report generation | Generates `allure-report` from `allure-results` for local review and CI artifacts. |
+| `pnpm report:github-summary` | GitHub Actions quality summary | Converts `allure-report/summary.json` into a bounded Markdown summary for the workflow run page. |
 
 Coverage thresholds should not be invented. If coverage is introduced, first
 record the observed baseline and then propose thresholds from measured signal.
@@ -515,7 +516,9 @@ diagnostic artifact with 14-day retention. Local test scripts clean
 `allure-results` and `allure-report` before running so each local command
 overwrites stale Allure evidence; CI sets `CPI_APPEND_ALLURE_RESULTS=true` only
 for the Playwright smoke step so the same workflow report can include both
-Vitest and Playwright results.
+Vitest and Playwright results. The CI workflow writes a bounded Allure-derived
+summary to the GitHub Actions run page and links to the uploaded artifact for
+the full HTML report, traces, screenshots, and raw result files.
 
 Public repositories require artifact privacy review. Do not publicly expose:
 
