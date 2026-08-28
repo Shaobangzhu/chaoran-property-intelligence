@@ -1809,3 +1809,66 @@ See the
 [Block 27 Irvine Market And Wildfire Coverage Knowledge Base](knowledge-base/block-27-irvine-market-and-wildfire-coverage.md)
 and
 [ADR 0015: Irvine Market And Wildfire Coverage](adr/0015-irvine-market-and-wildfire-coverage.md).
+
+### Block 28: Software Quality Platform And AWS Delivery Modernization
+
+Modernize the repository's quality platform and AWS delivery path so the project
+demonstrates both application engineering and Senior SDET/Test Automation
+Architect judgment. The target architecture adds a focused Playwright browser
+and black-box API layer, Allure and workflow artifacts, dependency-aware PR
+gates, AWS DEV deployment, nightly DEV regression, flaky-test engineering, and
+safe production smoke around the approved CloudFront/private-S3/App Runner/VPC
+Connector public Web/API architecture.
+
+Block 28 preserves the existing production worker/database safety model.
+Production CloudFormation identities, retained resources, secrets, schedules,
+data, and notification paths are not renamed or mutated for symmetry with DEV.
+GitHub Actions continues to use OIDC and least privilege. DEV remains isolated
+from production and schedules default to disabled. Public Web/API delivery
+requires CDK synth, diff classification, WAF, response headers, origin
+protection, rollback, health check, API smoke, and UI smoke review before any
+real deployment.
+
+Planned sub-block mapping:
+
+1. `28.0` Record Software Quality Platform and AWS Delivery Modernization
+   architecture, delivery stages, environment boundaries, observability goals,
+   and safety constraints. **Complete in documentation only:** ADR 0016, the
+   Block 28 knowledge base, and this roadmap entry define the staged quality
+   architecture and delivery model. No dependency, workflow, runtime code, CDK
+   resource, AWS deployment, database, schedule, provider request, OpenAI call,
+   Telegram message, production notification, commit, push, or merge changed.
+2. `28.1` Add the local Playwright foundation with deterministic browser smoke
+   and Playwright `APIRequestContext` black-box API smoke against local servers
+   and fakes. Do not require AWS, Aurora, production secrets, RentCast, OpenAI,
+   Telegram, or a production migration.
+3. `28.2` Add Allure and failure artifacts for Vitest and Playwright, including
+   screenshots and traces on Playwright failure, with artifact privacy review.
+4. `28.3` Add dependency-aware PR Quality Gate rules for `feature/* -> dev`
+   PRs while retaining a conservative full fallback for shared package,
+   workflow, infrastructure, lockfile, auth, API contract, and config changes.
+5. `28.4` Define isolated AWS DEV CDK architecture and OIDC guardrails with
+   contract tests, synth, and reviewed diff only. Do not deploy.
+6. `28.5` Add protected DEV deployment from `dev` with health check, API smoke,
+   UI smoke, rollback evidence, workflow artifacts, and bounded SNS failure
+   email.
+7. `28.6` Add nightly AWS DEV regression and flaky-test engineering controls:
+   bounded retries, explicit quarantine metadata, owner, expiry, and
+   remediation path.
+8. `28.7` Implement CloudFront, private S3, App Runner, VPC Connector, WAF,
+   response-header policy, origin-protection, rollback, and smoke-test controls
+   in incremental CDK slices after diff review.
+9. `28.8` Complete `dev -> main` full regression against AWS DEV and
+   controlled production deployment with safe production smoke only.
+
+Every executable sub-block requires a fresh explanation, expected files, test
+plan, relevant tests, full typecheck, production build, changed-files summary,
+architectural decisions, and remaining risks. Real AWS deployment, production
+CDK deployment, production migration, scheduled worker execution, RentCast,
+OpenAI, Telegram, or production notification behavior is never implied by a
+plan or fixture test.
+
+See the
+[Block 28 Software Quality Platform And AWS Delivery Modernization Knowledge Base](knowledge-base/block-28-software-quality-platform-and-aws-delivery-modernization.md)
+and
+[ADR 0016: Software Quality Platform And AWS Delivery Modernization](adr/0016-software-quality-platform-and-aws-delivery-modernization.md).
