@@ -27,7 +27,8 @@ mutates no database, calls no external provider, and sends no notification.
 - The approved Web/API target is CloudFront, private S3, App Runner, App Runner
   VPC Connector to private Aurora, WAF, response headers, and origin
   verification.
-- The repository currently has no Playwright or Allure dependency.
+- At the start of Block 28.0 the repository had no Playwright or Allure
+  dependency; Blocks 28.1 and 28.2 add them incrementally.
 - There are 118 tracked Vitest test files at the start of Block 28.0.
 
 ## Target Quality Architecture
@@ -138,6 +139,19 @@ Add Allure and failure artifacts for Vitest and Playwright. Preserve readable
 terminal output and upload reports as workflow artifacts. Review artifact
 contents for credentials, cookies, tokens, and sensitive customer/listing
 content.
+
+Implementation status: complete. Vitest is configured with
+`allure-vitest/reporter`; Playwright is configured with `allure-playwright`,
+HTML reporting, traces retained on failure, and screenshots on failure. Both
+runners write Allure result files to `allure-results`, and
+`pnpm report:allure` generates the static report under `allure-report`.
+The root CI workflow now installs the Playwright Chromium browser, runs the
+local `@smoke` Playwright suite, generates the Allure report when result files
+exist, and uploads bounded quality diagnostics from `allure-results`,
+`allure-report`, `playwright-report`, and `test-results/playwright`.
+Generated report directories are ignored by Git. No SNS topic, AWS resource,
+deployment, database mutation, provider call, production notification, schedule,
+or migration is part of this sub-block.
 
 ### 28.3 Dependency-Aware PR Gate
 

@@ -1851,6 +1851,12 @@ Planned sub-block mapping:
    production notification, or migration action.
 3. `28.2` Add Allure and failure artifacts for Vitest and Playwright, including
    screenshots and traces on Playwright failure, with artifact privacy review.
+   **Complete:** Vitest and Playwright both emit Allure result files into
+   `allure-results`, `pnpm report:allure` generates `allure-report`, CI runs
+   the local Playwright smoke suite, and CI uploads bounded quality diagnostics
+   from Allure plus Playwright reports/traces. Generated report directories are
+   ignored locally. This step creates no SNS topic, cloud resource, deployment,
+   database mutation, provider call, production notification, or schedule.
 4. `28.3` Add dependency-aware PR Quality Gate rules for `feature/* -> dev`
    PRs while retaining a conservative full fallback for shared package,
    workflow, infrastructure, lockfile, auth, API contract, and config changes.

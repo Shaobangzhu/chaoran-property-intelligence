@@ -23,6 +23,8 @@ coverage
 *.lcov
 
 # Playwright local reports and traces
+allure-report/
+allure-results/
 playwright-report/
 test-results/
 

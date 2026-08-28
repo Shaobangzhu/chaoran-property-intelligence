@@ -10,9 +10,11 @@ commands by themselves. The active implementation authority remains the
 repository roadmap, ADRs, runbooks, and explicit user approval for each
 sub-block.
 
-No Playwright dependency, Allure dependency, GitHub workflow, AWS resource,
-branch, database, provider request, OpenAI request, Telegram message, schedule,
-migration, deployment, or production notification is created by this document.
+This document itself created no Playwright dependency, Allure dependency,
+GitHub workflow, AWS resource, branch, database, provider request, OpenAI
+request, Telegram message, schedule, migration, deployment, or production
+notification. Later implementation blocks update the status notes below as
+work lands.
 
 ## Repository Baseline
 
@@ -25,12 +27,13 @@ The repository currently has:
 - shared packages under `packages/*`
 - AWS CDK under `infra/aws`
 - Vitest and React Testing Library as the existing automated test platform
-- GitHub Actions CI that installs, typechecks, runs Vitest, and builds
+- GitHub Actions CI that installs, typechecks, runs Vitest, runs local
+  Playwright smoke, builds, and uploads quality diagnostics
 - manual production deployment workflow with GitHub OIDC and disabled schedules
 - production worker/database infrastructure
 - no deployed public Web/API runtime
-- no tracked Playwright dependency
-- no tracked Allure dependency
+- Playwright added in Block 28.1 for local API/UI smoke
+- Allure added in Block 28.2 for Vitest and Playwright results
 
 At the start of this review the tracked test-file distribution is:
 
@@ -286,6 +289,7 @@ shape for review:
 | `pnpm test:e2e` | All local Playwright automation | API plus UI with local bounded web servers. |
 | `pnpm test:e2e:install-browsers` | Local/CI browser setup | Installs the Playwright Chromium binary required by UI smoke. |
 | `pnpm test:e2e:smoke` | Tagged local smoke suite | Runs tests tagged `@smoke`; future DEV smoke can reuse this shape with a deployed base URL. |
+| `pnpm report:allure` | Static quality report generation | Generates `allure-report` from `allure-results` for local review and CI artifacts. |
 
 Coverage thresholds should not be invented. If coverage is introduced, first
 record the observed baseline and then propose thresholds from measured signal.
@@ -464,7 +468,7 @@ Failure artifacts should include:
 - screenshot on UI failure
 - test result files
 - bounded relevant deployment logs
-- Allure results when available
+- Allure results and generated report when available
 
 Do not automatically roll back infrastructure until a safe rollback mechanism
 exists. Preserve diagnostics and document the last-known-good recovery path.
@@ -503,6 +507,12 @@ Allure metadata should include:
 - feature or area
 - severity only where meaningful
 
+Block 28.2 implementation records git SHA, git ref, CI/local mode, OS platform,
+OS release, Node.js version, and test framework for Vitest and Playwright
+result files. CI uploads `allure-results`, `allure-report`,
+`playwright-report`, and `test-results/playwright` as a single bounded
+diagnostic artifact with 14-day retention.
+
 Public repositories require artifact privacy review. Do not publicly expose:
 
 - JWT/session cookies
@@ -511,6 +521,11 @@ Public repositories require artifact privacy review. Do not publicly expose:
 - private customer data
 - sensitive listing data
 - sensitive screenshots
+
+The current local smoke data uses synthetic credentials and one synthetic
+listing address. Before AWS DEV or production-adjacent screenshots are uploaded,
+review selectors, screenshots, traces, request payloads, cookies, and response
+bodies again against the privacy list above.
 
 Use a DEV/test SNS topic such as `cpi-dev-test-failures`. Do not reuse the
 production worker failure topic without a separately reviewed reason. Successful

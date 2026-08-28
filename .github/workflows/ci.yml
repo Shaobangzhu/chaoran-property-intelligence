@@ -34,5 +34,33 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Install Playwright browser
+        run: pnpm test:e2e:install-browsers
+
+      - name: Run Playwright smoke tests
+        run: pnpm test:e2e:smoke
+
       - name: Build
         run: pnpm build
+
+      - name: Generate Allure report
+        if: always()
+        run: |-
+          if [ -d allure-results ]; then
+            pnpm report:allure
+          else
+            echo "No Allure results were produced."
+          fi
+
+      - name: Upload quality diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: quality-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            allure-results/
+            allure-report/
+            playwright-report/
+            test-results/playwright/
+          retention-days: 14

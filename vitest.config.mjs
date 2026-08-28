@@ -1,4 +1,15 @@
 import { defineConfig } from "vitest/config";
+import * as os from "node:os";
+
+const allureEnvironmentInfo = {
+  ci: process.env.CI === "true" ? "true" : "false",
+  git_ref: process.env.GITHUB_REF_NAME ?? process.env.GITHUB_REF ?? "local",
+  git_sha: process.env.GITHUB_SHA ?? "local",
+  node_version: process.version,
+  os_platform: os.platform(),
+  os_release: os.release(),
+  test_framework: "vitest",
+};
 
 export default defineConfig({
   resolve: {
@@ -40,5 +51,18 @@ export default defineConfig({
         import.meta.url,
       ).pathname,
     },
+  },
+  test: {
+    reporters: [
+      "default",
+      [
+        "allure-vitest/reporter",
+        {
+          environmentInfo: allureEnvironmentInfo,
+          resultsDir: "allure-results",
+        },
+      ],
+    ],
+    setupFiles: ["allure-vitest/setup"],
   },
 });

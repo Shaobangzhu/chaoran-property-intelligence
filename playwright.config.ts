@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import * as os from "node:os";
 
 const shouldStartWeb = process.env.CPI_PLAYWRIGHT_START_WEB === "true";
 const apiPort = readPort(
@@ -13,6 +14,7 @@ const webPort = readPort(
 );
 const apiBaseURL = `http://127.0.0.1:${apiPort}`;
 const webBaseURL = `http://127.0.0.1:${webPort}`;
+const allureEnvironmentInfo = createAllureEnvironmentInfo("playwright");
 
 export default defineConfig({
   expect: {
@@ -40,6 +42,19 @@ export default defineConfig({
   ],
   reporter: [
     ["list"],
+    [
+      "allure-playwright",
+      {
+        detail: true,
+        environmentInfo: allureEnvironmentInfo,
+        globalLabels: [
+          { name: "layer", value: "system" },
+          { name: "owner", value: "quality-engineering" },
+        ],
+        resultsDir: "allure-results",
+        suiteTitle: true,
+      },
+    ],
     ["html", { open: "never", outputFolder: "playwright-report" }],
   ],
   retries: process.env.CI ? 1 : 0,
@@ -83,4 +98,18 @@ function readPort(
     throw new Error(`${name} must be a valid TCP port`);
   }
   return parsed;
+}
+
+function createAllureEnvironmentInfo(
+  testFramework: string,
+): Record<string, string> {
+  return {
+    ci: process.env.CI === "true" ? "true" : "false",
+    git_ref: process.env.GITHUB_REF_NAME ?? process.env.GITHUB_REF ?? "local",
+    git_sha: process.env.GITHUB_SHA ?? "local",
+    node_version: process.version,
+    os_platform: os.platform(),
+    os_release: os.release(),
+    test_framework: testFramework,
+  };
 }

@@ -26,6 +26,7 @@
     "build:packages": "tsc -p packages/domain/tsconfig.build.json && tsc -p packages/rentcast/tsconfig.build.json && tsc -p packages/application/tsconfig.build.json && tsc -p packages/telegram/tsconfig.build.json && tsc -p packages/openai/tsconfig.build.json && tsc -p packages/pdf/tsconfig.build.json && tsc -p packages/s3/tsconfig.build.json && tsc -p packages/postgres/tsconfig.build.json && tsc -p packages/auth/tsconfig.build.json",
     "build:runtime": "pnpm build:packages && tsc -p apps/alert-worker/tsconfig.build.json && tsc -p apps/api/tsconfig.build.json && tsc -p apps/admin-cli/tsconfig.build.json && pnpm build:web",
     "build:web": "pnpm --dir apps/web build",
+    "report:allure": "allure generate allure-results -o allure-report",
     "test": "vitest run",
     "test:api": "playwright test --project=api-smoke",
     "test:e2e": "CPI_PLAYWRIGHT_START_WEB=true playwright test",
@@ -45,6 +46,10 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.13.3",
+    "@vitest/runner": "^3.2.7",
+    "allure": "^3.16.0",
+    "allure-playwright": "^3.11.0",
+    "allure-vitest": "^3.11.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
