@@ -397,14 +397,14 @@ flowchart LR
     DevStacks -. isolated from .- ProdStacks
 ```
 
-Pre-implementation resource strategy table for `18.4`:
+Implemented resource strategy for `18.4` / Block 28.4:
 
 | Resource | Current production identity | DEV identity | Replacement risk | Strategy |
 | --- | --- | --- | --- | --- |
-| Guardrails stack | `ChaoranPropertyIntelligenceGuardrails` | Account-level plus DEV role if needed | Medium | Preserve existing stack and OIDC provider; add DEV role carefully. |
+| Guardrails stack | `ChaoranPropertyIntelligenceGuardrails` | Same account-level stack plus DEV role | Medium | Existing budget, provider, production role, and logical IDs are preserved; DEV role is additive. |
 | Production app stack | `ChaoranPropertyIntelligenceProduction` | New DEV app stack | High | Do not rename production stack. Add separate DEV stack. |
-| GitHub OIDC provider | `token.actions.githubusercontent.com` provider | Reuse provider | Medium | Prefer one account provider with separate branch-scoped roles. |
-| Production deploy role | `cpi-github-deploy` trusted to `main` | `cpi-github-deploy-dev` trusted to `dev` | High | Preserve production trust exactly; give DEV role narrow permissions. |
+| GitHub OIDC provider | `token.actions.githubusercontent.com` provider | Reused provider | Medium | One account provider serves separate exact-subject roles. |
+| Production deploy role | `cpi-github-deploy` trusted to `main` | `cpi-github-deploy-dev` trusted to protected `development` environment | High | Production trust is unchanged. The GitHub environment must permit only `dev`; DEV may assume only exact regional bootstrap roles. |
 | Database secret | `cpi/production/database` | `cpi/dev/database` | High | No collision; DEV must not reference production secret. |
 | Application secret | `cpi/production/application` | `cpi/dev/application` | High | Do not copy production provider credentials into DEV. |
 | API auth secret | Planned `cpi/production/api-auth` | `cpi/dev/api-auth` | High | Separate generated values per stage. |
@@ -427,6 +427,27 @@ DELETE
 
 Any unexpected production `REPLACE` or `DELETE` involving retained database,
 VPC, secrets, or scheduler resources blocks deployment.
+
+Block 28.4 implements this boundary with a production-default stage selector and
+an explicit `pnpm --dir infra/aws synth:dev` command. DEV app assembly ignores
+schedule-enabling context and always emits both schedules as `DISABLED`.
+Template contract tests pin critical production logical IDs and assert that the
+DEV template contains no production secret, log, topic, or schedule name.
+
+The Block 28.4 offline diff review found:
+
+```text
+CREATE: 2 Guardrails IAM resources; 55 DEV application resources
+UPDATE: none
+REPLACE: 2 production ECS task definition revisions only
+DELETE: none
+```
+
+The task definition revisions are caused solely by making the Docker asset
+context deterministic: local Allure, Playwright report, and test-result folders
+are excluded. No retained or stateful production resource is replaced. A fresh
+account-backed diff with valid federated credentials is still required before
+the first DEV deployment.
 
 ## Public Web/API Runtime Target
 

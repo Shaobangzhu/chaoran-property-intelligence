@@ -1870,7 +1870,22 @@ Planned sub-block mapping:
    branch protection rule, AWS resource, deployment, database mutation,
    provider call, production notification, schedule, or migration.
 5. `28.4` Define isolated AWS DEV CDK architecture and OIDC guardrails with
-   contract tests, synth, and reviewed diff only. Do not deploy.
+   contract tests, synth, and reviewed diff only. Do not deploy. **Complete:**
+   CDK now selects either the existing production application stack or the new
+   `ChaoranPropertyIntelligenceDev` stack through a validated `targetStage`
+   context. Production remains the default. DEV receives its own VPC, Aurora,
+   secrets, logs, failure topic, queues, and explicitly disabled schedules.
+   The existing OIDC provider now has a separate
+   `cpi-github-deploy-dev` role trusted only by the protected GitHub
+   `development` environment and scoped to the exact regional CDK bootstrap
+   roles. Contract tests, production and DEV synth, and local-template CDK diff
+   review passed. The production diff contains only two replaceable ECS task
+   definition revisions caused by excluding local quality artifacts from the
+   Docker context; retained database, VPC, secrets, schedules, and production
+   IAM identities are unchanged. No stack was deployed, no secret was read or
+   changed, and no schedule, worker, migration, provider, OpenAI, Telegram, or
+   notification action ran. An account-backed diff remains mandatory before a
+   separately authorized first DEV deployment.
 6. `28.5` Add protected DEV deployment from `dev` with health check, API smoke,
    UI smoke, rollback evidence, workflow artifacts, and bounded SNS failure
    email.

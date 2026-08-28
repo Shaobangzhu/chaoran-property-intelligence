@@ -50,10 +50,16 @@ import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 
+import {
+  stageResourceName,
+  type DeploymentStage,
+} from "./deploymentStage.js";
+
 const databaseName = "property_intelligence";
 
 export interface PropertyAlertStackProps extends StackProps {
   containerImage?: ContainerImage;
+  deploymentStage?: DeploymentStage;
   failureAlertEmail?: string;
   repositoryRoot?: string;
   scheduleEnabled?: boolean;
@@ -75,6 +81,9 @@ export class PropertyAlertStack extends Stack {
     props: PropertyAlertStackProps = {},
   ) {
     super(scope, id, props);
+
+    const deploymentStage = props.deploymentStage ?? "production";
+    const isProduction = deploymentStage === "production";
 
     const vpc = new Vpc(this, "Vpc", {
       maxAzs: 2,
@@ -144,20 +153,24 @@ export class PropertyAlertStack extends Stack {
             username: "property_worker",
           }),
         },
-        removalPolicy: RemovalPolicy.RETAIN,
-        secretName: "cpi/production/database",
+        removalPolicy: isProduction
+          ? RemovalPolicy.RETAIN
+          : RemovalPolicy.DESTROY,
+        secretName: `cpi/${deploymentStage}/database`,
       },
     );
     const database = new DatabaseCluster(this, "Database", {
       backup: {
-        retention: Duration.days(7),
+        retention: Duration.days(isProduction ? 7 : 1),
       },
       credentials: Credentials.fromSecret(databaseCredentialsSecret),
       defaultDatabaseName: databaseName,
-      deletionProtection: true,
+      deletionProtection: isProduction,
       engine: databaseEngine,
       parameterGroup: databaseParameterGroup,
-      removalPolicy: RemovalPolicy.RETAIN,
+      removalPolicy: isProduction
+        ? RemovalPolicy.RETAIN
+        : RemovalPolicy.DESTROY,
       securityGroups: [databaseSecurityGroup],
       serverlessV2AutoPauseDuration: Duration.minutes(5),
       serverlessV2MaxCapacity: 1,
@@ -184,7 +197,7 @@ export class PropertyAlertStack extends Stack {
         }),
       },
       removalPolicy: RemovalPolicy.DESTROY,
-      secretName: "cpi/production/application",
+      secretName: `cpi/${deploymentStage}/application`,
     });
 
     this.showingListArtifactBucket = new Bucket(
@@ -227,9 +240,9 @@ export class PropertyAlertStack extends Stack {
         type: "String",
       }).valueAsString;
     const failureTopic = new Topic(this, "WorkerFailureTopic", {
-      displayName: "CPI production worker failures",
+      displayName: `CPI ${deploymentStage} worker failures`,
       enforceSSL: true,
-      topicName: "cpi-production-worker-failures",
+      topicName: `cpi-${deploymentStage}-worker-failures`,
     });
     failureTopic.addSubscription(new EmailSubscription(failureAlertEmail));
 
@@ -271,7 +284,7 @@ export class PropertyAlertStack extends Stack {
       },
     });
     const logGroup = new LogGroup(this, "WorkerLogGroup", {
-      logGroupName: "/cpi/production/alert-worker",
+      logGroupName: `/cpi/${deploymentStage}/alert-worker`,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: RetentionDays.ONE_WEEK,
     });
@@ -346,7 +359,7 @@ export class PropertyAlertStack extends Stack {
       },
     );
     const showingListLogGroup = new LogGroup(this, "ShowingListWorkerLogGroup", {
-      logGroupName: "/cpi/production/showing-list-worker",
+      logGroupName: `/cpi/${deploymentStage}/showing-list-worker`,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: RetentionDays.ONE_WEEK,
     });
@@ -445,7 +458,10 @@ export class PropertyAlertStack extends Stack {
         minute: "0",
         timeZone: TimeZone.AMERICA_LOS_ANGELES,
       }),
-      scheduleName: "cpi-daily-property-alert",
+      scheduleName: stageResourceName(
+        deploymentStage,
+        "daily-property-alert",
+      ),
       target,
       timeWindow: TimeWindow.off(),
     });
@@ -479,7 +495,10 @@ export class PropertyAlertStack extends Stack {
         timeZone: TimeZone.of(showingListSchedule.timeZone),
         weekDay: showingListSchedule.weekDay,
       }),
-      scheduleName: "cpi-weekly-showing-list",
+      scheduleName: stageResourceName(
+        deploymentStage,
+        "weekly-showing-list",
+      ),
       target: showingListTarget,
       timeWindow: TimeWindow.off(),
     });

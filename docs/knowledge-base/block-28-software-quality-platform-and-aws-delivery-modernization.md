@@ -201,6 +201,50 @@ Add tested CDK definitions for isolated DEV infrastructure. Stop at `synth` and
 diff review. Confirm resource names, secrets, schedules, IAM boundaries, and
 retention behavior before any real AWS mutation.
 
+Implementation status: complete without deployment. `targetStage` accepts only
+`production` or `dev` and defaults to `production`, so the existing production
+workflow retains its current stack selection. DEV synthesis is explicit through
+`pnpm --dir infra/aws synth:dev` and creates
+`ChaoranPropertyIntelligenceGuardrails` plus the separate
+`ChaoranPropertyIntelligenceDev` application stack.
+
+The shared application construct preserves existing production construct IDs
+and physical names while deriving DEV-only names for `cpi/dev/database`,
+`cpi/dev/application`, `/cpi/dev/*` logs, the `cpi-dev-worker-failures` topic,
+and both `cpi-dev-*` schedules. Both DEV schedules are hard-disabled by the app
+assembly. DEV Aurora has one-day backup retention, no deletion protection, and
+`Delete` removal policies; production Aurora and its credentials secret remain
+retained and deletion-protected.
+
+CDK asset output is excluded from Vitest discovery so synthesized copies of the
+repository cannot inflate the suite by rerunning tracked tests from
+`infra/aws/cdk.out`. Local Allure, Playwright report, and test-result directories
+are also excluded from the Docker build context, making image asset hashes
+stable across quality runs.
+
+The existing GitHub OIDC provider and `cpi-github-deploy` main-branch role are
+unchanged. Guardrails adds `cpi-github-deploy-dev`, whose OIDC subject is exactly
+the protected GitHub `development` environment. Its inline policy names only
+the regional CDK deploy, file-publishing, image-publishing, and lookup roles plus
+the bootstrap version parameter. GitHub environment branch restrictions must
+allow only `dev` before that role is used.
+
+Production and DEV synth completed. Local-template `cdk diff` classified the
+Guardrails change as two IAM resource creates and the DEV stack as 55 resource
+creates. The production template retains its critical logical and physical
+identities; its only diff is replacement of two immutable ECS task definition
+revisions because local Allure and Playwright output directories are now
+excluded from the Docker asset context. There are no production database, VPC,
+secret, schedule, log, topic, or OIDC identity changes. No delete was found.
+
+The configured AWS SSO session was expired, so an account-backed diff did not
+read deployed stack state. It remains a hard pre-deployment gate and must be
+repeated with a valid federated session before any separately authorized DEV
+deployment. No AWS mutation, secret access, database action, schedule execution,
+worker run, migration, RentCast request, OpenAI call, Telegram message, or
+notification occurred. See the
+[AWS DEV Foundation Runbook](../runbooks/aws-dev-foundation.md).
+
 ### 28.5 DEV Deployment And Smoke
 
 Add a protected DEV deployment workflow using OIDC, health checks, API smoke,
@@ -246,5 +290,6 @@ Follow-up sub-block:
 - [ADR 0016: Software Quality Platform And AWS Delivery Modernization](../adr/0016-software-quality-platform-and-aws-delivery-modernization.md)
 - [AWS System Design and Configuration](../aws-system-design.md)
 - [AWS Deployment Runbook](../runbooks/aws-deployment.md)
+- [AWS DEV Foundation Runbook](../runbooks/aws-dev-foundation.md)
 - [ADR 0003: API, Web, and Map Foundation](../adr/0003-api-web-map-foundation.md)
 - [ADR 0004: Single-User Authentication](../adr/0004-single-user-authentication.md)

@@ -8,6 +8,10 @@
 **/*.test.ts
 **/*.test.tsx
 coverage
+allure-report
+allure-results
+playwright-report
+test-results
 cdk.out
 infra
 docs

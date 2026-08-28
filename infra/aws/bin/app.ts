@@ -4,12 +4,14 @@ import { App } from "aws-cdk-lib";
 
 import { AccountGuardrailsStack } from "../lib/accountGuardrailsStack.js";
 import { resolveDeploymentEnvironment } from "../lib/deploymentEnvironment.js";
+import { resolveDeploymentStage } from "../lib/deploymentStage.js";
 import { PropertyAlertStack } from "../lib/propertyAlertStack.js";
 
 const app = new App();
-const scheduleEnabled = app.node.tryGetContext("scheduleEnabled") === "true";
-const showingListSchedule = resolveShowingListSchedule(app);
 const environment = resolveDeploymentEnvironment(process.env);
+const deploymentStage = resolveDeploymentStage(
+  app.node.tryGetContext("targetStage") as unknown,
+);
 
 const guardrailsStack = new AccountGuardrailsStack(
   app,
@@ -17,24 +19,49 @@ const guardrailsStack = new AccountGuardrailsStack(
   {
     env: environment,
     githubBranch: "main",
+    githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubRepository: "chaoran-property-intelligence",
   },
 );
-const productionStack = new PropertyAlertStack(
-  app,
-  "ChaoranPropertyIntelligenceProduction",
-  {
-    env: environment,
-    repositoryRoot: path.resolve(process.cwd(), "../.."),
-    scheduleEnabled,
-    showingListSchedule,
-  },
-);
-productionStack.addStackDependency(
-  guardrailsStack,
-  "Deploy account cost and access guardrails before application resources",
-);
+if (deploymentStage === "production") {
+  const productionStack = new PropertyAlertStack(
+    app,
+    "ChaoranPropertyIntelligenceProduction",
+    {
+      env: environment,
+      repositoryRoot: path.resolve(process.cwd(), "../.."),
+      scheduleEnabled: app.node.tryGetContext("scheduleEnabled") === "true",
+      showingListSchedule: resolveShowingListSchedule(app),
+    },
+  );
+  productionStack.addStackDependency(
+    guardrailsStack,
+    "Deploy account cost and access guardrails before application resources",
+  );
+} else {
+  const devStack = new PropertyAlertStack(
+    app,
+    "ChaoranPropertyIntelligenceDev",
+    {
+      deploymentStage: "dev",
+      env: environment,
+      repositoryRoot: path.resolve(process.cwd(), "../.."),
+      scheduleEnabled: false,
+      showingListSchedule: {
+        enabled: false,
+        weekDay: "MON",
+        hour: "8",
+        minute: "0",
+        timeZone: "America/Los_Angeles",
+      },
+    },
+  );
+  devStack.addStackDependency(
+    guardrailsStack,
+    "Deploy account access guardrails before DEV application resources",
+  );
+}
 
 function resolveShowingListSchedule(application: App) {
   const enabled = readBooleanContext(

@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import * as os from "node:os";
 
 const allureEnvironmentInfo = {
@@ -53,6 +53,7 @@ export default defineConfig({
     },
   },
   test: {
+    exclude: [...configDefaults.exclude, "infra/aws/cdk.out/**"],
     reporters: [
       "default",
       [

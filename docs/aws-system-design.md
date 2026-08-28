@@ -352,6 +352,14 @@ project controls:
 - retained budget named `cpi-monthly-gross-cost`
 - GitHub Actions OIDC provider for `token.actions.githubusercontent.com`
 - IAM role named `cpi-github-deploy`
+- IAM role named `cpi-github-deploy-dev`
+
+The production role keeps its exact `main` branch subject. The DEV role trusts
+only the GitHub `development` environment subject; that protected environment
+must be configured to allow the `dev` branch only. The DEV role can assume the
+exact `us-west-2` CDK deploy, file-publishing, image-publishing, and lookup roles
+for this account and can read only the standard CDK bootstrap version parameter.
+It does not use long-lived AWS credentials.
 
 The budget is monthly gross cost: credits and refunds are excluded from its cost
 calculation. With the current `$20` parameter, notifications are:
@@ -382,6 +390,27 @@ This stack owns the worker runtime and persistence resources:
 
 The production stack depends on the guardrails stack so deployment order cannot
 place application resources ahead of project cost and access controls.
+
+### `ChaoranPropertyIntelligenceDev`
+
+Block 28.4 defines but does not deploy a separate DEV application stack. It
+reuses the production worker/database architecture while keeping a separate
+VPC, Aurora cluster, security groups, secrets, queues, logs, topic, artifact
+bucket, ECS resources, and schedules. Explicit DEV names include:
+
+- `cpi/dev/database` and `cpi/dev/application`
+- `/cpi/dev/alert-worker` and `/cpi/dev/showing-list-worker`
+- `cpi-dev-worker-failures`
+- `cpi-dev-daily-property-alert` and `cpi-dev-weekly-showing-list`
+
+Both DEV schedules synthesize as `DISABLED`. DEV database resources use one-day
+backup retention, no deletion protection, and deletion removal policies so an
+approved teardown does not leave a second retained database. Production keeps
+seven-day backups, deletion protection, and retained database identities.
+
+CDK defaults to the production application stack. DEV must be selected
+explicitly with `targetStage=dev`; this prevents the existing production
+`cdk deploy --all` command from silently adding DEV resources.
 
 ## Network Design
 

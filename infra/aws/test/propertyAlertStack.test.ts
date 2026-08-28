@@ -32,7 +32,87 @@ function createParameterizedTemplate(): Template {
   return Template.fromStack(stack);
 }
 
+function createDevTemplate(): Template {
+  const app = new App();
+  const stack = new PropertyAlertStack(app, "TestDevPropertyAlertStack", {
+    containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
+    deploymentStage: "dev",
+    env: {
+      account: "111111111111",
+      region: "us-west-2",
+    },
+    failureAlertEmail: "dev-alerts@example.com",
+  });
+
+  return Template.fromStack(stack);
+}
+
 describe("PropertyAlertStack", () => {
+  it("preserves critical production logical and physical identities", () => {
+    const template = createTemplate();
+    const resources = template.toJSON().Resources;
+
+    expect(resources.DatabaseB269D8BB).toBeDefined();
+    expect(resources.DatabaseCredentialsSecret7483BC14).toBeDefined();
+    expect(resources.Vpc8378EB38).toBeDefined();
+    expect(resources.DailySchedule68BF5767).toBeDefined();
+    expect(resources.WeeklyShowingListScheduleAE80C2CD).toBeDefined();
+    expect(JSON.stringify(resources)).toContain("cpi/production/database");
+    expect(JSON.stringify(resources)).toContain("cpi-daily-property-alert");
+    expect(JSON.stringify(resources)).toContain("cpi-weekly-showing-list");
+  });
+
+  it("isolates DEV names, data resources, and disabled schedules", () => {
+    const template = createDevTemplate();
+    const resources = JSON.stringify(template.toJSON().Resources);
+
+    expect(resources).toContain("cpi/dev/database");
+    expect(resources).toContain("cpi/dev/application");
+    expect(resources).toContain("/cpi/dev/alert-worker");
+    expect(resources).toContain("/cpi/dev/showing-list-worker");
+    expect(resources).toContain("cpi-dev-worker-failures");
+    expect(resources).toContain("cpi-dev-daily-property-alert");
+    expect(resources).toContain("cpi-dev-weekly-showing-list");
+    expect(resources).not.toContain("cpi/production/");
+    expect(resources).not.toContain("/cpi/production/");
+
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "cpi-dev-daily-property-alert",
+      State: "DISABLED",
+    });
+    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+      Name: "cpi-dev-weekly-showing-list",
+      State: "DISABLED",
+    });
+  });
+
+  it("makes DEV data disposable without weakening production retention", () => {
+    const devTemplate = createDevTemplate();
+
+    devTemplate.hasResource("AWS::SecretsManager::Secret", {
+      DeletionPolicy: "Delete",
+      Properties: { Name: "cpi/dev/database" },
+      UpdateReplacePolicy: "Delete",
+    });
+    devTemplate.hasResource("AWS::RDS::DBCluster", {
+      DeletionPolicy: "Delete",
+      Properties: {
+        BackupRetentionPeriod: 1,
+        DeletionProtection: false,
+      },
+      UpdateReplacePolicy: "Delete",
+    });
+
+    createTemplate().hasResource("AWS::RDS::DBCluster", {
+      DeletionPolicy: "Retain",
+      Properties: {
+        BackupRetentionPeriod: 7,
+        DeletionProtection: true,
+      },
+      UpdateReplacePolicy: "Retain",
+    });
+  });
+
   it("keeps the scheduled runtime bounded and avoids NAT gateways", () => {
     const template = createTemplate();
 

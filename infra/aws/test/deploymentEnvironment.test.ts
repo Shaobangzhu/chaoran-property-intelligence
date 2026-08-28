@@ -4,6 +4,10 @@ import {
   defaultAwsRegion,
   resolveDeploymentEnvironment,
 } from "../lib/deploymentEnvironment.js";
+import {
+  resolveDeploymentStage,
+  stageResourceName,
+} from "../lib/deploymentStage.js";
 
 describe("resolveDeploymentEnvironment", () => {
   it("uses the project region instead of an ambient CDK profile region", () => {
@@ -22,5 +26,25 @@ describe("resolveDeploymentEnvironment", () => {
     expect(
       resolveDeploymentEnvironment({ CPI_AWS_REGION: "us-west-1" }),
     ).toEqual({ region: "us-west-1" });
+  });
+});
+
+describe("deployment stage", () => {
+  it("defaults to production and accepts only the isolated DEV stage", () => {
+    expect(resolveDeploymentStage(undefined)).toBe("production");
+    expect(resolveDeploymentStage("production")).toBe("production");
+    expect(resolveDeploymentStage("dev")).toBe("dev");
+    expect(() => resolveDeploymentStage("staging")).toThrow(
+      "targetStage must be production or dev",
+    );
+  });
+
+  it("preserves production names while namespacing DEV resources", () => {
+    expect(stageResourceName("production", "daily-property-alert")).toBe(
+      "cpi-daily-property-alert",
+    );
+    expect(stageResourceName("dev", "daily-property-alert")).toBe(
+      "cpi-dev-daily-property-alert",
+    );
   });
 });

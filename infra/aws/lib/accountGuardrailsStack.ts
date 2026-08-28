@@ -16,6 +16,7 @@ import type { Construct } from "constructs";
 
 export interface AccountGuardrailsStackProps extends StackProps {
   githubBranch: string;
+  githubDevEnvironment: string;
   githubOwner: string;
   githubRepository: string;
 }
@@ -109,8 +110,60 @@ export class AccountGuardrailsStack extends Stack {
       }),
     );
 
+    const githubDevSubject = [
+      `repo:${props.githubOwner}/${props.githubRepository}`,
+      `environment:${props.githubDevEnvironment}`,
+    ].join(":");
+    const githubDevDeployRole = new Role(this, "GitHubDevDeployRole", {
+      assumedBy: new FederatedPrincipal(
+        githubProvider.ref,
+        {
+          StringEquals: {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": githubDevSubject,
+          },
+        },
+        "sts:AssumeRoleWithWebIdentity",
+      ),
+      description: "CDK deployment role for the CPI development environment",
+      roleName: "cpi-github-deploy-dev",
+    });
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sts:AssumeRole"],
+        resources: [
+          "deploy-role",
+          "file-publishing-role",
+          "image-publishing-role",
+          "lookup-role",
+        ].map((roleType) =>
+          this.formatArn({
+            region: "",
+            resource: "role",
+            resourceName: `cdk-hnb659fds-${roleType}-${this.account}-${this.region}`,
+            service: "iam",
+          }),
+        ),
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [
+          this.formatArn({
+            resource: "parameter",
+            resourceName: "cdk-bootstrap/hnb659fds/version",
+            service: "ssm",
+          }),
+        ],
+      }),
+    );
+
     new CfnOutput(this, "GitHubDeployRoleArn", {
       value: githubDeployRole.roleArn,
+    });
+    new CfnOutput(this, "GitHubDevDeployRoleArn", {
+      value: githubDevDeployRole.roleArn,
     });
   }
 }

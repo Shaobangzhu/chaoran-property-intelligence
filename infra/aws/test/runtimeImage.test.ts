@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 const dockerfilePath = fileURLToPath(
   new URL("../../../Dockerfile", import.meta.url),
 );
+const dockerignorePath = fileURLToPath(
+  new URL("../../../.dockerignore", import.meta.url),
+);
 
 describe("production runtime image", () => {
   it("makes the RDS CA bundle readable by the non-root runtime user", () => {
@@ -34,5 +37,14 @@ describe("production runtime image", () => {
     expect(dockerfile).toContain(
       "COPY packages/s3/package.json packages/s3/package.json",
     );
+  });
+
+  it("excludes local quality artifacts from the deployable image context", () => {
+    const dockerignore = readFileSync(dockerignorePath, "utf8");
+
+    expect(dockerignore).toContain("allure-report");
+    expect(dockerignore).toContain("allure-results");
+    expect(dockerignore).toContain("playwright-report");
+    expect(dockerignore).toContain("test-results");
   });
 });

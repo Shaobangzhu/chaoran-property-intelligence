@@ -1,6 +1,6 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { AccountGuardrailsStack } from "../lib/accountGuardrailsStack.js";
 
@@ -12,6 +12,7 @@ function createTemplate(): Template {
       region: "us-west-2",
     },
     githubBranch: "main",
+    githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubRepository: "chaoran-property-intelligence",
   });
@@ -109,6 +110,60 @@ describe("AccountGuardrailsStack", () => {
         Version: "2012-10-17",
       },
     });
+  });
+
+  it("adds an isolated DEV role for the protected development environment", () => {
+    const template = createTemplate();
+
+    template.hasResourceProperties("AWS::IAM::Role", {
+      AssumeRolePolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "sts:AssumeRoleWithWebIdentity",
+            Condition: {
+              StringEquals: {
+                "token.actions.githubusercontent.com:aud":
+                  "sts.amazonaws.com",
+                "token.actions.githubusercontent.com:sub":
+                  "repo:Shaobangzhu/chaoran-property-intelligence:environment:development",
+              },
+            },
+            Effect: "Allow",
+          }),
+        ]),
+      },
+      RoleName: "cpi-github-deploy-dev",
+    });
+
+    const policies = template.findResources("AWS::IAM::Policy");
+    const devPolicy = Object.values(policies).find((policy) =>
+      JSON.stringify(policy.Properties?.Roles).includes(
+        "GitHubDevDeployRole",
+      ),
+    );
+    const devPolicyDocument = JSON.stringify(
+      devPolicy?.Properties?.PolicyDocument,
+    );
+
+    expect(devPolicy).toBeDefined();
+    expect(devPolicyDocument).toContain("cdk-hnb659fds-deploy-role-");
+    expect(devPolicyDocument).toContain(
+      "cdk-hnb659fds-file-publishing-role-",
+    );
+    expect(devPolicyDocument).toContain(
+      "cdk-hnb659fds-image-publishing-role-",
+    );
+    expect(devPolicyDocument).toContain("cdk-hnb659fds-lookup-role-");
+    expect(devPolicyDocument).not.toContain("cdk-hnb659fds-*");
+  });
+
+  it("preserves the production role identity and exact main-branch trust", () => {
+    const resources = createTemplate().toJSON().Resources;
+
+    expect(resources.GitHubDeployRoleED73FD64).toBeDefined();
+    expect(JSON.stringify(resources.GitHubDeployRoleED73FD64)).toContain(
+      "repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main",
+    );
   });
 });
 
