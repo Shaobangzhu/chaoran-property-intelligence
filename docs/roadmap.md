@@ -1975,7 +1975,11 @@ Planned sub-block mapping:
 3. `29.2` Bootstrap only missing regions, then review and deploy the bounded
    Guardrails/OIDC update through federated administrator access. Bootstrap and
    Guardrails are separate mutation approvals; production trust and retained
-   identities must remain unchanged.
+   identities must remain unchanged. **Complete on 2026-08-28:** `us-east-1`
+   bootstrap and Guardrails were separately authorized; the
+   [redacted execution record](operations/block-29-2-bootstrap-and-guardrails.md)
+   confirms `CREATE 2 / UPDATE 1 / REPLACE 0 / DELETE 0`, preserved production
+   trust, and a clean post-deploy diff.
 4. `29.3` Configure protected GitHub DEV settings and perform the first manual
    `dev` plan/deploy with two approvals. The second approval covers only the
    reviewed DEV stacks and DEV API startup migration. Both schedules remain

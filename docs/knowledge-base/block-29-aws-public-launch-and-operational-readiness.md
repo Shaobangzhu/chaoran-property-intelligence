@@ -74,6 +74,12 @@ required before updating Guardrails to create or update the exact DEV OIDC role
 and bounded two-region bootstrap permissions. Preserve the production OIDC
 subject and budget identities.
 
+Status: complete on 2026-08-28. The missing `us-east-1` bootstrap and bounded
+Guardrails update were separately authorized and completed. The
+[redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
+captures the classified changes, verified trust policies, clean post-deploy
+diff, and remaining GitHub protection blockers.
+
 ### 29.3 First AWS DEV Public Deployment
 
 Configure the protected GitHub `development` environment, repository variables,
@@ -143,6 +149,7 @@ data-mutating operation with its own authorization and evidence.
 
 - [Block 29 launch runbook](../runbooks/block-29-aws-public-launch.md)
 - [Block 29.1 redacted preflight](../operations/block-29-1-read-only-launch-preflight.md)
+- [Block 29.2 redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)

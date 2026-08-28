@@ -18,13 +18,13 @@ Telegram, and worker-composition boundary.
 
 ## Deployment Status
 
-Last verified: 2026-08-22.
+Last verified: 2026-08-28.
 
 | Item | Verified state |
 | --- | --- |
 | AWS Region | `us-west-2` |
-| CDK bootstrap | `CDKToolkit`, bootstrap version 32, `CREATE_COMPLETE` |
-| Guardrails stack | `ChaoranPropertyIntelligenceGuardrails`, `CREATE_COMPLETE` |
+| CDK bootstrap | `CDKToolkit` in `us-west-2` and `us-east-1`, version 32, `CREATE_COMPLETE` |
+| Guardrails stack | `ChaoranPropertyIntelligenceGuardrails`, `UPDATE_COMPLETE`; production and DEV OIDC roles present |
 | Production stack | `ChaoranPropertyIntelligenceProduction`, `UPDATE_COMPLETE` |
 | Schedulers | Daily `DISABLED`; weekly not deployed |
 | Aurora | Available, private, encrypted, deletion-protected, 0-1 ACU |
@@ -343,10 +343,11 @@ The standard CDK bootstrap stack owns the deployment plumbing:
 - CloudFormation execution role
 - SSM bootstrap version parameter
 
-The bootstrap CloudFormation execution role currently uses the AWS managed
-`AdministratorAccess` policy. The GitHub deployment role may assume only the
-standard `cdk-hnb659fds-*` bootstrap roles and read the bootstrap version
-parameter.
+The two regional bootstrap CloudFormation execution roles currently use the
+AWS managed `AdministratorAccess` policy. The GitHub DEV deployment role may
+assume only the eight named deploy, file-publishing, image-publishing, and
+lookup roles across `us-west-2` and `us-east-1`, and may read the two bootstrap
+version parameters.
 
 ### `ChaoranPropertyIntelligenceGuardrails`
 
@@ -361,9 +362,10 @@ project controls:
 The production role keeps its exact `main` branch subject. The DEV role trusts
 only the GitHub `development` environment subject; that protected environment
 must be configured to allow the `dev` branch only. The DEV role can assume the
-exact `us-west-2` CDK deploy, file-publishing, image-publishing, and lookup roles
-for this account and can read only the standard CDK bootstrap version parameter.
-It does not use long-lived AWS credentials.
+exact `us-west-2` and `us-east-1` CDK deploy, file-publishing,
+image-publishing, and lookup roles for this account and can read only the
+standard CDK bootstrap version parameters. It does not use long-lived AWS
+credentials.
 
 The budget is monthly gross cost: credits and refunds are excluded from its cost
 calculation. With the current `$20` parameter, notifications are:

@@ -30,8 +30,8 @@ reviewed CDK extension.
 | --- | --- | --- | --- |
 | 29.0 | Documentation and local verification | Prepared | None for AWS |
 | 29.1 | Read-only account inventory | Complete; blockers recorded | Read-only authorization completed |
-| 29.2a | Missing-region CDK bootstrap | Pending | Explicit mutation approval |
-| 29.2b | Guardrails/OIDC update | Pending | Diff review plus explicit approval |
+| 29.2a | Missing-region CDK bootstrap | Complete in `us-east-1` | Explicit authorization completed |
+| 29.2b | Guardrails/OIDC update | Complete; post-deploy diff clean | Separate authorization completed |
 | 29.3 | First DEV plan/deploy/migration | Pending | Two GitHub environment approvals |
 | 29.4 | DEV acceptance | Pending | Read-only remote testing |
 | 29.5 | `dev -> main` promotion | Pending | Protected PR review |
@@ -129,16 +129,30 @@ environment protections remain prerequisites. It does not authorize Block
 explicit authorization. CDK bootstrap creates or updates `CDKToolkit`, asset
 storage, ECR, and deployment roles.
 
-Use the confirmed account value without placing it in committed evidence:
+Use the confirmed account value without placing it in committed evidence. Match
+the parameters of the existing bootstrap and target only the region proven
+missing:
 
 ```bash
 AWS_PROFILE=cpi-admin pnpm --dir infra/aws exec cdk bootstrap \
-  "aws://<confirmed-account-id>/us-west-2" \
-  "aws://<confirmed-account-id>/us-east-1"
+  "aws://<confirmed-account-id>/<missing-region>" \
+  --toolkit-stack-name CDKToolkit \
+  --qualifier hnb659fds \
+  --bootstrap-kms-key-id AWS_MANAGED_KEY \
+  --cloudformation-execution-policies \
+    arn:aws:iam::aws:policy/AdministratorAccess \
+  --public-access-block-configuration \
+  --deny-external-id \
+  --no-termination-protection \
+  --yes
 ```
 
 If one region is already correctly bootstrapped, target only the missing region.
 Afterward, read back both `CDKToolkit` stacks and require a complete status.
+
+Status: complete on 2026-08-28. Only `us-east-1` was bootstrapped. Both regions
+are now at bootstrap version 32 and `CREATE_COMPLETE`. See the
+[Block 29.2 execution record](../operations/block-29-2-bootstrap-and-guardrails.md).
 
 ## 29.2b Guardrails And GitHub OIDC
 
@@ -193,6 +207,11 @@ not permission to skip the diff or reuse an older approval.
 
 After deployment, read back the role trust and bounded bootstrap-role policy.
 Do not continue if GitHub OIDC still cannot assume `cpi-github-deploy-dev`.
+
+Status: complete on 2026-08-28. Guardrails reached `UPDATE_COMPLETE`, both OIDC
+trust subjects were verified, schedules remained disabled, and the
+post-deployment account-backed diff reported zero differences. This does not
+authorize the first DEV deployment.
 
 ## 29.3 First DEV Public Deployment
 
