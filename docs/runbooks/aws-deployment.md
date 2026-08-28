@@ -151,13 +151,22 @@ secret to avoid unnecessary disclosure. Do not add AWS access key secrets.
 The `Deploy production` workflow:
 
 - can only be started manually from `main`
-- requires the exact confirmation text `deploy-production`
+- uses a `plan-production` run followed by a separate `deploy-production` run
+- binds deploy to the reviewed commit and account-backed diff through the plan
+  approval digest
+- requires `authorize-production-api-migration` before App Runner deployment
 - requests an OIDC token with `id-token: write`
-- runs tests, typecheck, and build before deployment
+- runs tests, local smoke, typecheck, build, and synth before AWS mutation
 - pins every action to an immutable commit SHA
 - forces `scheduleEnabled=false`
 - forces `showingListScheduleEnabled=false` and supplies its weekday, hour,
   minute, and IANA time zone explicitly
+- publishes the immutable Web manifest and requires matching Web/API release
+  identity before accepting read-only production smoke
+
+Detailed public-runtime planning, approval inputs, evidence, and rollback are
+in the
+[Release Candidate And Production Delivery Runbook](release-production-delivery.md).
 
 ## Post-Deployment Verification
 

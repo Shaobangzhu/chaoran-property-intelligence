@@ -81,6 +81,48 @@ describe("createApp", () => {
     expect(getCurrentUser.tokens).toEqual([]);
   });
 
+  it("serves the immutable release identity without database access", async () => {
+    const listListings = new FakeListListings([]);
+    const getCurrentUser = new FakeGetCurrentUser();
+    const response = await request(
+      createTestApp({
+        listListings,
+        getCurrentUser,
+        releaseIdentity: { gitSha: "a".repeat(40), stage: "dev" },
+      }),
+      "/api/release",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      gitSha: "a".repeat(40),
+      stage: "dev",
+    });
+    expect(listListings.calls).toBe(0);
+    expect(getCurrentUser.tokens).toEqual([]);
+  });
+
+  it("keeps deployed release identity behind CloudFront origin verification", async () => {
+    const app = createTestApp({
+      httpSecurity: productionHttpSecurity,
+      releaseIdentity: { gitSha: "a".repeat(40), stage: "production" },
+    });
+    const directResponse = await request(app, "/api/release");
+    expect(directResponse.status).toBe(403);
+
+    const cloudFrontResponse = await request(app, "/api/release", {
+      headers: {
+        "x-cpi-origin-verification": originVerificationSecret,
+      },
+    });
+    expect(cloudFrontResponse.status).toBe(200);
+    await expect(cloudFrontResponse.json()).resolves.toEqual({
+      gitSha: "a".repeat(40),
+      stage: "production",
+    });
+  });
+
   it("adds production transport security without changing the health boundary", async () => {
     const response = await request(
       createTestApp({ httpSecurity: productionHttpSecurity }),

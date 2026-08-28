@@ -25,7 +25,7 @@ flowchart TD
     Classify -->|DELETE| Block[block deployment]
     Classify --> Approval2[development approval 2]
     Approval2 --> Evidence[pre-deployment rollback evidence]
-    Evidence --> Deploy[deploy four explicit DEV stacks]
+    Evidence --> Deploy[deploy three explicit DEV stacks]
     Deploy --> Web[S3 sync and CloudFront invalidation]
     Web --> Ready[bounded health readiness]
     Ready --> Smoke[read-only API and UI smoke]
@@ -68,13 +68,16 @@ service, CloudFront invalidation on distributions tagged
 
 The first `development` approval releases only the `plan` job. It does not run
 a migration or mutate a stack. The job confirms the AWS account, runs
-account-backed template-method CDK diff for these explicit stacks, and uploads
+account-backed template-method CDK diff exclusively for these stacks, and uploads
 the raw and classified diff:
 
-- `ChaoranPropertyIntelligenceGuardrails`
 - `ChaoranPropertyIntelligenceDev`
 - `ChaoranPropertyIntelligenceDevEdge`
 - `ChaoranPropertyIntelligenceDevPublicApplication`
+
+The shared Guardrails stack is deliberately excluded so a DEV run cannot
+update the production OIDC role or budget. It must already have been deployed
+through the administrator-controlled one-time setup path.
 
 The classifier writes separate `CREATE`, `UPDATE`, `REPLACE`, and `DELETE`
 sections to the Actions summary. Any `DELETE` fails the plan automatically.
@@ -123,7 +126,8 @@ uploaded and linked from the Actions summary.
 
 The deployment job records the commit and pre-deployment outputs, prior DEV web
 object versions, and prior App Runner image/status when they exist. It deploys
-only the four explicit DEV stacks with both schedule contexts set to false.
+only the three explicit DEV stacks with `--exclusively` and both schedule
+contexts set to false.
 After deployment it syncs the verified web build to
 `cpi-dev-web-<account>-us-west-2`, waits for the CloudFront invalidation through
 the AWS waiter, and polls `/api/health` with bounded attempts and per-request

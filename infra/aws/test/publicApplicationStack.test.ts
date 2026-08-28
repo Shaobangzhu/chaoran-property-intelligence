@@ -32,6 +32,7 @@ function createTemplates() {
       deploymentStage: "dev",
       deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
       env: environment,
+      releaseSha: "a".repeat(40),
       showingListArtifactBucket: foundation.showingListArtifactBucket,
       vpc: foundation.vpc,
       webAclArn:
@@ -43,6 +44,37 @@ function createTemplates() {
     foundation: Template.fromStack(foundation),
     publicApplication: Template.fromStack(publicApplication),
   };
+}
+
+function createProductionPublicApplicationTemplate(): Template {
+  const app = new App();
+  const foundation = new PropertyAlertStack(app, "TestProductionFoundation", {
+    containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
+    deploymentStage: "production",
+    env: environment,
+    failureAlertEmail: "production-alerts@example.com",
+  });
+  return Template.fromStack(
+    new PublicApplicationStack(app, "TestProductionPublicApplication", {
+      apiImageSource: {
+        imageIdentifier:
+          "111111111111.dkr.ecr.us-west-2.amazonaws.com/cpi-api:test",
+        repositoryArn:
+          "arn:aws:ecr:us-west-2:111111111111:repository/cpi-api",
+      },
+      database: foundation.database,
+      databaseCredentialsSecret: foundation.databaseCredentialsSecret,
+      databaseSecurityGroup: foundation.databaseSecurityGroup,
+      deploymentFailureAlertEmail: "production-deploy-alerts@example.com",
+      deploymentStage: "production",
+      env: environment,
+      releaseSha: "b".repeat(40),
+      showingListArtifactBucket: foundation.showingListArtifactBucket,
+      vpc: foundation.vpc,
+      webAclArn:
+        "arn:aws:wafv2:us-east-1:111111111111:global/webacl/cpi-production/test",
+    }),
+  );
 }
 
 describe("PublicApplicationStack", () => {
@@ -139,6 +171,8 @@ describe("PublicApplicationStack", () => {
             ]),
             RuntimeEnvironmentVariables: Match.arrayWith([
               { Name: "API_DEPLOYMENT_MODE", Value: "production" },
+              { Name: "CPI_DEPLOYMENT_STAGE", Value: "dev" },
+              { Name: "CPI_RELEASE_SHA", Value: "a".repeat(40) },
               {
                 Name: "API_TRUSTED_PUBLIC_ORIGIN_HEADER",
                 Value: "x-cpi-viewer-origin",
@@ -237,5 +271,77 @@ describe("PublicApplicationStack", () => {
     publicApplication.hasResourceProperties("AWS::SecretsManager::Secret", {
       Name: "cpi/dev/api-auth/origin-verification",
     });
+  });
+
+  it("retains production web and auth state under distinct identities", () => {
+    const template = createProductionPublicApplicationTemplate();
+
+    template.hasResource("AWS::S3::Bucket", {
+      DeletionPolicy: "Retain",
+      Properties: Match.objectLike({
+        BucketName: "cpi-web-111111111111-us-west-2",
+      }),
+      UpdateReplacePolicy: "Retain",
+    });
+    template.hasResource("AWS::SecretsManager::Secret", {
+      DeletionPolicy: "Retain",
+      Properties: Match.objectLike({
+        Name: "cpi/production/api-auth/jwt-signing",
+      }),
+      UpdateReplacePolicy: "Retain",
+    });
+    template.hasResourceProperties("AWS::AppRunner::Service", {
+      ServiceName: "cpi-api",
+      SourceConfiguration: Match.objectLike({
+        ImageRepository: Match.objectLike({
+          ImageConfiguration: Match.objectLike({
+            RuntimeEnvironmentVariables: Match.arrayWith([
+              { Name: "CPI_DEPLOYMENT_STAGE", Value: "production" },
+              { Name: "CPI_RELEASE_SHA", Value: "b".repeat(40) },
+            ]),
+          }),
+        }),
+      }),
+    });
+    template.hasOutput("ReleaseSha", { Value: "b".repeat(40) });
+  });
+
+  it("rejects malformed release identity before synthesis", () => {
+    const app = new App();
+    const foundation = new PropertyAlertStack(
+      app,
+      "InvalidReleaseFoundation",
+      {
+        containerImage: ContainerImage.fromRegistry(
+          "example.invalid/worker:test",
+        ),
+        deploymentStage: "dev",
+        env: environment,
+        failureAlertEmail: "dev-alerts@example.com",
+      },
+    );
+
+    expect(
+      () =>
+        new PublicApplicationStack(app, "InvalidReleasePublicApplication", {
+          apiImageSource: {
+            imageIdentifier:
+              "111111111111.dkr.ecr.us-west-2.amazonaws.com/cpi-api:test",
+            repositoryArn:
+              "arn:aws:ecr:us-west-2:111111111111:repository/cpi-api",
+          },
+          database: foundation.database,
+          databaseCredentialsSecret: foundation.databaseCredentialsSecret,
+          databaseSecurityGroup: foundation.databaseSecurityGroup,
+          deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
+          deploymentStage: "dev",
+          env: environment,
+          releaseSha: "main",
+          showingListArtifactBucket: foundation.showingListArtifactBucket,
+          vpc: foundation.vpc,
+          webAclArn:
+            "arn:aws:wafv2:us-east-1:111111111111:global/webacl/cpi-dev/test",
+        }),
+    ).toThrow("releaseSha must be a lowercase 40-character Git SHA");
   });
 });

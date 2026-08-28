@@ -21,6 +21,7 @@ export interface AccountGuardrailsStackProps extends StackProps {
   githubBranch: string;
   githubDevEnvironment: string;
   githubOwner: string;
+  githubProductionDeploymentRegions?: string[];
   githubRepository: string;
 }
 
@@ -103,13 +104,132 @@ export class AccountGuardrailsStack extends Stack {
     githubDeployRole.addToPolicy(
       new PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [
+        resources: (
+          props.githubProductionDeploymentRegions ?? [this.region]
+        ).map((region) =>
           this.formatArn({
+            region,
             resource: "parameter",
             resourceName: "cdk-bootstrap/hnb659fds/version",
             service: "ssm",
           }),
+        ),
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sns:Publish"],
+        resources: [
+          this.formatArn({
+            resource: "cpi-deployment-failures",
+            service: "sns",
+          }),
         ],
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "cloudformation:DescribeStacks",
+          "cloudformation:GetTemplate",
+        ],
+        resources: [
+          {
+            region: this.region,
+            stackName: "ChaoranPropertyIntelligenceGuardrails",
+          },
+          {
+            region: this.region,
+            stackName: "ChaoranPropertyIntelligenceProduction",
+          },
+          {
+            region: "us-east-1",
+            stackName: "ChaoranPropertyIntelligenceProductionEdge",
+          },
+          {
+            region: this.region,
+            stackName:
+              "ChaoranPropertyIntelligenceProductionPublicApplication",
+          },
+        ].map(({ region, stackName }) =>
+          this.formatArn({
+            region,
+            resource: "stack",
+            resourceName: `${stackName}/*`,
+            service: "cloudformation",
+          }),
+        ),
+      }),
+    );
+    const productionWebBucketName = `cpi-web-${this.account}-${this.region}`;
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "s3:GetBucketVersioning",
+          "s3:ListBucket",
+          "s3:ListBucketVersions",
+        ],
+        resources: [
+          this.formatArn({
+            account: "",
+            region: "",
+            resource: productionWebBucketName,
+            service: "s3",
+          }),
+        ],
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+        resources: [
+          this.formatArn({
+            account: "",
+            region: "",
+            resource: productionWebBucketName,
+            resourceName: "*",
+            service: "s3",
+          }),
+        ],
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ],
+        resources: [
+          this.formatArn({
+            region: "",
+            resource: "distribution",
+            resourceName: "*",
+            service: "cloudfront",
+          }),
+        ],
+        conditions: {
+          StringEquals: {
+            [`aws:ResourceTag/${deploymentStageTagKey}`]: "production",
+          },
+        },
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["apprunner:DescribeService"],
+        resources: [
+          this.formatArn({
+            resource: "service",
+            resourceName: "cpi-api/*",
+            service: "apprunner",
+          }),
+        ],
+      }),
+    );
+    githubDeployRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["apprunner:ListServices"],
+        resources: ["*"],
       }),
     );
 

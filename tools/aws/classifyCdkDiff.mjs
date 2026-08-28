@@ -43,14 +43,14 @@ export function classifyCdkDiff(rawDiff) {
   return changes;
 }
 
-export function renderCdkDiffSummary(changes) {
+export function renderCdkDiffSummary(changes, title = "AWS DEV") {
   const sections = [
     ["CREATE", changes.create],
     ["UPDATE", changes.update],
     ["REPLACE", changes.replace],
     ["DELETE", changes.delete],
   ];
-  const lines = ["# AWS DEV CDK diff classification", ""];
+  const lines = [`# ${title} CDK diff classification`, ""];
 
   for (const [heading, entries] of sections) {
     lines.push(`## ${heading} (${entries.length})`, "");
@@ -73,7 +73,7 @@ async function main() {
   const args = readArguments(process.argv.slice(2));
   const rawDiff = await readFile(args.input, "utf8");
   const changes = classifyCdkDiff(rawDiff);
-  const summary = renderCdkDiffSummary(changes);
+  const summary = renderCdkDiffSummary(changes, args.title);
 
   await writeFile(args.output, summary, "utf8");
   if (args.githubOutput !== undefined) {
@@ -91,6 +91,10 @@ async function main() {
   }
 
   process.stdout.write(summary);
+  if (args.failOnReplace && changes.replace.length > 0) {
+    process.stderr.write("REPLACE changes require a separately reviewed change.\n");
+    process.exitCode = 2;
+  }
   if (args.failOnDelete && changes.delete.length > 0) {
     process.stderr.write("DELETE changes require a separately reviewed change.\n");
     process.exitCode = 2;
@@ -98,14 +102,18 @@ async function main() {
 }
 
 function readArguments(argv) {
-  const options = {};
+  const options = { title: "AWS DEV" };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--fail-on-delete") {
       options.failOnDelete = true;
       continue;
     }
-    if (["--input", "--output", "--github-output"].includes(argument)) {
+    if (argument === "--fail-on-replace") {
+      options.failOnReplace = true;
+      continue;
+    }
+    if (["--input", "--output", "--github-output", "--title"].includes(argument)) {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith("--")) {
         throw new Error(`${argument} requires a value`);

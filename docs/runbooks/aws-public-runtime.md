@@ -2,11 +2,12 @@
 
 ## Purpose And Boundary
 
-This runbook covers the Block 28.5 DEV public Web/API CDK definition and
-pre-deployment review. It does not authorize `cdk deploy`, secret reads or
-changes, database access, migrations, worker execution, schedule enablement,
-RentCast or OpenAI calls, Telegram messages, or notifications. Production
-deployment is explicitly outside this runbook.
+This runbook covers the shared public Web/API CDK definition and
+pre-deployment review. Block 28.5 introduced DEV; Block 28.8 reuses the tested
+constructs in separately named production edge/application stacks. It does not
+authorize `cdk deploy`, secret reads or changes, database access, migrations,
+worker execution, schedule enablement, RentCast or OpenAI calls, Telegram
+messages, or notifications.
 
 ## Stack Ownership
 
@@ -16,11 +17,18 @@ deployment is explicitly outside this runbook.
 | `ChaoranPropertyIntelligenceDev` | `us-west-2` | Existing DEV VPC, Aurora, database secret, worker resources, disabled schedules |
 | `ChaoranPropertyIntelligenceDevEdge` | `us-east-1` | CloudFront-scope WAF and login rate rule |
 | `ChaoranPropertyIntelligenceDevPublicApplication` | `us-west-2` | Private web S3, CloudFront, App Runner, VPC Connector, API security group, S3 endpoint, API-auth secrets |
+| `ChaoranPropertyIntelligenceProduction` | `us-west-2` | Existing retained production foundation; logical and physical identities remain unchanged |
+| `ChaoranPropertyIntelligenceProductionEdge` | `us-east-1` | Production CloudFront-scope WAF and login rate rule |
+| `ChaoranPropertyIntelligenceProductionPublicApplication` | `us-west-2` | Retained private web S3 and API-auth secrets plus production CloudFront/App Runner runtime |
 
 WAF for a CloudFront distribution must remain in `us-east-1`. Application and
 data resources remain in `us-west-2`. The DEV GitHub OIDC role names only the
 CDK bootstrap roles in those two regions; it does not receive wildcard
 bootstrap-role access.
+
+Production intentionally preserves the repository's established unprefixed
+physical naming convention (`cpi-web-*`, `cpi-api`, and
+`cpi-deployment-failures`). Do not rename these resources to mirror DEV.
 
 ## Runtime Security Contract
 
@@ -43,6 +51,8 @@ bootstrap-role access.
 - App Runner reads only the stage database secret, API-auth secrets, and the
   current Showing List artifact. Worker provider secrets are not granted.
 - DEV schedules remain disabled and are not part of the public runtime stacks.
+- Web `/release.json` and API `/api/release` must carry the same immutable
+  commit and deployment stage before remote evidence is accepted.
 
 ## Local Verification
 
@@ -64,7 +74,10 @@ because App Runner reserves it and derives it from image port `3000`.
 
 Before the first real DEV deployment, obtain a valid non-root federated session,
 confirm the account, and bootstrap both `us-west-2` and `us-east-1`. Run an
-account-backed diff for all four DEV assembly stacks and classify every action:
+account-backed diff for the three DEV runtime stacks and classify every action.
+The shared Guardrails update is reviewed and deployed separately through the
+administrator-controlled bootstrap path so DEV delivery cannot mutate the
+production OIDC role or budget:
 
 ```text
 CREATE:

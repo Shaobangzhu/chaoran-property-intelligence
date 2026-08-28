@@ -79,6 +79,7 @@ export interface PublicApplicationStackProps extends StackProps {
   deploymentStage: DeploymentStage;
   deploymentFailureAlertEmail?: string;
   repositoryRoot?: string;
+  releaseSha: string;
   showingListArtifactBucket: IBucket;
   vpc: Vpc;
   webAclArn: string;
@@ -91,6 +92,10 @@ export class PublicApplicationStack extends Stack {
     props: PublicApplicationStackProps,
   ) {
     super(scope, id, props);
+
+    if (!/^[a-f0-9]{40}$/u.test(props.releaseSha)) {
+      throw new Error("releaseSha must be a lowercase 40-character Git SHA");
+    }
 
     const isProduction = props.deploymentStage === "production";
     const deploymentFailureAlertEmail =
@@ -267,6 +272,8 @@ export class PublicApplicationStack extends Stack {
             ],
             runtimeEnvironmentVariables: [
               keyValue("API_DEPLOYMENT_MODE", "production"),
+              keyValue("CPI_DEPLOYMENT_STAGE", props.deploymentStage),
+              keyValue("CPI_RELEASE_SHA", props.releaseSha),
               keyValue(
                 "API_TRUSTED_PUBLIC_ORIGIN_HEADER",
                 trustedViewerOriginHeaderName,
@@ -414,6 +421,7 @@ export class PublicApplicationStack extends Stack {
     new CfnOutput(this, "DeploymentFailureTopicArn", {
       value: deploymentFailureTopic.topicArn,
     });
+    new CfnOutput(this, "ReleaseSha", { value: props.releaseSha });
     new CfnOutput(this, "WebBucketName", { value: webBucket.bucketName });
   }
 }

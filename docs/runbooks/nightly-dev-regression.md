@@ -140,15 +140,17 @@ request payloads, and response bodies have been reviewed. The bounded flake
 JSON is safer for trend processing than raw Playwright output, but it is not a
 public report by default.
 
-## Known Identity Limitation
+## Release Identity Binding
 
-The workflow records the exact `dev` commit containing the test code. The API
-does not yet expose a deployed release SHA, so Block 28.7 cannot prove that the
-running AWS DEV web/API artifact came from that same commit. A deployment
-failure or pending approval may leave AWS DEV behind `dev`.
+Block 28.8 closes the original identity limitation in source. The workflow now
+expects both `/api/release` and `/release.json` to equal the exact checked-out
+`dev` SHA and stage. A deployment failure or pending approval that leaves AWS
+DEV behind `dev` therefore fails nightly evidence instead of silently testing
+the wrong release.
 
-Do not use nightly evidence as a production release attestation until Block
-28.8 binds regression to an immutable deployed release identity.
+This contract becomes effective only after the identity-aware DEV runtime has
+actually been deployed. Until then, remote runs will fail the new identity
+check as designed.
 
 ## Failure Handling
 

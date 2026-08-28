@@ -156,6 +156,9 @@ async function startApi(): Promise<void> {
         },
       },
       markCurrentShowingListDraftReviewed,
+      ...(config.releaseIdentity === null
+        ? {}
+        : { releaseIdentity: config.releaseIdentity }),
       saveCurrentShowingListDraft,
       updateListingSearchCriteria,
       updateManualListing,

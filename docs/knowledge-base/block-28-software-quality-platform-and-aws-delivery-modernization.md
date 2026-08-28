@@ -311,7 +311,9 @@ tag-scoped DEV CloudFront invalidation, and dedicated deployment-failure SNS
 topic. Bootstrap
 role access remains exact to `us-west-2` and `us-east-1`; production role
 identity and trust remain unchanged. Both worker schedules are passed as false,
-and only the four explicit DEV stacks can be selected.
+and only the three explicit DEV runtime stacks can be selected. The shared
+Guardrails stack is administrator-provisioned and excluded from DEV delivery so
+that a DEV run cannot mutate production OIDC permissions or budget resources.
 
 The workflow promotes the web artifact built by the verification job, captures
 pre/post web object versions and App Runner image metadata, uses bounded health
@@ -375,9 +377,26 @@ See the
 
 ### 28.8 Mainline Production Safety Gate
 
-Complete dev-to-main regression against AWS DEV and production-safe smoke on
-manual production deployment. Production smoke remains read-only and
-non-sensitive by default.
+Implementation status: complete in source, not run against AWS or production.
+
+DEV delivery publishes one strict `{ gitSha, stage }` manifest through
+`/api/release` and `/release.json`. Nightly and the new same-repository
+`dev -> main` gate require both paths to match the exact candidate SHA. The
+release gate uses no AWS credentials and combines complete Vitest regression,
+typecheck/build, bounded DEV readiness, all remote-safe Playwright checks,
+retry/quarantine enforcement, Allure, and 30-day diagnostics.
+
+Production CDK now composes separate `ProductionEdge` and
+`ProductionPublicApplication` stacks around the unchanged production
+foundation. Existing unprefixed production physical naming is preserved. The
+manual workflow separates plan and deploy into independent runs; a SHA-256
+approval digest binds commit and account-backed diff, DELETE fails, and deploy
+also requires explicit API startup migration acknowledgement. Both schedules
+remain disabled. Post-deploy smoke is unauthenticated and read-only.
+
+No account-backed diff, AWS deployment, migration, schedule, worker, provider,
+Telegram, OpenAI, SNS, secret, or production data operation ran. See the
+[Release Candidate And Production Delivery Runbook](../runbooks/release-production-delivery.md).
 
 ## Completion Evidence Template
 

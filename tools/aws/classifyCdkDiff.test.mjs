@@ -58,4 +58,13 @@ Stack DevEdge
     expect(summary).toContain("## REPLACE (0)");
     expect(summary).toContain("## DELETE (0)");
   });
+
+  it("labels a production classification explicitly", () => {
+    const summary = renderCdkDiffSummary(
+      { create: [], delete: [], replace: [], update: [] },
+      "Production",
+    );
+
+    expect(summary).toContain("# Production CDK diff classification");
+  });
 });

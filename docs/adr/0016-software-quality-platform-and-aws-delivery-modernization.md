@@ -36,6 +36,15 @@ configured public DEV origin, permits at most one reported retry, and fails
 unexpected, expired, malformed, duplicate, or stale quarantine evidence. It has
 not executed a remote run. Release identity binding remains a Block 28.8 gate.
 
+Block 28.8 completes that binding in source. DEV deployment now publishes the
+same immutable commit/stage manifest through Web and API paths; nightly and
+`dev -> main` regression require both identities to match the exact candidate.
+The production public runtime is defined in separate edge/application stacks,
+and production delivery requires a plan run followed by a digest-bound deploy
+run with explicit API migration acknowledgement. Production smoke is remote,
+read-only, and unauthenticated. No AWS plan, migration, deployment, smoke, or
+notification was executed while implementing the block.
+
 Block 28 must demonstrate Senior SDET and test automation architecture skills
 without weakening the existing production safety model. Quality automation
 should improve deterministic release confidence rather than maximize test

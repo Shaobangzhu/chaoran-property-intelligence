@@ -14,6 +14,7 @@ const environment = resolveDeploymentEnvironment(process.env);
 const deploymentStage = resolveDeploymentStage(
   app.node.tryGetContext("targetStage") as unknown,
 );
+const releaseSha = resolveReleaseSha(app);
 
 const guardrailsStack = new AccountGuardrailsStack(
   app,
@@ -24,6 +25,7 @@ const guardrailsStack = new AccountGuardrailsStack(
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
+    githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
     githubRepository: "chaoran-property-intelligence",
   },
 );
@@ -41,6 +43,44 @@ if (deploymentStage === "production") {
   productionStack.addStackDependency(
     guardrailsStack,
     "Deploy account cost and access guardrails before application resources",
+  );
+  const edgeStack = new EdgeSecurityStack(
+    app,
+    "ChaoranPropertyIntelligenceProductionEdge",
+    {
+      crossRegionReferences: true,
+      deploymentStage: "production",
+      env: { account: environment.account, region: "us-east-1" },
+    },
+  );
+  edgeStack.addStackDependency(
+    guardrailsStack,
+    "Deploy account access guardrails before production edge resources",
+  );
+  const publicApplicationStack = new PublicApplicationStack(
+    app,
+    "ChaoranPropertyIntelligenceProductionPublicApplication",
+    {
+      crossRegionReferences: true,
+      database: productionStack.database,
+      databaseCredentialsSecret: productionStack.databaseCredentialsSecret,
+      databaseSecurityGroup: productionStack.databaseSecurityGroup,
+      deploymentStage: "production",
+      env: environment,
+      releaseSha,
+      repositoryRoot: path.resolve(process.cwd(), "../.."),
+      showingListArtifactBucket: productionStack.showingListArtifactBucket,
+      vpc: productionStack.vpc,
+      webAclArn: edgeStack.webAclArn,
+    },
+  );
+  publicApplicationStack.addStackDependency(
+    productionStack,
+    "Deploy the retained production foundation before its public runtime",
+  );
+  publicApplicationStack.addStackDependency(
+    edgeStack,
+    "Deploy the production CloudFront WAF before the public runtime",
   );
 } else {
   const devStack = new PropertyAlertStack(
@@ -87,6 +127,7 @@ if (deploymentStage === "production") {
       databaseSecurityGroup: devStack.databaseSecurityGroup,
       deploymentStage: "dev",
       env: environment,
+      releaseSha,
       repositoryRoot: path.resolve(process.cwd(), "../.."),
       showingListArtifactBucket: devStack.showingListArtifactBucket,
       vpc: devStack.vpc,
@@ -101,6 +142,17 @@ if (deploymentStage === "production") {
     edgeStack,
     "Deploy the DEV CloudFront WAF before the public runtime",
   );
+}
+
+function resolveReleaseSha(application: App): string {
+  const value = application.node.tryGetContext("releaseSha") as unknown;
+  if (value === undefined) {
+    return "0".repeat(40);
+  }
+  if (typeof value !== "string" || !/^[a-f0-9]{40}$/u.test(value)) {
+    throw new Error("releaseSha must be a lowercase 40-character Git SHA");
+  }
+  return value;
 }
 
 function resolveShowingListSchedule(application: App) {

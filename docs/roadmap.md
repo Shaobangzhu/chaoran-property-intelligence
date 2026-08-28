@@ -1921,6 +1921,17 @@ Planned sub-block mapping:
    source SHA to a deployed artifact remains in 28.8.
 9. `28.8` Complete `dev -> main` full regression against AWS DEV and
    controlled production deployment with safe production smoke only.
+   **Complete in source without AWS execution:** DEV Web/API now expose matching
+   immutable release manifests, and nightly plus the same-repository
+   `dev -> main` gate require the exact candidate SHA before accepting remote
+   regression. Production adds separate edge/public-application stacks while
+   preserving the existing foundation and unprefixed production physical-name
+   convention. A manual plan run classifies account-backed CREATE, UPDATE,
+   REPLACE, and DELETE and emits a commit/diff approval digest; a separate
+   deploy run must reproduce that digest and explicitly acknowledge API startup
+   migration. Both schedules remain disabled and production smoke is remote,
+   read-only, and unauthenticated. No AWS diff, deployment, migration, schedule,
+   worker, provider, notification, secret, or production-data action ran.
 
 Every executable sub-block requires a fresh explanation, expected files, test
 plan, relevant tests, full typecheck, production build, changed-files summary,

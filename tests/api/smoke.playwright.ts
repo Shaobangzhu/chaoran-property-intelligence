@@ -7,6 +7,8 @@ const adminCredentials = {
 const isRemoteSmoke = Boolean(
   process.env.CPI_PLAYWRIGHT_REMOTE_BASE_URL,
 );
+const expectedReleaseSha = process.env.CPI_EXPECTED_RELEASE_SHA;
+const expectedDeploymentStage = process.env.CPI_EXPECTED_DEPLOYMENT_STAGE;
 
 test.describe("@smoke API smoke", () => {
   test("serves the database-independent health contract", async ({
@@ -36,6 +38,30 @@ test.describe("@smoke API smoke", () => {
     await expect(response.json()).resolves.toEqual({
       error: { code: "AUTHENTICATION_REQUIRED" },
     });
+  });
+
+  test("binds Web and API artifacts to the expected release", async ({
+    request,
+  }) => {
+    test.skip(
+      expectedReleaseSha === undefined || expectedDeploymentStage === undefined,
+      "Release identity is required only for deployed acceptance",
+    );
+    const expected = {
+      gitSha: expectedReleaseSha,
+      stage: expectedDeploymentStage,
+    };
+    const [apiResponse, webResponse] = await Promise.all([
+      request.get("/api/release"),
+      request.get("/release.json"),
+    ]);
+
+    await expect(apiResponse).toBeOK();
+    await expect(webResponse).toBeOK();
+    expect(apiResponse.headers()["cache-control"]).toMatch(/no-store/u);
+    expect(webResponse.headers()["cache-control"]).toMatch(/no-store/u);
+    await expect(apiResponse.json()).resolves.toEqual(expected);
+    await expect(webResponse.json()).resolves.toEqual(expected);
   });
 
   test("logs in, reads the session, reads listings, and logs out", async ({

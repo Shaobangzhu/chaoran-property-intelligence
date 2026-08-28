@@ -77,4 +77,19 @@ describe("EdgeSecurityStack", () => {
       ]),
     });
   });
+
+  it("uses a distinct production WAF identity", () => {
+    const app = new App();
+    const template = Template.fromStack(
+      new EdgeSecurityStack(app, "TestProductionEdgeStack", {
+        deploymentStage: "production",
+        env: { account: "111111111111", region: "us-east-1" },
+      }),
+    );
+
+    template.hasResourceProperties("AWS::WAFv2::WebACL", {
+      Name: "cpi-public-web-api",
+      Scope: "CLOUDFRONT",
+    });
+  });
 });

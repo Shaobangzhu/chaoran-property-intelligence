@@ -1,33 +1,43 @@
-name: Nightly DEV Regression
+name: Release Quality Gate
 
 on:
-  schedule:
-    - cron: "23 9 * * *"
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  cancel-in-progress: false
-  group: nightly-dev-regression
+  cancel-in-progress: true
+  group: release-quality-${{ github.event.pull_request.number }}
 
 jobs:
   regression:
-    name: AWS DEV read-only regression
+    name: dev-to-main regression against exact AWS DEV release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     env:
+      CPI_EXPECTED_DEPLOYMENT_STAGE: dev
+      CPI_EXPECTED_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
       CPI_PLAYWRIGHT_REMOTE_BASE_URL: ${{ vars.CPI_AWS_DEV_BASE_URL }}
       CPI_PLAYWRIGHT_RETRIES: "1"
-      CPI_TEST_ENVIRONMENT: aws-dev-nightly
+      CPI_RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      CPI_RELEASE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      CPI_TESTED_GIT_SHA: ${{ github.event.pull_request.head.sha }}
+      CPI_TEST_ENVIRONMENT: aws-dev-release
 
     steps:
-      - name: Checkout protected dev branch
+      - name: Enforce protected dev-to-main release path
+        run: |-
+          test "$CPI_RELEASE_HEAD_REF" = "dev"
+          test "$CPI_RELEASE_HEAD_REPOSITORY" = "$GITHUB_REPOSITORY"
+
+      - name: Checkout exact release candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: dev
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -43,24 +53,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Record tested source identity
-        run: |-
-          tested_sha="$(git rev-parse HEAD)"
-          echo "CPI_TESTED_GIT_SHA=$tested_sha" >> "$GITHUB_ENV"
-          echo "CPI_EXPECTED_RELEASE_SHA=$tested_sha" >> "$GITHUB_ENV"
-          echo "CPI_EXPECTED_DEPLOYMENT_STAGE=dev" >> "$GITHUB_ENV"
-          {
-            echo "## Nightly AWS DEV Regression"
-            echo
-            echo "Test source branch: \`dev\`"
-            echo
-            echo "Test source commit: \`$tested_sha\`"
-            echo
-            echo "Target: repository variable \`CPI_AWS_DEV_BASE_URL\`"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Validate HTTPS DEV target
+      - name: Validate exact HTTPS DEV target
         run: |-
           test -n "$CPI_PLAYWRIGHT_REMOTE_BASE_URL"
           node -e '
@@ -77,6 +70,18 @@ jobs:
             }
           '
 
+      - name: Record release candidate identity
+        run: |-
+          test "$(git rev-parse HEAD)" = "$CPI_EXPECTED_RELEASE_SHA"
+          {
+            echo "## AWS DEV Release Candidate Regression"
+            echo
+            echo "Candidate: \`$CPI_EXPECTED_RELEASE_SHA\`"
+            echo
+            echo "Source path: protected \`dev -> main\` pull request"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Validate flaky-test quarantine policy
         run: |-
           mkdir -p test-results/flake-evidence
@@ -85,10 +90,19 @@ jobs:
             --output test-results/flake-evidence/quarantine-policy.md \
             --github-summary "$GITHUB_STEP_SUMMARY"
 
+      - name: Run complete deterministic Vitest regression
+        run: pnpm test
+
+      - name: Typecheck release candidate
+        run: pnpm typecheck
+
+      - name: Build release candidate
+        run: pnpm build
+
       - name: Install Playwright browser
         run: pnpm test:e2e:install-browsers
 
-      - name: Check bounded DEV health readiness
+      - name: Check bounded AWS DEV readiness
         run: >-
           node tools/aws/waitForHttp.mjs
           --url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL/api/health"
@@ -96,10 +110,11 @@ jobs:
           --interval-ms 10000
           --request-timeout-ms 5000
 
-      - name: Run read-only nightly Playwright regression
+      - name: Run full remote-safe Playwright regression
         id: playwright
+        env:
+          CPI_APPEND_ALLURE_RESULTS: "true"
         run: |-
-          pnpm allure:clean
           set +e
           pnpm exec playwright test
           test_status="$?"
@@ -141,13 +156,13 @@ jobs:
             echo "No Allure results were produced."
           fi
 
-      - name: Upload nightly diagnostics
-        id: nightly-diagnostics
+      - name: Upload release diagnostics
+        id: release-diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
-          name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-quality-${{ github.run_id }}-${{ github.run_attempt }}
           path: |-
             allure-results/
             allure-report/
@@ -157,15 +172,15 @@ jobs:
             test-results/playwright-results.json
           retention-days: 30
 
-      - name: Publish nightly quality summary
+      - name: Publish release quality summary
         if: always()
         env:
-          CPI_QUALITY_ARTIFACT_URL: ${{ steps.nightly-diagnostics.outputs.artifact-url }}
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.release-diagnostics.outputs.artifact-url }}
         run: |-
           pnpm report:github-summary
           cat test-results/flake-evidence/retry-analysis.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Enforce regression and flake outcomes
+      - name: Enforce exact release regression outcome
         if: always()
         run: |-
           test "${{ steps.playwright.outputs.exit_code || '1' }}" = "0"

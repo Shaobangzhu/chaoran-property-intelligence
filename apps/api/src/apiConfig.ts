@@ -7,6 +7,12 @@ const maximumOriginSecretLength = 256;
 const originSecretPattern = /^[A-Za-z0-9_-]+$/u;
 
 export type ApiDeploymentMode = "local" | "production";
+export type ApplicationDeploymentStage = "dev" | "production";
+
+export interface ReleaseIdentity {
+  gitSha: string;
+  stage: ApplicationDeploymentStage;
+}
 
 export interface ApiHttpSecurityConfig {
   deploymentMode: ApiDeploymentMode;
@@ -19,6 +25,7 @@ export interface ApiConfig extends ApiHttpSecurityConfig {
   databaseConnection: PostgresConnectionConfig;
   host: "127.0.0.1" | "0.0.0.0";
   port: number;
+  releaseIdentity: ReleaseIdentity | null;
   showingListArtifactStorage: {
     bucketName: string;
     expectedBucketOwner: string;
@@ -43,8 +50,27 @@ export function loadApiConfig(
       deploymentMode === "production"
         ? readOriginVerificationSecret(environment)
         : null,
+    releaseIdentity: readReleaseIdentity(environment, deploymentMode),
     showingListArtifactStorage: readShowingListArtifactStorage(environment),
   };
+}
+
+function readReleaseIdentity(
+  environment: Readonly<Record<string, string | undefined>>,
+  deploymentMode: ApiDeploymentMode,
+): ReleaseIdentity | null {
+  if (deploymentMode === "local") {
+    return null;
+  }
+  const gitSha = readRequiredVariable(environment, "CPI_RELEASE_SHA");
+  const stage = readRequiredVariable(environment, "CPI_DEPLOYMENT_STAGE");
+  if (!/^[a-f0-9]{40}$/u.test(gitSha)) {
+    throw new Error("Invalid release identity: CPI_RELEASE_SHA");
+  }
+  if (stage !== "dev" && stage !== "production") {
+    throw new Error("Invalid release identity: CPI_DEPLOYMENT_STAGE");
+  }
+  return { gitSha, stage };
 }
 
 function readDatabaseConnection(

@@ -19,6 +19,8 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("ref: dev");
     expect(workflow).toContain("git rev-parse HEAD");
+    expect(workflow).toContain("CPI_EXPECTED_RELEASE_SHA=$tested_sha");
+    expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=dev");
   });
 
   it("uses only the public HTTPS DEV origin without AWS credentials", () => {

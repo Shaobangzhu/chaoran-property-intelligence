@@ -15,6 +15,7 @@ function createTemplate(): Template {
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
+    githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
     githubRepository: "chaoran-property-intelligence",
   });
 
@@ -203,6 +204,31 @@ describe("AccountGuardrailsStack", () => {
     expect(JSON.stringify(resources.GitHubDeployRoleED73FD64)).toContain(
       "repo:Shaobangzhu/chaoran-property-intelligence:ref:refs/heads/main",
     );
+  });
+
+  it("bounds production public delivery permissions by stage and resource name", () => {
+    const template = createTemplate();
+    const policies = template.findResources("AWS::IAM::Policy");
+    const productionPolicy = Object.values(policies).find((policy) =>
+      JSON.stringify(policy.Properties?.Roles).includes("GitHubDeployRole"),
+    );
+    const policyDocument = JSON.stringify(
+      productionPolicy?.Properties?.PolicyDocument,
+    );
+
+    expect(productionPolicy).toBeDefined();
+    expect(policyDocument).toContain("ssm:us-east-1:111111111111");
+    expect(policyDocument).toContain(
+      "ChaoranPropertyIntelligenceProductionPublicApplication/*",
+    );
+    expect(policyDocument).toContain("cpi-web-");
+    expect(policyDocument).toContain("cpi-api/*");
+    expect(policyDocument).toContain("cpi-deployment-failures");
+    expect(policyDocument).toContain("cloudfront:CreateInvalidation");
+    expect(policyDocument).toContain(
+      "aws:ResourceTag/cpi:deployment-stage",
+    );
+    expect(policyDocument).not.toContain("cpi-production-web-");
   });
 });
 

@@ -36,7 +36,10 @@ import express, {
 } from "express";
 import helmet from "helmet";
 
-import type { ApiHttpSecurityConfig } from "./apiConfig.js";
+import type {
+  ApiHttpSecurityConfig,
+  ReleaseIdentity,
+} from "./apiConfig.js";
 import type { ApiLogContext, ApiLogger } from "./apiLogger.js";
 import {
   type ListListingsResponse,
@@ -154,6 +157,7 @@ export interface CreateAppOptions {
   loginRateLimit?: LoginRateLimitConfig;
   now?: () => Date;
   requestIdFactory?: () => string;
+  releaseIdentity?: ReleaseIdentity;
   markCurrentShowingListDraftReviewed: MarkCurrentShowingListDraftReviewedUseCase;
   saveCurrentShowingListDraft: SaveCurrentShowingListDraftUseCase;
   updateListingSearchCriteria: UpdateListingSearchCriteriaUseCase;
@@ -224,6 +228,12 @@ export function createApp(options: CreateAppOptions): Express {
   app.get("/api/health", (_request, response) => {
     response.status(200).json({ status: "ok" });
   });
+
+  if (options.releaseIdentity !== undefined) {
+    app.get("/api/release", (_request, response) => {
+      response.status(200).json(options.releaseIdentity);
+    });
+  }
 
   app.post("/api/auth/login", async (request, response) => {
     const input = parseLoginInput(request.body);

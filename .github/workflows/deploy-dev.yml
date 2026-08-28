@@ -59,7 +59,12 @@ jobs:
         run: pnpm typecheck
 
       - name: Build release candidate
-        run: pnpm build
+        run: |-
+          pnpm build
+          node tools/release/createReleaseManifest.mjs \
+            --sha "$GITHUB_SHA" \
+            --stage dev \
+            --output apps/web/dist/release.json
 
       - name: Synthesize isolated DEV stacks
         run: pnpm --dir infra/aws synth:dev
@@ -154,12 +159,13 @@ jobs:
           mkdir -p deployment-plan
           set +e
           pnpm --dir infra/aws exec cdk diff \
-            ChaoranPropertyIntelligenceGuardrails \
             ChaoranPropertyIntelligenceDev \
             ChaoranPropertyIntelligenceDevEdge \
             ChaoranPropertyIntelligenceDevPublicApplication \
             -c targetStage=dev \
+            -c releaseSha="$GITHUB_SHA" \
             --ci \
+            --exclusively \
             --fail \
             --method template \
             --no-color 2>&1 | tee deployment-plan/cdk-diff.txt
@@ -289,11 +295,11 @@ jobs:
       - name: Deploy isolated DEV stacks with schedules disabled
         run: |-
           pnpm --dir infra/aws exec cdk deploy \
-            ChaoranPropertyIntelligenceGuardrails \
             ChaoranPropertyIntelligenceDev \
             ChaoranPropertyIntelligenceDevEdge \
             ChaoranPropertyIntelligenceDevPublicApplication \
             -c targetStage=dev \
+            -c releaseSha="$GITHUB_SHA" \
             -c scheduleEnabled=false \
             -c showingListScheduleEnabled=false \
             -c showingListScheduleWeekday=MON \
@@ -301,10 +307,9 @@ jobs:
             -c showingListScheduleMinute=0 \
             -c showingListScheduleTimeZone=America/Los_Angeles \
             --concurrency 1 \
+            --exclusively \
             --outputs-file "$GITHUB_WORKSPACE/deployment-evidence/cdk-outputs.json" \
             --require-approval never \
-            --parameters ChaoranPropertyIntelligenceGuardrails:AlertEmail="$CPI_ALERT_EMAIL" \
-            --parameters ChaoranPropertyIntelligenceGuardrails:MonthlyBudgetUsd="$CPI_MONTHLY_BUDGET_USD" \
             --parameters ChaoranPropertyIntelligenceDev:AlertEmail="$CPI_ALERT_EMAIL" \
             --parameters ChaoranPropertyIntelligenceDevPublicApplication:DeploymentFailureAlertEmail="$CPI_ALERT_EMAIL"
 
@@ -320,6 +325,10 @@ jobs:
           test "$web_bucket" != "null"
           aws s3 sync apps/web/dist/ "s3://$web_bucket/" \
             --delete --only-show-errors
+          aws s3 cp apps/web/dist/release.json "s3://$web_bucket/release.json" \
+            --cache-control no-store \
+            --content-type application/json \
+            --only-show-errors
           invalidation_id="$(aws cloudfront create-invalidation \
             --distribution-id "$distribution_id" \
             --paths '/*' \
@@ -329,6 +338,8 @@ jobs:
             --id "$invalidation_id"
           echo "application_url=$application_url" >> "$GITHUB_OUTPUT"
           echo "CPI_PLAYWRIGHT_REMOTE_BASE_URL=$application_url" >> "$GITHUB_ENV"
+          echo "CPI_EXPECTED_RELEASE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "CPI_EXPECTED_DEPLOYMENT_STAGE=dev" >> "$GITHUB_ENV"
 
       - name: Wait for bounded health readiness
         run: >-

@@ -641,17 +641,21 @@ Local mutation requires all of the following:
 `.github/workflows/deploy-production.yml` is designed for repeat deployments:
 
 - manual `workflow_dispatch` only
-- exact confirmation input `deploy-production`
+- independent `plan-production` and `deploy-production` operations
+- SHA-256 approval digest binding the deploy to the exact commit and current
+  account-backed CDK diff
+- explicit `authorize-production-api-migration` acknowledgement on deploy
 - `main` branch only
 - one non-canceling `production-deployment` concurrency group
 - `contents: read` and `id-token: write` permissions only
-- tests, typecheck, and build before AWS authentication
+- tests, local smoke, typecheck, build, and synth before AWS mutation
 - immutable commit SHA pins for every action
-- a 45-minute job timeout
+- a 75-minute job timeout
 - `scheduleEnabled=false` on every deployment
 - `showingListScheduleEnabled=false` and explicit weekly weekday, hour, minute,
   and time zone on every deployment
 - temporary AWS credentials obtained through OIDC
+- exact Web/API release identity plus read-only production smoke after deploy
 
 The OIDC trust conditions are exact:
 
@@ -690,6 +694,8 @@ configuration required before publishing the workflow is:
 | `API_PUBLIC_ORIGIN` | `.env.local`; fixed-domain App Runner environment | No | Exact unsafe-request Origin check |
 | `API_TRUSTED_PUBLIC_ORIGIN_HEADER` | App Runner environment | No | Exact CloudFront-owned origin marker; mutually exclusive with `API_PUBLIC_ORIGIN` |
 | `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
+| `CPI_DEPLOYMENT_STAGE` | App Runner environment; Web release manifest | No | Release evidence stage (`dev` or `production`) |
+| `CPI_RELEASE_SHA` | CDK context; App Runner environment; Web release manifest | No | Immutable deployed commit identity |
 | `PORT` | App Runner environment | No | Production Express listener |
 | `DATABASE_CREDENTIALS_SECRET_JSON` | App Runner secret environment | Yes | Existing Aurora username/password JSON secret |
 | `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |

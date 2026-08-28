@@ -556,6 +556,13 @@ solutions include:
 
 The release PR must not deploy production.
 
+Block 28.8 implements the identity with two independent CloudFront-visible
+resources. App Runner returns CDK-injected `CPI_RELEASE_SHA` and stage from
+`/api/release`; the verified Vite artifact carries the same values in
+`/release.json`. The release workflow checks out the exact same-repository
+`dev` head SHA and fails unless Web, API, and PR candidate all match. It has
+`contents: read` only and cannot assume an AWS role or deploy.
+
 ## Observability And Notification
 
 ```mermaid
@@ -685,6 +692,15 @@ Disallowed by default:
 - inspect secret values
 
 AWS DEV remains the primary full-system regression environment.
+
+Block 28.8 production delivery uses two independent manual runs. The plan run
+publishes classified account-backed diff evidence and a SHA-256 approval digest
+bound to commit, diff, and production stage. The deploy run must recompute the
+same digest and requires the separate
+`authorize-production-api-migration` acknowledgement. Both schedules are
+forced disabled. Remote production smoke verifies only health, release
+identity, security headers, sign-in-page availability, and unauthenticated
+authorization rejection; stateful local smoke cases remain skipped remotely.
 
 ## Execution Order
 

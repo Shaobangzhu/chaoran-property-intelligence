@@ -51,8 +51,13 @@ describe("DEV deployment workflow", () => {
       "ChaoranPropertyIntelligenceDevPublicApplication",
     );
     expect(workflow).toContain("-c targetStage=dev");
+    expect(workflow).toContain('-c releaseSha="$GITHUB_SHA"');
     expect(workflow).toContain("-c scheduleEnabled=false");
     expect(workflow).toContain("-c showingListScheduleEnabled=false");
+    expect(workflow.match(/--exclusively/gu)).toHaveLength(2);
+    expect(workflow).not.toContain(
+      "cdk deploy \\\n+            ChaoranPropertyIntelligenceGuardrails",
+    );
     expect(workflow).not.toContain("ChaoranPropertyIntelligenceProduction");
   });
 
@@ -60,9 +65,13 @@ describe("DEV deployment workflow", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("aws s3 sync");
+    expect(workflow).toContain("--cache-control no-store");
     expect(workflow).toContain("cloudfront wait invalidation-completed");
     expect(workflow).toContain("tools/aws/waitForHttp.mjs");
     expect(workflow).toContain("CPI_PLAYWRIGHT_REMOTE_BASE_URL");
+    expect(workflow).toContain("createReleaseManifest.mjs");
+    expect(workflow).toContain("CPI_EXPECTED_RELEASE_SHA=$GITHUB_SHA");
+    expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=dev");
     expect(workflow).toContain("pnpm exec playwright test --grep @smoke");
     expect(workflow).toContain("list-object-versions");
     expect(workflow).toContain("aws sns publish");
