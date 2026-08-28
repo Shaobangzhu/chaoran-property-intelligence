@@ -1969,7 +1969,9 @@ Planned sub-block mapping:
    production action is authorized or executed.
 2. `29.1` Perform a separately confirmed read-only AWS inventory for identity,
    account, regions, current stacks, CDK bootstrap, OIDC roles, schedules,
-   budgets, and public-runtime absence/status. Stop before mutation.
+   budgets, and public-runtime absence/status. **Complete on 2026-08-28:** the
+   [redacted preflight record](operations/block-29-1-read-only-launch-preflight.md)
+   captures AWS and GitHub blockers; no mutation was performed.
 3. `29.2` Bootstrap only missing regions, then review and deploy the bounded
    Guardrails/OIDC update through federated administrator access. Bootstrap and
    Guardrails are separate mutation approvals; production trust and retained

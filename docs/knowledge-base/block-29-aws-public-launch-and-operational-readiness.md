@@ -60,6 +60,12 @@ presence in both regions, OIDC provider/roles, schedule states, and current
 public-stack absence or status. Stop before any diff that creates a change set
 or any mutating command.
 
+Status: complete on 2026-08-28. The
+[redacted preflight record](../operations/block-29-1-read-only-launch-preflight.md)
+documents the missing `us-east-1` bootstrap, missing DEV OIDC role, absent
+public runtime, and incomplete GitHub protection controls. Block 29.2 remains
+separately authorized.
+
 ### 29.2 Bootstrap And Guardrails Enablement
 
 Bootstrap only missing target regions after a dedicated approval. Then run an
@@ -136,6 +142,7 @@ data-mutating operation with its own authorization and evidence.
 ## References
 
 - [Block 29 launch runbook](../runbooks/block-29-aws-public-launch.md)
+- [Block 29.1 redacted preflight](../operations/block-29-1-read-only-launch-preflight.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)
