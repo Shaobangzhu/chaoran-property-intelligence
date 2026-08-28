@@ -1,9 +1,11 @@
 name: Deploy DEV
 
 on:
-  push:
+  pull_request:
     branches:
       - dev
+    types:
+      - closed
   workflow_dispatch:
 
 permissions:
@@ -21,13 +23,19 @@ env:
 jobs:
   verify:
     name: Verify release candidate
-    if: github.ref == 'refs/heads/dev'
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true) ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -120,6 +128,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Initialize deployment plan evidence
+        run: |-
+          mkdir -p deployment-plan
+          printf '%s\n' \
+            '# DEV deployment plan context' \
+            '' \
+            "- Release SHA: \`$GITHUB_SHA\`" \
+            "- Trigger: \`$GITHUB_EVENT_NAME\`" \
+            "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > deployment-plan/run-context.md
 
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -156,7 +177,6 @@ jobs:
 
       - name: Capture account-backed CDK diff
         run: |-
-          mkdir -p deployment-plan
           set +e
           pnpm --dir infra/aws exec cdk diff \
             ChaoranPropertyIntelligenceDev \
@@ -193,7 +213,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          if-no-files-found: error
+          if-no-files-found: warn
           name: dev-cdk-diff-${{ github.run_id }}-${{ github.run_attempt }}
           path: deployment-plan/
           retention-days: 30
@@ -213,6 +233,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4

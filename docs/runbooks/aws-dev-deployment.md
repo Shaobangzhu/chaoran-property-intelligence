@@ -18,7 +18,7 @@ authorizes the reviewed DEV schema migration.
 
 ```mermaid
 flowchart TD
-    Dev[push or dispatch on dev] --> Verify[verify release candidate]
+    Dev[PR merged into dev or manual dispatch on dev] --> Verify[verify release candidate]
     Verify --> Approval1[development approval 1]
     Approval1 --> Diff[account-backed CDK diff]
     Diff --> Classify[CREATE UPDATE REPLACE DELETE]
@@ -37,8 +37,11 @@ flowchart TD
 ```
 
 The workflow is `.github/workflows/deploy-dev.yml`. Its concurrency group does
-not cancel an in-progress deployment. The workflow accepts only `dev`; a manual
-dispatch from another ref is skipped.
+not cancel an in-progress deployment. Automatic delivery starts only when a
+pull request is actually merged into `dev`; creating or directly pushing the
+branch does not start delivery. A manual dispatch from another ref is skipped.
+All three jobs explicitly check out the event SHA so later `dev` movement while
+an approval is pending cannot change the reviewed release candidate.
 
 ## One-Time GitHub And AWS Setup
 
@@ -84,6 +87,11 @@ sections to the Actions summary. Any `DELETE` fails the plan automatically.
 Every `REPLACE` requires human review; replacement of Aurora, a database
 secret, VPC, retained production resource, schedule, or OIDC identity blocks
 approval. The artifact is retained for 30 days.
+
+The plan artifact is initialized before AWS authentication with the immutable
+release SHA and run URL. If OIDC configuration fails before a CDK diff can be
+captured, that context remains available and artifact upload does not create a
+second, misleading workflow failure.
 
 The second `development` approval is requested only after the plan succeeds.
 Its job name states that API startup migrates DEV. Approval covers the exact

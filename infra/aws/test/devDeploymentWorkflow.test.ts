@@ -8,11 +8,21 @@ const workflowPath = fileURLToPath(
 );
 
 describe("DEV deployment workflow", () => {
-  it("runs only for dev and places plan and deploy behind separate environment jobs", () => {
+  it("runs only after a merge to dev or a dev-scoped manual dispatch", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("- dev");
+    expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("- closed");
+    expect(workflow).toContain("github.event.pull_request.merged == true");
     expect(workflow).toContain("github.ref == 'refs/heads/dev'");
+    expect(workflow).not.toMatch(/^\s*push:/mu);
+    expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/gu)).toHaveLength(3);
+  });
+
+  it("places plan and deploy behind separate environment jobs", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
     expect(workflow.match(/name: development/gu)).toHaveLength(2);
     expect(workflow).toContain(
       "Plan DEV deployment (approval 1; no migration)",
@@ -41,6 +51,8 @@ describe("DEV deployment workflow", () => {
     expect(workflow).toContain("--fail-on-delete");
     expect(workflow).toContain("CREATE UPDATE REPLACE DELETE");
     expect(workflow).toContain("dev-cdk-diff-");
+    expect(workflow).toContain("deployment-plan/run-context.md");
+    expect(workflow).toContain("if-no-files-found: warn");
   });
 
   it("deploys only explicit DEV stacks with both schedules disabled", () => {
