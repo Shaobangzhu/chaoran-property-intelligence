@@ -342,9 +342,36 @@ do not replace the mandatory account-backed plan. See the
 
 ### 28.7 Nightly DEV Regression And Flake Engineering
 
-Schedule nightly regression against AWS DEV with artifact retention and explicit
-flaky-test policy. Retries must be bounded and reported; quarantine requires an
-owner, reason, expiry, and remediation path.
+Implementation status: complete in source, not run against AWS DEV.
+
+The credential-free nightly workflow runs daily at `09:23 UTC` and by manual
+dispatch. GitHub loads schedules from the default branch, so the workflow
+explicitly checks out protected `dev`, records that commit, and tests the
+CloudFront origin supplied by repository variable `CPI_AWS_DEV_BASE_URL`. It
+does not request OIDC, enter the protected deployment environment, call AWS,
+deploy, migrate, enable schedules, run workers, or publish SNS.
+
+After bounded health readiness it runs the complete currently available remote
+Playwright suite with exactly one retry. The JSON reporter feeds a tested
+analysis tool that fails any unregistered retry, reports an active quarantined
+retry, rejects stale quarantine IDs, and emits no raw error or request payload.
+The final job status is enforced only after Allure, Playwright traces/
+screenshots, raw result JSON, bounded flake evidence, Actions summaries, and a
+30-day artifact are produced.
+
+`tests/flaky-tests.json` is empty at completion. Future quarantine entries must
+provide owner, bounded reason, evidence and remediation HTTPS links,
+introduction and expiry dates, and an exact test ID. The validator rejects more
+than 30 days, expiry, duplicate IDs, unknown fields, and removed/renamed tests.
+Quarantine does not add `test.skip` and cannot hide a failure after all
+attempts.
+
+The workflow records test-source SHA but the deployed API does not yet expose
+release identity. Therefore nightly evidence is environmental regression, not
+yet release-candidate attestation. Block 28.8 owns that remaining identity gate.
+No scheduled workflow or real remote test was started during implementation.
+See the
+[Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md).
 
 ### 28.8 Mainline Production Safety Gate
 

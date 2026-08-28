@@ -30,6 +30,12 @@ readiness, read-only remote smoke, rollback evidence, and a dedicated failure
 topic. The workflow has not been run against AWS; first deployment and DEV
 migration authorization remain external gates.
 
+Block 28.7 adds a credential-free nightly regression consumer and explicit
+flake policy in source. It checks out protected `dev`, targets a repository-
+configured public DEV origin, permits at most one reported retry, and fails
+unexpected, expired, malformed, duplicate, or stale quarantine evidence. It has
+not executed a remote run. Release identity binding remains a Block 28.8 gate.
+
 Block 28 must demonstrate Senior SDET and test automation architecture skills
 without weakening the existing production safety model. Quality automation
 should improve deterministic release confidence rather than maximize test
@@ -229,4 +235,5 @@ Tradeoffs:
 - [ADR 0004: Single-User Authentication](0004-single-user-authentication.md)
 - [AWS Deployment Runbook](../runbooks/aws-deployment.md)
 - [AWS DEV Deployment Runbook](../runbooks/aws-dev-deployment.md)
+- [Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md)
 - [AWS System Design and Configuration](../aws-system-design.md)

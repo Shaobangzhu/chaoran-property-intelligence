@@ -23,6 +23,10 @@ const webPort = readPort(
 const apiBaseURL = remoteBaseURL ?? `http://127.0.0.1:${apiPort}`;
 const webBaseURL = remoteBaseURL ?? `http://127.0.0.1:${webPort}`;
 const allureEnvironmentInfo = createAllureEnvironmentInfo("playwright");
+const retries = readRetryCount(
+  process.env.CPI_PLAYWRIGHT_RETRIES,
+  process.env.CI ? 1 : 0,
+);
 
 export default defineConfig({
   expect: {
@@ -64,8 +68,9 @@ export default defineConfig({
       },
     ],
     ["html", { open: "never", outputFolder: "playwright-report" }],
+    ["json", { outputFile: "test-results/playwright-results.json" }],
   ],
-  retries: process.env.CI ? 1 : 0,
+  retries,
   testDir: "./tests",
   timeout: 30_000,
   use: {
@@ -131,16 +136,32 @@ function readPort(
   return parsed;
 }
 
+function readRetryCount(
+  value: string | undefined,
+  defaultValue: number,
+): number {
+  if (value === undefined || value.trim().length === 0) {
+    return defaultValue;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1) {
+    throw new Error("CPI_PLAYWRIGHT_RETRIES must be 0 or 1");
+  }
+  return parsed;
+}
+
 function createAllureEnvironmentInfo(
   testFramework: string,
 ): Record<string, string> {
   return {
     ci: process.env.CI === "true" ? "true" : "false",
     git_ref: process.env.GITHUB_REF_NAME ?? process.env.GITHUB_REF ?? "local",
-    git_sha: process.env.GITHUB_SHA ?? "local",
+    git_sha:
+      process.env.CPI_TESTED_GIT_SHA ?? process.env.GITHUB_SHA ?? "local",
     node_version: process.version,
     os_platform: os.platform(),
     os_release: os.release(),
     test_framework: testFramework,
+    target_environment: process.env.CPI_TEST_ENVIRONMENT ?? "local",
   };
 }

@@ -629,6 +629,33 @@ Policy:
 No `waitForTimeout` or sleep-based readiness should be introduced into the
 framework.
 
+Block 28.7 implements the policy with:
+
+- `.github/workflows/nightly-dev-regression.yml`, scheduled daily at `09:23
+  UTC` with manual dispatch
+- repository variable `CPI_AWS_DEV_BASE_URL` as the public, non-secret target
+- explicit checkout of protected `dev`, because scheduled workflow definitions
+  are loaded from the default branch
+- no AWS credentials, OIDC token, GitHub environment, deployment, or migration
+- one maximum retry, enforced by `CPI_PLAYWRIGHT_RETRIES`
+- Playwright JSON plus bounded retry analysis in the Actions summary and
+  ignored `test-results/flake-evidence` directory
+- `tests/flaky-tests.json`, currently empty, with strict owner/reason/evidence/
+  remediation/introduced/expiry metadata and a 30-day maximum
+
+An unregistered retry fails the nightly workflow. An active quarantine permits
+a retry-pass to remain operationally visible, but it never skips the test and
+cannot override an exhausted Playwright failure. Expired, malformed, duplicate,
+or stale quarantine entries fail before evidence is accepted.
+Zero discovered tests also fail closed. Attempts lasting at least 10 seconds
+are reported in a bounded top-20 list without turning duration alone into a
+failure.
+
+The nightly artifact retains Allure, Playwright reports, traces/screenshots,
+raw JSON, and bounded flake evidence for 30 days. The flake summary omits error
+payloads and attachments. See the
+[Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md).
+
 ## Production Safety
 
 Production remains controlled and manually confirmed.
@@ -682,6 +709,12 @@ Recommended execution order:
 
 The slight reorder puts local Playwright proof before AWS deployment acceptance,
 which reduces cloud-debugging risk.
+
+The Block 28 implementation numbering consolidates the original prompt map:
+protected push-to-`dev` delivery was completed in Block 28.6, while Block 28.7
+implements the nightly/flaky-test capability originally listed as `18.13`.
+Repository implementation status, ADR 0016, and the Block 28 roadmap are the
+authority for subsequent steps.
 
 ## Definition Of Done For Future Executable Phases
 

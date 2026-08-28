@@ -1910,7 +1910,15 @@ Planned sub-block mapping:
    startup migrations. No AWS action or notification was executed.
 8. `28.7` Add nightly AWS DEV regression and flaky-test engineering controls:
    bounded retries, explicit quarantine metadata, owner, expiry, and
-   remediation path.
+   remediation path. **Complete in source without remote execution:** a
+   credential-free scheduled/manual workflow checks out protected `dev`, uses a
+   repository-configured CloudFront URL, runs bounded health plus read-only
+   Playwright regression, reports every retry, fails unexpected retry usage,
+   validates a strict 30-day quarantine registry, and uploads linked Allure,
+   Playwright, trace/screenshot, JSON, and flake evidence for 30 days. The
+   registry is empty. No AWS credential, deployment, migration, schedule,
+   worker, provider, Telegram, OpenAI, or SNS behavior ran. Binding the tested
+   source SHA to a deployed artifact remains in 28.8.
 9. `28.8` Complete `dev -> main` full regression against AWS DEV and
    controlled production deployment with safe production smoke only.
 

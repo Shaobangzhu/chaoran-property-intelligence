@@ -1,0 +1,170 @@
+name: Nightly DEV Regression
+
+on:
+  schedule:
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: false
+  group: nightly-dev-regression
+
+jobs:
+  regression:
+    name: AWS DEV read-only regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CPI_PLAYWRIGHT_REMOTE_BASE_URL: ${{ vars.CPI_AWS_DEV_BASE_URL }}
+      CPI_PLAYWRIGHT_RETRIES: "1"
+      CPI_TEST_ENVIRONMENT: aws-dev-nightly
+
+    steps:
+      - name: Checkout protected dev branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: dev
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Record tested source identity
+        run: |-
+          tested_sha="$(git rev-parse HEAD)"
+          echo "CPI_TESTED_GIT_SHA=$tested_sha" >> "$GITHUB_ENV"
+          {
+            echo "## Nightly AWS DEV Regression"
+            echo
+            echo "Test source branch: \`dev\`"
+            echo
+            echo "Test source commit: \`$tested_sha\`"
+            echo
+            echo "Target: repository variable \`CPI_AWS_DEV_BASE_URL\`"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate HTTPS DEV target
+        run: |-
+          test -n "$CPI_PLAYWRIGHT_REMOTE_BASE_URL"
+          node -e '
+            const target = new URL(process.env.CPI_PLAYWRIGHT_REMOTE_BASE_URL);
+            if (
+              target.protocol !== "https:" ||
+              target.username ||
+              target.password ||
+              target.pathname !== "/" ||
+              target.search ||
+              target.hash
+            ) {
+              throw new Error("CPI_AWS_DEV_BASE_URL must be an HTTPS origin without credentials");
+            }
+          '
+
+      - name: Validate flaky-test quarantine policy
+        run: |-
+          mkdir -p test-results/flake-evidence
+          node tools/flaky-tests/validateFlakeRegistry.mjs \
+            --registry tests/flaky-tests.json \
+            --output test-results/flake-evidence/quarantine-policy.md \
+            --github-summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Playwright browser
+        run: pnpm test:e2e:install-browsers
+
+      - name: Check bounded DEV health readiness
+        run: >-
+          node tools/aws/waitForHttp.mjs
+          --url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL/api/health"
+          --attempts 6
+          --interval-ms 10000
+          --request-timeout-ms 5000
+
+      - name: Run read-only nightly Playwright regression
+        id: playwright
+        run: |-
+          pnpm allure:clean
+          set +e
+          pnpm exec playwright test
+          test_status="$?"
+          set -e
+          echo "exit_code=$test_status" >> "$GITHUB_OUTPUT"
+
+      - name: Analyze retry and quarantine evidence
+        id: flake-analysis
+        if: always()
+        run: |-
+          mkdir -p test-results/flake-evidence
+          if [ -f test-results/playwright-results.json ]; then
+            set +e
+            node tools/flaky-tests/analyzePlaywrightResults.mjs \
+              --results test-results/playwright-results.json \
+              --registry tests/flaky-tests.json \
+              --output-markdown test-results/flake-evidence/retry-analysis.md \
+              --output-json test-results/flake-evidence/retry-analysis.json \
+              --github-output "$GITHUB_OUTPUT" \
+              --fail-on-unexpected
+            analysis_status="$?"
+            set -e
+          else
+            analysis_status=1
+            printf '%s\n' \
+              '## Retry And Flake Analysis' \
+              '' \
+              'Playwright JSON results were not produced.' \
+              > test-results/flake-evidence/retry-analysis.md
+          fi
+          echo "exit_code=$analysis_status" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Allure report
+        if: always()
+        run: |-
+          if [ -d allure-results ]; then
+            pnpm report:allure
+          else
+            echo "No Allure results were produced."
+          fi
+
+      - name: Upload nightly diagnostics
+        id: nightly-diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            allure-results/
+            allure-report/
+            playwright-report/
+            test-results/flake-evidence/
+            test-results/playwright/
+            test-results/playwright-results.json
+          retention-days: 30
+
+      - name: Publish nightly quality summary
+        if: always()
+        env:
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.nightly-diagnostics.outputs.artifact-url }}
+        run: |-
+          pnpm report:github-summary
+          cat test-results/flake-evidence/retry-analysis.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce regression and flake outcomes
+        if: always()
+        run: |-
+          test "${{ steps.playwright.outputs.exit_code || '1' }}" = "0"
+          test "${{ steps.flake-analysis.outputs.exit_code || '1' }}" = "0"
