@@ -271,10 +271,11 @@ Avoid pixel-perfect map assertions. Prefer observable application state,
 control state, layer/control presence, selected listing synchronization, and
 bounded readiness signals.
 
-## Proposed Script Model
+## Script Model
 
-Do not add these scripts until `18.1` implementation. This is the proposed
-shape for review:
+The current script model preserves `pnpm test` as the complete Vitest suite and
+adds focused commands for PR quality-gate selection, local Playwright smoke, and
+quality reporting.
 
 | Script | Purpose | Initial implementation idea |
 | --- | --- | --- |
@@ -283,7 +284,8 @@ shape for review:
 | `pnpm test:backend` | Backend unit/component | Vitest include patterns under `apps/api/src`, `apps/admin-cli/src`, `packages/*/src`, excluding infra and selected integration when useful. |
 | `pnpm test:integration` | Cross-layer in-process workflows | Vitest include patterns for `*.integration.test.*` and explicitly named local integration tests. |
 | `pnpm test:infra` | AWS/CDK and workflow contract tests | Vitest include patterns under `infra/aws/test`. |
-| `pnpm test:all` | Explicit complete test command | Alias to `pnpm test` or a composed suite after scripts split. |
+| `pnpm test:all` | Explicit complete local test command | Runs the full Vitest suite, then appends local Playwright smoke results into the same Allure result set. |
+| `pnpm test:quality-gate` | Quality-gate classifier tests | Vitest coverage for dependency-aware path selection under `tools/quality-gate`. |
 | `pnpm test:api` | Black-box API smoke automation | Playwright `APIRequestContext` against the local HTTP stub. |
 | `pnpm test:ui` | Browser UI smoke automation | Playwright Chromium against Vite plus the local HTTP stub; workspace packages are built before Vite starts so clean CI checkouts can resolve `workspace:*` imports. |
 | `pnpm test:e2e` | All local Playwright automation | API plus UI with local bounded web servers. |
@@ -297,27 +299,43 @@ record the observed baseline and then propose thresholds from measured signal.
 
 ## Dependency-Aware PR Gate
 
-The PR gate should be dependency-aware, but conservative. It must produce one
-stable final required status named `quality-gate`.
+The PR gate is dependency-aware, but conservative. It produces one stable final
+status named `quality-gate` from `.github/workflows/pr-quality-gate.yml`.
 
 ```mermaid
 flowchart TD
     Start[Pull request to dev] --> Detect[detect-changes]
-    Detect --> Frontend[frontend-tests]
-    Detect --> Backend[backend-tests]
-    Detect --> Integration[integration-tests]
-    Detect --> Infra[infra-tests]
-    Detect --> Types[typecheck/build]
-    Frontend --> Gate[quality-gate]
-    Backend --> Gate
-    Integration --> Gate
-    Infra --> Gate
-    Types --> Gate
+    Detect --> Plan[quality gate plan summary]
+    Plan --> Gate[quality-gate]
+    Gate --> Focused[focused Vitest suites]
+    Gate --> System[local Playwright smoke]
+    Gate --> Types[typecheck/build]
+    Gate --> Full[full fallback]
+    Gate --> Docs[docs-only intentional skip]
+    Focused --> Report[Allure summary + artifacts]
+    System --> Report
+    Full --> Report
 ```
 
 Skipped suites must be intentional successes. Do not rely only on
 workflow-level path filtering for required checks, because that can leave
 required jobs permanently pending.
+
+Block 28.3 implementation details:
+
+- `tools/quality-gate/qualityGatePlan.mjs` computes changed files from the PR
+  base and head SHAs, writes boolean job outputs, and emits a bounded Markdown
+  plan.
+- `.github/workflows/pr-quality-gate.yml` runs on pull requests targeting
+  `dev`; `feature/*` branch naming is process policy, while the workflow
+  trigger is intentionally based on the protected integration target.
+- Documentation-only changes skip dependency installation and executable
+  suites while still producing a successful `quality-gate` status.
+- Non-documentation changes upload the gate plan and reuse the Block 28.2
+  Allure summary/artifact flow.
+- The existing full CI workflow remains in place as a conservative baseline
+  until repository branch protection and release workflows are updated in later
+  Block 28 phases.
 
 ### Initial Change-Impact Matrix
 

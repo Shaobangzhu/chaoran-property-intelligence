@@ -1,0 +1,151 @@
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: detect-changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.plan.outputs.backend }}
+      docs_only: ${{ steps.plan.outputs.docs_only }}
+      frontend: ${{ steps.plan.outputs.frontend }}
+      full: ${{ steps.plan.outputs.full }}
+      infra: ${{ steps.plan.outputs.infra }}
+      integration: ${{ steps.plan.outputs.integration }}
+      system: ${{ steps.plan.outputs.system }}
+      typecheck_build: ${{ steps.plan.outputs.typecheck_build }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build quality gate plan
+        id: plan
+        run: >-
+          node tools/quality-gate/qualityGatePlan.mjs
+          --base "${{ github.event.pull_request.base.sha }}"
+          --head "${{ github.event.pull_request.head.sha }}"
+          --github-output "$GITHUB_OUTPUT"
+          --summary-file quality-gate-plan.md
+
+      - name: Upload quality gate plan
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: quality-gate-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: quality-gate-plan.md
+          retention-days: 14
+
+      - name: Publish quality gate plan
+        run: cat quality-gate-plan.md >> "$GITHUB_STEP_SUMMARY"
+
+  quality-gate:
+    name: quality-gate
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        if: needs.detect-changes.outputs.docs_only != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        if: needs.detect-changes.outputs.docs_only != 'true'
+        uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        if: needs.detect-changes.outputs.docs_only != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Clean quality artifacts
+        if: needs.detect-changes.outputs.docs_only != 'true'
+        run: pnpm allure:clean
+
+      - name: Install Playwright browser
+        if: needs.detect-changes.outputs.system == 'true'
+        run: pnpm test:e2e:install-browsers
+
+      - name: Run selected test suites
+        if: needs.detect-changes.outputs.docs_only != 'true'
+        env:
+          CPI_APPEND_ALLURE_RESULTS: "true"
+        run: |-
+          if [ "${{ needs.detect-changes.outputs.full }}" = "true" ]; then
+            pnpm test
+            pnpm test:e2e:smoke
+          else
+            if [ "${{ needs.detect-changes.outputs.frontend }}" = "true" ]; then
+              pnpm test:frontend
+            fi
+            if [ "${{ needs.detect-changes.outputs.backend }}" = "true" ]; then
+              pnpm test:backend
+            fi
+            if [ "${{ needs.detect-changes.outputs.integration }}" = "true" ]; then
+              pnpm test:integration
+            fi
+            if [ "${{ needs.detect-changes.outputs.infra }}" = "true" ]; then
+              pnpm test:infra
+            fi
+            if [ "${{ needs.detect-changes.outputs.system }}" = "true" ]; then
+              pnpm test:e2e:smoke
+            fi
+          fi
+
+      - name: Run typecheck
+        if: needs.detect-changes.outputs.typecheck_build == 'true'
+        run: pnpm typecheck
+
+      - name: Build
+        if: needs.detect-changes.outputs.typecheck_build == 'true'
+        run: pnpm build
+
+      - name: Record docs-only gate
+        if: needs.detect-changes.outputs.docs_only == 'true'
+        run: echo "Documentation-only PR; executable suites intentionally skipped."
+
+      - name: Generate Allure report
+        if: always() && needs.detect-changes.outputs.docs_only != 'true'
+        run: |-
+          if [ -d allure-results ]; then
+            pnpm report:allure
+          else
+            echo "No Allure results were produced."
+          fi
+
+      - name: Upload quality diagnostics
+        id: quality-diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: pr-quality-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            allure-results/
+            allure-report/
+            playwright-report/
+            test-results/playwright/
+          retention-days: 14
+
+      - name: Publish quality summary
+        if: always() && needs.detect-changes.outputs.docs_only != 'true'
+        env:
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.quality-diagnostics.outputs.artifact-url }}
+        run: pnpm report:github-summary

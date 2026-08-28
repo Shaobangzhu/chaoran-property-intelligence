@@ -173,6 +173,28 @@ Split CI jobs by affected path while retaining a conservative full gate. Pin
 actions consistently, preserve typecheck/build coverage, and ensure lockfile or
 shared-package changes run broad verification.
 
+Implementation status: complete. The new
+`.github/workflows/pr-quality-gate.yml` workflow runs on pull requests targeting
+`dev` and publishes one stable final status named `quality-gate`. A dedicated
+classifier in `tools/quality-gate/qualityGatePlan.mjs` maps changed files to
+frontend, backend, integration, infrastructure, local system-smoke, and
+typecheck/build verification. Documentation-only PRs become intentional
+successes without installing dependencies or running executable suites. Shared
+domain, workflow, dependency, compiler, Playwright, Vitest, lockfile, and
+unclassified changes fall back to the broad gate.
+
+The quality gate writes a Markdown plan to the GitHub Actions summary, uploads
+that plan as an artifact, and reuses the Block 28.2 Allure summary and
+diagnostic artifact flow for non-documentation PRs. Local scripts remain
+overwrite-by-default for `allure-results` and `allure-report`; the workflow sets
+`CPI_APPEND_ALLURE_RESULTS=true` inside the selected-suite step so multiple
+suites can contribute to one Allure report. The focused classifier tests are
+available through `pnpm test:quality-gate`.
+
+This step does not create the `dev` branch, configure branch protection, deploy
+to AWS, inspect or mutate production data, run migrations, call RentCast,
+OpenAI, or Telegram, enable schedules, or send production notifications.
+
 ### 28.4 AWS DEV Design And Diff
 
 Add tested CDK definitions for isolated DEV infrastructure. Stop at `synth` and

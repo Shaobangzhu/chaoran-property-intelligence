@@ -1860,6 +1860,15 @@ Planned sub-block mapping:
 4. `28.3` Add dependency-aware PR Quality Gate rules for `feature/* -> dev`
    PRs while retaining a conservative full fallback for shared package,
    workflow, infrastructure, lockfile, auth, API contract, and config changes.
+   **Complete:** `.github/workflows/pr-quality-gate.yml` now runs on PRs
+   targeting `dev`, computes an affected-suite plan, and reports one stable
+   final job named `quality-gate`. The gate intentionally skips executable
+   suites for documentation-only PRs, runs selected focused suites for scoped
+   app/package changes, and falls back to full Vitest plus local Playwright
+   smoke for broad-impact or unclassified changes. The classifier is covered by
+   focused tests under `tools/quality-gate`. This step creates no branch,
+   branch protection rule, AWS resource, deployment, database mutation,
+   provider call, production notification, schedule, or migration.
 5. `28.4` Define isolated AWS DEV CDK architecture and OIDC guardrails with
    contract tests, synth, and reviewed diff only. Do not deploy.
 6. `28.5` Add protected DEV deployment from `dev` with health check, API smoke,
