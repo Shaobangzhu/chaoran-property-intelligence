@@ -37,11 +37,15 @@ flowchart TD
 ```
 
 The workflow is `.github/workflows/deploy-dev.yml`. Its concurrency group does
-not cancel an in-progress deployment. Automatic delivery starts only when a
-pull request is actually merged into `dev`; creating or directly pushing the
-branch does not start delivery. A manual dispatch from another ref is skipped.
-All three jobs explicitly check out the event SHA so later `dev` movement while
-an approval is pending cannot change the reviewed release candidate.
+not cancel an in-progress deployment. Automatic delivery starts on a `push`
+event limited to `dev`. With protected branches, this is the merge commit
+created when an approved pull request lands in `dev`; it also intentionally
+covers an administrator-authorized direct update if branch policy permits one.
+The workflow does not use `pull_request: closed` because GitHub presents that
+event to environment protection as a synthetic `refs/pull/*/merge` ref rather
+than `refs/heads/dev`. A manual dispatch from another ref is skipped. All three
+jobs explicitly check out the event SHA so later `dev` movement while an
+approval is pending cannot change the reviewed release candidate.
 
 ## One-Time GitHub And AWS Setup
 
