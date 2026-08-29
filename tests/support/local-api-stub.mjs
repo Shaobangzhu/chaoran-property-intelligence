@@ -86,7 +86,12 @@ async function handleRequest(request, response) {
 
   if (method === "GET" && url.pathname === "/api/auth/me") {
     if (!isAuthenticated(request)) {
-      sendJson(response, 401, { error: { code: "AUTHENTICATION_REQUIRED" } });
+      sendJson(response, 401, {
+        error: {
+          code: "AUTHENTICATION_REQUIRED",
+          message: "Authentication is required",
+        },
+      });
       return;
     }
 
@@ -96,7 +101,12 @@ async function handleRequest(request, response) {
 
   if (method === "GET" && url.pathname === "/api/listings") {
     if (!isAuthenticated(request)) {
-      sendJson(response, 401, { error: { code: "AUTHENTICATION_REQUIRED" } });
+      sendJson(response, 401, {
+        error: {
+          code: "AUTHENTICATION_REQUIRED",
+          message: "Authentication is required",
+        },
+      });
       return;
     }
 

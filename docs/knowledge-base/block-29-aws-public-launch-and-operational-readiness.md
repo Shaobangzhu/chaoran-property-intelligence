@@ -88,6 +88,13 @@ commit. Approval one releases plan only. Approval two authorizes the reviewed
 DEV changes and DEV API startup migration. Require schedules disabled and no
 unsafe replacement or delete.
 
+Status: the first isolated DEV stacks and release were deployed on 2026-08-28.
+The public URL, health, unauthenticated UI, and exact Web/API release identity
+were verified. A strict smoke assertion exposed local-fixture drift in the
+authentication error body; the
+[execution record](../operations/block-29-3-first-dev-public-deployment.md)
+documents the focused remediation and the remaining green-run gate.
+
 ### 29.4 DEV Acceptance And Release Evidence
 
 Record the DEV CloudFront URL, configure `CPI_AWS_DEV_BASE_URL`, verify matching
@@ -150,6 +157,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29 launch runbook](../runbooks/block-29-aws-public-launch.md)
 - [Block 29.1 redacted preflight](../operations/block-29-1-read-only-launch-preflight.md)
 - [Block 29.2 redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
+- [Block 29.3 first DEV deployment record](../operations/block-29-3-first-dev-public-deployment.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)

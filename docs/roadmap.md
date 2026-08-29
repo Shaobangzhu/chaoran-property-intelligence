@@ -1983,7 +1983,11 @@ Planned sub-block mapping:
 4. `29.3` Configure protected GitHub DEV settings and perform the first manual
    `dev` plan/deploy with two approvals. The second approval covers only the
    reviewed DEV stacks and DEV API startup migration. Both schedules remain
-   disabled.
+   disabled. **Infrastructure and the first release were deployed on
+   2026-08-28; smoke-contract remediation remains open:** health, the public
+   sign-in page, and exact Web/API identity passed, while one strict 401-body
+   assertion exposed local-fixture drift. See the
+   [deployment record](operations/block-29-3-first-dev-public-deployment.md).
 5. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
    identity, health, security-header, read-only API/UI smoke, and one manual
    nightly regression run. Configure `CPI_AWS_DEV_BASE_URL` only after success.
