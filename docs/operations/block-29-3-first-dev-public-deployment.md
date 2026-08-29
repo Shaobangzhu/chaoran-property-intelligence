@@ -144,9 +144,9 @@ on that branch completed with:
   reruns remain pinned to the old test source.
 - Review the new account-backed diff before another approval. It should contain
   no infrastructure change beyond an immutable release/image identity update.
-- Replace the automatic `pull_request: closed` delivery trigger with a tested
-  `push` trigger limited to `dev`; do not weaken the environment branch rule to
-  permit synthetic pull-request refs.
+- The automatic `pull_request: closed` trigger defect is remediated by Block
+  29.3b with a tested `push` trigger limited to `dev`. Keep the environment
+  branch rule restricted to `dev`; do not permit synthetic pull-request refs.
 - Confirm both deployed scheduler resources report `DISABLED` through a
   credentialed read-only check in Block 29.4.
 - Confirm the new SNS email subscriptions before relying on email as an alert

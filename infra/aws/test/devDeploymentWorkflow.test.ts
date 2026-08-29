@@ -8,15 +8,15 @@ const workflowPath = fileURLToPath(
 );
 
 describe("DEV deployment workflow", () => {
-  it("runs only after a merge to dev or a dev-scoped manual dispatch", () => {
+  it("runs only after a push to dev or a dev-scoped manual dispatch", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("- dev");
-    expect(workflow).toContain("pull_request:");
-    expect(workflow).toContain("- closed");
-    expect(workflow).toContain("github.event.pull_request.merged == true");
+    expect(workflow).toMatch(/^  push:$/mu);
+    expect(workflow).not.toContain("pull_request:");
+    expect(workflow).toContain("github.event_name == 'push'");
     expect(workflow).toContain("github.ref == 'refs/heads/dev'");
-    expect(workflow).not.toMatch(/^\s*push:/mu);
+    expect(workflow).toContain("github.event_name == 'workflow_dispatch'");
     expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/gu)).toHaveLength(3);
   });
 
