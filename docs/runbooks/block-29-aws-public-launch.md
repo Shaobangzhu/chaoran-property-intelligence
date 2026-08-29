@@ -32,7 +32,7 @@ reviewed CDK extension.
 | 29.1 | Read-only account inventory | Complete; blockers recorded | Read-only authorization completed |
 | 29.2a | Missing-region CDK bootstrap | Complete in `us-east-1` | Explicit authorization completed |
 | 29.2b | Guardrails/OIDC update | Complete; post-deploy diff clean | Separate authorization completed |
-| 29.3 | First DEV plan/deploy/migration | Pending | Two GitHub environment approvals |
+| 29.3 | First DEV plan/deploy/migration | Deployed; smoke-contract remediation pending | Two GitHub environment approvals completed for run #6 |
 | 29.4 | DEV acceptance | Pending | Read-only remote testing |
 | 29.5 | `dev -> main` promotion | Pending | Protected PR review |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
@@ -244,6 +244,15 @@ Require these jobs to finish successfully:
 
 Obtain `ApplicationUrl` from the workflow environment URL or the public-stack
 CloudFormation output. Record the CloudFront hostname and exact DEV SHA.
+
+Status: the first DEV infrastructure and release deployment completed on
+2026-08-28 from SHA `245cf86c364f2db7e0b4da5db898cff8f06ff6a5`. Health,
+the unauthenticated UI, and release identity passed. The workflow finished red
+only because the smoke expected an authentication error body without the API's
+canonical `message` field. See the
+[Block 29.3 deployment record](../operations/block-29-3-first-dev-public-deployment.md).
+Merge and verify the focused contract fix under a new exact `dev` SHA before
+marking this phase complete or starting Block 29.4.
 
 ## 29.4 DEV Acceptance
 
