@@ -33,6 +33,7 @@ reviewed CDK extension.
 | 29.2a | Missing-region CDK bootstrap | Complete in `us-east-1` | Explicit authorization completed |
 | 29.2b | Guardrails/OIDC update | Complete; post-deploy diff clean | Separate authorization completed |
 | 29.3 | First DEV plan/deploy/migration | Deployed; smoke-contract remediation pending | Two GitHub environment approvals completed for run #6 |
+| 29.3a | Initial DEV administrator bootstrap | Source prepared; not executed | Separate Guardrails, DEV deploy, plan, and create approvals |
 | 29.4 | DEV acceptance | Pending | Read-only remote testing |
 | 29.5 | `dev -> main` promotion | Pending | Protected PR review |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
@@ -253,6 +254,19 @@ canonical `message` field. See the
 [Block 29.3 deployment record](../operations/block-29-3-first-dev-public-deployment.md).
 Merge and verify the focused contract fix under a new exact `dev` SHA before
 marking this phase complete or starting Block 29.4.
+
+## 29.3a Initial DEV Administrator
+
+The first DEV deployment creates the `users` table but does not seed or copy an
+account. Follow the [DEV administrator runbook](create-dev-admin.md) to deploy a
+DEV-only one-time task, review its sanitized plan digest, and separately
+authorize one insert. Do not place credentials in workflow inputs, fixed
+CloudFormation secrets, source, logs, or artifacts.
+
+Source preparation alone authorizes no AWS or database operation. Require an
+account-backed Guardrails diff and DEV stack diff before either deployment.
+Both schedules must remain disabled. Production administrator creation remains
+out of scope.
 
 ## 29.4 DEV Acceptance
 

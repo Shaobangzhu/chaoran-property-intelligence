@@ -12,6 +12,9 @@ const dockerignorePath = fileURLToPath(
 const apiDockerfilePath = fileURLToPath(
   new URL("../../../Dockerfile.api", import.meta.url),
 );
+const adminDockerfilePath = fileURLToPath(
+  new URL("../../../Dockerfile.admin", import.meta.url),
+);
 
 describe("production runtime image", () => {
   it("makes the RDS CA bundle readable by the non-root runtime user", () => {
@@ -59,6 +62,24 @@ describe("production runtime image", () => {
     );
   });
 
+  it("builds a dedicated non-root DEV administrator bootstrap image", () => {
+    const dockerfile = readFileSync(adminDockerfilePath, "utf8");
+
+    expect(dockerfile).toContain("RUN pnpm build:admin-cli");
+    expect(dockerfile).toContain(
+      "--filter @chaoran-property-intelligence/admin-cli",
+    );
+    expect(dockerfile).toContain(
+      "COPY --from=rds-certificate --chmod=0444 /global-bundle.pem /app/certs/global-bundle.pem",
+    );
+    expect(dockerfile).toContain("USER node");
+    expect(dockerfile).toContain(
+      'CMD ["timeout", "--signal=TERM", "5m", "node", "apps/admin-cli/dist/devAdminBootstrap.js"]',
+    );
+    expect(dockerfile).not.toContain("alert-worker");
+    expect(dockerfile).not.toContain("apps/api");
+  });
+
   it("excludes local quality artifacts from the deployable image context", () => {
     const dockerignore = readFileSync(dockerignorePath, "utf8");
 
@@ -69,5 +90,6 @@ describe("production runtime image", () => {
     expect(dockerignore).toContain("test-results");
     expect(dockerignore).toContain("tests");
     expect(dockerignore).toContain("tools");
+    expect(dockerignore).toContain("Dockerfile.admin");
   });
 });

@@ -22,6 +22,7 @@ const guardrailsStack = new AccountGuardrailsStack(
   {
     env: environment,
     githubBranch: "main",
+    githubDevAdminBootstrapEnvironment: "development-admin-bootstrap",
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",

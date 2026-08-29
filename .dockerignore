@@ -20,3 +20,4 @@ infra
 docs
 README.md
 Dockerfile.api
+Dockerfile.admin

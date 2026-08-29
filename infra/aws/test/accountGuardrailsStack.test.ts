@@ -12,6 +12,7 @@ function createTemplate(): Template {
       region: "us-west-2",
     },
     githubBranch: "main",
+    githubDevAdminBootstrapEnvironment: "development-admin-bootstrap",
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
@@ -197,6 +198,65 @@ describe("AccountGuardrailsStack", () => {
       StringEquals: { "aws:ResourceTag/cpi:deployment-stage": "dev" },
     });
     expect(snsStatement?.Condition).toBeUndefined();
+  });
+
+  it("adds a separate least-privilege DEV administrator bootstrap role", () => {
+    const template = createTemplate();
+
+    template.hasResourceProperties("AWS::IAM::Role", {
+      AssumeRolePolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "sts:AssumeRoleWithWebIdentity",
+            Condition: {
+              StringEquals: {
+                "token.actions.githubusercontent.com:aud":
+                  "sts.amazonaws.com",
+                "token.actions.githubusercontent.com:sub":
+                  "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development-admin-bootstrap",
+              },
+            },
+            Effect: "Allow",
+          }),
+        ]),
+      },
+      RoleName: "cpi-github-dev-admin-bootstrap",
+    });
+
+    const policies = template.findResources("AWS::IAM::Policy");
+    const bootstrapPolicy = Object.values(policies).find((policy) =>
+      JSON.stringify(policy.Properties?.Roles).includes(
+        "GitHubDevAdminBootstrapRole",
+      ),
+    );
+    const policyDocument = JSON.stringify(
+      bootstrapPolicy?.Properties?.PolicyDocument,
+    );
+
+    expect(bootstrapPolicy).toBeDefined();
+    expect(policyDocument).toContain("cloudformation:DescribeStacks");
+    expect(policyDocument).toContain("ChaoranPropertyIntelligenceDev/*");
+    expect(policyDocument).toContain("ecs:RunTask");
+    expect(policyDocument).toContain("cpi-dev-admin-bootstrap:*");
+    expect(policyDocument).toContain(
+      "ChaoranPropertyIntelligenceDev-Cluster*",
+    );
+    expect(policyDocument).toContain("ecs:DescribeTasks");
+    expect(policyDocument).toContain("ecr:DescribeImages");
+    expect(policyDocument).toContain(
+      "cdk-hnb659fds-container-assets-111111111111-us-west-2",
+    );
+    expect(policyDocument).toContain("iam:PassRole");
+    expect(policyDocument).toContain("iam:PassedToService");
+    expect(policyDocument).toContain("secretsmanager:CreateSecret");
+    expect(policyDocument).toContain("secretsmanager:DeleteSecret");
+    expect(policyDocument).toContain("cpi/dev/admin-bootstrap/*");
+    expect(policyDocument).toContain("scheduler:GetSchedule");
+    expect(policyDocument).toContain("cpi-dev-daily-property-alert");
+    expect(policyDocument).toContain("sns:Publish");
+    expect(policyDocument).not.toContain("secretsmanager:GetSecretValue");
+    expect(policyDocument).not.toContain("ChaoranPropertyIntelligenceProduction");
+    expect(policyDocument).not.toContain("sts:AssumeRole");
   });
 
   it("preserves the production role identity and exact main-branch trust", () => {
