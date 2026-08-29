@@ -61,6 +61,11 @@ Before the first run:
 9. Confirm that the DEV role trust subject is exactly
    `repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development`.
 
+The deployment workflow deliberately does not create an application user.
+After the public runtime is green, use the separately protected
+[DEV administrator runbook](create-dev-admin.md); do not copy local or
+production credentials into Aurora and do not expose a registration endpoint.
+
 The role can assume only the four named CDK bootstrap role types in the two
 deployment regions. Direct workflow permissions are bounded to reviewed DEV
 CloudFormation stacks, the deterministic DEV web bucket, the DEV App Runner

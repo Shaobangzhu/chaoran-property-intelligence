@@ -42,6 +42,7 @@ local release gate
   -> per-region CDK bootstrap approval where required
   -> Guardrails/OIDC plan and approval
   -> first isolated DEV plan and deployment
+  -> separately approved initial DEV administrator bootstrap
   -> DEV identity, health, API, UI, and nightly acceptance
   -> dev-to-main release gate
   -> production plan with approval digest
@@ -116,6 +117,9 @@ test run, a successful production plan, or this ADR.
   operation because the GitHub role cannot create itself.
 - App Runner startup may apply bundled migrations to the selected stage, so
   migration authorization remains explicit.
+- A healthy sign-in page does not imply that an administrator exists. The first
+  DEV user is a separate, digest-bound data mutation through a DEV-only task;
+  it is not seeded, copied from production, or exposed through registration.
 - A custom domain is deferred until its ownership and desired hostname are
   known; the generated CloudFront hostname is sufficient for initial launch.
 

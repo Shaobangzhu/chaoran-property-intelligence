@@ -11,6 +11,9 @@ const environment = { account: "111111111111", region: "us-west-2" };
 function createTemplates() {
   const app = new App();
   const foundation = new PropertyAlertStack(app, "TestDevFoundation", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     deploymentStage: "dev",
     env: environment,
@@ -321,6 +324,9 @@ describe("PublicApplicationStack", () => {
       app,
       "InvalidReleaseFoundation",
       {
+        adminContainerImage: ContainerImage.fromRegistry(
+          "example.invalid/admin:test",
+        ),
         containerImage: ContainerImage.fromRegistry(
           "example.invalid/worker:test",
         ),

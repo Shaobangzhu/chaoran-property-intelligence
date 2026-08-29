@@ -75,6 +75,44 @@ describe("createAdmin", () => {
     expect(database.close).toHaveBeenCalledOnce();
   });
 
+  it("uses bounded PostgreSQL parameters without rerunning migrations", async () => {
+    const database = new RecordingDatabase();
+    const repository = new RecordingUserRepository();
+    const dependencies = createDependencies(database, repository);
+
+    await createAdmin(
+      {
+        environment: {
+          PGDATABASE: "property_intelligence",
+          PGHOST: "database.internal",
+          PGPASSWORD: "database-password",
+          PGPORT: "5432",
+          PGSSLMODE: "verify-full",
+          PGUSER: "property_worker",
+        },
+        input: {
+          email: "admin@example.com",
+          password: "a unique password phrase",
+        },
+        runMigrations: false,
+      },
+      dependencies,
+    );
+
+    expect(dependencies.createDatabase).toHaveBeenCalledWith({
+      kind: "parameters",
+      host: "database.internal",
+      port: 5_432,
+      database: "property_intelligence",
+      user: "property_worker",
+      password: "database-password",
+      ssl: true,
+    });
+    expect(dependencies.runMigrations).not.toHaveBeenCalled();
+    expect(repository.createdUsers).toHaveLength(1);
+    expect(database.close).toHaveBeenCalledOnce();
+  });
+
   it("rejects missing database configuration before opening a connection", async () => {
     const database = new RecordingDatabase();
     const dependencies = createDependencies(
@@ -93,7 +131,54 @@ describe("createAdmin", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow("Missing required environment variable: DATABASE_URL");
+    ).rejects.toThrow("Missing required database configuration");
+
+    expect(dependencies.createDatabase).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ PGHOST: "database.internal" }, "Missing required database configuration"],
+    [
+      {
+        PGDATABASE: "property_intelligence",
+        PGHOST: "database.internal",
+        PGPASSWORD: "database-password",
+        PGPORT: "not-a-port",
+        PGSSLMODE: "verify-full",
+        PGUSER: "property_worker",
+      },
+      "PGPORT must be a valid TCP port",
+    ],
+    [
+      {
+        PGDATABASE: "property_intelligence",
+        PGHOST: "database.internal",
+        PGPASSWORD: "database-password",
+        PGPORT: "5432",
+        PGSSLMODE: "disable",
+        PGUSER: "property_worker",
+      },
+      "PGSSLMODE must be verify-full",
+    ],
+  ])("rejects unsafe parameter configuration", async (environment, message) => {
+    const database = new RecordingDatabase();
+    const dependencies = createDependencies(
+      database,
+      new RecordingUserRepository(),
+    );
+
+    await expect(
+      createAdmin(
+        {
+          environment,
+          input: {
+            email: "admin@example.com",
+            password: "a unique password phrase",
+          },
+        },
+        dependencies,
+      ),
+    ).rejects.toThrow(message);
 
     expect(dependencies.createDatabase).not.toHaveBeenCalled();
   });

@@ -95,6 +95,18 @@ authentication error body; the
 [execution record](../operations/block-29-3-first-dev-public-deployment.md)
 documents the focused remediation and the remaining green-run gate.
 
+### 29.3a Initial DEV Administrator Bootstrap
+
+The isolated DEV database is intentionally empty after migrations. Block 29.3a
+adds a DEV-only, unscheduled Fargate task and a separate protected OIDC workflow
+for one initial administrator insert. A sanitized `plan` run produces an
+immutable approval digest; a separately authorized `create` run uses a unique
+temporary secret and always requests its deletion. No account is seeded, no
+registration endpoint is added, and no production administrator path is
+created. See the
+[preparation record](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
+and [runbook](../runbooks/create-dev-admin.md).
+
 ### 29.4 DEV Acceptance And Release Evidence
 
 Record the DEV CloudFront URL, configure `CPI_AWS_DEV_BASE_URL`, verify matching
@@ -158,6 +170,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.1 redacted preflight](../operations/block-29-1-read-only-launch-preflight.md)
 - [Block 29.2 redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
 - [Block 29.3 first DEV deployment record](../operations/block-29-3-first-dev-public-deployment.md)
+- [Block 29.3a DEV administrator preparation](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)

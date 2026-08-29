@@ -9,6 +9,7 @@
     "@chaoran-property-intelligence/auth": "workspace:*",
     "@chaoran-property-intelligence/domain": "workspace:*",
     "@chaoran-property-intelligence/postgres": "workspace:*",
+    "@aws-sdk/client-secrets-manager": "3.1115.0",
     "@inquirer/password": "5.1.2"
   },
   "scripts": {

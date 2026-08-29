@@ -110,6 +110,14 @@ duplicate normalized email. It has no registration HTTP endpoint. A later
 production admin-creation execution requires a separately reviewed private
 database path and explicit operational approval.
 
+Block 29.3a extends the same application use case to AWS DEV through a separate
+non-interactive entry point. It runs only in a DEV-only, unscheduled Fargate
+task, reads credentials from a per-run temporary Secrets Manager secret, uses
+an isolated OIDC role and security group, does not run migrations, and never
+prints the email, password, hash, or secret value. Plan and create are separate
+manual workflow runs bound to an immutable digest. This does not authorize or
+design production administrator creation.
+
 Authentication performs one Argon2 verification for both known and unknown
 emails by using a fixed valid dummy hash for the unknown-user path. Public
 credential failures use one generic response. This reduces useful account

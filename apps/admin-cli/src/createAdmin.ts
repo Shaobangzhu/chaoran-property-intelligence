@@ -17,6 +17,7 @@ import {
 export interface CreateAdminRuntime {
   environment: Readonly<Record<string, string | undefined>>;
   input: CreateAdminUserInput;
+  runMigrations?: boolean;
 }
 
 export interface CreateAdminDependencies {
@@ -49,7 +50,9 @@ export async function createAdmin(
   const database = dependencies.createDatabase(databaseConfig);
 
   try {
-    await dependencies.runMigrations(database);
+    if (runtime.runMigrations ?? true) {
+      await dependencies.runMigrations(database);
+    }
     const useCase = new CreateAdminUser({
       repository: dependencies.createRepository(database),
       passwordHasher: dependencies.createPasswordHasher(),
@@ -65,12 +68,46 @@ function loadDatabaseConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): PostgresConnectionConfig {
   const databaseUrl = environment.DATABASE_URL;
-  if (databaseUrl === undefined || databaseUrl.trim().length === 0) {
-    throw new Error("Missing required environment variable: DATABASE_URL");
+  if (databaseUrl !== undefined && databaseUrl.trim().length > 0) {
+    return {
+      kind: "connection-string",
+      connectionString: databaseUrl,
+    };
+  }
+
+  const host = readRequiredParameter(environment, "PGHOST");
+  const database = readRequiredParameter(environment, "PGDATABASE");
+  const user = readRequiredParameter(environment, "PGUSER");
+  const password = readRequiredParameter(environment, "PGPASSWORD");
+  const portValue = readRequiredParameter(environment, "PGPORT");
+  if (environment.PGSSLMODE !== "verify-full") {
+    throw new Error("PGSSLMODE must be verify-full");
+  }
+  const port = Number(portValue);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error("PGPORT must be a valid TCP port");
   }
 
   return {
-    kind: "connection-string",
-    connectionString: databaseUrl,
+    kind: "parameters",
+    host,
+    port,
+    database,
+    user,
+    password,
+    ssl: true,
   };
+}
+
+function readRequiredParameter(
+  environment: Readonly<Record<string, string | undefined>>,
+  name: string,
+): string {
+  const value = environment[name];
+  if (value === undefined || value.length === 0) {
+    throw new Error(
+      "Missing required database configuration: DATABASE_URL or PostgreSQL parameters",
+    );
+  }
+  return value;
 }

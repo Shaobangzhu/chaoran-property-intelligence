@@ -1988,19 +1988,25 @@ Planned sub-block mapping:
    sign-in page, and exact Web/API identity passed, while one strict 401-body
    assertion exposed local-fixture drift. See the
    [deployment record](operations/block-29-3-first-dev-public-deployment.md).
-5. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
+5. `29.3a` Prepare the separately protected initial DEV administrator path.
+   The DEV-only Fargate task has no schedule or endpoint, reads a unique
+   temporary secret, does not run migrations, and requires digest-bound plan
+   and create runs. **Source and documentation preparation only:** no AWS or
+   database operation is authorized. See the
+   [preparation record](operations/block-29-3a-dev-admin-bootstrap-preparation.md).
+6. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
    identity, health, security-header, read-only API/UI smoke, and one manual
    nightly regression run. Configure `CPI_AWS_DEV_BASE_URL` only after success.
-6. `29.5` Promote the exact deployed candidate through the protected
+7. `29.5` Promote the exact deployed candidate through the protected
    `dev -> main` release gate and require green main CI. Before production,
    bind the production deployment job to a protected `production` environment
    with required review and exact-main restriction, and test that contract.
-7. `29.6` Run the controlled production plan, review its approval digest, then
+8. `29.6` Run the controlled production plan, review its approval digest, then
    obtain separate authorization for the digest-bound deployment and production
    API startup migration. Run safe, unauthenticated production smoke only.
-8. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
+9. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
    DNS changes after generated-hostname launch. Do not create console drift.
-9. `29.8` Complete operational handoff with URLs, release identities, plan and
+10. `29.8` Complete operational handoff with URLs, release identities, plan and
    deployment artifacts, schedule state, budget/SNS checks, rollback evidence,
    ownership, and remaining risks.
 
