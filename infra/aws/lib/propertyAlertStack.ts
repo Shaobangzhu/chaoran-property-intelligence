@@ -1,8 +1,11 @@
 import path from "node:path";
 
 import {
+  ArnFormat,
+  CfnOutput,
   CfnParameter,
   Duration,
+  Fn,
   RemovalPolicy,
   Stack,
   type StackProps,
@@ -23,6 +26,12 @@ import {
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import { Rule } from "aws-cdk-lib/aws-events";
 import { SnsTopic } from "aws-cdk-lib/aws-events-targets";
+import {
+  ManagedPolicy,
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
 import {
   AuroraPostgresEngineVersion,
   ClusterInstance,
@@ -58,6 +67,7 @@ import {
 const databaseName = "property_intelligence";
 
 export interface PropertyAlertStackProps extends StackProps {
+  adminContainerImage?: ContainerImage;
   containerImage?: ContainerImage;
   deploymentStage?: DeploymentStage;
   failureAlertEmail?: string;
@@ -236,6 +246,141 @@ export class PropertyAlertStack extends Stack {
         props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
         { platform: Platform.LINUX_AMD64 },
       );
+    if (deploymentStage === "dev") {
+      const adminSecurityGroup = new SecurityGroup(
+        this,
+        "DevAdminBootstrapSecurityGroup",
+        {
+          allowAllOutbound: true,
+          description: "Outbound-only access for DEV administrator bootstrap",
+          vpc: this.vpc,
+        },
+      );
+      this.databaseSecurityGroup.addIngressRule(
+        adminSecurityGroup,
+        Port.tcp(5_432),
+        "Allow PostgreSQL from the one-time DEV administrator bootstrap",
+      );
+      const adminTaskRole = new Role(this, "DevAdminBootstrapTaskRole", {
+        assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+        description:
+          "Read one ephemeral credential secret for DEV administrator bootstrap",
+        roleName: "cpi-dev-admin-bootstrap-task",
+      });
+      adminTaskRole.addToPolicy(
+        new PolicyStatement({
+          actions: ["secretsmanager:GetSecretValue"],
+          resources: [
+            this.formatArn({
+              arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+              resource: "secret",
+              resourceName: "cpi/dev/admin-bootstrap/*",
+              service: "secretsmanager",
+            }),
+          ],
+        }),
+      );
+      const adminExecutionRole = new Role(
+        this,
+        "DevAdminBootstrapExecutionRole",
+        {
+          assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+          description:
+            "Pull the DEV administrator bootstrap image and publish bounded logs",
+          managedPolicies: [
+            ManagedPolicy.fromAwsManagedPolicyName(
+              "service-role/AmazonECSTaskExecutionRolePolicy",
+            ),
+          ],
+          roleName: "cpi-dev-admin-bootstrap-execution",
+        },
+      );
+      const adminTaskDefinition = new FargateTaskDefinition(
+        this,
+        "DevAdminBootstrapTaskDefinition",
+        {
+          cpu: 256,
+          executionRole: adminExecutionRole,
+          family: "cpi-dev-admin-bootstrap",
+          memoryLimitMiB: 512,
+          runtimePlatform: {
+            cpuArchitecture: CpuArchitecture.X86_64,
+            operatingSystemFamily: OperatingSystemFamily.LINUX,
+          },
+          taskRole: adminTaskRole,
+        },
+      );
+      const adminLogGroup = new LogGroup(
+        this,
+        "DevAdminBootstrapLogGroup",
+        {
+          logGroupName: "/cpi/dev/admin-bootstrap",
+          removalPolicy: RemovalPolicy.DESTROY,
+          retention: RetentionDays.ONE_WEEK,
+        },
+      );
+      const adminContainerImage =
+        props.adminContainerImage ??
+        ContainerImage.fromAsset(
+          props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
+          { file: "Dockerfile.admin", platform: Platform.LINUX_AMD64 },
+        );
+      adminTaskDefinition.addContainer("DevAdminBootstrap", {
+        command: [
+          "timeout",
+          "--signal=TERM",
+          "5m",
+          "node",
+          "apps/admin-cli/dist/devAdminBootstrap.js",
+        ],
+        environment: {
+          AWS_ACCOUNT_ID: this.account,
+          AWS_REGION: this.region,
+          CPI_DEPLOYMENT_STAGE: "dev",
+          NODE_ENV: "production",
+          NODE_EXTRA_CA_CERTS: "/app/certs/global-bundle.pem",
+          PGDATABASE: databaseName,
+          PGHOST: this.database.clusterEndpoint.hostname,
+          PGPORT: this.database.clusterEndpoint.port.toString(),
+          PGSSLMODE: "verify-full",
+        },
+        image: adminContainerImage,
+        logging: LogDrivers.awsLogs({
+          logGroup: adminLogGroup,
+          streamPrefix: "bootstrap",
+        }),
+        secrets: {
+          PGPASSWORD: EcsSecret.fromSecretsManager(
+            this.databaseCredentialsSecret,
+            "password",
+          ),
+          PGUSER: EcsSecret.fromSecretsManager(
+            this.databaseCredentialsSecret,
+            "username",
+          ),
+        },
+      });
+      this.databaseCredentialsSecret.grantRead(adminExecutionRole);
+
+      new CfnOutput(this, "DevAdminBootstrapClusterArn", {
+        value: cluster.clusterArn,
+      });
+      new CfnOutput(this, "DevAdminBootstrapContainerName", {
+        value: "DevAdminBootstrap",
+      });
+      new CfnOutput(this, "DevAdminBootstrapSecurityGroupId", {
+        value: adminSecurityGroup.securityGroupId,
+      });
+      new CfnOutput(this, "DevAdminBootstrapSubnetIds", {
+        value: Fn.join(
+          ",",
+          this.vpc.publicSubnets.map((subnet) => subnet.subnetId),
+        ),
+      });
+      new CfnOutput(this, "DevAdminBootstrapTaskDefinitionArn", {
+        value: adminTaskDefinition.taskDefinitionArn,
+      });
+    }
     const failureAlertEmail =
       props.failureAlertEmail ??
       new CfnParameter(this, "AlertEmail", {

@@ -35,6 +35,9 @@ function createParameterizedTemplate(): Template {
 function createDevTemplate(): Template {
   const app = new App();
   const stack = new PropertyAlertStack(app, "TestDevPropertyAlertStack", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     deploymentStage: "dev",
     env: {
@@ -84,6 +87,78 @@ describe("PropertyAlertStack", () => {
       Name: "cpi-dev-weekly-showing-list",
       State: "DISABLED",
     });
+  });
+
+  it("adds one DEV-only administrator bootstrap task with no schedule", () => {
+    const devTemplate = createDevTemplate();
+
+    devTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      Cpu: "256",
+      Family: "cpi-dev-admin-bootstrap",
+      Memory: "512",
+      NetworkMode: "awsvpc",
+      RequiresCompatibilities: ["FARGATE"],
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Command: [
+            "timeout",
+            "--signal=TERM",
+            "5m",
+            "node",
+            "apps/admin-cli/dist/devAdminBootstrap.js",
+          ],
+          Environment: Match.arrayWith([
+            { Name: "AWS_REGION", Value: "us-west-2" },
+            { Name: "CPI_DEPLOYMENT_STAGE", Value: "dev" },
+            { Name: "PGSSLMODE", Value: "verify-full" },
+          ]),
+          Image: "example.invalid/admin:test",
+          Name: "DevAdminBootstrap",
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: "PGPASSWORD" }),
+            Match.objectLike({ Name: "PGUSER" }),
+          ]),
+        }),
+      ]),
+    });
+    devTemplate.hasResourceProperties("AWS::Logs::LogGroup", {
+      LogGroupName: "/cpi/dev/admin-bootstrap",
+      RetentionInDays: 7,
+    });
+    devTemplate.hasResourceProperties("AWS::IAM::Role", {
+      RoleName: "cpi-dev-admin-bootstrap-task",
+    });
+    devTemplate.hasResourceProperties("AWS::IAM::Role", {
+      RoleName: "cpi-dev-admin-bootstrap-execution",
+    });
+    const policies = JSON.stringify(
+      devTemplate.findResources("AWS::IAM::Policy"),
+    );
+    expect(policies).toContain("secretsmanager:GetSecretValue");
+    expect(policies).toContain("cpi/dev/admin-bootstrap/*");
+
+    const devResources = devTemplate.toJSON().Resources as Record<
+      string,
+      { Type?: string }
+    >;
+    expect(
+      Object.values(devResources).filter(
+        (resource) => resource.Type === "AWS::ECS::TaskDefinition",
+      ),
+    ).toHaveLength(3);
+    expect(
+      Object.values(devResources).filter(
+        (resource) => resource.Type === "AWS::Scheduler::Schedule",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("does not add the DEV administrator path to production", () => {
+    const production = JSON.stringify(createTemplate().toJSON());
+
+    expect(production).not.toContain("cpi-dev-admin-bootstrap");
+    expect(production).not.toContain("DevAdminBootstrap");
+    createTemplate().resourceCountIs("AWS::ECS::TaskDefinition", 2);
   });
 
   it("makes DEV data disposable without weakening production retention", () => {

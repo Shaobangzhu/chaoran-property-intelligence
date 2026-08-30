@@ -1,4 +1,5 @@
 import {
+  ArnFormat,
   CfnOutput,
   CfnParameter,
   RemovalPolicy,
@@ -17,12 +18,15 @@ import type { Construct } from "constructs";
 import { deploymentStageTagKey } from "./deploymentStage.js";
 
 export interface AccountGuardrailsStackProps extends StackProps {
+  githubDevAdminBootstrapEnvironment: string;
   githubDevDeploymentRegions?: string[];
   githubBranch: string;
   githubDevEnvironment: string;
   githubOwner: string;
+  githubOwnerId: string;
   githubProductionDeploymentRegions?: string[];
   githubRepository: string;
+  githubRepositoryId: string;
 }
 
 export class AccountGuardrailsStack extends Stack {
@@ -70,8 +74,12 @@ export class AccountGuardrailsStack extends Stack {
       clientIdList: ["sts.amazonaws.com"],
       url: "https://token.actions.githubusercontent.com",
     });
+    const githubRepositorySubject = [
+      `repo:${props.githubOwner}@${props.githubOwnerId}`,
+      `${props.githubRepository}@${props.githubRepositoryId}`,
+    ].join("/");
     const githubSubject = [
-      `repo:${props.githubOwner}/${props.githubRepository}`,
+      githubRepositorySubject,
       `ref:refs/heads/${props.githubBranch}`,
     ].join(":");
     const githubDeployRole = new Role(this, "GitHubDeployRole", {
@@ -234,7 +242,7 @@ export class AccountGuardrailsStack extends Stack {
     );
 
     const githubDevSubject = [
-      `repo:${props.githubOwner}/${props.githubRepository}`,
+      githubRepositorySubject,
       `environment:${props.githubDevEnvironment}`,
     ].join(":");
     const githubDevDeployRole = new Role(this, "GitHubDevDeployRole", {
@@ -398,11 +406,153 @@ export class AccountGuardrailsStack extends Stack {
       }),
     );
 
+    const githubDevAdminBootstrapSubject = [
+      githubRepositorySubject,
+      `environment:${props.githubDevAdminBootstrapEnvironment}`,
+    ].join(":");
+    const githubDevAdminBootstrapRole = new Role(
+      this,
+      "GitHubDevAdminBootstrapRole",
+      {
+        assumedBy: new FederatedPrincipal(
+          githubProvider.ref,
+          {
+            StringEquals: {
+              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+              "token.actions.githubusercontent.com:sub":
+                githubDevAdminBootstrapSubject,
+            },
+          },
+          "sts:AssumeRoleWithWebIdentity",
+        ),
+        description:
+          "Run the reviewed one-time CPI DEV administrator bootstrap task",
+        roleName: "cpi-github-dev-admin-bootstrap",
+      },
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["cloudformation:DescribeStacks"],
+        resources: [
+          this.formatArn({
+            resource: "stack",
+            resourceName: "ChaoranPropertyIntelligenceDev/*",
+            service: "cloudformation",
+          }),
+        ],
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecs:RunTask"],
+        conditions: {
+          ArnLike: {
+            "ecs:cluster": this.formatArn({
+              resource: "cluster",
+              resourceName: "ChaoranPropertyIntelligenceDev-Cluster*",
+              service: "ecs",
+            }),
+          },
+        },
+        resources: [
+          this.formatArn({
+            resource: "task-definition",
+            resourceName: "cpi-dev-admin-bootstrap:*",
+            service: "ecs",
+          }),
+        ],
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecs:DescribeTaskDefinition", "ecs:DescribeTasks"],
+        resources: ["*"],
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecr:DescribeImages"],
+        resources: [
+          this.formatArn({
+            resource: "repository",
+            resourceName: `cdk-hnb659fds-container-assets-${this.account}-${this.region}`,
+            service: "ecr",
+          }),
+        ],
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["iam:PassRole"],
+        conditions: {
+          StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" },
+        },
+        resources: [
+          "cpi-dev-admin-bootstrap-task",
+          "cpi-dev-admin-bootstrap-execution",
+        ].map((roleName) =>
+          this.formatArn({
+            region: "",
+            resource: "role",
+            resourceName: roleName,
+            service: "iam",
+          }),
+        ),
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:TagResource",
+        ],
+        resources: [
+          this.formatArn({
+            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+            resource: "secret",
+            resourceName: "cpi/dev/admin-bootstrap/*",
+            service: "secretsmanager",
+          }),
+        ],
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["scheduler:GetSchedule"],
+        resources: [
+          "cpi-dev-daily-property-alert",
+          "cpi-dev-weekly-showing-list",
+        ].map((scheduleName) =>
+          this.formatArn({
+            resource: "schedule",
+            resourceName: `default/${scheduleName}`,
+            service: "scheduler",
+          }),
+        ),
+      }),
+    );
+    githubDevAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sns:Publish"],
+        resources: [
+          this.formatArn({
+            resource: "cpi-dev-deployment-failures",
+            service: "sns",
+          }),
+        ],
+      }),
+    );
+
     new CfnOutput(this, "GitHubDeployRoleArn", {
       value: githubDeployRole.roleArn,
     });
     new CfnOutput(this, "GitHubDevDeployRoleArn", {
       value: githubDevDeployRole.roleArn,
+    });
+    new CfnOutput(this, "GitHubDevAdminBootstrapRoleArn", {
+      value: githubDevAdminBootstrapRole.roleArn,
     });
   }
 }

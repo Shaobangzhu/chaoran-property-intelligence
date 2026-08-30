@@ -26,13 +26,14 @@ reviewed CDK extension.
 
 ## Phase Status
 
-| Phase | Operation | State at Block 29.0 | Authorization |
+| Phase | Operation | Current state | Authorization |
 | --- | --- | --- | --- |
 | 29.0 | Documentation and local verification | Prepared | None for AWS |
-| 29.1 | Read-only account inventory | Pending | Confirm before AWS login |
-| 29.2a | Missing-region CDK bootstrap | Pending | Explicit mutation approval |
-| 29.2b | Guardrails/OIDC update | Pending | Diff review plus explicit approval |
-| 29.3 | First DEV plan/deploy/migration | Pending | Two GitHub environment approvals |
+| 29.1 | Read-only account inventory | Complete; blockers recorded | Read-only authorization completed |
+| 29.2a | Missing-region CDK bootstrap | Complete in `us-east-1` | Explicit authorization completed |
+| 29.2b | Guardrails/OIDC update | Complete; post-deploy diff clean | Separate authorization completed |
+| 29.3 | First DEV plan/deploy/migration | Deployed; smoke-contract remediation pending | Two GitHub environment approvals completed for run #6 |
+| 29.3a | Initial DEV administrator bootstrap | Source prepared; not executed | Separate Guardrails, DEV deploy, plan, and create approvals |
 | 29.4 | DEV acceptance | Pending | Read-only remote testing |
 | 29.5 | `dev -> main` promotion | Pending | Protected PR review |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
@@ -117,22 +118,42 @@ Repository/GitHub preflight:
 
 Produce a redacted inventory summary and stop for review.
 
+Status: complete on 2026-08-28. See the
+[redacted Block 29.1 preflight record](../operations/block-29-1-read-only-launch-preflight.md).
+The record proves that `us-east-1` bootstrap, DEV OIDC, branch protection, and
+environment protections remain prerequisites. It does not authorize Block
+29.2 mutations.
+
 ## 29.2a CDK Bootstrap
 
 `MUTATING`: execute only for a region proven missing in 29.1 and only after
 explicit authorization. CDK bootstrap creates or updates `CDKToolkit`, asset
 storage, ECR, and deployment roles.
 
-Use the confirmed account value without placing it in committed evidence:
+Use the confirmed account value without placing it in committed evidence. Match
+the parameters of the existing bootstrap and target only the region proven
+missing:
 
 ```bash
 AWS_PROFILE=cpi-admin pnpm --dir infra/aws exec cdk bootstrap \
-  "aws://<confirmed-account-id>/us-west-2" \
-  "aws://<confirmed-account-id>/us-east-1"
+  "aws://<confirmed-account-id>/<missing-region>" \
+  --toolkit-stack-name CDKToolkit \
+  --qualifier hnb659fds \
+  --bootstrap-kms-key-id AWS_MANAGED_KEY \
+  --cloudformation-execution-policies \
+    arn:aws:iam::aws:policy/AdministratorAccess \
+  --public-access-block-configuration \
+  --deny-external-id \
+  --no-termination-protection \
+  --yes
 ```
 
 If one region is already correctly bootstrapped, target only the missing region.
 Afterward, read back both `CDKToolkit` stacks and require a complete status.
+
+Status: complete on 2026-08-28. Only `us-east-1` was bootstrapped. Both regions
+are now at bootstrap version 32 and `CREATE_COMPLETE`. See the
+[Block 29.2 execution record](../operations/block-29-2-bootstrap-and-guardrails.md).
 
 ## 29.2b Guardrails And GitHub OIDC
 
@@ -162,7 +183,7 @@ public-delivery permissions. The production trust subject must remain exactly
 the protected `main` ref, and DEV trust must be exactly:
 
 ```text
-repo:Shaobangzhu/chaoran-property-intelligence:environment:development
+repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development
 ```
 
 `MUTATING`: after a separate approval of that exact diff, deploy only the
@@ -187,6 +208,11 @@ not permission to skip the diff or reuse an older approval.
 
 After deployment, read back the role trust and bounded bootstrap-role policy.
 Do not continue if GitHub OIDC still cannot assume `cpi-github-deploy-dev`.
+
+Status: complete on 2026-08-28. Guardrails reached `UPDATE_COMPLETE`, both OIDC
+trust subjects were verified, schedules remained disabled, and the
+post-deployment account-backed diff reported zero differences. This does not
+authorize the first DEV deployment.
 
 ## 29.3 First DEV Public Deployment
 
@@ -219,6 +245,28 @@ Require these jobs to finish successfully:
 
 Obtain `ApplicationUrl` from the workflow environment URL or the public-stack
 CloudFormation output. Record the CloudFront hostname and exact DEV SHA.
+
+Status: the first DEV infrastructure and release deployment completed on
+2026-08-28 from SHA `245cf86c364f2db7e0b4da5db898cff8f06ff6a5`. Health,
+the unauthenticated UI, and release identity passed. The workflow finished red
+only because the smoke expected an authentication error body without the API's
+canonical `message` field. See the
+[Block 29.3 deployment record](../operations/block-29-3-first-dev-public-deployment.md).
+Merge and verify the focused contract fix under a new exact `dev` SHA before
+marking this phase complete or starting Block 29.4.
+
+## 29.3a Initial DEV Administrator
+
+The first DEV deployment creates the `users` table but does not seed or copy an
+account. Follow the [DEV administrator runbook](create-dev-admin.md) to deploy a
+DEV-only one-time task, review its sanitized plan digest, and separately
+authorize one insert. Do not place credentials in workflow inputs, fixed
+CloudFormation secrets, source, logs, or artifacts.
+
+Source preparation alone authorizes no AWS or database operation. Require an
+account-backed Guardrails diff and DEV stack diff before either deployment.
+Both schedules must remain disabled. Production administrator creation remains
+out of scope.
 
 ## 29.4 DEV Acceptance
 

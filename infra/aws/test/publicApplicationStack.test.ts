@@ -1,7 +1,7 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { ContainerImage } from "aws-cdk-lib/aws-ecs";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { PropertyAlertStack } from "../lib/propertyAlertStack.js";
 import { PublicApplicationStack } from "../lib/publicApplicationStack.js";
@@ -11,6 +11,9 @@ const environment = { account: "111111111111", region: "us-west-2" };
 function createTemplates() {
   const app = new App();
   const foundation = new PropertyAlertStack(app, "TestDevFoundation", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     deploymentStage: "dev",
     env: environment,
@@ -78,8 +81,17 @@ function createProductionPublicApplicationTemplate(): Template {
 }
 
 describe("PublicApplicationStack", () => {
+  let devTemplates: ReturnType<typeof createTemplates>;
+  let productionPublicApplication: Template;
+
+  beforeAll(() => {
+    devTemplates = createTemplates();
+    productionPublicApplication =
+      createProductionPublicApplicationTemplate();
+  }, 20_000);
+
   it("publishes deployment failures to a dedicated confirmed email topic", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
 
     publicApplication.hasResourceProperties("AWS::SNS::Topic", {
       DisplayName: "CPI dev deployment failures",
@@ -93,7 +105,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("keeps public runtime resources out of the DEV foundation stack", () => {
-    const { foundation } = createTemplates();
+    const { foundation } = devTemplates;
 
     foundation.resourceCountIs("AWS::AppRunner::Service", 0);
     foundation.resourceCountIs("AWS::CloudFront::Distribution", 0);
@@ -102,7 +114,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("uses a private versioned S3 origin protected by CloudFront OAC", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
 
     publicApplication.hasResourceProperties("AWS::S3::Bucket", {
       BucketName: "cpi-dev-web-111111111111-us-west-2",
@@ -135,7 +147,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("connects App Runner to isolated Aurora with bounded runtime secrets", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
 
     publicApplication.hasResourceProperties("AWS::AppRunner::VpcConnector", {
       SecurityGroups: Match.anyValue(),
@@ -195,7 +207,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("routes same-origin API traffic without caching or Host forwarding", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
     const distributions = publicApplication.findResources(
       "AWS::CloudFront::Distribution",
     );
@@ -239,7 +251,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("overwrites the trusted viewer origin and rewrites only non-API routes", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
     const functions = JSON.stringify(
       publicApplication.findResources("AWS::CloudFront::Function"),
     );
@@ -251,7 +263,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("adds response security headers and stage-scoped secrets", () => {
-    const { publicApplication } = createTemplates();
+    const { publicApplication } = devTemplates;
 
     publicApplication.hasResourceProperties(
       "AWS::CloudFront::ResponseHeadersPolicy",
@@ -274,7 +286,7 @@ describe("PublicApplicationStack", () => {
   });
 
   it("retains production web and auth state under distinct identities", () => {
-    const template = createProductionPublicApplicationTemplate();
+    const template = productionPublicApplication;
 
     template.hasResource("AWS::S3::Bucket", {
       DeletionPolicy: "Retain",
@@ -312,6 +324,9 @@ describe("PublicApplicationStack", () => {
       app,
       "InvalidReleaseFoundation",
       {
+        adminContainerImage: ContainerImage.fromRegistry(
+          "example.invalid/admin:test",
+        ),
         containerImage: ContainerImage.fromRegistry(
           "example.invalid/worker:test",
         ),

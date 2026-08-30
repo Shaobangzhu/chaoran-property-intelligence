@@ -1969,28 +1969,44 @@ Planned sub-block mapping:
    production action is authorized or executed.
 2. `29.1` Perform a separately confirmed read-only AWS inventory for identity,
    account, regions, current stacks, CDK bootstrap, OIDC roles, schedules,
-   budgets, and public-runtime absence/status. Stop before mutation.
+   budgets, and public-runtime absence/status. **Complete on 2026-08-28:** the
+   [redacted preflight record](operations/block-29-1-read-only-launch-preflight.md)
+   captures AWS and GitHub blockers; no mutation was performed.
 3. `29.2` Bootstrap only missing regions, then review and deploy the bounded
    Guardrails/OIDC update through federated administrator access. Bootstrap and
    Guardrails are separate mutation approvals; production trust and retained
-   identities must remain unchanged.
+   identities must remain unchanged. **Complete on 2026-08-28:** `us-east-1`
+   bootstrap and Guardrails were separately authorized; the
+   [redacted execution record](operations/block-29-2-bootstrap-and-guardrails.md)
+   confirms `CREATE 2 / UPDATE 1 / REPLACE 0 / DELETE 0`, preserved production
+   trust, and a clean post-deploy diff.
 4. `29.3` Configure protected GitHub DEV settings and perform the first manual
    `dev` plan/deploy with two approvals. The second approval covers only the
    reviewed DEV stacks and DEV API startup migration. Both schedules remain
-   disabled.
-5. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
+   disabled. **Infrastructure and the first release were deployed on
+   2026-08-28; smoke-contract remediation remains open:** health, the public
+   sign-in page, and exact Web/API identity passed, while one strict 401-body
+   assertion exposed local-fixture drift. See the
+   [deployment record](operations/block-29-3-first-dev-public-deployment.md).
+5. `29.3a` Prepare the separately protected initial DEV administrator path.
+   The DEV-only Fargate task has no schedule or endpoint, reads a unique
+   temporary secret, does not run migrations, and requires digest-bound plan
+   and create runs. **Source and documentation preparation only:** no AWS or
+   database operation is authorized. See the
+   [preparation record](operations/block-29-3a-dev-admin-bootstrap-preparation.md).
+6. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
    identity, health, security-header, read-only API/UI smoke, and one manual
    nightly regression run. Configure `CPI_AWS_DEV_BASE_URL` only after success.
-6. `29.5` Promote the exact deployed candidate through the protected
+7. `29.5` Promote the exact deployed candidate through the protected
    `dev -> main` release gate and require green main CI. Before production,
    bind the production deployment job to a protected `production` environment
    with required review and exact-main restriction, and test that contract.
-7. `29.6` Run the controlled production plan, review its approval digest, then
+8. `29.6` Run the controlled production plan, review its approval digest, then
    obtain separate authorization for the digest-bound deployment and production
    API startup migration. Run safe, unauthenticated production smoke only.
-8. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
+9. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
    DNS changes after generated-hostname launch. Do not create console drift.
-9. `29.8` Complete operational handoff with URLs, release identities, plan and
+10. `29.8` Complete operational handoff with URLs, release identities, plan and
    deployment artifacts, schedule state, budget/SNS checks, rollback evidence,
    ownership, and remaining risks.
 

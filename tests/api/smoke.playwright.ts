@@ -36,7 +36,10 @@ test.describe("@smoke API smoke", () => {
 
     expect(response.status()).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: { code: "AUTHENTICATION_REQUIRED" },
+      error: {
+        code: "AUTHENTICATION_REQUIRED",
+        message: "Authentication is required",
+      },
     });
   });
 
