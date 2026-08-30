@@ -107,12 +107,23 @@ created. See the
 [preparation record](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
 and [runbook](../runbooks/create-dev-admin.md).
 
+The independently approved plan and create runs completed on 2026-08-30. The
+temporary credential secret was deleted and the repository owner manually
+accepted authenticated DEV access. The public acceptance suite did not repeat
+this mutation.
+
 ### 29.4 DEV Acceptance And Release Evidence
 
 Record the DEV CloudFront URL, configure `CPI_AWS_DEV_BASE_URL`, verify matching
 `/release.json` and `/api/release`, run remote read-only smoke, and run the
 nightly regression workflow manually once. Resolve retries or quarantine
 findings before promotion; do not wait with arbitrary sleeps.
+
+Acceptance completed on 2026-08-30 for exact DEV SHA `3a95c51c...`. Health,
+matching Web/API release identity, security headers, local remote-safe
+Playwright, and manual Nightly DEV Regression run `33340950741` passed. The
+nightly evidence contained zero retries, stale quarantines, or policy errors.
+See the [acceptance record](../operations/block-29-4-dev-public-acceptance.md).
 
 ### 29.5 DEV-To-Main Promotion
 
@@ -171,6 +182,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.2 redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
 - [Block 29.3 first DEV deployment record](../operations/block-29-3-first-dev-public-deployment.md)
 - [Block 29.3a DEV administrator preparation](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
+- [Block 29.4 DEV public acceptance](../operations/block-29-4-dev-public-acceptance.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)
