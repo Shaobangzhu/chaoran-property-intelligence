@@ -297,7 +297,9 @@ jobs:
                 --query '{Versions:Versions[].{Key:Key,VersionId:VersionId,IsLatest:IsLatest,LastModified:LastModified}}' \
                 --output json > deployment-evidence/pre-deploy-web-versions.json
             fi
-            service_arn="$(aws apprunner list-services --query \"ServiceSummaryList[?ServiceName=='cpi-dev-api'].ServiceArn | [0]\" --output text)"
+            service_arn="$(aws apprunner list-services \
+              --query 'ServiceSummaryList[?ServiceName==`cpi-dev-api`].ServiceArn | [0]' \
+              --output text)"
             if [ "$service_arn" != "None" ]; then
               aws apprunner describe-service \
                 --service-arn "$service_arn" \
@@ -387,7 +389,9 @@ jobs:
                 --output json > deployment-evidence/post-deploy-web-versions.json
             fi
           fi
-          service_arn="$(aws apprunner list-services --query \"ServiceSummaryList[?ServiceName=='cpi-dev-api'].ServiceArn | [0]\" --output text 2>/dev/null || true)"
+          service_arn="$(aws apprunner list-services \
+            --query 'ServiceSummaryList[?ServiceName==`cpi-dev-api`].ServiceArn | [0]' \
+            --output text 2>/dev/null || true)"
           if [ -n "$service_arn" ] && [ "$service_arn" != "None" ]; then
             aws apprunner describe-service \
               --service-arn "$service_arn" \
@@ -431,7 +435,7 @@ jobs:
         run: |-
           topic_arn="$(aws cloudformation describe-stacks \
             --stack-name ChaoranPropertyIntelligenceDevPublicApplication \
-            --query \"Stacks[0].Outputs[?OutputKey=='DeploymentFailureTopicArn'].OutputValue | [0]\" \
+            --query 'Stacks[0].Outputs[?OutputKey==`DeploymentFailureTopicArn`].OutputValue | [0]' \
             --output text 2>/dev/null || true)"
           if [ -n "$topic_arn" ] && [ "$topic_arn" != "None" ]; then
             aws sns publish \
