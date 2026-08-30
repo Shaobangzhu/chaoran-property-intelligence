@@ -89,4 +89,18 @@ describe("DEV deployment workflow", () => {
     expect(workflow).toContain("aws sns publish");
     expect(workflow).not.toMatch(/\bsleep\b/u);
   });
+
+  it("keeps AWS CLI JMESPath expressions protected from shell parsing", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).not.toContain('--query \\"');
+    expect(
+      workflow.match(
+        /--query 'ServiceSummaryList\[\?ServiceName==`cpi-dev-api`\]\.ServiceArn \| \[0\]'/gu,
+      ),
+    ).toHaveLength(2);
+    expect(workflow).toContain(
+      "--query 'Stacks[0].Outputs[?OutputKey==`DeploymentFailureTopicArn`].OutputValue | [0]'",
+    );
+  });
 });
