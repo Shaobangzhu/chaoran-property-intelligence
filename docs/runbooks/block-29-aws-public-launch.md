@@ -35,6 +35,7 @@ reviewed CDK extension.
 | 29.3 | First DEV plan/deploy/migration | Complete; remediation deployed under exact DEV SHA | Two GitHub environment approvals completed for run #6 |
 | 29.3a | Initial DEV administrator bootstrap | Complete; owner manually verified authenticated access | Separate Guardrails, DEV deploy, plan, and create approvals completed |
 | 29.4 | DEV acceptance | Complete; exact identity and nightly regression green | Read-only remote testing completed |
+| 29.4a | Dependency-aware DEV deployment | Source prepared; AWS execution pending merge | No AWS mutation during preparation |
 | 29.5 | `dev -> main` promotion | PR #16 merged; main SHA recorded | Protected PR review completed |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
 | 29.6b | Production deploy/migration | Pending | Separate production authorization |
@@ -303,6 +304,20 @@ security headers, local remote-safe Playwright, and manual Nightly DEV
 Regression run `33340950741` passed with zero retries and zero quarantine or
 policy findings. See the
 [Block 29.4 acceptance record](../operations/block-29-4-dev-public-acceptance.md).
+
+## 29.4a Dependency-Aware DEV Deployment
+
+Every push to `dev` must still produce a visible workflow conclusion and
+deployment-impact artifact. Documentation and test-only changes terminate
+successfully before AWS credentials or `development` approvals. Runtime,
+infrastructure, delivery, dependency, unknown, empty-diff, and manual-dispatch
+cases use the complete existing verification, plan, and deploy path.
+
+Release and nightly gates may accept a deployed SHA behind the tested candidate
+only when it is an ancestor and the shared classifier proves that all
+intervening files are documentation or tests. Any ambiguity fails closed and
+requires deployment. See the
+[Block 29.4a record](../operations/block-29-4a-dependency-aware-dev-deployment.md).
 
 ## 29.5 Release Promotion
 

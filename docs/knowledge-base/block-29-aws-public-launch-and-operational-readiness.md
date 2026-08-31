@@ -125,6 +125,19 @@ Playwright, and manual Nightly DEV Regression run `33340950741` passed. The
 nightly evidence contained zero retries, stale quarantines, or policy errors.
 See the [acceptance record](../operations/block-29-4-dev-public-acceptance.md).
 
+### 29.4a Dependency-Aware DEV Deployment
+
+After initial DEV acceptance, documentation and test-only merges do not need a
+new CDK plan, migration startup, or deployment. `Deploy DEV` still classifies
+every protected `dev` push and publishes evidence. Manual dispatches and every
+runtime, infrastructure, delivery, dependency, unknown, or empty comparison
+remain on the full two-approval path.
+
+Release and nightly workflows distinguish candidate source SHA from deployed
+runtime SHA. A prior deployment is valid only when it is an ancestor and every
+intervening path is explicitly non-deployable; otherwise the gate fails. See
+the [29.4a record](../operations/block-29-4a-dependency-aware-dev-deployment.md).
+
 ### 29.5 DEV-To-Main Promotion
 
 Open the same-repository `dev -> main` PR. The release gate must prove that the
@@ -183,6 +196,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.3 first DEV deployment record](../operations/block-29-3-first-dev-public-deployment.md)
 - [Block 29.3a DEV administrator preparation](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
 - [Block 29.4 DEV public acceptance](../operations/block-29-4-dev-public-acceptance.md)
+- [Block 29.4a dependency-aware DEV deployment](../operations/block-29-4a-dependency-aware-dev-deployment.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)
