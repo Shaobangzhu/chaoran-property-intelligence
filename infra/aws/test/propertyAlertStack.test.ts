@@ -1,7 +1,7 @@
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { ContainerImage } from "aws-cdk-lib/aws-ecs";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { PropertyAlertStack } from "../lib/propertyAlertStack.js";
 
@@ -51,9 +51,18 @@ function createDevTemplate(): Template {
 }
 
 describe("PropertyAlertStack", () => {
+  let devTemplate: Template;
+  let parameterizedTemplate: Template;
+  let productionTemplate: Template;
+
+  beforeAll(() => {
+    devTemplate = createDevTemplate();
+    parameterizedTemplate = createParameterizedTemplate();
+    productionTemplate = createTemplate();
+  }, 20_000);
+
   it("preserves critical production logical and physical identities", () => {
-    const template = createTemplate();
-    const resources = template.toJSON().Resources;
+    const resources = productionTemplate.toJSON().Resources;
 
     expect(resources.DatabaseB269D8BB).toBeDefined();
     expect(resources.DatabaseCredentialsSecret7483BC14).toBeDefined();
@@ -66,8 +75,7 @@ describe("PropertyAlertStack", () => {
   });
 
   it("isolates DEV names, data resources, and disabled schedules", () => {
-    const template = createDevTemplate();
-    const resources = JSON.stringify(template.toJSON().Resources);
+    const resources = JSON.stringify(devTemplate.toJSON().Resources);
 
     expect(resources).toContain("cpi/dev/database");
     expect(resources).toContain("cpi/dev/application");
@@ -79,19 +87,17 @@ describe("PropertyAlertStack", () => {
     expect(resources).not.toContain("cpi/production/");
     expect(resources).not.toContain("/cpi/production/");
 
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+    devTemplate.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "cpi-dev-daily-property-alert",
       State: "DISABLED",
     });
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+    devTemplate.hasResourceProperties("AWS::Scheduler::Schedule", {
       Name: "cpi-dev-weekly-showing-list",
       State: "DISABLED",
     });
   });
 
   it("adds one DEV-only administrator bootstrap task with no schedule", () => {
-    const devTemplate = createDevTemplate();
-
     devTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
       Cpu: "256",
       Family: "cpi-dev-admin-bootstrap",
@@ -154,16 +160,14 @@ describe("PropertyAlertStack", () => {
   });
 
   it("does not add the DEV administrator path to production", () => {
-    const production = JSON.stringify(createTemplate().toJSON());
+    const production = JSON.stringify(productionTemplate.toJSON());
 
     expect(production).not.toContain("cpi-dev-admin-bootstrap");
     expect(production).not.toContain("DevAdminBootstrap");
-    createTemplate().resourceCountIs("AWS::ECS::TaskDefinition", 2);
+    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 2);
   });
 
   it("makes DEV data disposable without weakening production retention", () => {
-    const devTemplate = createDevTemplate();
-
     devTemplate.hasResource("AWS::SecretsManager::Secret", {
       DeletionPolicy: "Delete",
       Properties: { Name: "cpi/dev/database" },
@@ -178,7 +182,7 @@ describe("PropertyAlertStack", () => {
       UpdateReplacePolicy: "Delete",
     });
 
-    createTemplate().hasResource("AWS::RDS::DBCluster", {
+    productionTemplate.hasResource("AWS::RDS::DBCluster", {
       DeletionPolicy: "Retain",
       Properties: {
         BackupRetentionPeriod: 7,
@@ -189,10 +193,8 @@ describe("PropertyAlertStack", () => {
   });
 
   it("keeps the scheduled runtime bounded and avoids NAT gateways", () => {
-    const template = createTemplate();
-
-    template.resourceCountIs("AWS::EC2::NatGateway", 0);
-    template.hasResourceProperties("AWS::ECS::TaskDefinition", {
+    productionTemplate.resourceCountIs("AWS::EC2::NatGateway", 0);
+    productionTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
       Cpu: "256",
       Memory: "512",
       NetworkMode: "awsvpc",
@@ -230,9 +232,7 @@ describe("PropertyAlertStack", () => {
   });
 
   it("uses one encrypted Aurora Serverless v2 writer that can pause", () => {
-    const template = createTemplate();
-
-    template.hasResourceProperties("AWS::RDS::DBCluster", {
+    productionTemplate.hasResourceProperties("AWS::RDS::DBCluster", {
       BackupRetentionPeriod: 7,
       DatabaseName: "property_intelligence",
       DeletionProtection: true,
@@ -244,11 +244,11 @@ describe("PropertyAlertStack", () => {
       },
       StorageEncrypted: true,
     });
-    template.resourceCountIs("AWS::RDS::DBInstance", 1);
-    template.hasResourceProperties("AWS::RDS::DBInstance", {
+    productionTemplate.resourceCountIs("AWS::RDS::DBInstance", 1);
+    productionTemplate.hasResourceProperties("AWS::RDS::DBInstance", {
       DBInstanceClass: "db.serverless",
     });
-    template.hasResource("AWS::SecretsManager::Secret", {
+    productionTemplate.hasResource("AWS::SecretsManager::Secret", {
       DeletionPolicy: "Retain",
       Properties: {
         Name: "cpi/production/database",
@@ -258,10 +258,8 @@ describe("PropertyAlertStack", () => {
   });
 
   it("runs every day at 8 AM Los Angeles time with retries and a DLQ", () => {
-    const template = createTemplate();
-
-    template.resourceCountIs("AWS::SQS::Queue", 2);
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+    productionTemplate.resourceCountIs("AWS::SQS::Queue", 2);
+    productionTemplate.hasResourceProperties("AWS::Scheduler::Schedule", {
       FlexibleTimeWindow: { Mode: "OFF" },
       Name: "cpi-daily-property-alert",
       ScheduleExpression: "cron(0 8 * * ? *)",
@@ -280,12 +278,10 @@ describe("PropertyAlertStack", () => {
   });
 
   it("adds a separate disabled weekly Showing List task and schedule", () => {
-    const template = createTemplate();
-
-    template.resourceCountIs("AWS::ECS::TaskDefinition", 2);
-    template.resourceCountIs("AWS::Scheduler::Schedule", 2);
-    template.resourceCountIs("AWS::Logs::LogGroup", 2);
-    template.hasResourceProperties("AWS::ECS::TaskDefinition", {
+    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 2);
+    productionTemplate.resourceCountIs("AWS::Scheduler::Schedule", 2);
+    productionTemplate.resourceCountIs("AWS::Logs::LogGroup", 2);
+    productionTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
       Cpu: "512",
       Memory: "1024",
       ContainerDefinitions: Match.arrayWith([
@@ -318,7 +314,7 @@ describe("PropertyAlertStack", () => {
         }),
       ]),
     });
-    template.hasResourceProperties("AWS::Scheduler::Schedule", {
+    productionTemplate.hasResourceProperties("AWS::Scheduler::Schedule", {
       FlexibleTimeWindow: { Mode: "OFF" },
       Name: "cpi-weekly-showing-list",
       ScheduleExpression: "cron(0 8 ? * MON *)",
@@ -336,7 +332,7 @@ describe("PropertyAlertStack", () => {
     });
 
     const policies = JSON.stringify(
-      template.findResources("AWS::IAM::Policy"),
+      productionTemplate.findResources("AWS::IAM::Policy"),
     );
     expect(policies).toContain("showing-lists/current.pdf");
     expect(policies).toContain("s3:GetObject");
@@ -344,9 +340,8 @@ describe("PropertyAlertStack", () => {
   });
 
   it("keeps the deployed bootstrap Secret template stable", () => {
-    const template = createTemplate();
     const secrets = JSON.stringify(
-      template.findResources("AWS::SecretsManager::Secret"),
+      productionTemplate.findResources("AWS::SecretsManager::Secret"),
     );
 
     expect(secrets).toContain("RENTCAST_API_KEY");
@@ -356,18 +351,14 @@ describe("PropertyAlertStack", () => {
   });
 
   it("retains worker logs for seven days", () => {
-    const template = createTemplate();
-
-    template.hasResourceProperties("AWS::Logs::LogGroup", {
+    productionTemplate.hasResourceProperties("AWS::Logs::LogGroup", {
       RetentionInDays: 7,
     });
   });
 
   it("keeps one latest-only Showing List artifact bucket private", () => {
-    const template = createTemplate();
-
-    template.resourceCountIs("AWS::S3::Bucket", 1);
-    template.hasResource("AWS::S3::Bucket", {
+    productionTemplate.resourceCountIs("AWS::S3::Bucket", 1);
+    productionTemplate.hasResource("AWS::S3::Bucket", {
       DeletionPolicy: "Delete",
       Properties: {
         BucketEncryption: {
@@ -404,7 +395,7 @@ describe("PropertyAlertStack", () => {
     });
 
     const buckets = Object.values(
-      template.findResources("AWS::S3::Bucket"),
+      productionTemplate.findResources("AWS::S3::Bucket"),
     );
     expect(buckets).toHaveLength(1);
     expect(buckets[0]?.Properties).not.toHaveProperty(
@@ -415,9 +406,7 @@ describe("PropertyAlertStack", () => {
   });
 
   it("requires TLS for every Showing List artifact bucket request", () => {
-    const template = createTemplate();
-
-    template.hasResourceProperties("AWS::S3::BucketPolicy", {
+    productionTemplate.hasResourceProperties("AWS::S3::BucketPolicy", {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
@@ -442,27 +431,26 @@ describe("PropertyAlertStack", () => {
   });
 
   it("permits PostgreSQL only from the worker security group", () => {
-    const template = createTemplate();
-
-    template.hasResourceProperties("AWS::EC2::SecurityGroupIngress", {
-      Description: "Allow PostgreSQL from the scheduled worker",
-      FromPort: 5432,
-      IpProtocol: "tcp",
-      SourceSecurityGroupId: Match.anyValue(),
-      ToPort: 5432,
-    });
+    productionTemplate.hasResourceProperties(
+      "AWS::EC2::SecurityGroupIngress",
+      {
+        Description: "Allow PostgreSQL from the scheduled worker",
+        FromPort: 5432,
+        IpProtocol: "tcp",
+        SourceSecurityGroupId: Match.anyValue(),
+        ToPort: 5432,
+      },
+    );
   });
 
   it("alerts on task startup failures and non-zero container exits", () => {
-    const template = createTemplate();
-
-    template.resourceCountIs("AWS::SNS::Topic", 1);
-    template.hasResourceProperties("AWS::SNS::Subscription", {
+    productionTemplate.resourceCountIs("AWS::SNS::Topic", 1);
+    productionTemplate.hasResourceProperties("AWS::SNS::Subscription", {
       Endpoint: "alerts@example.com",
       Protocol: "email",
     });
-    template.resourceCountIs("AWS::Events::Rule", 2);
-    template.hasResourceProperties("AWS::Events::Rule", {
+    productionTemplate.resourceCountIs("AWS::Events::Rule", 2);
+    productionTemplate.hasResourceProperties("AWS::Events::Rule", {
       EventPattern: Match.objectLike({
         detail: Match.objectLike({
           lastStatus: ["STOPPED"],
@@ -473,7 +461,7 @@ describe("PropertyAlertStack", () => {
       }),
       State: "ENABLED",
     });
-    template.hasResourceProperties("AWS::Events::Rule", {
+    productionTemplate.hasResourceProperties("AWS::Events::Rule", {
       EventPattern: Match.objectLike({
         detail: Match.objectLike({
           containers: {
@@ -489,13 +477,11 @@ describe("PropertyAlertStack", () => {
   });
 
   it("requires the failure alert email as a deployment parameter", () => {
-    const template = createParameterizedTemplate();
-
-    template.hasParameter("AlertEmail", {
+    parameterizedTemplate.hasParameter("AlertEmail", {
       AllowedPattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
       Type: "String",
     });
-    template.hasResourceProperties("AWS::SNS::Subscription", {
+    parameterizedTemplate.hasResourceProperties("AWS::SNS::Subscription", {
       Endpoint: { Ref: "AlertEmail" },
       Protocol: "email",
     });

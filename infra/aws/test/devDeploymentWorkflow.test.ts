@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { validateMultilineWorkflowShell } from "./workflowShellSyntax.js";
+
 const workflowPath = fileURLToPath(
   new URL("../../../.github/workflows/deploy-dev.yml", import.meta.url),
 );
@@ -38,6 +40,12 @@ describe("DEV deployment workflow", () => {
     expect(workflow).toContain(
       "No AWS credentials, environment approval, CDK plan, migration, or deployment was requested.",
     );
+  });
+
+  it("keeps every multiline shell run block syntactically valid", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(validateMultilineWorkflowShell(workflow)).toBeGreaterThan(0);
   });
 
   it("places plan and deploy behind separate environment jobs", () => {
