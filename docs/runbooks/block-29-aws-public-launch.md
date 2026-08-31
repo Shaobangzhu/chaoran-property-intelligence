@@ -35,8 +35,8 @@ reviewed CDK extension.
 | 29.3 | First DEV plan/deploy/migration | Complete; remediation deployed under exact DEV SHA | Two GitHub environment approvals completed for run #6 |
 | 29.3a | Initial DEV administrator bootstrap | Complete; owner manually verified authenticated access | Separate Guardrails, DEV deploy, plan, and create approvals completed |
 | 29.4 | DEV acceptance | Complete; exact identity and nightly regression green | Read-only remote testing completed |
-| 29.4a | Dependency-aware DEV deployment | Source prepared; AWS execution pending merge | No AWS mutation during preparation |
-| 29.5 | `dev -> main` promotion | PR #16 merged; main SHA recorded | Protected PR review completed |
+| 29.4a | Dependency-aware DEV deployment | Complete; merged to protected `dev` | Reviewed DEV delivery path completed |
+| 29.5 | Promotion and production environment protection | Promotion complete; protection source prepared | GitHub configuration and Guardrails update pending separate review |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
 | 29.6b | Production deploy/migration | Pending | Separate production authorization |
 | 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
@@ -334,8 +334,19 @@ blocked on the protected `production` environment and workflow contract below.
 
 Before 29.6, bind the production job to a protected GitHub `production`
 environment and cover that workflow contract with a source test. Configure
-required reviewers and restrict deployment to `main`. This source hardening is
-a normal reviewed PR; it does not itself authorize or execute a deployment.
+required reviewers, prevent administrator bypass, and restrict deployment to
+`main`. The production OIDC role keeps its physical and logical identity but
+must trust the exact `environment:production` subject because environment-bound
+jobs no longer receive a branch-ref subject. This source hardening is a normal
+reviewed PR; it does not itself authorize or execute a deployment.
+
+Use a separately authorized federated administrator Guardrails update to move
+the existing trust policy to the environment subject. Review the exact
+account-backed diff before applying it; the expected change is an in-place IAM
+role trust and description update with no role, provider, budget, retained
+resource, or production application replacement. Do not run
+`Deploy production` until the source, GitHub environment settings, and
+Guardrails trust all agree.
 
 ## 29.6a Production Plan
 
@@ -452,6 +463,7 @@ contain sensitive data.
 - [Public runtime runbook](aws-public-runtime.md)
 - [Release and production delivery runbook](release-production-delivery.md)
 - [AWS deployment runbook](aws-deployment.md)
+- [Block 29.5 production protection preparation](../operations/block-29-5-production-environment-protection.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS CloudFront custom domains](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html)
 - [AWS CDK bootstrapping](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html)

@@ -13,6 +13,8 @@ describe("production deployment workflow", () => {
 
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).toContain("    environment:\n      name: production");
+    expect(workflow).toContain("ref: ${{ github.sha }}");
     expect(workflow).toContain("inputs.operation == 'plan'");
     expect(workflow).toContain("inputs.confirmation == 'plan-production'");
     expect(workflow).toContain("inputs.operation == 'deploy'");

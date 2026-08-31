@@ -59,7 +59,9 @@ before GitHub OIDC can operate. DEV application deployment uses the protected
 `development` environment. Production public delivery uses the existing
 manual, two-run `Deploy production` workflow from `main`. Before its first real
 run, the production job is also bound to a protected GitHub `production`
-environment with required review and an exact-`main` deployment restriction.
+environment with required review, no administrator bypass, and an exact-`main`
+deployment restriction. The preserved `cpi-github-deploy` role trusts that
+environment's immutable repository subject rather than a branch-ref subject.
 
 The existing worker, scheduler, provider, notification, database, and retained
 production-resource boundaries remain unchanged. Both worker schedules remain
