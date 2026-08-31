@@ -36,9 +36,10 @@ reviewed CDK extension.
 | 29.3a | Initial DEV administrator bootstrap | Complete; owner manually verified authenticated access | Separate Guardrails, DEV deploy, plan, and create approvals completed |
 | 29.4 | DEV acceptance | Complete; exact identity and nightly regression green | Read-only remote testing completed |
 | 29.4a | Dependency-aware DEV deployment | Complete; merged to protected `dev` | Reviewed DEV delivery path completed |
-| 29.5 | Promotion and production environment protection | Promotion complete; protection source prepared | GitHub configuration and Guardrails update pending separate review |
-| 29.6a | Production plan | Pending | Explicit plan authorization |
-| 29.6b | Production deploy/migration | Pending | Separate production authorization |
+| 29.5 | Promotion and production environment protection | Complete; GitHub protection and Guardrails trust aligned | Post-update Guardrails diff clean |
+| 29.6a | Production plan | Complete; run `33410204420`, exact SHA and digest reviewed | No production mutation occurred |
+| 29.6b | Production deploy/migration | Complete; run `33419336461`, exact release and safe smoke green | Exact SHA, digest, migration, and protected-environment approvals completed |
+| 29.6f | Production administrator bootstrap | Source prepared; AWS enablement and user creation pending | Requires separate Guardrails, Production task, plan, create, and acceptance approvals |
 | 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
 | 29.8 | Operational handoff | Pending | Evidence review |
 
@@ -372,6 +373,9 @@ or copied diff text is not an approval token.
 Record preparation, exact-main promotion, the four-category diff review, and
 the digest evidence in the
 [Block 29.6 production plan record](../operations/block-29-6-production-plan.md).
+The separately maintained
+[Block 29.6d deployment record](../operations/block-29-6d-production-deployment-record.md)
+records the successful, separately authorized production deployment.
 
 ## 29.6b Production Deployment
 
@@ -397,10 +401,39 @@ run a worker, enable a schedule, or call a provider.
 Record the production `ApplicationUrl`; that HTTPS CloudFront hostname is the
 browser entry point until an optional custom domain is implemented.
 
+First-launch result: run `33419336461` succeeded for exact SHA
+`4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3`. The public entry point is
+`https://d1ayoi79dg623p.cloudfront.net`; Web/API release identity, App Runner
+readiness, immutable Web publication, and safe unauthenticated smoke passed.
+
 The public sign-in page being reachable does not imply that an application user
 exists. Production admin creation and authenticated acceptance mutate
 production state and remain outside this launch operation unless separately
 authorized under the admin runbook.
+
+## 29.6f Production Administrator Bootstrap
+
+The Production administrator is created through a separate protected path; it
+is not copied from DEV and is not part of `Deploy production`. Follow the
+[Production administrator runbook](create-production-admin.md).
+
+The source must first reach protected `dev`. Create and protect the
+`production-admin-bootstrap` GitHub environment, deploy a separately reviewed
+Guardrails-only diff, and complete the normal AWS DEV plan/deploy with both
+schedules disabled and no administrator task run. After the dev-to-main release
+gate passes, use the existing digest-bound Production delivery workflow to add
+the unscheduled bootstrap task. Require clean post-deploy diffs before running
+the administrator workflow.
+
+Run `plan` first. Review only the sanitized email hash, task/image identity,
+network boundary, disabled schedules, exact commit, and 64-character digest.
+The second `create` run requires a fresh authorization for that exact digest
+and a second protected-environment approval. It creates one temporary secret,
+starts one task, does not run migrations, and always requests secret deletion.
+
+Successful create permits one manual login/logout acceptance only. It does not
+authorize listing inspection, data mutation, worker execution, provider calls,
+schedule enablement, password reset, or account replacement.
 
 ## Rollback Decision
 

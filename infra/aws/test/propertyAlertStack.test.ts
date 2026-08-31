@@ -8,6 +8,9 @@ import { PropertyAlertStack } from "../lib/propertyAlertStack.js";
 function createTemplate(): Template {
   const app = new App();
   const stack = new PropertyAlertStack(app, "TestPropertyAlertStack", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     env: {
       account: "111111111111",
@@ -22,6 +25,9 @@ function createTemplate(): Template {
 function createParameterizedTemplate(): Template {
   const app = new App();
   const stack = new PropertyAlertStack(app, "ParameterizedPropertyAlertStack", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     env: {
       account: "111111111111",
@@ -159,12 +165,51 @@ describe("PropertyAlertStack", () => {
     ).toHaveLength(2);
   });
 
-  it("does not add the DEV administrator path to production", () => {
+  it("adds an isolated production administrator path without DEV identities", () => {
     const production = JSON.stringify(productionTemplate.toJSON());
 
     expect(production).not.toContain("cpi-dev-admin-bootstrap");
     expect(production).not.toContain("DevAdminBootstrap");
-    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 2);
+    expect(production).toContain("cpi-production-admin-bootstrap");
+    expect(production).toContain("ProductionAdminBootstrap");
+    expect(production).toContain("cpi/production/admin-bootstrap/*");
+    productionTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      Cpu: "256",
+      Family: "cpi-production-admin-bootstrap",
+      Memory: "512",
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Command: [
+            "timeout",
+            "--signal=TERM",
+            "5m",
+            "node",
+            "apps/admin-cli/dist/productionAdminBootstrap.js",
+          ],
+          Environment: Match.arrayWith([
+            { Name: "CPI_DEPLOYMENT_STAGE", Value: "production" },
+            { Name: "PGSSLMODE", Value: "verify-full" },
+          ]),
+          Name: "ProductionAdminBootstrap",
+        }),
+      ]),
+    });
+    productionTemplate.hasResource("AWS::Logs::LogGroup", {
+      DeletionPolicy: "Retain",
+      Properties: {
+        LogGroupName: "/cpi/production/admin-bootstrap",
+        RetentionInDays: 30,
+      },
+      UpdateReplacePolicy: "Retain",
+    });
+    productionTemplate.hasResourceProperties("AWS::IAM::Role", {
+      RoleName: "cpi-production-admin-bootstrap-task",
+    });
+    productionTemplate.hasResourceProperties("AWS::IAM::Role", {
+      RoleName: "cpi-production-admin-bootstrap-execution",
+    });
+    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 3);
+    productionTemplate.resourceCountIs("AWS::Scheduler::Schedule", 2);
   });
 
   it("makes DEV data disposable without weakening production retention", () => {
@@ -278,9 +323,9 @@ describe("PropertyAlertStack", () => {
   });
 
   it("adds a separate disabled weekly Showing List task and schedule", () => {
-    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 2);
+    productionTemplate.resourceCountIs("AWS::ECS::TaskDefinition", 3);
     productionTemplate.resourceCountIs("AWS::Scheduler::Schedule", 2);
-    productionTemplate.resourceCountIs("AWS::Logs::LogGroup", 2);
+    productionTemplate.resourceCountIs("AWS::Logs::LogGroup", 3);
     productionTemplate.hasResourceProperties("AWS::ECS::TaskDefinition", {
       Cpu: "512",
       Memory: "1024",

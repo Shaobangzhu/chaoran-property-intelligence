@@ -47,7 +47,9 @@ local release gate
   -> dev-to-main release gate
   -> production plan with approval digest
   -> separately authorized production deployment
-  -> safe production smoke and operational handoff
+  -> safe production smoke
+  -> separately protected production administrator plan/create
+  -> operational handoff
 ```
 
 The first browser-accessible endpoint is the DEV CloudFront URL. Production is
@@ -134,7 +136,10 @@ test run, a successful production plan, or this ADR.
 - App Runner startup may apply bundled migrations to the selected stage, so
   migration authorization remains explicit.
 - A healthy sign-in page does not imply that an administrator exists. The first
-  DEV user is a separate, digest-bound data mutation through a DEV-only task;
+  production administrator uses a separate exact-main, digest-bound workflow,
+  OIDC role, environment, task, and temporary secret boundary. It is never part
+  of deployment smoke and requires explicit production-data authorization.
+- The DEV user remains a separate, digest-bound mutation through a DEV-only task;
   it is not seeded, copied from production, or exposed through registration.
 - A custom domain is deferred until its ownership and desired hostname are
   known; the generated CloudFront hostname is sufficient for initial launch.
