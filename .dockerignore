@@ -13,6 +13,8 @@ allure-results
 playwright-report
 playwright.config.ts
 test-results
+deployment-plan
+deployment-evidence
 tests
 tools
 cdk.out
