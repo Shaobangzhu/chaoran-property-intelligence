@@ -1,0 +1,301 @@
+name: Bootstrap production administrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Create a reviewed plan or create the production administrator
+        required: true
+        type: choice
+        options:
+          - plan
+          - create
+      confirmation:
+        description: Type plan-production-admin or create-production-admin
+        required: true
+        type: string
+      approved_plan_digest:
+        description: Approval digest from the matching plan run; required for create
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: false
+  group: production-admin-bootstrap
+
+env:
+  AWS_REGION: us-west-2
+  CPI_ADMIN_BOOTSTRAP_OPERATION: ${{ inputs.operation }}
+  CPI_APPROVED_PLAN_DIGEST: ${{ inputs.approved_plan_digest }}
+
+jobs:
+  bootstrap:
+    name: Plan or create the isolated production administrator
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((inputs.operation == 'plan' && inputs.confirmation == 'plan-production-admin') ||
+       (inputs.operation == 'create' && inputs.confirmation == 'create-production-admin' &&
+        inputs.approved_plan_digest != ''))
+    environment:
+      name: production-admin-bootstrap
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout immutable production source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate immutable request and hash administrator identity
+        id: identity
+        env:
+          CPI_PRODUCTION_ADMIN_EMAIL: ${{ secrets.CPI_PRODUCTION_ADMIN_EMAIL }}
+        run: |-
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [ "$CPI_ADMIN_BOOTSTRAP_OPERATION" = "create" ]; then
+            printf '%s' "$CPI_APPROVED_PLAN_DIGEST" | grep -Eq '^[a-f0-9]{64}$'
+          fi
+          node --input-type=module -e '
+            import { createHash } from "node:crypto";
+            import { appendFileSync } from "node:fs";
+            const email = process.env.CPI_PRODUCTION_ADMIN_EMAIL?.trim().toLowerCase();
+            if (!email || email.length > 254 || !email.includes("@")) {
+              throw new Error("CPI_PRODUCTION_ADMIN_EMAIL was missing or invalid");
+            }
+            const digest = createHash("sha256").update(email, "utf8").digest("hex");
+            appendFileSync(process.env.GITHUB_OUTPUT, `email_sha256=${digest}\n`);
+          '
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cpi-github-production-admin-${{ inputs.operation }}
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-production-admin-bootstrap
+
+      - name: Verify target AWS account
+        run: |-
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Build sanitized immutable bootstrap plan
+        run: |-
+          mkdir -p admin-bootstrap-plan
+          outputs_json="$(aws cloudformation describe-stacks \
+            --stack-name ChaoranPropertyIntelligenceProduction \
+            --query 'Stacks[0].Outputs' --output json)"
+          read_output() {
+            printf '%s' "$outputs_json" | jq -er --arg key "$1" \
+              '.[] | select(.OutputKey == $key) | .OutputValue'
+          }
+          cluster_arn="$(read_output ProductionAdminBootstrapClusterArn)"
+          container_name="$(read_output ProductionAdminBootstrapContainerName)"
+          security_group_id="$(read_output ProductionAdminBootstrapSecurityGroupId)"
+          subnet_ids="$(read_output ProductionAdminBootstrapSubnetIds)"
+          task_definition_arn="$(read_output ProductionAdminBootstrapTaskDefinitionArn)"
+
+          aws ecs describe-task-definition \
+            --task-definition "$task_definition_arn" \
+            --query taskDefinition --output json \
+            > admin-bootstrap-plan/task-definition.json
+          jq -e \
+            --arg container "$container_name" \
+            '.status == "ACTIVE" and
+             .family == "cpi-production-admin-bootstrap" and
+             any(.containerDefinitions[];
+               .name == $container and
+               .command == ["timeout", "--signal=TERM", "5m", "node", "apps/admin-cli/dist/productionAdminBootstrap.js"])' \
+            admin-bootstrap-plan/task-definition.json > /dev/null
+          resolved_task_definition_arn="$(jq -er '.taskDefinitionArn' admin-bootstrap-plan/task-definition.json)"
+          container_image="$(jq -er --arg container "$container_name" \
+            '.containerDefinitions[] | select(.name == $container) | .image' \
+            admin-bootstrap-plan/task-definition.json)"
+          image_path="${container_image#*/}"
+          repository_name="${image_path%:*}"
+          image_tag="${container_image##*:}"
+          test "$repository_name" != "$image_path"
+          test "$image_tag" != "$container_image"
+          container_image_digest="$(aws ecr describe-images \
+            --repository-name "$repository_name" \
+            --image-ids "imageTag=$image_tag" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          printf '%s' "$container_image_digest" | grep -Eq '^sha256:[a-f0-9]{64}$'
+
+          daily_state="$(aws scheduler get-schedule \
+            --name cpi-daily-property-alert --query State --output text)"
+          weekly_state="$(aws scheduler get-schedule \
+            --name cpi-weekly-showing-list --query State --output text)"
+          jq -n \
+            --arg account_id "${{ vars.AWS_ACCOUNT_ID }}" \
+            --arg admin_email_sha256 "${{ steps.identity.outputs.email_sha256 }}" \
+            --arg cluster_arn "$cluster_arn" \
+            --arg container_image "$container_image" \
+            --arg container_image_digest "$container_image_digest" \
+            --arg container_name "$container_name" \
+            --arg daily_state "$daily_state" \
+            --arg region "$AWS_REGION" \
+            --arg security_group_id "$security_group_id" \
+            --arg subnet_ids "$subnet_ids" \
+            --arg task_definition_arn "$resolved_task_definition_arn" \
+            --arg weekly_state "$weekly_state" \
+            '{
+              accountId: $account_id,
+              adminEmailSha256: $admin_email_sha256,
+              clusterArn: $cluster_arn,
+              containerImage: $container_image,
+              containerImageDigest: $container_image_digest,
+              containerName: $container_name,
+              region: $region,
+              scheduleStates: {daily: $daily_state, weekly: $weekly_state},
+              schemaVersion: 1,
+              securityGroupId: $security_group_id,
+              stage: "production",
+              subnetIds: ($subnet_ids | split(",") | sort),
+              taskDefinitionArn: $task_definition_arn
+            }' | jq -S . > admin-bootstrap-plan/plan.json
+
+      - name: Create or verify immutable bootstrap approval
+        id: approval
+        run: |-
+          if [ "$CPI_ADMIN_BOOTSTRAP_OPERATION" = "plan" ]; then
+            node tools/aws/createProductionAdminBootstrapApproval.mjs \
+              --commit "$GITHUB_SHA" \
+              --plan admin-bootstrap-plan/plan.json \
+              --output admin-bootstrap-plan/approval.json \
+              --github-output "$GITHUB_OUTPUT" \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            node tools/aws/createProductionAdminBootstrapApproval.mjs \
+              --commit "$GITHUB_SHA" \
+              --plan admin-bootstrap-plan/plan.json \
+              --output admin-bootstrap-plan/approval.json \
+              --expected-digest "$CPI_APPROVED_PLAN_DIGEST" \
+              --github-output "$GITHUB_OUTPUT" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload bootstrap plan
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: warn
+          name: production-admin-bootstrap-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            admin-bootstrap-plan/plan.json
+            admin-bootstrap-plan/approval.json
+          retention-days: 90
+
+      - name: Create ephemeral credential secret
+        id: secret
+        if: inputs.operation == 'create'
+        env:
+          CPI_PRODUCTION_ADMIN_EMAIL: ${{ secrets.CPI_PRODUCTION_ADMIN_EMAIL }}
+          CPI_PRODUCTION_ADMIN_PASSWORD: ${{ secrets.CPI_PRODUCTION_ADMIN_PASSWORD }}
+        run: |-
+          secret_file="$RUNNER_TEMP/production-admin-bootstrap-secret.json"
+          trap 'rm -f "$secret_file"' EXIT
+          umask 077
+          node --input-type=module -e '
+            import { writeFileSync } from "node:fs";
+            const email = process.env.CPI_PRODUCTION_ADMIN_EMAIL;
+            const password = process.env.CPI_PRODUCTION_ADMIN_PASSWORD;
+            if (!email || !password || [...password.normalize("NFC")].length < 15 ||
+                [...password.normalize("NFC")].length > 128) {
+              throw new Error("Production administrator credentials were missing or outside bounded length");
+            }
+            writeFileSync(process.argv[1], JSON.stringify({ email, password }), { mode: 0o600 });
+          ' "$secret_file"
+          secret_name="cpi/production/admin-bootstrap/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          secret_arn="$(aws secretsmanager create-secret \
+            --name "$secret_name" \
+            --description "Ephemeral CPI production administrator bootstrap credentials" \
+            --tags Key=cpi:deployment-stage,Value=production Key=cpi:purpose,Value=admin-bootstrap \
+            --secret-string "file://$secret_file" \
+            --query ARN --output text)"
+          test -n "$secret_arn"
+          echo "secret_arn=$secret_arn" >> "$GITHUB_OUTPUT"
+
+      - name: Run one production administrator bootstrap task
+        id: task
+        if: inputs.operation == 'create'
+        env:
+          CPI_ADMIN_BOOTSTRAP_SECRET_ARN: ${{ steps.secret.outputs.secret_arn }}
+        run: |-
+          mkdir -p admin-bootstrap-evidence
+          cluster_arn="$(jq -er '.clusterArn' admin-bootstrap-plan/plan.json)"
+          container_name="$(jq -er '.containerName' admin-bootstrap-plan/plan.json)"
+          security_group_id="$(jq -er '.securityGroupId' admin-bootstrap-plan/plan.json)"
+          task_definition_arn="$(jq -er '.taskDefinitionArn' admin-bootstrap-plan/plan.json)"
+          jq -n \
+            --arg security_group_id "$security_group_id" \
+            --argjson subnets "$(jq '.subnetIds' admin-bootstrap-plan/plan.json)" \
+            '{awsvpcConfiguration:{assignPublicIp:"ENABLED",securityGroups:[$security_group_id],subnets:$subnets}}' \
+            > "$RUNNER_TEMP/network-configuration.json"
+          jq -n \
+            --arg confirmation "create-production-admin" \
+            --arg container_name "$container_name" \
+            --arg secret_arn "$CPI_ADMIN_BOOTSTRAP_SECRET_ARN" \
+            '{containerOverrides:[{name:$container_name,environment:[
+              {name:"CPI_ADMIN_BOOTSTRAP_CONFIRMATION",value:$confirmation},
+              {name:"CPI_ADMIN_BOOTSTRAP_SECRET_ARN",value:$secret_arn}
+            ]}]}' > "$RUNNER_TEMP/container-overrides.json"
+          aws ecs run-task \
+            --cluster "$cluster_arn" \
+            --count 1 \
+            --launch-type FARGATE \
+            --network-configuration "file://$RUNNER_TEMP/network-configuration.json" \
+            --overrides "file://$RUNNER_TEMP/container-overrides.json" \
+            --platform-version LATEST \
+            --task-definition "$task_definition_arn" \
+            > "$RUNNER_TEMP/run-task.json"
+          jq -e '(.failures | length) == 0 and (.tasks | length) == 1' \
+            "$RUNNER_TEMP/run-task.json" > /dev/null
+          task_arn="$(jq -er '.tasks[0].taskArn' "$RUNNER_TEMP/run-task.json")"
+          echo "task_arn=$task_arn" >> "$GITHUB_OUTPUT"
+
+          aws ecs wait tasks-stopped --cluster "$cluster_arn" --tasks "$task_arn"
+          aws ecs describe-tasks \
+            --cluster "$cluster_arn" \
+            --tasks "$task_arn" \
+            --query 'tasks[0].{taskArn:taskArn,lastStatus:lastStatus,stopCode:stopCode,stoppedReason:stoppedReason,containers:containers[].{name:name,lastStatus:lastStatus,exitCode:exitCode,reason:reason}}' \
+            --output json > admin-bootstrap-evidence/task-result.json
+          exit_code="$(jq -er --arg container "$container_name" \
+            '.containers[] | select(.name == $container) | .exitCode' \
+            admin-bootstrap-evidence/task-result.json)"
+          test "$exit_code" = "0"
+
+      - name: Delete ephemeral credential secret
+        if: always() && inputs.operation == 'create' && steps.secret.outputs.secret_arn != ''
+        env:
+          CPI_ADMIN_BOOTSTRAP_SECRET_ARN: ${{ steps.secret.outputs.secret_arn }}
+        run: |-
+          mkdir -p admin-bootstrap-evidence
+          aws secretsmanager delete-secret \
+            --secret-id "$CPI_ADMIN_BOOTSTRAP_SECRET_ARN" \
+            --force-delete-without-recovery \
+            > admin-bootstrap-evidence/secret-deletion.json
+
+      - name: Upload bounded execution evidence
+        if: always() && inputs.operation == 'create'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: warn
+          name: production-admin-bootstrap-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: admin-bootstrap-evidence/
+          retention-days: 90
+
+      - name: Publish bounded failure notification
+        if: failure() && inputs.operation == 'create'
+        continue-on-error: true
+        run: |-
+          aws sns publish \
+            --topic-arn "arn:aws:sns:$AWS_REGION:${{ vars.AWS_ACCOUNT_ID }}:cpi-deployment-failures" \
+            --subject "CPI production administrator bootstrap failed" \
+            --message "Production administrator bootstrap failed for commit $GITHUB_SHA. Review $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

@@ -23,6 +23,7 @@ export interface AccountGuardrailsStackProps extends StackProps {
   githubDevEnvironment: string;
   githubOwner: string;
   githubOwnerId: string;
+  githubProductionAdminBootstrapEnvironment: string;
   githubProductionEnvironment: string;
   githubProductionDeploymentRegions?: string[];
   githubRepository: string;
@@ -546,6 +547,145 @@ export class AccountGuardrailsStack extends Stack {
       }),
     );
 
+    const githubProductionAdminBootstrapSubject = [
+      githubRepositorySubject,
+      `environment:${props.githubProductionAdminBootstrapEnvironment}`,
+    ].join(":");
+    const githubProductionAdminBootstrapRole = new Role(
+      this,
+      "GitHubProductionAdminBootstrapRole",
+      {
+        assumedBy: new FederatedPrincipal(
+          githubProvider.ref,
+          {
+            StringEquals: {
+              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+              "token.actions.githubusercontent.com:sub":
+                githubProductionAdminBootstrapSubject,
+            },
+          },
+          "sts:AssumeRoleWithWebIdentity",
+        ),
+        description:
+          "Run the reviewed one-time CPI production administrator bootstrap task",
+        roleName: "cpi-github-production-admin-bootstrap",
+      },
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["cloudformation:DescribeStacks"],
+        resources: [
+          this.formatArn({
+            resource: "stack",
+            resourceName: "ChaoranPropertyIntelligenceProduction/*",
+            service: "cloudformation",
+          }),
+        ],
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecs:RunTask"],
+        conditions: {
+          ArnLike: {
+            "ecs:cluster": this.formatArn({
+              resource: "cluster",
+              resourceName: "ChaoranPropertyIntelligenceProduction-Cluster*",
+              service: "ecs",
+            }),
+          },
+        },
+        resources: [
+          this.formatArn({
+            resource: "task-definition",
+            resourceName: "cpi-production-admin-bootstrap:*",
+            service: "ecs",
+          }),
+        ],
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecs:DescribeTaskDefinition", "ecs:DescribeTasks"],
+        resources: ["*"],
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecr:DescribeImages"],
+        resources: [
+          this.formatArn({
+            resource: "repository",
+            resourceName: `cdk-hnb659fds-container-assets-${this.account}-${this.region}`,
+            service: "ecr",
+          }),
+        ],
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["iam:PassRole"],
+        conditions: {
+          StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" },
+        },
+        resources: [
+          "cpi-production-admin-bootstrap-task",
+          "cpi-production-admin-bootstrap-execution",
+        ].map((roleName) =>
+          this.formatArn({
+            region: "",
+            resource: "role",
+            resourceName: roleName,
+            service: "iam",
+          }),
+        ),
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:TagResource",
+        ],
+        resources: [
+          this.formatArn({
+            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+            resource: "secret",
+            resourceName: "cpi/production/admin-bootstrap/*",
+            service: "secretsmanager",
+          }),
+        ],
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["scheduler:GetSchedule"],
+        resources: [
+          "cpi-daily-property-alert",
+          "cpi-weekly-showing-list",
+        ].map((scheduleName) =>
+          this.formatArn({
+            resource: "schedule",
+            resourceName: `default/${scheduleName}`,
+            service: "scheduler",
+          }),
+        ),
+      }),
+    );
+    githubProductionAdminBootstrapRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sns:Publish"],
+        resources: [
+          this.formatArn({
+            resource: "cpi-deployment-failures",
+            service: "sns",
+          }),
+        ],
+      }),
+    );
+
     new CfnOutput(this, "GitHubDeployRoleArn", {
       value: githubDeployRole.roleArn,
     });
@@ -554,6 +694,9 @@ export class AccountGuardrailsStack extends Stack {
     });
     new CfnOutput(this, "GitHubDevAdminBootstrapRoleArn", {
       value: githubDevAdminBootstrapRole.roleArn,
+    });
+    new CfnOutput(this, "GitHubProductionAdminBootstrapRoleArn", {
+      value: githubProductionAdminBootstrapRole.roleArn,
     });
   }
 }
