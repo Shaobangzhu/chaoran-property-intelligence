@@ -1,47 +1,13 @@
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { validateMultilineWorkflowShell } from "./workflowShellSyntax.js";
+
 const workflowPath = fileURLToPath(
   new URL("../../../.github/workflows/deploy-dev.yml", import.meta.url),
 );
-
-function extractLiteralRunScripts(workflow: string) {
-  const lines = workflow.split("\n");
-  const scripts: Array<{ name: string; script: string }> = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const runMatch = /^(\s*)run:\s*\|-\s*$/u.exec(lines[index] ?? "");
-    if (!runMatch) {
-      continue;
-    }
-
-    const runIndent = runMatch[1]?.length ?? 0;
-    const scriptIndent = runIndent + 2;
-    const scriptLines: string[] = [];
-
-    for (index += 1; index < lines.length; index += 1) {
-      const line = lines[index] ?? "";
-      const indentation = /^\s*/u.exec(line)?.[0].length ?? 0;
-      if (line.length > 0 && indentation <= runIndent) {
-        index -= 1;
-        break;
-      }
-      scriptLines.push(line.slice(Math.min(scriptIndent, line.length)));
-    }
-
-    const precedingLines = lines.slice(0, index - scriptLines.length);
-    const name = [...precedingLines]
-      .reverse()
-      .find((line) => /^\s*- name:\s+/u.test(line))
-      ?.replace(/^\s*- name:\s+/u, "") ?? "unnamed run step";
-    scripts.push({ name, script: scriptLines.join("\n") });
-  }
-
-  return scripts;
-}
 
 describe("DEV deployment workflow", () => {
   it("runs only after a push to dev or a dev-scoped manual dispatch", () => {
@@ -76,20 +42,10 @@ describe("DEV deployment workflow", () => {
     );
   });
 
-  it("keeps every literal shell run block syntactically valid", () => {
+  it("keeps every multiline shell run block syntactically valid", () => {
     const workflow = readFileSync(workflowPath, "utf8");
-    const scripts = extractLiteralRunScripts(workflow);
 
-    expect(scripts.length).toBeGreaterThan(0);
-    for (const { name, script } of scripts) {
-      const result = spawnSync("bash", ["-n"], {
-        encoding: "utf8",
-        input: script,
-      });
-
-      expect(result.stderr, `${name} contains invalid Bash`).toBe("");
-      expect(result.status, `${name} contains invalid Bash`).toBe(0);
-    }
+    expect(validateMultilineWorkflowShell(workflow)).toBeGreaterThan(0);
   });
 
   it("places plan and deploy behind separate environment jobs", () => {

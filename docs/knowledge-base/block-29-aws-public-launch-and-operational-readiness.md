@@ -199,6 +199,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.3a DEV administrator preparation](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
 - [Block 29.4 DEV public acceptance](../operations/block-29-4-dev-public-acceptance.md)
 - [Block 29.4a dependency-aware DEV deployment](../operations/block-29-4a-dependency-aware-dev-deployment.md)
+- [Block 29.6 production plan](../operations/block-29-6-production-plan.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)
