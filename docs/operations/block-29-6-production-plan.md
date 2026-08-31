@@ -14,6 +14,11 @@
 - AWS mutation: not performed
 - Production deployment or migration: not authorized and not performed
 
+Historical scope note: the statements above describe plan run `33410204420`.
+A separately authorized digest-bound deployment later completed successfully
+in run [`33419336461`](https://github.com/Shaobangzhu/chaoran-property-intelligence/actions/runs/33419336461).
+See the Block 29.6d execution record for the mutation and smoke evidence.
+
 This record prepares the first account-backed production plan. It does not
 authorize a production deployment, API startup migration, static web
 publication, CloudFront invalidation, authenticated request, production data
