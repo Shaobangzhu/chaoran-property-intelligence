@@ -9,22 +9,18 @@
 - Reviewed plan run: `33410204420`
 - Reviewed approval digest:
   `41d571584df3f3fb9038b98cd019597ce8eca0243574f5a589a5358610af196f`
-- Deployment authorization: pending
-- Production API migration authorization: pending
-- Production deployment: not dispatched
+- Deployment authorization: granted for the exact inputs recorded below
+- Production API migration authorization: granted for the bundled startup path
+- Production deployment: successful in `Deploy production` run `33419336461`
 - Production data access: not performed
-- Promotion constraint: keep this documentation branch unmerged until the
-  digest-bound deployment finishes or the plan is intentionally replaced
+- Public application URL: `https://d1ayoi79dg623p.cloudfront.net`
 
-This document is an execution record and stop checklist. Preparing or merging
-it does not authorize `Deploy production`, a CloudFormation mutation, API
-startup migration, S3 publication, CloudFront invalidation, authenticated
-request, worker execution, provider request, notification, or schedule change.
-
-Do not merge this branch into `main` before using the reviewed plan. Any merge
-would change the current `main` SHA, while the approval digest is bound to
-`4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3`. If `main` changes first, discard
-this approval digest and create and review a new account-backed plan.
+This document is the bounded execution record for the first controlled
+production public launch. The deployment authorization applied only to the
+exact SHA, approval digest, four named stacks, bundled API startup migration,
+immutable Web publication, and safe unauthenticated smoke recorded here. It did
+not authorize production data inspection, authenticated access, administrator
+creation, worker execution, provider calls, or schedule enablement.
 
 ## Immutable Plan Linkage
 
@@ -84,23 +80,30 @@ or a worker run.
 
 ## Execution Evidence
 
-Complete this section only after a separately authorized deployment run.
-
 | Evidence | Recorded value |
 | --- | --- |
-| Deployment run ID and URL | Pending |
-| Environment approval event | Pending |
-| Recomputed approval digest | Pending; must equal the reviewed digest |
-| AWS account verification | Pending; bounded result only |
-| Four explicit stack results | Pending |
-| Production `ApplicationUrl` | Pending |
-| Web and API release SHA/stage | Pending |
-| App Runner readiness | Pending |
-| CloudFront invalidation | Pending |
-| Safe production smoke | Pending |
-| Both schedules disabled after deploy | Pending |
-| Deployment evidence artifact and digest | Pending |
-| SNS subscription state | Pending; never record the recipient address |
+| Deployment run ID and URL | [`33419336461`](https://github.com/Shaobangzhu/chaoran-property-intelligence/actions/runs/33419336461), successful in 17m 44s |
+| Environment approval event | Repository owner approved the protected `production` environment for the exact SHA, reviewed digest, migration boundary, and disabled schedules |
+| Recomputed approval digest | `41d571584df3f3fb9038b98cd019597ce8eca0243574f5a589a5358610af196f`; matched the reviewed plan |
+| AWS account verification | Matched the bounded repository `AWS_ACCOUNT_ID`; full account identity omitted |
+| Four explicit stack results | Guardrails: no changes; production foundation: update complete; edge/WAF: create complete; public application: create complete |
+| Production `ApplicationUrl` | `https://d1ayoi79dg623p.cloudfront.net` |
+| Web and API release SHA/stage | Both smoke targets matched `4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3` and `production` |
+| App Runner readiness | `cpi-api` recorded as `RUNNING`; bounded `/api/health` readiness passed |
+| CloudFront invalidation | Immutable Web sync, no-store `release.json`, invalidation creation, and bounded invalidation wait passed |
+| Safe production smoke | Passed public UI, security-header, health/release identity, and unauthenticated protected-route checks without worker or provider behavior |
+| Both schedules disabled after deploy | Deploy and synth contexts forced both values to `false`; the reviewed templates declared `DISABLED`, and both CloudFormation schedule operations completed successfully |
+| Deployment evidence artifact and digest | `production-diagnostics-33419336461-1`; SHA-256 `c73a50a137c5f1051474d3f02d2a8714f3d7a6977a21873aea43c412889587f6` |
+| Recomputed plan artifact and digest | `production-plan-33419336461-1`; SHA-256 `1ce86b71ce2e1b6eacb66101d463a42ac130d933f6735d0f7da0ca5b449fb1c3` |
+| SNS subscription state | Subscription resource reached `CREATE_COMPLETE`; endpoint confirmation was not independently read back and no recipient address is recorded |
+
+The downloaded diagnostics ZIP matched its GitHub artifact digest. Its bounded
+evidence recorded the exact run/SHA/digest linkage, App Runner `RUNNING` state,
+CDK outputs, versioned Web objects, Playwright results, and Allure report. The
+run reported 1,290 passed, zero failed, zero broken, three skipped, and 21
+retries across 1,293 Allure results. The retries include the repository's
+multi-stage local and remote reporting behavior and did not produce a failed
+production smoke result.
 
 ## Safe Smoke Boundary
 
@@ -144,12 +147,26 @@ non-blocking and unrelated to the deployment evidence change.
 
 ## Completion Criteria
 
-Block 29.6 production deployment is complete only when the exact approved
-digest is reproduced, all four explicit stacks finish, both schedules remain
-disabled, Web publication and bounded readiness complete, Web and API expose
-the exact production release identity, safe smoke passes, and the private
-deployment evidence artifact is reviewed. Until then this record remains
-`Pending` and Block 29.8 handoff must not begin.
+Block 29.6 production deployment is complete. The exact approved digest was
+reproduced, all four explicit stacks finished, the disabled-schedule contract
+was retained, Web publication and bounded readiness completed, Web and API
+exposed the exact production release identity, safe smoke passed, and the
+private deployment evidence artifact was reviewed. Block 29.8 operational
+handoff may begin; optional Block 29.7 custom-domain work remains separate.
+
+## Remaining Risks
+
+- A separate live `get-schedule` readback was not captured in the workflow
+  artifact. The disabled state is supported by the immutable deployment
+  contexts, synthesized templates, and successful CloudFormation schedule
+  operations. Add an explicit post-deploy readback before any future schedule
+  policy change.
+- The SNS subscription resource was created, but recipient confirmation was
+  not independently verified in this phase.
+- No production application user was created and no authenticated production
+  acceptance was performed. Either operation requires separate authorization.
+- The pinned GitHub actions emit a Node.js 20 deprecation warning while GitHub
+  currently forces them onto Node.js 24; the run remained successful.
 
 ## References
 

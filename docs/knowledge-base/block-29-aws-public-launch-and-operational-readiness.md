@@ -157,6 +157,13 @@ required before the separate deploy run. The deploy must reproduce the digest,
 acknowledge the production API startup migration, force both schedules
 disabled, and pass safe production smoke.
 
+Status: complete on 2026-08-31. The protected deploy reproduced approval digest
+`41d57158...196f` for exact `main` SHA `4c5e6e07...beb3`, completed the four
+explicit stacks with schedules disabled, published the immutable Web build,
+reached App Runner readiness, and passed safe production smoke. The generated
+browser entry point is `https://d1ayoi79dg623p.cloudfront.net`. See the
+[production deployment record](../operations/block-29-6d-production-deployment-record.md).
+
 ### 29.7 Optional Custom Domain
 
 After generated-hostname launch is stable, decide whether a friendly domain is

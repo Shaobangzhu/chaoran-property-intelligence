@@ -38,7 +38,7 @@ reviewed CDK extension.
 | 29.4a | Dependency-aware DEV deployment | Complete; merged to protected `dev` | Reviewed DEV delivery path completed |
 | 29.5 | Promotion and production environment protection | Complete; GitHub protection and Guardrails trust aligned | Post-update Guardrails diff clean |
 | 29.6a | Production plan | Complete; run `33410204420`, exact SHA and digest reviewed | No production mutation occurred |
-| 29.6b | Production deploy/migration | Ready for a new authorization; not dispatched | Exact SHA, digest, and migration acknowledgement required |
+| 29.6b | Production deploy/migration | Complete; run `33419336461`, exact release and safe smoke green | Exact SHA, digest, migration, and protected-environment approvals completed |
 | 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
 | 29.8 | Operational handoff | Pending | Evidence review |
 
@@ -374,7 +374,7 @@ the digest evidence in the
 [Block 29.6 production plan record](../operations/block-29-6-production-plan.md).
 The separately maintained
 [Block 29.6d deployment record](../operations/block-29-6d-production-deployment-record.md)
-must remain pending until a new production deployment authorization is given.
+records the successful, separately authorized production deployment.
 
 ## 29.6b Production Deployment
 
@@ -399,6 +399,11 @@ run a worker, enable a schedule, or call a provider.
 
 Record the production `ApplicationUrl`; that HTTPS CloudFront hostname is the
 browser entry point until an optional custom domain is implemented.
+
+First-launch result: run `33419336461` succeeded for exact SHA
+`4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3`. The public entry point is
+`https://d1ayoi79dg623p.cloudfront.net`; Web/API release identity, App Runner
+readiness, immutable Web publication, and safe unauthenticated smoke passed.
 
 The public sign-in page being reachable does not imply that an application user
 exists. Production admin creation and authenticated acceptance mutate
