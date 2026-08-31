@@ -369,6 +369,10 @@ The run may authenticate and read deployed state but must not deploy. Review:
 Retain the 90-day artifact and its 64-character approval digest. A screenshot
 or copied diff text is not an approval token.
 
+Record preparation, exact-main promotion, the four-category diff review, and
+the digest evidence in the
+[Block 29.6 production plan record](../operations/block-29-6-production-plan.md).
+
 ## 29.6b Production Deployment
 
 `MUTATING`: requires a new, explicit production authorization after 29.6a.

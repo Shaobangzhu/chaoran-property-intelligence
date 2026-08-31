@@ -3,11 +3,19 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { validateMultilineWorkflowShell } from "./workflowShellSyntax.js";
+
 const workflowPath = fileURLToPath(
   new URL("../../../.github/workflows/deploy-production.yml", import.meta.url),
 );
 
 describe("production deployment workflow", () => {
+  it("keeps every multiline shell run block syntactically valid", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(validateMultilineWorkflowShell(workflow)).toBeGreaterThan(0);
+  });
+
   it("is a two-run manually confirmed main-branch operation", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
@@ -54,6 +62,7 @@ describe("production deployment workflow", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("cdk diff");
+    expect(workflow).toContain("--method template");
     expect(workflow).toContain("classifyCdkDiff.mjs");
     expect(workflow).toContain("--fail-on-delete");
     expect(workflow).toContain("createDeploymentApproval.mjs");
@@ -72,6 +81,28 @@ describe("production deployment workflow", () => {
     expect(workflow).toContain("-c scheduleEnabled=false");
     expect(workflow).toContain("-c showingListScheduleEnabled=false");
     expect(workflow).not.toContain("cdk deploy --all");
+  });
+
+  it("keeps every AWS mutation behind the deploy-only input boundary", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const deployOnlySteps = [
+      "Deploy approved production stacks with schedules disabled",
+      "Publish immutable production web build",
+      "Publish bounded production deployment failure notification",
+    ];
+
+    for (const stepName of deployOnlySteps) {
+      const stepStart = workflow.indexOf(`- name: ${stepName}`);
+      const nextStep = workflow.indexOf("\n      - name:", stepStart + 1);
+      const step = workflow.slice(
+        stepStart,
+        nextStep === -1 ? workflow.length : nextStep,
+      );
+
+      expect(stepStart, `${stepName} must exist`).toBeGreaterThanOrEqual(0);
+      expect(step).toContain("if:");
+      expect(step).toContain("inputs.operation == 'deploy'");
+    }
   });
 
   it("runs identity-bound read-only production smoke without worker behavior", () => {
