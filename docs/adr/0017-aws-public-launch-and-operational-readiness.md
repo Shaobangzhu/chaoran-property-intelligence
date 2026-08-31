@@ -59,7 +59,9 @@ before GitHub OIDC can operate. DEV application deployment uses the protected
 `development` environment. Production public delivery uses the existing
 manual, two-run `Deploy production` workflow from `main`. Before its first real
 run, the production job is also bound to a protected GitHub `production`
-environment with required review and an exact-`main` deployment restriction.
+environment with required review, no administrator bypass, and an exact-`main`
+deployment restriction. The preserved `cpi-github-deploy` role trusts that
+environment's immutable repository subject rather than a branch-ref subject.
 
 The existing worker, scheduler, provider, notification, database, and retained
 production-resource boundaries remain unchanged. Both worker schedules remain
@@ -104,6 +106,20 @@ Each mutating phase requires:
 7. rollback evidence and last-known-good identity captured
 8. safe, read-only smoke against the immutable deployed release
 
+DEV deployment is dependency-aware after initial acceptance. Every push to the
+protected `dev` branch produces deployment-impact evidence, but documentation
+and test-only descendants do not request AWS credentials or deployment
+approvals. Manual dispatches, runtime or infrastructure changes, delivery
+configuration, dependencies, unknown paths, and empty comparisons continue
+through the full reviewed deployment path.
+
+The release candidate SHA and deployed runtime SHA may differ only when the
+deployed SHA is a Git ancestor and every intervening path is explicitly
+non-deployable documentation or test evidence. Release and nightly gates read
+both public release identities and fail closed on divergence, stage mismatch,
+non-ancestor history, or any undeployed runtime-capable change. Production
+retains exact-main plan and deployment identity.
+
 Production deploy authorization is never inferred from DEV approval, a green
 test run, a successful production plan, or this ADR.
 
@@ -122,6 +138,9 @@ test run, a successful production plan, or this ADR.
   it is not seeded, copied from production, or exposed through registration.
 - A custom domain is deferred until its ownership and desired hostname are
   known; the generated CloudFront hostname is sufficient for initial launch.
+- Documentation and test-only `dev` merges avoid unnecessary AWS plans,
+  migrations, deployments, and approvals while still producing an auditable
+  successful workflow result.
 
 ## References
 

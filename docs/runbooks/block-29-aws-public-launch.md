@@ -32,10 +32,11 @@ reviewed CDK extension.
 | 29.1 | Read-only account inventory | Complete; blockers recorded | Read-only authorization completed |
 | 29.2a | Missing-region CDK bootstrap | Complete in `us-east-1` | Explicit authorization completed |
 | 29.2b | Guardrails/OIDC update | Complete; post-deploy diff clean | Separate authorization completed |
-| 29.3 | First DEV plan/deploy/migration | Deployed; smoke-contract remediation pending | Two GitHub environment approvals completed for run #6 |
-| 29.3a | Initial DEV administrator bootstrap | Source prepared; not executed | Separate Guardrails, DEV deploy, plan, and create approvals |
-| 29.4 | DEV acceptance | Pending | Read-only remote testing |
-| 29.5 | `dev -> main` promotion | Pending | Protected PR review |
+| 29.3 | First DEV plan/deploy/migration | Complete; remediation deployed under exact DEV SHA | Two GitHub environment approvals completed for run #6 |
+| 29.3a | Initial DEV administrator bootstrap | Complete; owner manually verified authenticated access | Separate Guardrails, DEV deploy, plan, and create approvals completed |
+| 29.4 | DEV acceptance | Complete; exact identity and nightly regression green | Read-only remote testing completed |
+| 29.4a | Dependency-aware DEV deployment | Complete; merged to protected `dev` | Reviewed DEV delivery path completed |
+| 29.5 | Promotion and production environment protection | Promotion complete; protection source prepared | GitHub configuration and Guardrails update pending separate review |
 | 29.6a | Production plan | Pending | Explicit plan authorization |
 | 29.6b | Production deploy/migration | Pending | Separate production authorization |
 | 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
@@ -246,14 +247,12 @@ Require these jobs to finish successfully:
 Obtain `ApplicationUrl` from the workflow environment URL or the public-stack
 CloudFormation output. Record the CloudFront hostname and exact DEV SHA.
 
-Status: the first DEV infrastructure and release deployment completed on
-2026-08-28 from SHA `245cf86c364f2db7e0b4da5db898cff8f06ff6a5`. Health,
-the unauthenticated UI, and release identity passed. The workflow finished red
-only because the smoke expected an authentication error body without the API's
-canonical `message` field. See the
-[Block 29.3 deployment record](../operations/block-29-3-first-dev-public-deployment.md).
-Merge and verify the focused contract fix under a new exact `dev` SHA before
-marking this phase complete or starting Block 29.4.
+Status: complete. The first DEV infrastructure and release deployment occurred
+on 2026-08-28, and the focused smoke and deployment-evidence fixes were later
+deployed under exact DEV SHA
+`3a95c51c6124e58ca989323f1daae3ba10e5163d`. See the
+[Block 29.3 deployment record](../operations/block-29-3-first-dev-public-deployment.md)
+and [Block 29.4 acceptance record](../operations/block-29-4-dev-public-acceptance.md).
 
 ## 29.3a Initial DEV Administrator
 
@@ -267,6 +266,12 @@ Source preparation alone authorizes no AWS or database operation. Require an
 account-backed Guardrails diff and DEV stack diff before either deployment.
 Both schedules must remain disabled. Production administrator creation remains
 out of scope.
+
+Status: complete on 2026-08-30. The separately approved plan and digest-bound
+create runs succeeded, the temporary credential secret was deleted, and the
+repository owner manually verified authenticated DEV access. No production
+administrator was created. See the
+[Block 29.4 acceptance record](../operations/block-29-4-dev-public-acceptance.md).
 
 ## 29.4 DEV Acceptance
 
@@ -293,6 +298,27 @@ Manually run `Nightly DEV Regression` once. Require zero unexpected retries,
 no expired quarantine, and the exact deployed SHA. Natural service readiness
 and workflow polling replace fixed sleeps.
 
+Status: complete on 2026-08-30 for exact DEV SHA
+`3a95c51c6124e58ca989323f1daae3ba10e5163d`. Web/API identity, health,
+security headers, local remote-safe Playwright, and manual Nightly DEV
+Regression run `33340950741` passed with zero retries and zero quarantine or
+policy findings. See the
+[Block 29.4 acceptance record](../operations/block-29-4-dev-public-acceptance.md).
+
+## 29.4a Dependency-Aware DEV Deployment
+
+Every push to `dev` must still produce a visible workflow conclusion and
+deployment-impact artifact. Documentation and test-only changes terminate
+successfully before AWS credentials or `development` approvals. Runtime,
+infrastructure, delivery, dependency, unknown, empty-diff, and manual-dispatch
+cases use the complete existing verification, plan, and deploy path.
+
+Release and nightly gates may accept a deployed SHA behind the tested candidate
+only when it is an ancestor and the shared classifier proves that all
+intervening files are documentation or tests. Any ambiguity fails closed and
+requires deployment. See the
+[Block 29.4a record](../operations/block-29-4a-dependency-aware-dev-deployment.md).
+
 ## 29.5 Release Promotion
 
 Open a same-repository pull request from `dev` to `main`. The Release Quality
@@ -302,10 +328,25 @@ deployment blocks promotion by design.
 After review, merge into `main` and require the main CI run to pass. Record the
 main SHA that will be used for the production plan.
 
+Promotion PR `#16` was merged and produced main SHA
+`5b5e8b84a1b6232fef3b8e22cd439b2f7ff2b8c1`. Production preparation remains
+blocked on the protected `production` environment and workflow contract below.
+
 Before 29.6, bind the production job to a protected GitHub `production`
 environment and cover that workflow contract with a source test. Configure
-required reviewers and restrict deployment to `main`. This source hardening is
-a normal reviewed PR; it does not itself authorize or execute a deployment.
+required reviewers, prevent administrator bypass, and restrict deployment to
+`main`. The production OIDC role keeps its physical and logical identity but
+must trust the exact `environment:production` subject because environment-bound
+jobs no longer receive a branch-ref subject. This source hardening is a normal
+reviewed PR; it does not itself authorize or execute a deployment.
+
+Use a separately authorized federated administrator Guardrails update to move
+the existing trust policy to the environment subject. Review the exact
+account-backed diff before applying it; the expected change is an in-place IAM
+role trust and description update with no role, provider, budget, retained
+resource, or production application replacement. Do not run
+`Deploy production` until the source, GitHub environment settings, and
+Guardrails trust all agree.
 
 ## 29.6a Production Plan
 
@@ -422,6 +463,7 @@ contain sensitive data.
 - [Public runtime runbook](aws-public-runtime.md)
 - [Release and production delivery runbook](release-production-delivery.md)
 - [AWS deployment runbook](aws-deployment.md)
+- [Block 29.5 production protection preparation](../operations/block-29-5-production-environment-protection.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS CloudFront custom domains](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/CNAMEs.html)
 - [AWS CDK bootstrapping](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html)

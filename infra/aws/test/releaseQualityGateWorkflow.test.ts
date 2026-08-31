@@ -21,15 +21,27 @@ describe("release quality gate workflow", () => {
     expect(workflow).not.toMatch(/^\s*push:/mu);
   });
 
-  it("checks out and expects the exact pull-request head SHA", () => {
+  it("checks out the exact candidate with full ancestry", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain(
-      "CPI_EXPECTED_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}",
+      "CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}",
     );
     expect(workflow).toContain("ref: ${{ github.event.pull_request.head.sha }}");
+    expect(workflow).toContain("fetch-depth: 0");
     expect(workflow).toContain("git rev-parse HEAD");
     expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE: dev");
+  });
+
+  it("accepts only exact or non-runtime descendant candidates", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("verifyDeployedRelease.mjs");
+    expect(workflow).toContain("--candidate-sha");
+    expect(workflow).toContain("test-results/deployed-release.md");
+    expect(workflow).not.toContain(
+      "CPI_EXPECTED_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}",
+    );
   });
 
   it("uses only the public DEV origin and never requests AWS credentials", () => {

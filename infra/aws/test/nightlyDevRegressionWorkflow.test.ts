@@ -18,9 +18,12 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).toContain('cron: "23 9 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("ref: dev");
+    expect(workflow).toContain("fetch-depth: 0");
     expect(workflow).toContain("git rev-parse HEAD");
-    expect(workflow).toContain("CPI_EXPECTED_RELEASE_SHA=$tested_sha");
-    expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=dev");
+    expect(workflow).toContain("CPI_TESTED_GIT_SHA=$tested_sha");
+    expect(workflow).toContain("verifyDeployedRelease.mjs");
+    expect(workflow).toContain("test-results/deployed-release.md");
+    expect(workflow).not.toContain("CPI_EXPECTED_RELEASE_SHA=$tested_sha");
   });
 
   it("uses only the public HTTPS DEV origin without AWS credentials", () => {

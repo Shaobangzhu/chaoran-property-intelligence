@@ -20,6 +20,26 @@ describe("DEV deployment workflow", () => {
     expect(workflow.match(/ref: \$\{\{ github\.sha \}\}/gu)).toHaveLength(3);
   });
 
+  it("classifies deployment impact before requesting AWS approval", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("Classify DEV deployment impact");
+    expect(workflow).toContain("tools/release/deploymentImpact.mjs");
+    expect(workflow).toContain("${{ github.event.before }}");
+    expect(workflow).toContain("--force-deploy");
+    expect(workflow).toContain(
+      'test "$GITHUB_REF" = "refs/heads/dev"',
+    );
+    expect(workflow).toContain('[[ "$base_sha" =~ ^0+$ ]]');
+    expect(workflow).toContain(
+      "needs.classify.outputs.deploy_required == 'true'",
+    );
+    expect(workflow).toContain("Record intentional DEV deployment skip");
+    expect(workflow).toContain(
+      "No AWS credentials, environment approval, CDK plan, migration, or deployment was requested.",
+    );
+  });
+
   it("places plan and deploy behind separate environment jobs", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
@@ -30,6 +50,8 @@ describe("DEV deployment workflow", () => {
     expect(workflow).toContain(
       "Deploy DEV (approval 2; API startup migrates DEV)",
     );
+    expect(workflow).toContain("needs.verify.result == 'success'");
+    expect(workflow).toContain("needs.plan.result == 'success'");
   });
 
   it("uses the isolated DEV OIDC role and verifies the target account", () => {

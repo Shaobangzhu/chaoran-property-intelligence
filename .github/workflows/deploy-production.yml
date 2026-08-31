@@ -49,12 +49,16 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    environment:
+      name: production
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
     steps:
       - name: Checkout immutable main release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4

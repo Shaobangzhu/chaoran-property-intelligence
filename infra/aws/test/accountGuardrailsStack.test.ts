@@ -11,12 +11,12 @@ function createTemplate(): Template {
       account: "111111111111",
       region: "us-west-2",
     },
-    githubBranch: "main",
     githubDevAdminBootstrapEnvironment: "development-admin-bootstrap",
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubOwnerId: "8231137",
+    githubProductionEnvironment: "production",
     githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
     githubRepository: "chaoran-property-intelligence",
     githubRepositoryId: "1338908571",
@@ -65,7 +65,7 @@ describe("AccountGuardrailsStack", () => {
     });
   });
 
-  it("trusts only this repository's main branch through GitHub OIDC", () => {
+  it("trusts only this repository's production environment through GitHub OIDC", () => {
     const template = createTemplate();
 
     template.hasResourceProperties("AWS::IAM::OIDCProvider", {
@@ -82,7 +82,7 @@ describe("AccountGuardrailsStack", () => {
                 "token.actions.githubusercontent.com:aud":
                   "sts.amazonaws.com",
                 "token.actions.githubusercontent.com:sub":
-                  "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main",
+                  "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:production",
               },
             },
             Effect: "Allow",
@@ -259,12 +259,12 @@ describe("AccountGuardrailsStack", () => {
     expect(policyDocument).not.toContain("sts:AssumeRole");
   });
 
-  it("preserves the production role identity and exact main-branch trust", () => {
+  it("preserves the production role identity with exact environment trust", () => {
     const resources = createTemplate().toJSON().Resources;
 
     expect(resources.GitHubDeployRoleED73FD64).toBeDefined();
     expect(JSON.stringify(resources.GitHubDeployRoleED73FD64)).toContain(
-      "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main",
+      "repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:production",
     );
   });
 

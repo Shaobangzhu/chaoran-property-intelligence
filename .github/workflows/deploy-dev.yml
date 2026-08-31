@@ -19,13 +19,65 @@ env:
   CPI_MONTHLY_BUDGET_USD: ${{ vars.CPI_MONTHLY_BUDGET_USD || '20' }}
 
 jobs:
+  classify:
+    name: Classify DEV deployment impact
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_required: ${{ steps.impact.outputs.deploy_required }}
+
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: impact
+        run: |-
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$GITHUB_REF" = "refs/heads/dev"
+            node tools/release/deploymentImpact.mjs \
+              --base "$GITHUB_SHA" \
+              --head "$GITHUB_SHA" \
+              --force-deploy \
+              --github-output "$GITHUB_OUTPUT" \
+              --summary-file deployment-impact.md
+          else
+            base_sha="${{ github.event.before }}"
+            if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]]; then
+              node tools/release/deploymentImpact.mjs \
+                --base "$GITHUB_SHA" \
+                --head "$GITHUB_SHA" \
+                --force-deploy \
+                --github-output "$GITHUB_OUTPUT" \
+                --summary-file deployment-impact.md
+            else
+              node tools/release/deploymentImpact.mjs \
+                --base "$base_sha" \
+                --head "$GITHUB_SHA" \
+                --github-output "$GITHUB_OUTPUT" \
+                --summary-file deployment-impact.md
+            fi
+          fi
+          cat deployment-impact.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload deployment impact evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: dev-deployment-impact-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-impact.md
+          retention-days: 30
+
   verify:
     name: Verify release candidate
+    needs: classify
     if: >-
-      (github.event_name == 'push' &&
+      needs.classify.outputs.deploy_required == 'true' &&
+      ((github.event_name == 'push' &&
       github.ref == 'refs/heads/dev') ||
       (github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/dev')
+      github.ref == 'refs/heads/dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -114,7 +166,12 @@ jobs:
 
   plan:
     name: Plan DEV deployment (approval 1; no migration)
-    needs: verify
+    needs:
+      - classify
+      - verify
+    if: >-
+      needs.classify.outputs.deploy_required == 'true' &&
+      needs.verify.result == 'success'
     environment:
       name: development
     permissions:
@@ -218,7 +275,12 @@ jobs:
 
   deploy:
     name: Deploy DEV (approval 2; API startup migrates DEV)
-    needs: plan
+    needs:
+      - classify
+      - plan
+    if: >-
+      needs.classify.outputs.deploy_required == 'true' &&
+      needs.plan.result == 'success'
     environment:
       name: development
       url: ${{ steps.runtime.outputs.application_url }}
@@ -442,4 +504,22 @@ jobs:
               --topic-arn "$topic_arn" \
               --subject "CPI DEV deployment failed" \
               --message "DEV deployment failed for commit $GITHUB_SHA. Review $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  no-deploy:
+    name: Record intentional DEV deployment skip
+    needs: classify
+    if: needs.classify.outputs.deploy_required == 'false'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Record non-runtime merge
+        run: |-
+          {
+            echo "## DEV Deployment Intentionally Skipped"
+            echo
+            echo "Commit: \`$GITHUB_SHA\`"
+            echo
+            echo "All changed files were explicitly classified as documentation or tests."
+            echo "No AWS credentials, environment approval, CDK plan, migration, or deployment was requested."
+          } >> "$GITHUB_STEP_SUMMARY"
           fi

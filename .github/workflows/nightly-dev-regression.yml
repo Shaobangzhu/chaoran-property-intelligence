@@ -27,6 +27,7 @@ jobs:
       - name: Checkout protected dev branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           ref: dev
 
       - name: Set up pnpm
@@ -47,8 +48,6 @@ jobs:
         run: |-
           tested_sha="$(git rev-parse HEAD)"
           echo "CPI_TESTED_GIT_SHA=$tested_sha" >> "$GITHUB_ENV"
-          echo "CPI_EXPECTED_RELEASE_SHA=$tested_sha" >> "$GITHUB_ENV"
-          echo "CPI_EXPECTED_DEPLOYMENT_STAGE=dev" >> "$GITHUB_ENV"
           {
             echo "## Nightly AWS DEV Regression"
             echo
@@ -95,6 +94,15 @@ jobs:
           --attempts 6
           --interval-ms 10000
           --request-timeout-ms 5000
+
+      - name: Verify deployed release ancestry and impact
+        run: |-
+          node tools/release/verifyDeployedRelease.mjs \
+            --base-url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL" \
+            --candidate-sha "$CPI_TESTED_GIT_SHA" \
+            --github-env "$GITHUB_ENV" \
+            --summary-file test-results/deployed-release.md
+          cat test-results/deployed-release.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run read-only nightly Playwright regression
         id: playwright
@@ -152,6 +160,7 @@ jobs:
             allure-results/
             allure-report/
             playwright-report/
+            test-results/deployed-release.md
             test-results/flake-evidence/
             test-results/playwright/
             test-results/playwright-results.json

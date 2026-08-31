@@ -37,9 +37,17 @@ not opened. Neither identity contains credentials, user data, listing data, or
 secret values.
 
 Local CDK synth uses forty zeroes when no `releaseSha` context is supplied.
-That is a source-review placeholder, not a deployable attestation. Both DEV and
-production workflows always pass the exact `GITHUB_SHA`, and remote acceptance
-fails if a placeholder or stale release is running.
+That is a source-review placeholder, not a deployable attestation. Every real
+DEV or production deployment passes its exact `GITHUB_SHA`, and remote
+acceptance fails if a placeholder, divergent release, or undeployed
+runtime-capable change is present.
+
+After DEV acceptance, documentation/test-only descendants may reuse the prior
+deployed DEV runtime. In that bounded case, the candidate SHA and deployed SHA
+are intentionally distinct: the deployed SHA must be an ancestor, and the
+shared deployment-impact classifier must find zero intervening runtime,
+infrastructure, delivery, dependency, or unknown files. Production plan and
+deployment remain exact-main operations.
 
 ## DEV-To-Main Release Gate
 
@@ -61,13 +69,16 @@ The release gate performs:
 4. full typecheck and production build
 5. bounded AWS DEV health readiness
 6. all Playwright tests eligible for remote read-only execution
-7. exact Web/API/PR-head release identity comparison
-8. retry and stale-quarantine enforcement
-9. Allure, Playwright, trace/screenshot, JSON, and bounded flake artifacts
+7. matching Web/API DEV release identity and Git ancestry verification
+8. zero undeployed runtime-capable changes between deployed and candidate SHAs
+9. retry and stale-quarantine enforcement
+10. Allure, Playwright, trace/screenshot, JSON, and bounded flake artifacts
 
-An AWS DEV deployment that is pending, failed, or behind `dev` makes the release
-gate fail. That is intentional: regression against a different deployment is
-not release-candidate evidence.
+An AWS DEV deployment that is pending, failed, divergent, or behind any
+runtime-capable `dev` change makes the release gate fail. A deployed ancestor
+is accepted only when every intervening change is explicit documentation or
+test evidence. Source regression still runs from the candidate SHA; remote
+regression expects the actual deployed SHA.
 
 ## Production Stack Boundary
 
@@ -93,8 +104,10 @@ their existing stacks.
 ## Two-Run Production Approval
 
 The `Deploy production` workflow has no push trigger and runs only from `main`.
-It uses the existing exact-main OIDC role `cpi-github-deploy`; no long-lived AWS
-credentials are stored.
+It is bound to the protected GitHub `production` environment, which requires
+review, prevents administrator bypass, and permits only `main`. Its existing
+OIDC role `cpi-github-deploy` trusts only that exact environment subject; no
+long-lived AWS credentials are stored.
 
 ### Run 1: plan
 
@@ -186,14 +199,20 @@ procedure.
 
 ## Required Setup And First-Run Checklist
 
+- the GitHub `production` environment requires review, prevents administrator
+  bypass, and permits only `main`
+- the `cpi-github-deploy` OIDC subject is exactly the immutable repository
+  identity plus `environment:production`
 - `CPI_AWS_DEV_BASE_URL` points to the DEV CloudFront HTTPS origin
 - `AWS_ACCOUNT_ID`, `CPI_MONTHLY_BUDGET_USD`, and `CPI_ALERT_EMAIL` are set
 - CDK is bootstrapped in `us-west-2` and `us-east-1`
 - the Guardrails update granting bounded production public-delivery permissions
   is reviewed and deployed through an administrator-controlled bootstrap path;
   this is required before the first two-region production plan
-- `dev` deployment has succeeded and exposes the candidate identity
-- the `dev -> main` release gate is green for the exact head SHA
+- `dev` deployment has succeeded and exposes either the exact candidate or a
+  proven non-runtime ancestor
+- the `dev -> main` release gate is green for the candidate/deployed identity
+  relationship
 - production plan artifact is reviewed by all four action categories
 - no unsafe stateful replacement or deletion is present
 - API startup migrations are reviewed before entering migration confirmation

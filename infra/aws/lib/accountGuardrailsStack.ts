@@ -20,10 +20,10 @@ import { deploymentStageTagKey } from "./deploymentStage.js";
 export interface AccountGuardrailsStackProps extends StackProps {
   githubDevAdminBootstrapEnvironment: string;
   githubDevDeploymentRegions?: string[];
-  githubBranch: string;
   githubDevEnvironment: string;
   githubOwner: string;
   githubOwnerId: string;
+  githubProductionEnvironment: string;
   githubProductionDeploymentRegions?: string[];
   githubRepository: string;
   githubRepositoryId: string;
@@ -78,9 +78,9 @@ export class AccountGuardrailsStack extends Stack {
       `repo:${props.githubOwner}@${props.githubOwnerId}`,
       `${props.githubRepository}@${props.githubRepositoryId}`,
     ].join("/");
-    const githubSubject = [
+    const githubProductionSubject = [
       githubRepositorySubject,
-      `ref:refs/heads/${props.githubBranch}`,
+      `environment:${props.githubProductionEnvironment}`,
     ].join(":");
     const githubDeployRole = new Role(this, "GitHubDeployRole", {
       assumedBy: new FederatedPrincipal(
@@ -88,12 +88,13 @@ export class AccountGuardrailsStack extends Stack {
         {
           StringEquals: {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-            "token.actions.githubusercontent.com:sub": githubSubject,
+            "token.actions.githubusercontent.com:sub": githubProductionSubject,
           },
         },
         "sts:AssumeRoleWithWebIdentity",
       ),
-      description: "CDK deployment role for the CPI main branch",
+      description:
+        "CDK deployment role for the CPI protected production environment",
       roleName: "cpi-github-deploy",
     });
     githubDeployRole.addToPolicy(

@@ -1984,23 +1984,42 @@ Planned sub-block mapping:
    `dev` plan/deploy with two approvals. The second approval covers only the
    reviewed DEV stacks and DEV API startup migration. Both schedules remain
    disabled. **Infrastructure and the first release were deployed on
-   2026-08-28; smoke-contract remediation remains open:** health, the public
-   sign-in page, and exact Web/API identity passed, while one strict 401-body
-   assertion exposed local-fixture drift. See the
+   2026-08-28; focused smoke and deployment-evidence remediation is now
+   deployed under exact DEV SHA `3a95c51c...`:** health, the public sign-in
+   page, and exact Web/API identity pass. See the
    [deployment record](operations/block-29-3-first-dev-public-deployment.md).
 5. `29.3a` Prepare the separately protected initial DEV administrator path.
    The DEV-only Fargate task has no schedule or endpoint, reads a unique
    temporary secret, does not run migrations, and requires digest-bound plan
-   and create runs. **Source and documentation preparation only:** no AWS or
-   database operation is authorized. See the
-   [preparation record](operations/block-29-3a-dev-admin-bootstrap-preparation.md).
+   and create runs. **Complete on 2026-08-30:** the independently approved plan
+   and create runs succeeded, temporary credentials were deleted, and the
+   repository owner manually accepted authenticated DEV access. See the
+   [preparation record](operations/block-29-3a-dev-admin-bootstrap-preparation.md)
+   and [acceptance record](operations/block-29-4-dev-public-acceptance.md).
 6. `29.4` Accept the generated DEV CloudFront HTTPS URL through exact Web/API
    identity, health, security-header, read-only API/UI smoke, and one manual
    nightly regression run. Configure `CPI_AWS_DEV_BASE_URL` only after success.
+   **Complete on 2026-08-30:** exact Web/API identity matched `3a95c51c...`,
+   remote smoke passed, and Nightly DEV Regression run `33340950741` passed
+   with zero retries and no quarantine findings. See the
+   [acceptance record](operations/block-29-4-dev-public-acceptance.md).
+6a. `29.4a` Make DEV deployment dependency-aware without weakening release
+   identity. Every `dev` push produces classification evidence; docs/test-only
+   descendants skip AWS and approvals, while runtime, infrastructure,
+   delivery, dependency, unknown, and manual cases retain the full path.
+   Release and nightly gates accept a prior deployed ancestor only after
+   proving zero intervening deployable files. See the
+   [29.4a record](operations/block-29-4a-dependency-aware-dev-deployment.md).
 7. `29.5` Promote the exact deployed candidate through the protected
    `dev -> main` release gate and require green main CI. Before production,
    bind the production deployment job to a protected `production` environment
    with required review and exact-main restriction, and test that contract.
+   **Promotion complete:** PR `#16` merged exact DEV SHA `3a95c51c...` into
+   main SHA `5b5e8b84...`. **29.5 source preparation complete:** the production
+   job and preserved production role identity now use the exact protected
+   `production` environment contract; GitHub configuration and the separately
+   approved Guardrails trust update remain operational prerequisites. See the
+   [29.5 preparation record](operations/block-29-5-production-environment-protection.md).
 8. `29.6` Run the controlled production plan, review its approval digest, then
    obtain separate authorization for the digest-bound deployment and production
    API startup migration. Run safe, unauthenticated production smoke only.

@@ -107,6 +107,11 @@ created. See the
 [preparation record](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
 and [runbook](../runbooks/create-dev-admin.md).
 
+The independently approved plan and create runs completed on 2026-08-30. The
+temporary credential secret was deleted and the repository owner manually
+accepted authenticated DEV access. The public acceptance suite did not repeat
+this mutation.
+
 ### 29.4 DEV Acceptance And Release Evidence
 
 Record the DEV CloudFront URL, configure `CPI_AWS_DEV_BASE_URL`, verify matching
@@ -114,14 +119,35 @@ Record the DEV CloudFront URL, configure `CPI_AWS_DEV_BASE_URL`, verify matching
 nightly regression workflow manually once. Resolve retries or quarantine
 findings before promotion; do not wait with arbitrary sleeps.
 
+Acceptance completed on 2026-08-30 for exact DEV SHA `3a95c51c...`. Health,
+matching Web/API release identity, security headers, local remote-safe
+Playwright, and manual Nightly DEV Regression run `33340950741` passed. The
+nightly evidence contained zero retries, stale quarantines, or policy errors.
+See the [acceptance record](../operations/block-29-4-dev-public-acceptance.md).
+
+### 29.4a Dependency-Aware DEV Deployment
+
+After initial DEV acceptance, documentation and test-only merges do not need a
+new CDK plan, migration startup, or deployment. `Deploy DEV` still classifies
+every protected `dev` push and publishes evidence. Manual dispatches and every
+runtime, infrastructure, delivery, dependency, unknown, or empty comparison
+remain on the full two-approval path.
+
+Release and nightly workflows distinguish candidate source SHA from deployed
+runtime SHA. A prior deployment is valid only when it is an ancestor and every
+intervening path is explicitly non-deployable; otherwise the gate fails. See
+the [29.4a record](../operations/block-29-4a-dependency-aware-dev-deployment.md).
+
 ### 29.5 DEV-To-Main Promotion
 
 Open the same-repository `dev -> main` PR. The release gate must prove that the
 exact PR head SHA is the release exposed by both DEV paths and pass the full
 regression. Merge only after the gate is green. Before production launch, add
-and test a protected GitHub `production` environment if it is not yet declared
-by the production workflow; manual inputs and an approval digest do not replace
-an independent environment protection boundary.
+and test a protected GitHub `production` environment. It requires review,
+prevents administrator bypass, and allows only `main`. The production job and
+the existing `cpi-github-deploy` role both use the exact
+`environment:production` OIDC subject; manual inputs and an approval digest do
+not replace this independent protection boundary.
 
 ### 29.6 Controlled Production Public Launch
 
@@ -171,6 +197,8 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.2 redacted execution record](../operations/block-29-2-bootstrap-and-guardrails.md)
 - [Block 29.3 first DEV deployment record](../operations/block-29-3-first-dev-public-deployment.md)
 - [Block 29.3a DEV administrator preparation](../operations/block-29-3a-dev-admin-bootstrap-preparation.md)
+- [Block 29.4 DEV public acceptance](../operations/block-29-4-dev-public-acceptance.md)
+- [Block 29.4a dependency-aware DEV deployment](../operations/block-29-4a-dependency-aware-dev-deployment.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)

@@ -21,12 +21,12 @@ const guardrailsStack = new AccountGuardrailsStack(
   "ChaoranPropertyIntelligenceGuardrails",
   {
     env: environment,
-    githubBranch: "main",
     githubDevAdminBootstrapEnvironment: "development-admin-bootstrap",
     githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
     githubDevEnvironment: "development",
     githubOwner: "Shaobangzhu",
     githubOwnerId: "8231137",
+    githubProductionEnvironment: "production",
     githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
     githubRepository: "chaoran-property-intelligence",
     githubRepositoryId: "1338908571",
