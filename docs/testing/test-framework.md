@@ -391,7 +391,8 @@ production resources for naming symmetry.
 ```mermaid
 flowchart LR
     DevBranch[dev branch] --> DevRole[cpi-github-deploy-dev]
-    MainBranch[main branch] --> ProdRole[cpi-github-deploy]
+    MainBranch[main branch] --> ProdEnvironment[protected production environment]
+    ProdEnvironment --> ProdRole[cpi-github-deploy]
     DevRole --> DevStacks[DEV stacks and secrets]
     ProdRole --> ProdStacks[Existing production stacks and retained resources]
     DevStacks -. isolated from .- ProdStacks
@@ -404,7 +405,7 @@ Implemented resource strategy for `18.4` / Block 28.4:
 | Guardrails stack | `ChaoranPropertyIntelligenceGuardrails` | Same account-level stack plus DEV role | Medium | Existing budget, provider, production role, and logical IDs are preserved; DEV role is additive. |
 | Production app stack | `ChaoranPropertyIntelligenceProduction` | New DEV app stack | High | Do not rename production stack. Add separate DEV stack. |
 | GitHub OIDC provider | `token.actions.githubusercontent.com` provider | Reused provider | Medium | One account provider serves separate exact-subject roles. |
-| Production deploy role | `cpi-github-deploy` trusted to `main` | `cpi-github-deploy-dev` trusted to protected `development` environment | High | Production trust is unchanged. The GitHub environment must permit only `dev`; DEV may assume only exact regional bootstrap roles. |
+| Production deploy role | `cpi-github-deploy` trusted to protected `production` environment restricted to `main` | `cpi-github-deploy-dev` trusted to protected `development` environment | High | Preserve the production role identity. Both environments require exact branch restrictions; each role keeps bounded regional bootstrap access. |
 | Database secret | `cpi/production/database` | `cpi/dev/database` | High | No collision; DEV must not reference production secret. |
 | Application secret | `cpi/production/application` | `cpi/dev/application` | High | Do not copy production provider credentials into DEV. |
 | API auth secrets | Planned `cpi/production/api-auth/*` | `cpi/dev/api-auth/jwt-signing` and `cpi/dev/api-auth/origin-verification` | High | Separate generated values per stage. DEV values are disposable. |

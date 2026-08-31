@@ -104,8 +104,10 @@ their existing stacks.
 ## Two-Run Production Approval
 
 The `Deploy production` workflow has no push trigger and runs only from `main`.
-It uses the existing exact-main OIDC role `cpi-github-deploy`; no long-lived AWS
-credentials are stored.
+It is bound to the protected GitHub `production` environment, which requires
+review, prevents administrator bypass, and permits only `main`. Its existing
+OIDC role `cpi-github-deploy` trusts only that exact environment subject; no
+long-lived AWS credentials are stored.
 
 ### Run 1: plan
 
@@ -197,6 +199,10 @@ procedure.
 
 ## Required Setup And First-Run Checklist
 
+- the GitHub `production` environment requires review, prevents administrator
+  bypass, and permits only `main`
+- the `cpi-github-deploy` OIDC subject is exactly the immutable repository
+  identity plus `environment:production`
 - `CPI_AWS_DEV_BASE_URL` points to the DEV CloudFront HTTPS origin
 - `AWS_ACCOUNT_ID`, `CPI_MONTHLY_BUDGET_USD`, and `CPI_ALERT_EMAIL` are set
 - CDK is bootstrapped in `us-west-2` and `us-east-1`

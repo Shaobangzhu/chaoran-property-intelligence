@@ -143,9 +143,11 @@ the [29.4a record](../operations/block-29-4a-dependency-aware-dev-deployment.md)
 Open the same-repository `dev -> main` PR. The release gate must prove that the
 exact PR head SHA is the release exposed by both DEV paths and pass the full
 regression. Merge only after the gate is green. Before production launch, add
-and test a protected GitHub `production` environment if it is not yet declared
-by the production workflow; manual inputs and an approval digest do not replace
-an independent environment protection boundary.
+and test a protected GitHub `production` environment. It requires review,
+prevents administrator bypass, and allows only `main`. The production job and
+the existing `cpi-github-deploy` role both use the exact
+`environment:production` OIDC subject; manual inputs and an approval digest do
+not replace this independent protection boundary.
 
 ### 29.6 Controlled Production Public Launch
 

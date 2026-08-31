@@ -2015,7 +2015,11 @@ Planned sub-block mapping:
    bind the production deployment job to a protected `production` environment
    with required review and exact-main restriction, and test that contract.
    **Promotion complete:** PR `#16` merged exact DEV SHA `3a95c51c...` into
-   main SHA `5b5e8b84...`; production environment hardening remains pending.
+   main SHA `5b5e8b84...`. **29.5 source preparation complete:** the production
+   job and preserved production role identity now use the exact protected
+   `production` environment contract; GitHub configuration and the separately
+   approved Guardrails trust update remain operational prerequisites. See the
+   [29.5 preparation record](operations/block-29-5-production-environment-protection.md).
 8. `29.6` Run the controlled production plan, review its approval digest, then
    obtain separate authorization for the digest-bound deployment and production
    API startup migration. Run safe, unauthenticated production smoke only.

@@ -176,7 +176,9 @@ Verify without running the worker:
 - the monthly budget amount and four notification thresholds are correct
 - the OIDC provider audience is `sts.amazonaws.com`
 - the role subject is exactly
-  `repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main`
+  `repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:production`
+- the protected GitHub `production` environment requires review, prevents
+  administrator bypass, and permits only the `main` branch
 - both EventBridge Scheduler resources are `DISABLED`
 - Aurora is encrypted, private, and configured for 0 to 1 ACU
 - the database security group accepts port 5432 only from the worker group

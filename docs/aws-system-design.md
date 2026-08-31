@@ -359,10 +359,12 @@ project controls:
 - IAM role named `cpi-github-deploy`
 - IAM role named `cpi-github-deploy-dev`
 
-The production role keeps its exact `main` branch subject. The DEV role trusts
-only the GitHub `development` environment subject; that protected environment
-must be configured to allow the `dev` branch only. The DEV role can assume the
-exact `us-west-2` and `us-east-1` CDK deploy, file-publishing,
+The production role trusts only the GitHub `production` environment subject;
+that protected environment must require review, disallow administrator bypass,
+and allow the `main` branch only. The DEV role trusts only the GitHub
+`development` environment subject; that protected environment must be
+configured to allow the `dev` branch only. The DEV role can assume the exact
+`us-west-2` and `us-east-1` CDK deploy, file-publishing,
 image-publishing, and lookup roles for this account and can read only the
 standard CDK bootstrap version parameters. It does not use long-lived AWS
 credentials.
@@ -663,12 +665,13 @@ The OIDC trust conditions are exact:
 
 ```text
 aud = sts.amazonaws.com
-sub = repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:ref:refs/heads/main
+sub = repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:production
 ```
 
 GitHub immutable OIDC subjects include both the owner ID and repository ID.
 The IAM trust must keep this complete value exact; do not replace either role
-subject with a repository wildcard.
+subject with a repository wildcard. GitHub environment deployment rules provide
+the separate exact-`main` restriction before this subject can be issued.
 
 No AWS access key or secret access key is stored in GitHub. Repository
 configuration required before publishing the workflow is:
