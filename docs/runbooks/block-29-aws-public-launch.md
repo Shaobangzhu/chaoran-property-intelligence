@@ -36,9 +36,9 @@ reviewed CDK extension.
 | 29.3a | Initial DEV administrator bootstrap | Complete; owner manually verified authenticated access | Separate Guardrails, DEV deploy, plan, and create approvals completed |
 | 29.4 | DEV acceptance | Complete; exact identity and nightly regression green | Read-only remote testing completed |
 | 29.4a | Dependency-aware DEV deployment | Complete; merged to protected `dev` | Reviewed DEV delivery path completed |
-| 29.5 | Promotion and production environment protection | Promotion complete; protection source prepared | GitHub configuration and Guardrails update pending separate review |
-| 29.6a | Production plan | Pending | Explicit plan authorization |
-| 29.6b | Production deploy/migration | Pending | Separate production authorization |
+| 29.5 | Promotion and production environment protection | Complete; GitHub protection and Guardrails trust aligned | Post-update Guardrails diff clean |
+| 29.6a | Production plan | Complete; run `33410204420`, exact SHA and digest reviewed | No production mutation occurred |
+| 29.6b | Production deploy/migration | Ready for a new authorization; not dispatched | Exact SHA, digest, and migration acknowledgement required |
 | 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
 | 29.8 | Operational handoff | Pending | Evidence review |
 
@@ -372,6 +372,9 @@ or copied diff text is not an approval token.
 Record preparation, exact-main promotion, the four-category diff review, and
 the digest evidence in the
 [Block 29.6 production plan record](../operations/block-29-6-production-plan.md).
+The separately maintained
+[Block 29.6d deployment record](../operations/block-29-6d-production-deployment-record.md)
+must remain pending until a new production deployment authorization is given.
 
 ## 29.6b Production Deployment
 

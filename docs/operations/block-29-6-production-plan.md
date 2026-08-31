@@ -3,10 +3,14 @@
 ## Status
 
 - Date prepared: 2026-08-31
+- Date reviewed: 2026-08-31
 - Preparation branch: `feature/block-29-6c-production-plan`
 - Preparation base: `3a94a3f`
-- Plan run: pending
-- Exact `main` SHA: pending promotion and authorization
+- Plan run: `33410204420` (`Deploy production` run `#1`)
+- Exact `main` SHA: `4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3`
+- Plan result: successful and reviewed from the downloaded artifact
+- AWS access: temporary OIDC credentials used for account verification and
+  read-only deployed-state comparison
 - AWS mutation: not performed
 - Production deployment or migration: not authorized and not performed
 
@@ -82,15 +86,22 @@ token.
 
 | Evidence | Recorded value |
 | --- | --- |
-| Exact `main` SHA | Pending |
-| Workflow run ID and URL | Pending |
-| AWS account verified | Pending, record only bounded account identity |
-| Plan artifact name | Pending |
-| `approval.json` commit | Pending |
-| `approval.json` stage | Pending |
-| CDK diff SHA-256 | Pending |
-| 64-character approval digest | Pending; do not place in deploy inputs yet |
-| Both schedules disabled | Pending |
+| Exact `main` SHA | `4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3` |
+| Workflow run ID and URL | [`33410204420`](https://github.com/Shaobangzhu/chaoran-property-intelligence/actions/runs/33410204420) |
+| AWS account verified | Matched the bounded repository `AWS_ACCOUNT_ID`; full account identity omitted |
+| Plan artifact name | `production-plan-33410204420-1` |
+| Plan artifact SHA-256 | `4e66304a94f685676a63c48fae3e10e90f828580eb5869e35391bf2291e9557b` |
+| `approval.json` commit | `4c5e6e07ef3a0341814eb9815f6d4ac5d7f9beb3` |
+| `approval.json` stage | `production` |
+| CDK diff SHA-256 | `2063c0958f64a095a4f8f3523eda69ead64384f363ce5b053b5776f627f0cc54` |
+| 64-character approval digest | `41d571584df3f3fb9038b98cd019597ce8eca0243574f5a589a5358610af196f` |
+| Both schedules disabled | Confirmed by the exact workflow contexts and production synthesis contract |
+
+The downloaded ZIP SHA-256 matched the GitHub Actions artifact digest. The
+three extracted files were `approval.json`, `cdk-diff.txt`, and
+`cdk-diff-summary.md`. The approval commit, stage, CDK diff hash, and approval
+digest matched the successful job summary. Evidence was reviewed from those
+raw files rather than from the screenshot or copied summary.
 
 ## Diff Review
 
@@ -99,10 +110,27 @@ account-backed diff is authoritative; source-template expectations are not.
 
 | Category | Count | Review outcome |
 | --- | ---: | --- |
-| `CREATE` | Pending | Every public runtime and CDK support resource identified |
-| `UPDATE` | Pending | Every property update reviewed |
-| `REPLACE` | Pending | Every replacement reviewed; state-bearing replacement blocks |
-| `DELETE` | Pending | Must be zero; workflow fails otherwise |
+| `CREATE` | 41 | Reviewed: 13 production showing-list resources, 4 edge/WAF support resources, and 24 public Web/API resources |
+| `UPDATE` | 2 | Reviewed: application-secret description and scheduler target policy only; neither changes a physical identity |
+| `REPLACE` | 1 | Reviewed: existing ECS task-definition revision only; stateless and expected for the immutable image change |
+| `DELETE` | 0 | Passed: no resource deletion detected |
+
+`ChaoranPropertyIntelligenceGuardrails` reported no differences. Three stacks
+contained changes: the existing production foundation, the new edge stack,
+and the new public-application stack. The plan creates the private Web bucket,
+CloudFront distribution, WAF, App Runner service and VPC connector, bounded
+security groups and IAM roles, API-auth secrets, deployment alerting, and
+cross-region CDK support resources. It also adds the showing-list task,
+artifact bucket, dead-letter queue, and disabled schedule to the existing
+production foundation.
+
+The application-secret update changes only its description. The scheduler
+policy update grants the existing scheduler role the bounded permissions
+needed to pass the new showing-list task roles, run that task definition, and
+send to its dead-letter queue. The sole replacement is the property-alert ECS
+task definition caused by its immutable container image revision. The plan
+does not replace Aurora, the database secret, VPC, retained Web bucket,
+retained API-auth secrets, OIDC provider, or deployment role.
 
 Stop and do not authorize deployment if the diff replaces or deletes Aurora,
 the database secret, VPC, retained S3 buckets, retained API-auth secrets,
@@ -148,6 +176,12 @@ The production plan phase is complete only when:
 - no deployment, migration, production smoke, production data operation,
   worker behavior, provider request, or notification occurs.
 
+Result: the production plan phase is complete. Run `33410204420` passed its
+protected-environment review, exact-source verification, deterministic test
+suite, local smoke, typecheck, build, production synthesis, account check,
+account-backed diff, delete guard, and immutable approval generation. No
+deploy-only workflow step ran.
+
 ## Source Verification
 
 - Focused DEV and production workflow tests: 2 files, 17 tests passed.
@@ -172,13 +206,19 @@ non-blocking and unrelated to the production plan contract.
 ## Remaining Risks
 
 - GitHub environment controls and IAM trust can drift outside this repository;
-  read them back immediately before the plan.
+  read them back immediately before a deployment.
 - A successful plan describes one exact commit and one observed AWS state. It
-  becomes stale when either changes.
+  becomes stale when either changes; the deploy workflow must reproduce the
+  exact digest or stop.
 - CDK output can include framework support resources. Each still requires
   classification and ownership review.
-- A green plan does not prove migrations are safe and never authorizes the
-  separate deployment run.
+- The production API starts by applying seven idempotently tracked bundled
+  migrations. A green plan does not prove the production migration outcome
+  and never authorizes the separate deployment run.
+- The first public launch creates 41 resources across three stacks. Partial
+  stack success, CloudFront propagation, App Runner readiness, SNS subscription
+  confirmation, and forward-only migration recovery remain deployment-time
+  risks.
 
 ## References
 
