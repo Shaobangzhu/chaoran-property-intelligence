@@ -118,6 +118,17 @@ prints the email, password, hash, or secret value. Plan and create are separate
 manual workflow runs bound to an immutable digest. This does not authorize or
 design production administrator creation.
 
+Block 29.6f adds the separately reviewed production design. It does not reuse
+the DEV role, environment, task family, secret prefix, confirmation phrase, or
+credentials. A protected `production-admin-bootstrap` environment gates both
+manual runs from exact `main`; a sanitized plan binds the email identity hash,
+task revision, immutable image digest, networking, and disabled schedule state
+to a 64-character approval digest. Only a second explicitly authorized run may
+create one temporary secret and start one unscheduled Production Fargate task.
+The task calls the same application use case with migrations disabled and emits
+only bounded result codes. Source merge and infrastructure enablement do not
+authorize the production-data mutation.
+
 Authentication performs one Argon2 verification for both known and unknown
 emails by using a fixed valid dummy hash for the unknown-user path. Public
 credential failures use one generic response. This reduces useful account

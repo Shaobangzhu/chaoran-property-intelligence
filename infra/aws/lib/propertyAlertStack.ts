@@ -246,27 +246,36 @@ export class PropertyAlertStack extends Stack {
         props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
         { platform: Platform.LINUX_AMD64 },
       );
-    if (deploymentStage === "dev") {
+    {
+      const adminIdPrefix = isProduction ? "Production" : "Dev";
+      const adminPhysicalPrefix = isProduction
+        ? "cpi-production-admin-bootstrap"
+        : "cpi-dev-admin-bootstrap";
+      const adminSecretPrefix = `cpi/${deploymentStage}/admin-bootstrap/*`;
+      const adminContainerName = `${adminIdPrefix}AdminBootstrap`;
       const adminSecurityGroup = new SecurityGroup(
         this,
-        "DevAdminBootstrapSecurityGroup",
+        `${adminIdPrefix}AdminBootstrapSecurityGroup`,
         {
           allowAllOutbound: true,
-          description: "Outbound-only access for DEV administrator bootstrap",
+          description: `Outbound-only access for ${deploymentStage} administrator bootstrap`,
           vpc: this.vpc,
         },
       );
       this.databaseSecurityGroup.addIngressRule(
         adminSecurityGroup,
         Port.tcp(5_432),
-        "Allow PostgreSQL from the one-time DEV administrator bootstrap",
+        `Allow PostgreSQL from the one-time ${deploymentStage} administrator bootstrap`,
       );
-      const adminTaskRole = new Role(this, "DevAdminBootstrapTaskRole", {
-        assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-        description:
-          "Read one ephemeral credential secret for DEV administrator bootstrap",
-        roleName: "cpi-dev-admin-bootstrap-task",
-      });
+      const adminTaskRole = new Role(
+        this,
+        `${adminIdPrefix}AdminBootstrapTaskRole`,
+        {
+          assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
+          description: `Read one ephemeral credential secret for ${deploymentStage} administrator bootstrap`,
+          roleName: `${adminPhysicalPrefix}-task`,
+        },
+      );
       adminTaskRole.addToPolicy(
         new PolicyStatement({
           actions: ["secretsmanager:GetSecretValue"],
@@ -274,7 +283,7 @@ export class PropertyAlertStack extends Stack {
             this.formatArn({
               arnFormat: ArnFormat.COLON_RESOURCE_NAME,
               resource: "secret",
-              resourceName: "cpi/dev/admin-bootstrap/*",
+              resourceName: adminSecretPrefix,
               service: "secretsmanager",
             }),
           ],
@@ -282,26 +291,25 @@ export class PropertyAlertStack extends Stack {
       );
       const adminExecutionRole = new Role(
         this,
-        "DevAdminBootstrapExecutionRole",
+        `${adminIdPrefix}AdminBootstrapExecutionRole`,
         {
           assumedBy: new ServicePrincipal("ecs-tasks.amazonaws.com"),
-          description:
-            "Pull the DEV administrator bootstrap image and publish bounded logs",
+          description: `Pull the ${deploymentStage} administrator bootstrap image and publish bounded logs`,
           managedPolicies: [
             ManagedPolicy.fromAwsManagedPolicyName(
               "service-role/AmazonECSTaskExecutionRolePolicy",
             ),
           ],
-          roleName: "cpi-dev-admin-bootstrap-execution",
+          roleName: `${adminPhysicalPrefix}-execution`,
         },
       );
       const adminTaskDefinition = new FargateTaskDefinition(
         this,
-        "DevAdminBootstrapTaskDefinition",
+        `${adminIdPrefix}AdminBootstrapTaskDefinition`,
         {
           cpu: 256,
           executionRole: adminExecutionRole,
-          family: "cpi-dev-admin-bootstrap",
+          family: adminPhysicalPrefix,
           memoryLimitMiB: 512,
           runtimePlatform: {
             cpuArchitecture: CpuArchitecture.X86_64,
@@ -312,11 +320,15 @@ export class PropertyAlertStack extends Stack {
       );
       const adminLogGroup = new LogGroup(
         this,
-        "DevAdminBootstrapLogGroup",
+        `${adminIdPrefix}AdminBootstrapLogGroup`,
         {
-          logGroupName: "/cpi/dev/admin-bootstrap",
-          removalPolicy: RemovalPolicy.DESTROY,
-          retention: RetentionDays.ONE_WEEK,
+          logGroupName: `/cpi/${deploymentStage}/admin-bootstrap`,
+          removalPolicy: isProduction
+            ? RemovalPolicy.RETAIN
+            : RemovalPolicy.DESTROY,
+          retention: isProduction
+            ? RetentionDays.ONE_MONTH
+            : RetentionDays.ONE_WEEK,
         },
       );
       const adminContainerImage =
@@ -325,18 +337,20 @@ export class PropertyAlertStack extends Stack {
           props.repositoryRoot ?? path.resolve(process.cwd(), "../.."),
           { file: "Dockerfile.admin", platform: Platform.LINUX_AMD64 },
         );
-      adminTaskDefinition.addContainer("DevAdminBootstrap", {
+      adminTaskDefinition.addContainer(adminContainerName, {
         command: [
           "timeout",
           "--signal=TERM",
           "5m",
           "node",
-          "apps/admin-cli/dist/devAdminBootstrap.js",
+          isProduction
+            ? "apps/admin-cli/dist/productionAdminBootstrap.js"
+            : "apps/admin-cli/dist/devAdminBootstrap.js",
         ],
         environment: {
           AWS_ACCOUNT_ID: this.account,
           AWS_REGION: this.region,
-          CPI_DEPLOYMENT_STAGE: "dev",
+          CPI_DEPLOYMENT_STAGE: deploymentStage,
           NODE_ENV: "production",
           NODE_EXTRA_CA_CERTS: "/app/certs/global-bundle.pem",
           PGDATABASE: databaseName,
@@ -362,24 +376,28 @@ export class PropertyAlertStack extends Stack {
       });
       this.databaseCredentialsSecret.grantRead(adminExecutionRole);
 
-      new CfnOutput(this, "DevAdminBootstrapClusterArn", {
+      new CfnOutput(this, `${adminIdPrefix}AdminBootstrapClusterArn`, {
         value: cluster.clusterArn,
       });
-      new CfnOutput(this, "DevAdminBootstrapContainerName", {
-        value: "DevAdminBootstrap",
+      new CfnOutput(this, `${adminIdPrefix}AdminBootstrapContainerName`, {
+        value: adminContainerName,
       });
-      new CfnOutput(this, "DevAdminBootstrapSecurityGroupId", {
+      new CfnOutput(this, `${adminIdPrefix}AdminBootstrapSecurityGroupId`, {
         value: adminSecurityGroup.securityGroupId,
       });
-      new CfnOutput(this, "DevAdminBootstrapSubnetIds", {
+      new CfnOutput(this, `${adminIdPrefix}AdminBootstrapSubnetIds`, {
         value: Fn.join(
           ",",
           this.vpc.publicSubnets.map((subnet) => subnet.subnetId),
         ),
       });
-      new CfnOutput(this, "DevAdminBootstrapTaskDefinitionArn", {
-        value: adminTaskDefinition.taskDefinitionArn,
-      });
+      new CfnOutput(
+        this,
+        `${adminIdPrefix}AdminBootstrapTaskDefinitionArn`,
+        {
+          value: adminTaskDefinition.taskDefinitionArn,
+        },
+      );
     }
     const failureAlertEmail =
       props.failureAlertEmail ??

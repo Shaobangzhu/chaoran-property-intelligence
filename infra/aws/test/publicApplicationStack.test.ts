@@ -52,6 +52,9 @@ function createTemplates() {
 function createProductionPublicApplicationTemplate(): Template {
   const app = new App();
   const foundation = new PropertyAlertStack(app, "TestProductionFoundation", {
+    adminContainerImage: ContainerImage.fromRegistry(
+      "example.invalid/admin:test",
+    ),
     containerImage: ContainerImage.fromRegistry("example.invalid/worker:test"),
     deploymentStage: "production",
     env: environment,
