@@ -44,11 +44,12 @@ not cancel an in-progress regression. The job timeout is 30 minutes.
 ```mermaid
 flowchart TD
     Trigger[Schedule or manual dispatch] --> Checkout[Checkout protected dev]
-    Checkout --> Identity[Record tested dev SHA]
-    Identity --> Config[Validate HTTPS target]
-    Config --> Policy[Validate quarantine registry]
-    Policy --> Ready[Bounded health readiness]
-    Ready --> Regression[Read-only Playwright regression]
+    Checkout --> Candidate[Record tested candidate SHA]
+    Candidate --> Config[Validate HTTPS target]
+    Config --> Ready[Bounded health readiness]
+    Ready --> Identity[Verify deployed SHA ancestry and impact]
+    Identity --> Policy[Validate quarantine registry]
+    Policy --> Regression[Read-only Playwright regression]
     Regression --> Analyze[Retry and quarantine analysis]
     Analyze --> Reports[Allure and Playwright reports]
     Reports --> Artifact[30-day diagnostic artifact]
@@ -142,11 +143,16 @@ public report by default.
 
 ## Release Identity Binding
 
-Block 28.8 closes the original identity limitation in source. The workflow now
-expects both `/api/release` and `/release.json` to equal the exact checked-out
-`dev` SHA and stage. A deployment failure or pending approval that leaves AWS
-DEV behind `dev` therefore fails nightly evidence instead of silently testing
-the wrong release.
+Block 28.8 closes the original identity limitation in source. The workflow
+requires `/api/release` and `/release.json` to match each other and report the
+DEV stage. The deployed SHA normally equals the checked-out `dev` SHA. It may
+be an older ancestor only when the shared deployment-impact classifier proves
+that every intervening file is documentation or test evidence.
+
+A deployment failure, pending approval, divergent history, stage mismatch, or
+undeployed runtime-capable change therefore fails nightly evidence instead of
+silently testing the wrong release. Playwright expects the actual deployed SHA
+while reports retain the checked-out candidate SHA as source identity.
 
 This contract becomes effective only after the identity-aware DEV runtime has
 actually been deployed. Until then, remote runs will fail the new identity

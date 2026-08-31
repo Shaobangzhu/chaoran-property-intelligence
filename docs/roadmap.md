@@ -2003,6 +2003,13 @@ Planned sub-block mapping:
    remote smoke passed, and Nightly DEV Regression run `33340950741` passed
    with zero retries and no quarantine findings. See the
    [acceptance record](operations/block-29-4-dev-public-acceptance.md).
+6a. `29.4a` Make DEV deployment dependency-aware without weakening release
+   identity. Every `dev` push produces classification evidence; docs/test-only
+   descendants skip AWS and approvals, while runtime, infrastructure,
+   delivery, dependency, unknown, and manual cases retain the full path.
+   Release and nightly gates accept a prior deployed ancestor only after
+   proving zero intervening deployable files. See the
+   [29.4a record](operations/block-29-4a-dependency-aware-dev-deployment.md).
 7. `29.5` Promote the exact deployed candidate through the protected
    `dev -> main` release gate and require green main CI. Before production,
    bind the production deployment job to a protected `production` environment

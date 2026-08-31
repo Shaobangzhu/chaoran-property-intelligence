@@ -18,7 +18,9 @@ authorizes the reviewed DEV schema migration.
 
 ```mermaid
 flowchart TD
-    Dev[PR merged into dev or manual dispatch on dev] --> Verify[verify release candidate]
+    Dev[PR merged into dev or manual dispatch on dev] --> Impact[classify deployment impact]
+    Impact -->|docs or tests only| Skip[record successful no-AWS skip]
+    Impact -->|runtime, infra, delivery, unknown, or manual| Verify[verify release candidate]
     Verify --> Approval1[development approval 1]
     Approval1 --> Diff[account-backed CDK diff]
     Diff --> Classify[CREATE UPDATE REPLACE DELETE]
@@ -37,14 +39,17 @@ flowchart TD
 ```
 
 The workflow is `.github/workflows/deploy-dev.yml`. Its concurrency group does
-not cancel an in-progress deployment. Automatic delivery starts on a `push`
-event limited to `dev`. With protected branches, this is the merge commit
+not cancel an in-progress deployment. Every `push` event limited to `dev`
+starts a classification run. With protected branches, this is the merge commit
 created when an approved pull request lands in `dev`; it also intentionally
 covers an administrator-authorized direct update if branch policy permits one.
+Documentation and test-only changes finish successfully before AWS credentials
+or environment approval. All other changes use the full delivery path.
 The workflow does not use `pull_request: closed` because GitHub presents that
 event to environment protection as a synthetic `refs/pull/*/merge` ref rather
-than `refs/heads/dev`. A manual dispatch from another ref is skipped. All three
-jobs explicitly check out the event SHA so later `dev` movement while an
+than `refs/heads/dev`. A manual dispatch from another ref fails the
+classification guard. The three mutating-path jobs explicitly check out the
+event SHA so later `dev` movement while an
 approval is pending cannot change the reviewed release candidate.
 
 ## One-Time GitHub And AWS Setup
@@ -124,9 +129,22 @@ deployed, so these are source-template transitions rather than replacement of
 live DEV resources. If an account-backed diff reports an existing bucket or any
 stateful replacement, stop and reconcile deployed reality before approval.
 
+## Dependency-Aware Classification
+
+The first job checks out full Git history and compares the prior protected
+`dev` SHA with the pushed SHA. Documentation, Markdown, test/spec files,
+snapshots, and `tests/**` are non-deployable. Runtime, infrastructure,
+workflow, dependency, configuration, unknown, and empty comparisons deploy by
+default. Rename detection is disabled so a moved or deleted runtime source is
+still visible. Manual dispatch always forces the full reviewed path.
+
+The classification Markdown artifact is retained for 30 days. An intentional
+skip does not request OIDC, enter `development`, create a CDK diff, run a
+migration, or publish SNS.
+
 ## Verification And Deployment Contract
 
-Before AWS credentials are requested, `verify` runs:
+For a deployable change, before AWS credentials are requested, `verify` runs:
 
 ```text
 full Vitest suite

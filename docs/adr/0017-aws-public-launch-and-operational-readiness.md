@@ -104,6 +104,20 @@ Each mutating phase requires:
 7. rollback evidence and last-known-good identity captured
 8. safe, read-only smoke against the immutable deployed release
 
+DEV deployment is dependency-aware after initial acceptance. Every push to the
+protected `dev` branch produces deployment-impact evidence, but documentation
+and test-only descendants do not request AWS credentials or deployment
+approvals. Manual dispatches, runtime or infrastructure changes, delivery
+configuration, dependencies, unknown paths, and empty comparisons continue
+through the full reviewed deployment path.
+
+The release candidate SHA and deployed runtime SHA may differ only when the
+deployed SHA is a Git ancestor and every intervening path is explicitly
+non-deployable documentation or test evidence. Release and nightly gates read
+both public release identities and fail closed on divergence, stage mismatch,
+non-ancestor history, or any undeployed runtime-capable change. Production
+retains exact-main plan and deployment identity.
+
 Production deploy authorization is never inferred from DEV approval, a green
 test run, a successful production plan, or this ADR.
 
@@ -122,6 +136,9 @@ test run, a successful production plan, or this ADR.
   it is not seeded, copied from production, or exposed through registration.
 - A custom domain is deferred until its ownership and desired hostname are
   known; the generated CloudFront hostname is sufficient for initial launch.
+- Documentation and test-only `dev` merges avoid unnecessary AWS plans,
+  migrations, deployments, and approvals while still producing an auditable
+  successful workflow result.
 
 ## References
 

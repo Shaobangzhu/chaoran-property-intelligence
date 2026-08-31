@@ -20,9 +20,9 @@ jobs:
 
     env:
       CPI_EXPECTED_DEPLOYMENT_STAGE: dev
-      CPI_EXPECTED_RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
       CPI_PLAYWRIGHT_REMOTE_BASE_URL: ${{ vars.CPI_AWS_DEV_BASE_URL }}
       CPI_PLAYWRIGHT_RETRIES: "1"
+      CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
       CPI_RELEASE_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       CPI_RELEASE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       CPI_TESTED_GIT_SHA: ${{ github.event.pull_request.head.sha }}
@@ -37,6 +37,7 @@ jobs:
       - name: Checkout exact release candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up pnpm
@@ -70,17 +71,36 @@ jobs:
             }
           '
 
-      - name: Record release candidate identity
+      - name: Record release candidate source identity
         run: |-
-          test "$(git rev-parse HEAD)" = "$CPI_EXPECTED_RELEASE_SHA"
+          test "$(git rev-parse HEAD)" = "$CPI_RELEASE_CANDIDATE_SHA"
           {
             echo "## AWS DEV Release Candidate Regression"
             echo
-            echo "Candidate: \`$CPI_EXPECTED_RELEASE_SHA\`"
+            echo "Candidate: \`$CPI_RELEASE_CANDIDATE_SHA\`"
             echo
             echo "Source path: protected \`dev -> main\` pull request"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check bounded AWS DEV readiness
+        run: >-
+          node tools/aws/waitForHttp.mjs
+          --url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL/api/health"
+          --attempts 6
+          --interval-ms 10000
+          --request-timeout-ms 5000
+
+      - name: Verify deployed release ancestry and impact
+        id: deployed-release
+        run: |-
+          node tools/release/verifyDeployedRelease.mjs \
+            --base-url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL" \
+            --candidate-sha "$CPI_RELEASE_CANDIDATE_SHA" \
+            --github-env "$GITHUB_ENV" \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary-file test-results/deployed-release.md
+          cat test-results/deployed-release.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate flaky-test quarantine policy
         run: |-
@@ -101,14 +121,6 @@ jobs:
 
       - name: Install Playwright browser
         run: pnpm test:e2e:install-browsers
-
-      - name: Check bounded AWS DEV readiness
-        run: >-
-          node tools/aws/waitForHttp.mjs
-          --url "$CPI_PLAYWRIGHT_REMOTE_BASE_URL/api/health"
-          --attempts 6
-          --interval-ms 10000
-          --request-timeout-ms 5000
 
       - name: Run full remote-safe Playwright regression
         id: playwright
@@ -167,6 +179,7 @@ jobs:
             allure-results/
             allure-report/
             playwright-report/
+            test-results/deployed-release.md
             test-results/flake-evidence/
             test-results/playwright/
             test-results/playwright-results.json
