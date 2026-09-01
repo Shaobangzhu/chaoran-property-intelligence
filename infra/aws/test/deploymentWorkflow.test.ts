@@ -108,6 +108,10 @@ describe("production deployment workflow", () => {
   it("runs identity-bound read-only production smoke without worker behavior", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
+    expect(workflow).toContain(
+      "VITE_ARCGIS_API_KEY: ${{ secrets.CPI_PRODUCTION_ARCGIS_API_KEY }}",
+    );
+    expect(workflow).toContain("verifyArcgisWebBuild.mjs");
     expect(workflow).toContain("CPI_EXPECTED_RELEASE_SHA=$GITHUB_SHA");
     expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=production");
     expect(workflow).toContain("--cache-control no-store");

@@ -106,6 +106,10 @@ describe("DEV deployment workflow", () => {
   it("publishes web content then runs bounded read-only smoke with evidence", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
+    expect(workflow).toContain(
+      "VITE_ARCGIS_API_KEY: ${{ secrets.CPI_DEV_ARCGIS_API_KEY }}",
+    );
+    expect(workflow).toContain("verifyArcgisWebBuild.mjs");
     expect(workflow).toContain("aws s3 sync");
     expect(workflow).toContain("--cache-control no-store");
     expect(workflow).toContain("cloudfront wait invalidation-completed");
