@@ -80,7 +80,7 @@ describe("production runtime image", () => {
     expect(dockerfile).not.toContain("apps/api");
   });
 
-  it("excludes local quality artifacts from the deployable image context", () => {
+  it("excludes generated delivery artifacts from the deployable image context", () => {
     const dockerignore = readFileSync(dockerignorePath, "utf8");
 
     expect(dockerignore).toContain("allure-report");
@@ -88,6 +88,8 @@ describe("production runtime image", () => {
     expect(dockerignore).toContain("playwright-report");
     expect(dockerignore).toContain("playwright.config.ts");
     expect(dockerignore).toContain("test-results");
+    expect(dockerignore).toContain("deployment-plan");
+    expect(dockerignore).toContain("deployment-evidence");
     expect(dockerignore).toContain("tests");
     expect(dockerignore).toContain("tools");
     expect(dockerignore).toContain("Dockerfile.admin");
