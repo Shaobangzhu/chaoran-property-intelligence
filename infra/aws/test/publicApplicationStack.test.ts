@@ -276,6 +276,10 @@ describe("PublicApplicationStack", () => {
           SecurityHeadersConfig: Match.objectLike({
             ContentTypeOptions: { Override: true },
             FrameOptions: { FrameOption: "DENY", Override: true },
+            ReferrerPolicy: {
+              Override: true,
+              ReferrerPolicy: "strict-origin-when-cross-origin",
+            },
           }),
         }),
       },

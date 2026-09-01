@@ -44,7 +44,10 @@ Read-only requests to the exact CloudFront origin returned:
 The Web and API release identities matched each other and the exact protected
 `dev` SHA. Responses exposed the expected controls, including HSTS,
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer`, and a restrictive permissions policy. API
+`Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive
+permissions policy. Cross-origin browser requests disclose only the approved
+origin, which allows referrer-restricted ArcGIS browser credentials without
+exposing application paths. API
 health responses were non-cacheable and carried a request identifier.
 
 The generated CloudFront hostname remains the supported browser address. A
