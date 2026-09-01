@@ -333,9 +333,8 @@ Block 28.3 implementation details:
   suites while still producing a successful `quality-gate` status.
 - Non-documentation changes upload the gate plan and reuse the Block 28.2
   Allure summary/artifact flow.
-- The existing full CI workflow remains in place as a conservative baseline
-  until repository branch protection and release workflows are updated in later
-  Block 28 phases.
+- Block 30 removes the legacy full CI workflow after the protected PR gate and
+  exact AWS DEV promotion gate assume distinct required-check responsibilities.
 
 ### Initial Change-Impact Matrix
 
@@ -501,11 +500,17 @@ flowchart TD
     Dev --> DevDeploy[AWS DEV deployment]
     DevDeploy --> DevSmoke[health + API smoke + UI smoke]
     DevSmoke --> ReleasePr[dev to main PR]
-    ReleasePr --> ReleaseGate[release-quality-gate full regression against AWS DEV]
+    ReleasePr --> ReleaseGate[exact AWS DEV promotion evidence]
     ReleaseGate --> Main[merge to main]
     Main --> ManualProd[manual production deployment]
     ManualProd --> ProdSmoke[safe production smoke only]
 ```
+
+Block 30 assigns source verification only to the feature-to-DEV PR gate. The
+DEV-to-main promotion gate retains exact deployed-release identity, ancestry,
+readiness, full remote-safe Playwright, and flake evidence without repeating
+Vitest, typecheck, local smoke, or build. No generic Verify runs after merge to
+`main`.
 
 ### DEV Deployment Acceptance
 

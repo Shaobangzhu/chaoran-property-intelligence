@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -9,8 +9,33 @@ const workflowPath = fileURLToPath(
     import.meta.url,
   ),
 );
+const prQualityGatePath = fileURLToPath(
+  new URL("../../../.github/workflows/pr-quality-gate.yml", import.meta.url),
+);
+const legacyCiPath = fileURLToPath(
+  new URL("../../../.github/workflows/ci.yml", import.meta.url),
+);
 
-describe("release quality gate workflow", () => {
+describe("release promotion gate workflow", () => {
+  it("uses the DEV PR quality gate as the only source verification workflow", () => {
+    const workflow = readFileSync(prQualityGatePath, "utf8");
+
+    expect(workflow).toContain("name: PR Quality Gate");
+    expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("- dev");
+    expect(workflow).toContain("name: quality-gate");
+    expect(workflow).toContain("pnpm typecheck");
+    expect(workflow).toContain("pnpm build");
+    expect(existsSync(legacyCiPath)).toBe(false);
+  });
+
+  it("is named for exact AWS DEV promotion", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("name: Release Promotion Gate");
+    expect(workflow).toContain("name: Promote exact AWS DEV release");
+  });
+
   it("accepts only a same-repository dev-to-main pull request", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
@@ -53,12 +78,13 @@ describe("release quality gate workflow", () => {
     expect(workflow).not.toMatch(/^\s+aws\s/imu);
   });
 
-  it("runs full source and remote-safe regression with flake enforcement", () => {
+  it("reuses source verification and runs only remote promotion evidence", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
-    expect(workflow).toContain("run: pnpm test");
-    expect(workflow).toContain("run: pnpm typecheck");
-    expect(workflow).toContain("run: pnpm build");
+    expect(workflow).not.toMatch(/^\s*run: pnpm test\s*$/mu);
+    expect(workflow).not.toMatch(/^\s*run: pnpm typecheck\s*$/mu);
+    expect(workflow).not.toMatch(/^\s*run: pnpm build\s*$/mu);
+    expect(workflow).not.toContain("CPI_PLAYWRIGHT_START_WEB");
     expect(workflow).toContain("pnpm exec playwright test");
     expect(workflow).not.toContain("--grep @smoke");
     expect(workflow).toContain("--fail-on-unexpected");

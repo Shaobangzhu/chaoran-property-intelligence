@@ -61,24 +61,29 @@ role, deploy, migrate, or enter a GitHub deployment environment. Repository
 variable `CPI_AWS_DEV_BASE_URL` supplies the exact public HTTPS CloudFront
 origin.
 
-The release gate performs:
+The release promotion gate reuses the source verification required before code
+can enter protected `dev`. It performs:
 
 1. exact source-branch, repository, checkout, and HTTPS-origin validation
 2. quarantine-policy validation
-3. the complete deterministic Vitest regression
-4. full typecheck and production build
-5. bounded AWS DEV health readiness
-6. all Playwright tests eligible for remote read-only execution
-7. matching Web/API DEV release identity and Git ancestry verification
-8. zero undeployed runtime-capable changes between deployed and candidate SHAs
-9. retry and stale-quarantine enforcement
-10. Allure, Playwright, trace/screenshot, JSON, and bounded flake artifacts
+3. bounded AWS DEV health readiness
+4. all Playwright tests eligible for remote read-only execution
+5. matching Web/API DEV release identity and Git ancestry verification
+6. zero undeployed runtime-capable changes between deployed and candidate SHAs
+7. retry and stale-quarantine enforcement
+8. Allure, Playwright, trace/screenshot, JSON, and bounded flake artifacts
 
 An AWS DEV deployment that is pending, failed, divergent, or behind any
 runtime-capable `dev` change makes the release gate fail. A deployed ancestor
 is accepted only when every intervening change is explicit documentation or
-test evidence. Source regression still runs from the candidate SHA; remote
-regression expects the actual deployed SHA.
+test evidence. Source verification is not repeated; remote regression expects
+the actual deployed SHA.
+
+The required GitHub checks are `PR Quality Gate / quality-gate` for protected
+feature-to-DEV pull requests and
+`Release Promotion Gate / Promote exact AWS DEV release` for DEV-to-main.
+Merging to `main` does not run the removed legacy `CI / verify` workflow and
+does not automatically deploy Production.
 
 ## Production Stack Boundary
 
