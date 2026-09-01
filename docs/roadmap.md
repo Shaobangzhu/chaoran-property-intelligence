@@ -2023,11 +2023,25 @@ Planned sub-block mapping:
 8. `29.6` Run the controlled production plan, review its approval digest, then
    obtain separate authorization for the digest-bound deployment and production
    API startup migration. Run safe, unauthenticated production smoke only.
+   **Complete:** final Production deploy run `33552752664` reproduced the
+   reviewed digest for exact `main` SHA `f40c3428...b3bb`, retained disabled
+   schedules, passed safe smoke, and the owner accepted the authenticated map
+   experience.
 9. `29.7` Optionally add an owned custom domain through tested CDK, ACM, and
    DNS changes after generated-hostname launch. Do not create console drift.
+   **Deferred by owner:** the generated CloudFront hostname is the supported
+   Production address.
 10. `29.8` Complete operational handoff with URLs, release identities, plan and
    deployment artifacts, schedule state, budget/SNS checks, rollback evidence,
-   ownership, and remaining risks.
+   ownership, and remaining risks. **Complete on 2026-09-01:** the bounded
+   evidence and accepted follow-ups are recorded in the
+   [Block 29 completion record](operations/block-29-completion-record.md); no
+   separate implementation phase was required.
+
+**Block 29 is complete.** DEV and Production are publicly reachable through
+their generated HTTPS hostnames, protected delivery and administrator paths are
+operational, schedules remain disabled, and the repository owner completed
+authenticated Production acceptance.
 
 See the
 [Block 29 AWS Public Launch And Operational Readiness Knowledge Base](knowledge-base/block-29-aws-public-launch-and-operational-readiness.md),
