@@ -164,11 +164,21 @@ reached App Runner readiness, and passed safe production smoke. The generated
 browser entry point is `https://d1ayoi79dg623p.cloudfront.net`. See the
 [production deployment record](../operations/block-29-6d-production-deployment-record.md).
 
+The accepted final release is exact `main` SHA `f40c3428...b3bb`. Production
+deploy run `33552752664` reproduced the reviewed plan digest, retained disabled
+schedules, passed safe smoke, and corrected the CloudFront referrer policy used
+by the referrer-restricted ArcGIS browser credential. The repository owner then
+accepted authenticated 2D, 3D terrain, listing-marker, and wildfire-overlay
+behavior.
+
 ### 29.7 Optional Custom Domain
 
 After generated-hostname launch is stable, decide whether a friendly domain is
 needed. Implement ACM, CloudFront aliases, DNS, tests, diff review, and rollback
 through CDK. Do not make console-only production changes.
+
+Status: deferred by the repository owner. The generated CloudFront hostname is
+the supported Production address and is sufficient for Block 29 completion.
 
 ### 29.8 Operational Handoff
 
@@ -176,6 +186,10 @@ Record CloudFormation outputs, release identity, artifact links, SNS
 subscription state, cost/budget checks, alarms, rollback evidence, and owner.
 Confirm nightly DEV regression and production deployment remain separate from
 worker schedule enablement.
+
+Status: complete on 2026-09-01 through the
+[consolidated closure record](../operations/block-29-completion-record.md). No
+separate implementation phase or cloud mutation was required.
 
 ## Definition Of Done
 
@@ -189,7 +203,8 @@ Block 29 is complete only when:
 - production deployment is protected by a configured GitHub environment in
   addition to its manual inputs and approval digest
 - rollback evidence exists for App Runner and versioned S3 content
-- budget and failure-notification subscriptions are confirmed
+- budget and failure-notification controls are deployed; human delivery
+  confirmation remains a recurring operational check
 - the execution record contains no credential, secret, session, production
   data, or private request/response content
 
@@ -208,6 +223,7 @@ data-mutating operation with its own authorization and evidence.
 - [Block 29.4a dependency-aware DEV deployment](../operations/block-29-4a-dependency-aware-dev-deployment.md)
 - [Block 29.6 production plan](../operations/block-29-6-production-plan.md)
 - [Block 29.6d production deployment record](../operations/block-29-6d-production-deployment-record.md)
+- [Block 29 completion record](../operations/block-29-completion-record.md)
 - [ADR 0017](../adr/0017-aws-public-launch-and-operational-readiness.md)
 - [AWS DEV deployment runbook](../runbooks/aws-dev-deployment.md)
 - [Release and production delivery runbook](../runbooks/release-production-delivery.md)

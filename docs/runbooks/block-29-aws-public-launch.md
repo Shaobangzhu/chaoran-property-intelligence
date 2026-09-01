@@ -39,9 +39,9 @@ reviewed CDK extension.
 | 29.5 | Promotion and production environment protection | Complete; GitHub protection and Guardrails trust aligned | Post-update Guardrails diff clean |
 | 29.6a | Production plan | Complete; run `33410204420`, exact SHA and digest reviewed | No production mutation occurred |
 | 29.6b | Production deploy/migration | Complete; run `33419336461`, exact release and safe smoke green | Exact SHA, digest, migration, and protected-environment approvals completed |
-| 29.6f | Production administrator bootstrap | Source prepared; AWS enablement and user creation pending | Requires separate Guardrails, Production task, plan, create, and acceptance approvals |
-| 29.7 | Optional custom domain | Deferred | Separate design and deployment approval |
-| 29.8 | Operational handoff | Pending | Evidence review |
+| 29.6f | Production administrator bootstrap | Complete; protected plan/create and manual acceptance succeeded | Separate Guardrails, Production task, plan, create, and acceptance approvals completed |
+| 29.7 | Optional custom domain | Deferred by owner; generated CloudFront hostname accepted | Any future domain work requires separate design and deployment approval |
+| 29.8 | Operational handoff | Complete through the consolidated Block 29 closure record | Bounded evidence review completed |
 
 ## Stop Conditions
 
@@ -462,6 +462,10 @@ ownership, tests, both synth modes, account-backed diff, URL-variable updates,
 smoke, and rollback. Do not edit the distribution manually in the console.
 
 ## 29.8 Execution Record Template
+
+The initial launch used this template through the
+[consolidated Block 29 completion record](../operations/block-29-completion-record.md).
+No separate 29.8 implementation phase is required.
 
 Record only bounded metadata:
 
