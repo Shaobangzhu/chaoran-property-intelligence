@@ -2048,3 +2048,27 @@ See the
 [Block 29 AWS Public Launch Runbook](runbooks/block-29-aws-public-launch.md),
 and
 [ADR 0017: AWS Public Launch And Operational Readiness](adr/0017-aws-public-launch-and-operational-readiness.md).
+
+### Block 30: Exact AWS DEV Release Promotion
+
+Remove duplicate deterministic verification from the DEV-to-main path while
+preserving the evidence that uniquely belongs to production promotion.
+
+1. Keep `PR Quality Gate / quality-gate` as the protected feature-to-DEV source
+   verification boundary.
+2. Remove the legacy root `CI / verify` workflow so it no longer repeats work
+   for pull requests or main pushes.
+3. Convert the DEV-to-main workflow into
+   `Release Promotion Gate / Promote exact AWS DEV release`.
+4. Retain same-repository `dev` source enforcement, exact checkout, AWS DEV
+   readiness, deployed-release ancestry and impact, full remote-safe Playwright,
+   retry/quarantine enforcement, and bounded artifacts.
+5. Remove duplicate Vitest, typecheck, local build, and local smoke from the
+   promotion gate.
+6. Update GitHub required checks in a coordinated cutover after the source
+   reaches protected `dev`; Production remains manual and digest-bound.
+
+See the
+[Block 30 Exact AWS DEV Release Promotion Knowledge Base](knowledge-base/block-30-exact-aws-dev-release-promotion.md)
+and
+[ADR 0018: Exact AWS DEV Release Promotion](adr/0018-exact-aws-dev-release-promotion.md).

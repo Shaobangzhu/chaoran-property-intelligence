@@ -152,13 +152,10 @@ Implementation status: complete. Vitest is configured with
 HTML reporting, traces retained on failure, and screenshots on failure. Both
 runners write Allure result files to `allure-results`, and
 `pnpm report:allure` generates the static report under `allure-report`.
-The root CI workflow now installs the Playwright Chromium browser, runs the
-local `@smoke` Playwright suite, generates the Allure report when result files
-exist, and uploads bounded quality diagnostics from `allure-results`,
-`allure-report`, `playwright-report`, and `test-results/playwright`.
-The workflow also writes an Allure-derived Markdown summary to the GitHub
-Actions run page with total, passed, failed, broken, skipped, unknown, retry,
-duration, and quality artifact link fields.
+The original root CI workflow installed the Playwright Chromium browser, ran
+the local `@smoke` Playwright suite, and uploaded bounded Allure diagnostics.
+Block 30 later removes that legacy baseline after the protected dependency-aware
+PR gate becomes the sole feature-to-DEV source-verification status.
 Generated report directories are ignored by Git. Local test scripts clean
 `allure-results` and `allure-report` before each run so stale results do not
 accumulate; CI uses `CPI_APPEND_ALLURE_RESULTS=true` only for the later
