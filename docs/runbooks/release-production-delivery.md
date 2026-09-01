@@ -101,6 +101,14 @@ The production web bucket and API-auth secrets use `RETAIN`. Existing Aurora,
 database secret, VPC, worker, scheduler, and OIDC logical IDs remain owned by
 their existing stacks.
 
+Configure `CPI_PRODUCTION_ARCGIS_API_KEY` as a secret in the protected
+`production` GitHub environment. Use a production-specific ArcGIS browser key
+restricted to the production CloudFront origin. The workflow maps it to
+`VITE_ARCGIS_API_KEY` only for the immutable Web build and fails before planning
+or deployment unless the resulting JavaScript bundle contains that configured
+value. The key is necessarily public in the browser bundle, so ArcGIS referrer
+and product-scope restrictions remain the authorization boundary.
+
 ## Two-Run Production Approval
 
 The `Deploy production` workflow has no push trigger and runs only from `main`.

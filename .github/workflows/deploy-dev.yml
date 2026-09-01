@@ -78,6 +78,8 @@ jobs:
       github.ref == 'refs/heads/dev') ||
       (github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/dev'))
+    env:
+      VITE_ARCGIS_API_KEY: ${{ secrets.CPI_DEV_ARCGIS_API_KEY }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -119,6 +121,8 @@ jobs:
       - name: Build release candidate
         run: |-
           pnpm build
+          node tools/release/verifyArcgisWebBuild.mjs \
+            --dist apps/web/dist
           node tools/release/createReleaseManifest.mjs \
             --sha "$GITHUB_SHA" \
             --stage dev \

@@ -61,13 +61,16 @@ Before the first run:
 3. Configure required reviewers. Preventing self-review is recommended when a
    second reviewer is available.
 4. Configure environment secret `CPI_ALERT_EMAIL` with a DEV operations email.
-5. Configure repository or environment variable `AWS_ACCOUNT_ID` with the
+5. Configure repository secret `CPI_DEV_ARCGIS_API_KEY` with a DEV-specific
+   browser API key restricted to the DEV CloudFront origin. The verify job maps
+   it to `VITE_ARCGIS_API_KEY` only while building the publishable Web artifact.
+6. Configure repository or environment variable `AWS_ACCOUNT_ID` with the
    exact non-root target account ID.
-6. Configure `CPI_MONTHLY_BUDGET_USD`, or accept the workflow default of `20`.
-7. Bootstrap CDK qualifier `hnb659fds` in `us-west-2` and `us-east-1`.
-8. Deploy the reviewed Guardrails change through an administrator-controlled
+7. Configure `CPI_MONTHLY_BUDGET_USD`, or accept the workflow default of `20`.
+8. Bootstrap CDK qualifier `hnb659fds` in `us-west-2` and `us-east-1`.
+9. Deploy the reviewed Guardrails change through an administrator-controlled
    path so `cpi-github-deploy-dev` exists before GitHub can assume it.
-9. Confirm that the DEV role trust subject is exactly
+10. Confirm that the DEV role trust subject is exactly
    `repo:Shaobangzhu@8231137/chaoran-property-intelligence@1338908571:environment:development`.
 
 The deployment workflow deliberately does not create an application user.

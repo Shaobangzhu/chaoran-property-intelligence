@@ -51,6 +51,8 @@ jobs:
       id-token: write
     environment:
       name: production
+    env:
+      VITE_ARCGIS_API_KEY: ${{ secrets.CPI_PRODUCTION_ARCGIS_API_KEY }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
@@ -102,6 +104,8 @@ jobs:
       - name: Build immutable production candidate
         run: |-
           pnpm build
+          node tools/release/verifyArcgisWebBuild.mjs \
+            --dist apps/web/dist
           node tools/release/createReleaseManifest.mjs \
             --sha "$GITHUB_SHA" \
             --stage production \
