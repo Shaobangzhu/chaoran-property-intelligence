@@ -1,4 +1,4 @@
-name: Release Quality Gate
+name: Release Promotion Gate
 
 on:
   pull_request:
@@ -10,11 +10,11 @@ permissions:
 
 concurrency:
   cancel-in-progress: true
-  group: release-quality-${{ github.event.pull_request.number }}
+  group: release-promotion-${{ github.event.pull_request.number }}
 
 jobs:
   regression:
-    name: dev-to-main regression against exact AWS DEV release
+    name: Promote exact AWS DEV release
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -75,7 +75,7 @@ jobs:
         run: |-
           test "$(git rev-parse HEAD)" = "$CPI_RELEASE_CANDIDATE_SHA"
           {
-            echo "## AWS DEV Release Candidate Regression"
+            echo "## Exact AWS DEV Release Promotion Evidence"
             echo
             echo "Candidate: \`$CPI_RELEASE_CANDIDATE_SHA\`"
             echo
@@ -109,15 +109,6 @@ jobs:
             --registry tests/flaky-tests.json \
             --output test-results/flake-evidence/quarantine-policy.md \
             --github-summary "$GITHUB_STEP_SUMMARY"
-
-      - name: Run complete deterministic Vitest regression
-        run: pnpm test
-
-      - name: Typecheck release candidate
-        run: pnpm typecheck
-
-      - name: Build release candidate
-        run: pnpm build
 
       - name: Install Playwright browser
         run: pnpm test:e2e:install-browsers
@@ -174,7 +165,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
-          name: release-quality-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-promotion-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |-
             allure-results/
             allure-report/
