@@ -339,7 +339,8 @@ export class PublicApplicationStack extends Stack {
           },
           referrerPolicy: {
             override: true,
-            referrerPolicy: HeadersReferrerPolicy.NO_REFERRER,
+            referrerPolicy:
+              HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
           },
           strictTransportSecurity: {
             accessControlMaxAge: Duration.days(365),
