@@ -1,10 +1,30 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { parsePriceEstimationRequest } from "./priceEstimationDto.js";
 import { PriceEstimationWorkflow } from "./priceEstimationWorkflow.js";
 
 const evaluatedAt = new Date("2026-09-01T18:00:00.000Z");
 
 describe("PriceEstimationWorkflow", () => {
+  it("accepts a parsed API request and reaches the RentCast adapter", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(createProviderFetch(false));
+    const workflow = createWorkflow(fetch, null);
+    const input = parsePriceEstimationRequest({
+      streetAddress: "100 Test Ave",
+      city: "Irvine",
+      zipCode: "92618",
+      mode: "offer",
+    });
+
+    await expect(workflow.execute(input)).resolves.toMatchObject({
+      providerRequestCounts: { rentcast: 4, openai: 0 },
+    });
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(new URL(String(fetch.mock.calls[0]?.[0])).pathname).toBe(
+      "/v1/avm/value",
+    );
+  });
+
   it("composes four bounded RentCast requests and degrades one failed OpenAI request", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(createProviderFetch(true));
     const providerRequests: string[] = [];

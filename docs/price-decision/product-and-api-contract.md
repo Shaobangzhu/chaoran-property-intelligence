@@ -308,3 +308,11 @@ validation.
 The comparable table must remain usable on narrow screens through a deliberate
 responsive table/card pattern; fields may not disappear solely to fit the
 viewport.
+
+Block 31.7 finalizes the browser behavior: entering the fourth tab makes no
+request; either explicit action submits the normalized address and its own mode;
+a new submission clears an earlier result; navigation aborts in-flight work;
+generation checks ignore late completion; an edited address visibly marks an
+existing result as based on the previous address; and retry preserves the last
+validated address and mode. The client strictly validates the complete response
+and rejects a mode mismatch or expanded/malformed DTO before rendering.

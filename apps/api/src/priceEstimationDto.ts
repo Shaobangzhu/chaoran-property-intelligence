@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import {
   normalizePriceDecisionAddress,
   normalizePriceDecisionMode,
-  type PriceDecisionAddress,
+  type PriceDecisionAddressInput,
   type PriceDecisionMode,
 } from "@chaoran-property-intelligence/domain";
 
@@ -17,7 +17,7 @@ const requestKeys = new Set([
 ]);
 
 export interface PriceEstimationRequest {
-  readonly address: PriceDecisionAddress;
+  readonly address: PriceDecisionAddressInput;
   readonly mode: PriceDecisionMode;
 }
 
@@ -35,11 +35,16 @@ export function parsePriceEstimationRequest(
     throw new InvalidPriceEstimationRequestError();
   }
   try {
+    const address = normalizePriceDecisionAddress({
+      streetAddress: value.streetAddress,
+      city: value.city,
+      zipCode: value.zipCode,
+    });
     return Object.freeze({
-      address: normalizePriceDecisionAddress({
-        streetAddress: value.streetAddress,
-        city: value.city,
-        zipCode: value.zipCode,
+      address: Object.freeze({
+        streetAddress: address.streetAddress,
+        city: address.city,
+        zipCode: address.zipCode,
       }),
       mode: normalizePriceDecisionMode(value.mode),
     });
