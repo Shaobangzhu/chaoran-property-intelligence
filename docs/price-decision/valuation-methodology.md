@@ -12,6 +12,12 @@ Recorded sale evidence answers the first question. Deterministic rules answer
 the second. OpenAI may help phrase the third. These responsibilities must not be
 collapsed into one opaque AI-generated number.
 
+Block 31.4 freezes the exact version-1 constants and formulas in
+[Block 31.4 Deterministic Pricing Engine](block-31-4-deterministic-pricing-engine.md).
+Where this methodology previously described candidate calibration choices, the
+Block 31.4 record and its golden tests are authoritative for
+`cpi-price-decision-v1`.
+
 ## Evidence Hierarchy
 
 Evidence is labeled and weighted by meaning, not merely by availability.

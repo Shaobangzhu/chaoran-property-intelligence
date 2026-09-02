@@ -2111,9 +2111,8 @@ Planned sub-block mapping:
    run a separately authorized provider contract audit with an exact request
    budget to verify actual-sale, subject-listing-history, AVM, and ZIP-market
    fields. Do not log credentials, full addresses, owner data, or raw payloads.
-   **Fixture-backed source implementation complete on
-   `feat/block-31-3-rentcast-price-decision-evidence`; owner verification and
-   separately authorized provider audit pending:** the adapter has a sequential
+   **Complete and merged into the Block 31 parent; separately authorized
+   provider audit remains pending:** the adapter has a sequential
    maximum of four requests per offer/listing estimation, zero retries,
    timeout/abort classification, redacted request accounting, allowlist-only
    parsing, conservative listing-history semantics, and bounded application
@@ -2122,6 +2121,13 @@ Planned sub-block mapping:
    orchestration. Recorded sale prices remain the primary evidence; RentCast AVM
    and ZIP market statistics are calibration/context. Offer and listing modes
    use separate bounded strategies, and insufficient evidence fails closed.
+   **Source implementation complete on
+   `feat/block-31-4-deterministic-pricing-engine`; owner verification pending:**
+   the pure application engine freezes comparable eligibility/expansion,
+   normalized scoring, weighted-median anchor, robust outlier/range behavior,
+   bounded offer/listing scenarios, confidence weaknesses, evidence-traceable
+   factors, and limitations in golden fixtures. No provider/model request, API,
+   UI, persistence, AWS, or deployment work is included.
 5. `31.5` Add the optional OpenAI explanation adapter with strict structured
    output, `store: false`, evidence identifiers, numerical guardrails, and a
    deterministic non-AI fallback. OpenAI failure must not discard an otherwise
@@ -2158,6 +2164,7 @@ unrelated visual redesign.
 See the
 [Block 31.1 Implementation Plan](price-decision/block-31-1-implementation-plan.md),
 [Block 31.3 RentCast Evidence Adapter](price-decision/block-31-3-rentcast-evidence-adapter.md),
+[Block 31.4 Deterministic Pricing Engine](price-decision/block-31-4-deterministic-pricing-engine.md),
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
