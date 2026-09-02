@@ -194,6 +194,75 @@ export {
   type FakeListingSearchProfileRepositoryOptions,
 } from "./fakeListingSearchProfile.js";
 export {
+  InvalidPriceDecisionEvidenceError,
+  normalizePriceDecisionEvidence,
+  PRICE_DECISION_CONTRACT_LIMITS,
+  PriceDecisionEvidenceUnavailableError,
+  PriceDecisionSubjectNotFoundError,
+  type ExternalValueEstimate,
+  type PriceDecisionEvidence,
+  type PriceDecisionEvidencePort,
+  type PriceDecisionEvidenceRequest,
+  type PriceDecisionMarketContext,
+  type PriceDecisionSubject,
+  type PriceDecisionTargetListing,
+  type RecordedSaleComparable,
+} from "./priceDecisionEvidence.js";
+export {
+  ContradictoryPriceDecisionEvidenceError,
+  EstimatePropertyPrice,
+  InsufficientPriceDecisionEvidenceError,
+  InvalidPriceDecisionClockError,
+  InvalidPriceDecisionEvidenceResultError,
+  InvalidPriceDecisionInputError,
+  InvalidPriceDecisionResultError,
+  normalizePriceDecisionResult,
+  PRICE_DECISION_METHODOLOGY_VERSION,
+  PRICE_DECISION_PRESENTATION_INCREMENT,
+  type EstimatePropertyPriceInput,
+  type EstimatePropertyPriceOptions,
+  type PreparedPriceDecision,
+  type PriceDecisionConfidence,
+  type PriceDecisionEngineInput,
+  type PriceDecisionEnginePort,
+  type PriceDecisionFactor,
+  type PriceDecisionLimitation,
+  type PriceDecisionResult,
+  type PriceDecisionScenario,
+} from "./estimatePropertyPrice.js";
+export {
+  DeterministicPriceDecisionEngine,
+  PRICE_DECISION_ENGINE_CONFIG,
+} from "./deterministicPriceDecisionEngine.js";
+export {
+  buildPriceDecisionExplanationContext,
+  DeterministicPriceDecisionExplainer,
+  GeneratePriceDecisionExplanation,
+  InvalidPriceDecisionExplanationContextError,
+  InvalidPriceDecisionNarrativeError,
+  normalizePriceDecisionNarrativeDraft,
+  PriceDecisionExplainerInvalidOutputError,
+  priceDecisionNarrativeDraftSchema,
+  type GeneratePriceDecisionExplanationInput,
+  type GeneratePriceDecisionExplanationOptions,
+  type PriceDecisionExplanation,
+  type PriceDecisionExplanationContext,
+  type PriceDecisionExplainerPort,
+  type PriceDecisionNarrativeDraft,
+} from "./priceDecisionExplanation.js";
+export {
+  buildPriceDecisionExplanationPrompt,
+  PRICE_DECISION_EXPLANATION_INSTRUCTIONS,
+  PRICE_DECISION_EXPLANATION_PROMPT_VERSION,
+  type PriceDecisionExplanationPrompt,
+} from "./priceDecisionExplanationPrompt.js";
+export {
+  FakePriceDecisionEngine,
+  FakePriceDecisionEvidenceProvider,
+  type FakePriceDecisionEngineOutcome,
+  type FakePriceDecisionEvidenceOutcome,
+} from "./fakePriceDecisionEvidence.js";
+export {
   assertValidListingAlertBaselineEntry,
   assertValidListingAlertTransition,
   assertValidListingSearchRevisionBaselineInput,

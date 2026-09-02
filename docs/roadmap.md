@@ -2072,3 +2072,119 @@ See the
 [Block 30 Exact AWS DEV Release Promotion Knowledge Base](knowledge-base/block-30-exact-aws-dev-release-promotion.md)
 and
 [ADR 0018: Exact AWS DEV Release Promotion](adr/0018-exact-aws-dev-release-promotion.md).
+
+### Block 31: Price Decision MVP
+
+Add an authenticated `Price Estimation` workspace that accepts a California
+street address, city, and ZIP code, then produces either an offer-price or
+listing-price recommendation. The recommendation must be traceable to recorded
+sale evidence, RentCast valuation data, current market context, and bounded
+strategy rules. OpenAI may explain the evidence and strategy, but it must not
+invent evidence or determine the numeric recommendation.
+
+The MVP is a synchronous, on-demand decision aid. It does not persist searches
+or results, contact a seller or agent, create an offer, publish a listing,
+provide an appraisal, or claim knowledge of private seller motivation. The
+browser never receives RentCast or OpenAI credentials or raw provider payloads.
+ArcGIS maps, comparable markers, heatmaps, neighborhood scoring, batch analysis,
+and saved history are deferred to Block 32 or a separately approved block.
+
+Planned sub-block mapping:
+
+1. `31.1` Freeze product semantics, provider boundaries, valuation methodology,
+   API/UI contracts, security and cost controls, failure behavior, test plan,
+   implementation sequence, and Block 32 boundary. **Complete in documentation
+   only:** the roadmap and `docs/price-decision` planning set were added after a
+   read-only review of the repository and current official RentCast/OpenAI
+   documentation. No runtime source, dependency, environment file, credential,
+   database, AWS resource, or external API was changed or called.
+2. `31.2` Add Domain and application contracts for normalized California
+   addresses, decision modes, recorded-sale comparables, market evidence,
+   deterministic valuation, confidence, explanations, and bounded errors. Use
+   fakes and fixtures only; make no provider call and add no API or UI.
+   **Complete and merged into the Block 31 parent:**
+   strict deeply immutable Domain/Application contracts, orchestration ports,
+   bounded errors, deterministic fakes, result guards, and 49 focused tests are
+   in place. Domain/Application typecheck and package builds pass.
+3. `31.3` Extend the RentCast package with strict, independently tested adapters
+   for the smallest verified endpoint set needed by the MVP. Before coding,
+   run a separately authorized provider contract audit with an exact request
+   budget to verify actual-sale, subject-listing-history, AVM, and ZIP-market
+   fields. Do not log credentials, full addresses, owner data, or raw payloads.
+   **Complete and merged into the Block 31 parent; separately authorized
+   provider audit remains pending:** the adapter has a sequential
+   maximum of four requests per offer/listing estimation, zero retries,
+   timeout/abort classification, redacted request accounting, allowlist-only
+   parsing, conservative listing-history semantics, and bounded application
+   errors. No credential was read and no real RentCast request was made.
+4. `31.4` Implement the deterministic pricing engine and application
+   orchestration. Recorded sale prices remain the primary evidence; RentCast AVM
+   and ZIP market statistics are calibration/context. Offer and listing modes
+   use separate bounded strategies, and insufficient evidence fails closed.
+   **Complete and merged into the Block 31 parent:**
+   the pure application engine freezes comparable eligibility/expansion,
+   normalized scoring, weighted-median anchor, robust outlier/range behavior,
+   bounded offer/listing scenarios, confidence weaknesses, evidence-traceable
+   factors, and limitations in golden fixtures. No provider/model request, API,
+   UI, persistence, AWS, or deployment work is included.
+5. `31.5` Add the optional OpenAI explanation adapter with strict structured
+   output, `store: false`, evidence identifiers, numerical guardrails, and a
+   deterministic non-AI fallback. OpenAI failure must not discard an otherwise
+   valid numeric result. **Complete and merged into the Block 31 parent:** the
+   Application-owned minimized context, strict evidence/scenario/
+   limitation validation, numeric and seller-motivation guardrails,
+   deterministic fallback, and the single-call Responses API adapter use fixed
+   configuration, zero retries, no tools, bounded errors, and privacy-safe
+   telemetry. No credential was read and no real model request was made.
+6. `31.6` Add the authenticated, administrator-only
+   `POST /api/price-estimations` composition, request/response DTOs, origin and
+   body-size enforcement, per-user throttling, in-flight duplicate suppression,
+   timeouts, safe error mapping, no-store responses, and redacted telemetry. No
+   database migration or result persistence is planned for the MVP. **Complete
+   and merged into the Block 31 parent:** the exact 2 KiB DTO boundary,
+   protected route,
+   request-scoped provider composition, independent provider and 75-second total
+   deadlines, per-user/IP throttles, hashed in-flight deduplication, stable
+   errors, public property IDs, and redacted telemetry are implemented without
+   a real provider request, persistence, AWS mutation, UI, or deployment.
+7. `31.7` Add the fourth authenticated `Price Estimation` tab, accessible input
+   form, explicit `Set Offer Price` and `Set Listing Price` actions, complete
+   loading/error/retry states, property summary, recommendation/range,
+   confidence and limitations, comparable-sales table, reasons, and strategy
+   scenarios. Complete unit, API, integration, Playwright, responsive,
+   accessibility, security, cost, and production-build acceptance before
+   owner-controlled promotion. **Source implementation complete on
+   `feat/block-31-7-price-estimation-ui`; owner verification pending:** the
+   fourth protected workspace, shared-Domain input validation, strict browser
+   DTO guard, two explicit price actions, bounded loading/error/retry and AI
+   fallback states, stale/late-result controls, complete evidence presentation,
+   semantic comparable table, focus management, and existing-style responsive
+   layout are implemented without provider calls, persistence, ArcGIS additions,
+   infrastructure mutation, or deployment.
+
+Every executable sub-block requires a fresh explanation, expected files, test
+plan, and explicit confirmation. A real RentCast/OpenAI request, dependency
+change, migration, AWS mutation, deployment, or production release is never
+implied by this plan. Provider billing state and the application-side request
+budget must be reviewed before any credentialed audit or environment rollout.
+
+Blocks `31.2` through `31.7` are implemented on independent child branches
+created from `feat/block-31-offerlist-price-decision-assistant`. After each
+sub-block, the repository owner runs full `pnpm test` and applicable local
+manual acceptance, commits the reviewed change, and manually merges the child
+back into the Block 31 parent. After all Block 31 sub-blocks are accepted, the
+owner merges the parent into `dev`. Each implementation handoff supplies a
+suggested commit message and the next child-branch name. Block 31.7 must extend
+the existing authenticated UI system and responsive patterns without an
+unrelated visual redesign.
+
+See the
+[Block 31.1 Implementation Plan](price-decision/block-31-1-implementation-plan.md),
+[Block 31.3 RentCast Evidence Adapter](price-decision/block-31-3-rentcast-evidence-adapter.md),
+[Block 31.4 Deterministic Pricing Engine](price-decision/block-31-4-deterministic-pricing-engine.md),
+[Block 31.5 OpenAI Price Decision Explainer](price-decision/block-31-5-openai-explanation-adapter.md),
+[Block 31.6 Protected Price Estimation API](price-decision/block-31-6-protected-price-estimation-api.md),
+[Block 31.7 Price Estimation UI](price-decision/block-31-7-price-estimation-ui.md),
+[Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
+and
+[Price Decision Valuation Methodology](price-decision/valuation-methodology.md).

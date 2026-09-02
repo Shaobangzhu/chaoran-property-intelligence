@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Building2,
+  Calculator,
   ClipboardList,
   ListFilter,
   LoaderCircle,
@@ -56,6 +57,11 @@ import {
   updateListingSearchCriteria,
 } from "./listingSearchCriteriaApi.js";
 import {
+  PriceEstimationScreen,
+  type PriceEstimator,
+} from "./PriceEstimationScreen.js";
+import { estimatePropertyPrice } from "./priceEstimationApi.js";
+import {
   InvalidCredentialsError,
   LoginRateLimitedError,
   type AuthenticatedUser,
@@ -83,6 +89,8 @@ const defaultLoadListingSearchCriteria: ListingSearchCriteriaLoader = (signal) =
   fetchListingSearchCriteria({ signal });
 const defaultSaveListingSearchCriteria: ListingSearchCriteriaSaver = (input) =>
   updateListingSearchCriteria(input);
+const defaultEstimatePrice: PriceEstimator = (input, signal) =>
+  estimatePropertyPrice(input, { signal });
 
 type AppState =
   | { status: "checking" }
@@ -94,6 +102,7 @@ interface AppProps {
   archiveListing?: ManualListingArchiver;
   createListing?: ManualListingCreator;
   downloadShowingList?: CurrentShowingListDownloader;
+  estimatePrice?: PriceEstimator;
   loadCurrentShowingList?: CurrentShowingListLoader;
   loadSearchCriteria?: ListingSearchCriteriaLoader;
   markShowingListReviewed?: CurrentShowingListReviewer;
@@ -109,6 +118,7 @@ export function App({
   archiveListing = defaultArchiveListing,
   createListing = defaultCreateListing,
   downloadShowingList = defaultDownloadCurrentShowingList,
+  estimatePrice = defaultEstimatePrice,
   loadCurrentShowingList = defaultLoadCurrentShowingList,
   loadSearchCriteria = defaultLoadListingSearchCriteria,
   markShowingListReviewed = defaultReviewCurrentShowingList,
@@ -123,7 +133,7 @@ export function App({
   const [sessionRequest, setSessionRequest] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<
-    "listings" | "search-criteria" | "showing-list"
+    "listings" | "price-estimation" | "search-criteria" | "showing-list"
   >("listings");
 
   useEffect(() => {
@@ -291,6 +301,20 @@ export function App({
       [saveSearchCriteria],
     );
 
+  const protectedPriceEstimator = useCallback<PriceEstimator>(
+    async (input, signal) => {
+      try {
+        return await estimatePrice(input, signal);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [estimatePrice],
+  );
+
   const handleLogout = async (): Promise<void> => {
     if (state.status !== "authenticated" || isSigningOut) {
       return;
@@ -351,9 +375,10 @@ export function App({
       {state.status === "signed-out" ? (
         <LoginForm
           sessionClient={sessionClient}
-          onAuthenticated={(user) =>
-            setState({ logoutError: false, status: "authenticated", user })
-          }
+          onAuthenticated={(user) => {
+            setActiveWorkspace("listings");
+            setState({ logoutError: false, status: "authenticated", user });
+          }}
         />
       ) : null}
       {state.status === "authenticated" ? (
@@ -393,6 +418,16 @@ export function App({
               <ListFilter aria-hidden="true" size={17} />
               Search Criteria
             </button>
+            <button
+              type="button"
+              aria-current={
+                activeWorkspace === "price-estimation" ? "page" : undefined
+              }
+              onClick={() => setActiveWorkspace("price-estimation")}
+            >
+              <Calculator aria-hidden="true" size={17} />
+              Price Estimation
+            </button>
           </nav>
           {activeWorkspace === "listings" ? (
             <ListingsScreen
@@ -417,6 +452,9 @@ export function App({
               loadCriteria={protectedSearchCriteriaLoader}
               saveCriteria={protectedSearchCriteriaSaver}
             />
+          ) : null}
+          {activeWorkspace === "price-estimation" ? (
+            <PriceEstimationScreen estimatePrice={protectedPriceEstimator} />
           ) : null}
         </>
       ) : null}

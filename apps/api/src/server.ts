@@ -37,6 +37,7 @@ import type { Server } from "node:http";
 import { loadApiConfig } from "./apiConfig.js";
 import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
+import { PriceEstimationWorkflow } from "./priceEstimationWorkflow.js";
 
 class UnconfiguredShowingListArtifactReader
   implements ShowingListArtifactReaderPort
@@ -131,6 +132,13 @@ async function startApi(): Promise<void> {
       repository: userRepository,
       tokenService,
     });
+    const priceEstimation =
+      config.priceEstimation === null
+        ? null
+        : new PriceEstimationWorkflow({
+            config: config.priceEstimation,
+            fetch: globalThis.fetch,
+          });
     const app = createApp({
       archiveManualListing,
       createManualListing,
@@ -156,6 +164,7 @@ async function startApi(): Promise<void> {
         },
       },
       markCurrentShowingListDraftReviewed,
+      priceEstimation,
       ...(config.releaseIdentity === null
         ? {}
         : { releaseIdentity: config.releaseIdentity }),

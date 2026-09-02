@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 
 import {
   AuthenticationRequiredError,
+  ContradictoryPriceDecisionEvidenceError,
   CurrentShowingListDraftChangedError,
   CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
@@ -12,9 +13,12 @@ import {
   InvalidListingSearchCriteriaInputError,
   InvalidListingSearchCriteriaResultError,
   InvalidManualListingError,
+  InsufficientPriceDecisionEvidenceError,
   ListingSearchCriteriaChangedError,
   ListingSearchProfileUnavailableError,
   ManualListingNotFoundError,
+  PriceDecisionEvidenceUnavailableError,
+  PriceDecisionSubjectNotFoundError,
   type AuthenticatedUser,
   type ListingRecord,
   type ListingSearchCriteriaResult,
@@ -27,7 +31,7 @@ import {
   type UpdateManualListingInput,
   type UpdateListingSearchCriteriaInput,
 } from "@chaoran-property-intelligence/application";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createApp,
@@ -46,6 +50,12 @@ import {
   type UpdateManualListingUseCase,
   type UpdateListingSearchCriteriaUseCase,
 } from "./createApp.js";
+import type { ApiLogContext } from "./apiLogger.js";
+import type {
+  PriceEstimationExecution,
+  PriceEstimationExecutionOptions,
+  PriceEstimationUseCase,
+} from "./priceEstimationWorkflow.js";
 
 const localOrigin = "http://127.0.0.1:5173";
 const productionOrigin = "https://app.example.com";
@@ -101,6 +111,331 @@ describe("createApp", () => {
     });
     expect(listListings.calls).toBe(0);
     expect(getCurrentUser.tokens).toEqual([]);
+  });
+
+  it("returns a bounded authenticated Price Estimation response and safe telemetry", async () => {
+    const priceEstimation = new FakePriceEstimation();
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({ logger, priceEstimation }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(priceEstimation.inputs).toEqual([
+      {
+        address: {
+          streetAddress: "100 Test Ave",
+          city: "Irvine",
+          zipCode: "92618",
+        },
+        mode: "offer",
+      },
+    ]);
+    await expect(response.json()).resolves.toMatchObject({
+      analysisId: requestId,
+      mode: "offer",
+      subject: {
+        propertyId: expect.stringMatching(/^cpi-property-[a-f0-9]{24}$/),
+      },
+      recommendation: { recommendedPrice: 1_000_000 },
+      strategy: { source: "openai" },
+    });
+    expect(logger.infos).toContainEqual({
+      event: "api.price_estimation.completed",
+      context: {
+        requestId,
+        mode: "offer",
+        zipCode: "92618",
+        durationMs: 0,
+        comparableCount: 3,
+        confidence: "medium",
+        outcome: "success",
+        rentCastRequestCount: 4,
+        openAIRequestCount: 1,
+      },
+    });
+    expect(JSON.stringify(logger.infos)).not.toContain("100 Test Ave");
+    expect(JSON.stringify(logger.infos)).not.toContain("subject-property");
+  });
+
+  it("returns a valid result when only narrative enhancement is unavailable", async () => {
+    const logger = new RecordingLogger();
+    const priceEstimation = new FakePriceEstimation(
+      undefined,
+      undefined,
+      createFallbackPriceEstimationExecution(),
+    );
+    const response = await request(
+      createTestApp({ logger, priceEstimation }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      recommendation: { recommendedPrice: 1_000_000 },
+      strategy: {
+        source: "deterministic-fallback",
+        enhancementUnavailable: true,
+      },
+      limitations: expect.arrayContaining([
+        expect.objectContaining({
+          code: "narrative-enhancement-unavailable",
+        }),
+      ]),
+    });
+    expect(logger.infos).toContainEqual({
+      event: "api.price_estimation.completed",
+      context: expect.objectContaining({
+        outcome: "deterministic-fallback",
+        rentCastRequestCount: 4,
+        openAIRequestCount: 1,
+      }),
+    });
+  });
+
+  it("authenticates, authorizes, and verifies Origin before Price Estimation parsing", async () => {
+    const priceEstimation = new FakePriceEstimation();
+    const unauthenticated = await request(
+      createTestApp({ priceEstimation }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: jsonHeaders(localOrigin),
+        body: "{",
+      },
+    );
+    expect(unauthenticated.status).toBe(401);
+
+    const viewer = {
+      ...authenticatedUser,
+      role: "viewer",
+    } as unknown as AuthenticatedUser;
+    const unauthorized = await request(
+      createTestApp({
+        getCurrentUser: new FakeGetCurrentUser(undefined, viewer),
+        priceEstimation,
+      }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: "{",
+      },
+    );
+    expect(unauthorized.status).toBe(403);
+
+    const wrongOrigin = await request(
+      createTestApp({ priceEstimation }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: {
+          ...manualListingHeaders(),
+          origin: "https://wrong.example.com",
+        },
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+    expect(wrongOrigin.status).toBe(403);
+    expect(priceEstimation.inputs).toEqual([]);
+  });
+
+  it("rejects malformed, expanded, and oversized Price Estimation bodies", async () => {
+    const priceEstimation = new FakePriceEstimation();
+    for (const body of [
+      "{",
+      JSON.stringify({ ...createPriceEstimationRequest(), state: "CA" }),
+      JSON.stringify({
+        ...createPriceEstimationRequest(),
+        padding: "x".repeat(3_000),
+      }),
+    ]) {
+      const response = await request(
+        createTestApp({ priceEstimation }),
+        "/api/price-estimations",
+        { method: "POST", headers: manualListingHeaders(), body },
+      );
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: "INVALID_PRICE_ESTIMATION_REQUEST" },
+      });
+    }
+    expect(priceEstimation.inputs).toEqual([]);
+  });
+
+  it.each([
+    [new PriceDecisionSubjectNotFoundError(), 404, "PROPERTY_NOT_FOUND"],
+    [
+      new InsufficientPriceDecisionEvidenceError(),
+      422,
+      "INSUFFICIENT_VALUATION_EVIDENCE",
+    ],
+    [
+      new ContradictoryPriceDecisionEvidenceError(),
+      422,
+      "INSUFFICIENT_VALUATION_EVIDENCE",
+    ],
+    [
+      new PriceDecisionEvidenceUnavailableError(),
+      502,
+      "PRICE_EVIDENCE_UNAVAILABLE",
+    ],
+  ])("maps a bounded Price Estimation failure", async (failure, status, code) => {
+    const logger = new RecordingLogger();
+    const response = await request(
+      createTestApp({
+        logger,
+        priceEstimation: new FakePriceEstimation(failure),
+      }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+
+    expect(response.status).toBe(status);
+    await expect(response.json()).resolves.toMatchObject({ error: { code } });
+    expect(JSON.stringify(logger.infos)).not.toContain(failure.message);
+  });
+
+  it("rate limits Price Estimation before another provider sequence", async () => {
+    const priceEstimation = new FakePriceEstimation();
+    const app = createTestApp({
+      priceEstimation,
+      priceEstimationRequestControl: {
+        perUserLimit: 1,
+        perIpLimit: 2,
+        rateLimitWindowMs: 60_000,
+        totalRequestTimeoutMs: 1_000,
+      },
+    });
+    const options = {
+      method: "POST",
+      headers: manualListingHeaders(),
+      body: JSON.stringify(createPriceEstimationRequest()),
+    };
+
+    expect((await request(app, "/api/price-estimations", options)).status).toBe(
+      200,
+    );
+    const limited = await request(app, "/api/price-estimations", options);
+    expect(limited.status).toBe(429);
+    await expect(limited.json()).resolves.toMatchObject({
+      error: { code: "PRICE_ESTIMATION_RATE_LIMITED" },
+    });
+    expect(priceEstimation.inputs).toHaveLength(1);
+  });
+
+  it("shares identical in-flight Price Estimation submissions", async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const priceEstimation = new FakePriceEstimation(undefined, gate);
+    const app = createTestApp({ priceEstimation });
+    const options = {
+      method: "POST",
+      headers: manualListingHeaders(),
+      body: JSON.stringify(createPriceEstimationRequest()),
+    };
+
+    const first = request(app, "/api/price-estimations", options);
+    await vi.waitFor(() => expect(priceEstimation.inputs).toHaveLength(1));
+    const duplicate = request(app, "/api/price-estimations", options);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(priceEstimation.inputs).toHaveLength(1);
+    release?.();
+
+    expect((await first).status).toBe(200);
+    expect((await duplicate).status).toBe(200);
+    expect(priceEstimation.inputs).toHaveLength(1);
+  });
+
+  it("rejects a different in-flight estimation and enforces the total deadline", async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const activeUseCase = new FakePriceEstimation(undefined, gate);
+    const activeApp = createTestApp({ priceEstimation: activeUseCase });
+    const first = request(activeApp, "/api/price-estimations", {
+      method: "POST",
+      headers: manualListingHeaders(),
+      body: JSON.stringify(createPriceEstimationRequest()),
+    });
+    await vi.waitFor(() => expect(activeUseCase.inputs).toHaveLength(1));
+    const conflict = await request(activeApp, "/api/price-estimations", {
+      method: "POST",
+      headers: manualListingHeaders(),
+      body: JSON.stringify({
+        ...createPriceEstimationRequest(),
+        mode: "listing",
+      }),
+    });
+    expect(conflict.status).toBe(409);
+    await expect(conflict.json()).resolves.toMatchObject({
+      error: { code: "PRICE_ESTIMATION_IN_PROGRESS" },
+    });
+    release?.();
+    expect((await first).status).toBe(200);
+
+    const timeoutUseCase = new FakePriceEstimation(
+      undefined,
+      new Promise(() => undefined),
+    );
+    const timeout = await request(
+      createTestApp({
+        priceEstimation: timeoutUseCase,
+        priceEstimationRequestControl: {
+          perUserLimit: 2,
+          perIpLimit: 2,
+          rateLimitWindowMs: 60_000,
+          totalRequestTimeoutMs: 5,
+        },
+      }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+    expect(timeout.status).toBe(504);
+    await expect(timeout.json()).resolves.toMatchObject({
+      error: { code: "PRICE_ESTIMATION_TIMED_OUT" },
+    });
+    expect(timeoutUseCase.signals[0]?.aborted).toBe(true);
+  });
+
+  it("returns a bounded unavailable response when provider composition is disabled", async () => {
+    const response = await request(
+      createTestApp({ priceEstimation: null }),
+      "/api/price-estimations",
+      {
+        method: "POST",
+        headers: manualListingHeaders(),
+        body: JSON.stringify(createPriceEstimationRequest()),
+      },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "PRICE_ESTIMATION_UNAVAILABLE" },
+    });
   });
 
   it("keeps deployed release identity behind CloudFront origin verification", async () => {
@@ -1758,6 +2093,30 @@ class FakeGetCurrentShowingListArtifact
   }
 }
 
+class FakePriceEstimation implements PriceEstimationUseCase {
+  readonly inputs: Parameters<PriceEstimationUseCase["execute"]>[0][] = [];
+  readonly signals: Array<AbortSignal | undefined> = [];
+
+  constructor(
+    private readonly failure?: Error,
+    private readonly gate?: Promise<void>,
+    private readonly execution: PriceEstimationExecution =
+      createPriceEstimationExecution(),
+  ) {}
+
+  async execute(
+    input: Parameters<PriceEstimationUseCase["execute"]>[0],
+    options: PriceEstimationExecutionOptions = {},
+  ): Promise<PriceEstimationExecution> {
+    this.inputs.push(input);
+    this.signals.push(options.signal);
+    options.onProviderRequest?.("rentcast");
+    if (this.gate !== undefined) await this.gate;
+    if (this.failure !== undefined) throw this.failure;
+    return this.execution;
+  }
+}
+
 class FailingListListings implements ListListingsUseCase {
   async execute(): Promise<ListingRecord[]> {
     throw new Error("postgresql://user:password@private-host/database");
@@ -1768,18 +2127,18 @@ class RecordingLogger implements ApiLogger {
   readonly errors: RecordedLog[] = [];
   readonly infos: RecordedLog[] = [];
 
-  error(event: string, context?: { requestId: string }): void {
+  error(event: string, context?: ApiLogContext): void {
     this.errors.push({ context, event });
   }
 
-  info(event: string, context?: { requestId: string }): void {
+  info(event: string, context?: ApiLogContext): void {
     this.infos.push({ context, event });
   }
 }
 
 interface RecordedLog {
   event: string;
-  context: { requestId: string } | undefined;
+  context: ApiLogContext | undefined;
 }
 
 const authenticatedUser: AuthenticatedUser = {
@@ -1818,6 +2177,7 @@ function createTestApp(
     httpSecurity: localHttpSecurity,
     logger: new RecordingLogger(),
     now: () => now,
+    priceEstimation: new FakePriceEstimation(),
     requestIdFactory: () => requestId,
     markCurrentShowingListDraftReviewed:
       new FakeMarkCurrentShowingListDraftReviewed(),
@@ -1826,6 +2186,176 @@ function createTestApp(
     updateManualListing: new FakeUpdateManualListing(),
     ...overrides,
   });
+}
+
+function createPriceEstimationRequest() {
+  return {
+    streetAddress: "100 Test Ave",
+    city: "Irvine",
+    zipCode: "92618",
+    mode: "offer",
+  } as const;
+}
+
+function createPriceEstimationExecution(): PriceEstimationExecution {
+  const comparables = [1, 2, 3].map((number) => ({
+    evidenceId: `sale-comp-${number}`,
+    source: "recorded-sale" as const,
+    propertyId: `comp-property-${number}`,
+    formattedAddress: `${200 + number} Fixture Rd, Irvine, CA 92618`,
+    salePrice: 1_000_000,
+    saleDate: "2026-06-15",
+    distanceMiles: number * 0.1,
+    propertyType: "Single Family" as const,
+    bedrooms: 4,
+    bathrooms: 3,
+    squareFootage: 2_000,
+    lotSize: 5_000,
+    yearBuilt: 2000,
+    latitude: 33.65,
+    longitude: -117.74,
+  }));
+  return {
+    prepared: {
+      address: {
+        streetAddress: "100 Test Ave",
+        city: "Irvine",
+        state: "CA",
+        zipCode: "92618",
+      },
+      evidence: {
+        acquiredAt: now.toISOString(),
+        subject: {
+          propertyId: "subject-property",
+          formattedAddress: "100 Test Ave, Irvine, CA 92618",
+          city: "Irvine",
+          state: "CA",
+          zipCode: "92618",
+          propertyType: "Single Family",
+          bedrooms: 4,
+          bathrooms: 3,
+          squareFootage: 2_000,
+          lotSize: 5_000,
+          yearBuilt: 2000,
+          latitude: 33.65,
+          longitude: -117.74,
+        },
+        recordedSales: comparables,
+        targetListing: null,
+        marketContext: null,
+        externalValueEstimate: null,
+      },
+      result: {
+        methodologyVersion: "cpi-price-decision-v1",
+        mode: "offer",
+        subjectPropertyId: "subject-property",
+        currency: "USD",
+        evaluatedAt: now.toISOString(),
+        marketValueAnchor: 1_000_000,
+        recommendedPrice: 1_000_000,
+        rangeLow: 950_000,
+        rangeHigh: 1_050_000,
+        confidence: "medium",
+        flexibilitySignal: "unknown",
+        scenarios: [
+          {
+            kind: "conservative",
+            price: 980_000,
+            label: "Conservative",
+            tradeoff: "Lower position with more rejection risk.",
+          },
+          {
+            kind: "recommended",
+            price: 1_000_000,
+            label: "Recommended",
+            tradeoff: "Balances evidence and acceptance probability.",
+          },
+          {
+            kind: "competitive",
+            price: 1_010_000,
+            label: "Competitive",
+            tradeoff: "Higher position with less rejection risk.",
+          },
+        ],
+        scoredComparables: comparables.map(({ evidenceId }) => ({
+          evidenceId,
+          similarityScore: 0.9,
+        })),
+        factors: [
+          {
+            factorId: "recorded-sales-anchor",
+            rank: 1,
+            title: "Recorded sales",
+            detail: "Recorded sales support the recommendation.",
+            direction: "neutral",
+            impact: "high",
+            evidenceIds: comparables.map(({ evidenceId }) => evidenceId),
+          },
+        ],
+        limitations: [
+          {
+            code: "condition-unknown",
+            message: "Interior condition is not modeled.",
+          },
+        ],
+      },
+    },
+    explanation: {
+      source: "openai",
+      enhancementUnavailable: false,
+      summary: "Recorded sales support the recommendation.",
+      reasons: [
+        {
+          title: "Recorded sales",
+          detail: "Recorded sales support the recommendation.",
+          evidenceIds: comparables.map(({ evidenceId }) => evidenceId),
+        },
+      ],
+      strategy: {
+        summary: "Choose the evidence-backed position.",
+        steps: [
+          {
+            scenarioKind: "conservative",
+            guidance: "Use the lower supported position.",
+          },
+          {
+            scenarioKind: "recommended",
+            guidance: "Use the central supported position.",
+          },
+          {
+            scenarioKind: "competitive",
+            guidance: "Use the upper supported position.",
+          },
+        ],
+      },
+      limitations: [
+        {
+          code: "condition-unknown",
+          message: "Interior condition is not modeled.",
+        },
+      ],
+    },
+    providerRequestCounts: { rentcast: 4, openai: 1 },
+  };
+}
+
+function createFallbackPriceEstimationExecution(): PriceEstimationExecution {
+  const execution = createPriceEstimationExecution();
+  return {
+    ...execution,
+    explanation: {
+      ...execution.explanation,
+      source: "deterministic-fallback",
+      enhancementUnavailable: true,
+      limitations: [
+        ...execution.explanation.limitations,
+        {
+          code: "narrative-enhancement-unavailable",
+          message: "Deterministic wording is shown.",
+        },
+      ],
+    },
+  };
 }
 
 function jsonHeaders(origin: string): Record<string, string> {

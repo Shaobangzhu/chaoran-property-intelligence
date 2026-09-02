@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -118,6 +118,42 @@ describe("App authentication boundary", () => {
       await screen.findByRole("heading", { name: "Search Criteria" }),
     ).toBeInTheDocument();
     expect(loadSearchCriteria).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to Price Estimation without starting a provider request", async () => {
+    const user = userEvent.setup();
+    const estimatePrice = vi.fn();
+    render(
+      <App
+        estimatePrice={estimatePrice}
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    expect(
+      within(screen.getByRole("navigation", { name: "Workspace" }))
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual([
+      "Listings",
+      "Showing List",
+      "Search Criteria",
+      "Price Estimation",
+    ]);
+    const tab = screen.getByRole("button", { name: "Price Estimation" });
+    await user.click(tab);
+
+    expect(
+      screen.getByRole("heading", { name: "Price Estimation" }),
+    ).toBeInTheDocument();
+    expect(tab).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("button", { name: "Set Offer Price" }),
+    ).toBeInTheDocument();
+    expect(estimatePrice).not.toHaveBeenCalled();
   });
 
   it("recovers when the initial session check fails", async () => {
@@ -366,6 +402,34 @@ describe("App authentication boundary", () => {
     await screen.findByRole("heading", { name: "Search Criteria" });
     await user.selectOptions(screen.getByLabelText("Property type"), "Condo");
     await user.click(screen.getByRole("button", { name: "Save criteria" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to login when a Price Estimation session expires", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        estimatePrice={async () => {
+          throw new SessionAuthenticationRequiredError();
+        }}
+        loadListings={async () => []}
+        mapView={PassiveMap}
+        sessionClient={sessionClient()}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "No stored listings" });
+    await user.click(screen.getByRole("button", { name: "Price Estimation" }));
+    await user.type(
+      screen.getByLabelText("Street number and name"),
+      "100 Test Ave",
+    );
+    await user.type(screen.getByLabelText("City"), "Irvine");
+    await user.type(screen.getByLabelText("ZIP code"), "92618");
+    await user.click(screen.getByRole("button", { name: "Set Offer Price" }));
 
     expect(
       await screen.findByRole("heading", { name: "Sign in" }),
