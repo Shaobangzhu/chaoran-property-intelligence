@@ -2,12 +2,12 @@
 
 ## Status
 
-Blocks 31.1 through 31.5 are complete and merged into the Block 31 parent. The
-protected, stateless Block 31.6 Price Estimation API source is ready for owner
+Blocks 31.1 through 31.6 are complete and merged into the Block 31 parent. The
+authenticated Block 31.7 Price Estimation workspace source is ready for owner
 verification. The separately authorized RentCast provider contract audit
 remains pending. No RentCast or OpenAI credential was read, no real
-provider/model request was made, and no database migration, AWS resource,
-browser UI, or deployment was added or changed.
+provider/model request was made, and no database migration, AWS resource, real
+provider-backed browser acceptance, or deployment was performed.
 
 ## Product Goal
 
@@ -67,6 +67,9 @@ legal opinion, or guarantee of sale price.
 - [Block 31.6 Protected Price Estimation API](block-31-6-protected-price-estimation-api.md):
   authenticated composition, DTO boundary, deadlines, request budgets,
   duplicate suppression, safe errors, and redacted telemetry.
+- [Block 31.7 Price Estimation UI](block-31-7-price-estimation-ui.md): strict
+  browser client, fourth workspace, complete result/failure states,
+  accessibility, responsive evidence presentation, and late-result isolation.
 - [Product and API Contract](product-and-api-contract.md): user flow, endpoint,
   DTO shape, states, errors, accessibility, and product language.
 - [Valuation Methodology](valuation-methodology.md): evidence hierarchy,

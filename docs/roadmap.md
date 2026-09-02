@@ -2140,9 +2140,9 @@ Planned sub-block mapping:
    `POST /api/price-estimations` composition, request/response DTOs, origin and
    body-size enforcement, per-user throttling, in-flight duplicate suppression,
    timeouts, safe error mapping, no-store responses, and redacted telemetry. No
-   database migration or result persistence is planned for the MVP. **Source
-   implementation complete on `feat/block-31-6-price-estimation-api`; owner
-   verification pending:** the exact 2 KiB DTO boundary, protected route,
+   database migration or result persistence is planned for the MVP. **Complete
+   and merged into the Block 31 parent:** the exact 2 KiB DTO boundary,
+   protected route,
    request-scoped provider composition, independent provider and 75-second total
    deadlines, per-user/IP throttles, hashed in-flight deduplication, stable
    errors, public property IDs, and redacted telemetry are implemented without
@@ -2153,7 +2153,14 @@ Planned sub-block mapping:
    confidence and limitations, comparable-sales table, reasons, and strategy
    scenarios. Complete unit, API, integration, Playwright, responsive,
    accessibility, security, cost, and production-build acceptance before
-   owner-controlled promotion.
+   owner-controlled promotion. **Source implementation complete on
+   `feat/block-31-7-price-estimation-ui`; owner verification pending:** the
+   fourth protected workspace, shared-Domain input validation, strict browser
+   DTO guard, two explicit price actions, bounded loading/error/retry and AI
+   fallback states, stale/late-result controls, complete evidence presentation,
+   semantic comparable table, focus management, and existing-style responsive
+   layout are implemented without provider calls, persistence, ArcGIS additions,
+   infrastructure mutation, or deployment.
 
 Every executable sub-block requires a fresh explanation, expected files, test
 plan, and explicit confirmation. A real RentCast/OpenAI request, dependency
@@ -2177,6 +2184,7 @@ See the
 [Block 31.4 Deterministic Pricing Engine](price-decision/block-31-4-deterministic-pricing-engine.md),
 [Block 31.5 OpenAI Price Decision Explainer](price-decision/block-31-5-openai-explanation-adapter.md),
 [Block 31.6 Protected Price Estimation API](price-decision/block-31-6-protected-price-estimation-api.md),
+[Block 31.7 Price Estimation UI](price-decision/block-31-7-price-estimation-ui.md),
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
