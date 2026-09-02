@@ -2,9 +2,11 @@
 
 ## Status
 
-Block 31.1 is complete in documentation only. No Price Estimation runtime code,
-dependency, database migration, credential, provider request, AWS resource, or
-deployment was added or changed.
+Blocks 31.1 and 31.2 are complete. The fixture-backed Block 31.3 RentCast
+evidence implementation is ready for owner verification; its separately
+authorized four-request provider contract audit remains pending. No RentCast
+credential was read, no real provider request was made, and no database
+migration, AWS resource, or deployment was added or changed.
 
 ## Product Goal
 
@@ -51,6 +53,9 @@ legal opinion, or guarantee of sale price.
 
 - [Block 31.1 Implementation Plan](block-31-1-implementation-plan.md): delivery
   sequence, package ownership, expected files, gates, tests, and rollout.
+- [Block 31.3 RentCast Evidence Adapter](block-31-3-rentcast-evidence-adapter.md):
+  endpoint composition, call budget, source semantics, privacy controls, error
+  mapping, verification, and the pending live-audit gate.
 - [Product and API Contract](product-and-api-contract.md): user flow, endpoint,
   DTO shape, states, errors, accessibility, and product language.
 - [Valuation Methodology](valuation-methodology.md): evidence hierarchy,
@@ -110,4 +115,3 @@ requires the Block 31.3 contract audit.
 - [RentCast Billing and Pricing](https://developers.rentcast.io/reference/billing-and-pricing)
 - [RentCast Rate Limits](https://developers.rentcast.io/reference/rate-limits)
 - [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart/make-your-first-api-request)
-
