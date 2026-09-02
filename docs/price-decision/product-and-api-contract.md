@@ -220,22 +220,37 @@ Response rules:
 - raw provider response, provider key, model prompt, chain of thought, owner
   details, and internal error text are never returned
 
+Block 31.6 finalizes these DTO conventions:
+
+- `analysisId` is the opaque server request ID;
+- subject and comparable `propertyId` values are CPI SHA-256-derived public IDs,
+  not raw RentCast identifiers;
+- absent AVM, market, and listing-signal sections are explicit `null`;
+- `strategy.steps` contains `{ scenarioKind, guidance }` objects so text remains
+  bound to deterministic scenarios;
+- `strategy` also discloses `enhancementUnavailable`;
+- limitations contain stable `{ code, message }` objects; and
+- the response includes `methodologyVersion` while provider-call accounting
+  remains telemetry-only.
+
 ## Error Contract
 
-All errors use the repository's bounded JSON pattern with the response request
-ID. Proposed status mapping:
+All errors use the repository's bounded JSON pattern. The request ID remains in
+the response header. Final Block 31.6 status mapping:
 
 | Status | Code | Meaning |
 | --- | --- | --- |
-| 400 | `invalid_price_estimation_request` | Input failed exact validation |
-| 401 | `authentication_required` | Session missing, invalid, or expired |
-| 403 | `administrator_required` | Authenticated user lacks required role |
-| 404 | `property_not_found` | Subject address could not be resolved |
-| 422 | `insufficient_valuation_evidence` | Subject exists but evidence cannot support a price |
-| 429 | `price_estimation_rate_limited` | Application throttle rejected the request before provider work |
-| 502 | `price_evidence_unavailable` | Required provider evidence failed or was invalid |
-| 504 | `price_estimation_timed_out` | Bounded total request deadline expired |
-| 500 | `internal_error` | Unexpected safe generic failure |
+| 400 | `INVALID_PRICE_ESTIMATION_REQUEST` | Input failed exact validation |
+| 401 | `AUTHENTICATION_REQUIRED` | Session missing, invalid, or expired |
+| 403 | `ADMIN_AUTHORIZATION_REQUIRED` | Authenticated user lacks required role |
+| 404 | `PROPERTY_NOT_FOUND` | Subject address could not be resolved |
+| 409 | `PRICE_ESTIMATION_IN_PROGRESS` | A different estimation for this user is active |
+| 422 | `INSUFFICIENT_VALUATION_EVIDENCE` | Subject exists but evidence cannot support a price |
+| 429 | `PRICE_ESTIMATION_RATE_LIMITED` | Application throttle rejected the request before provider work |
+| 502 | `PRICE_EVIDENCE_UNAVAILABLE` | Required provider evidence failed or was invalid |
+| 503 | `PRICE_ESTIMATION_UNAVAILABLE` | Required server composition is disabled |
+| 504 | `PRICE_ESTIMATION_TIMED_OUT` | Bounded total request deadline expired |
+| 500 | `INTERNAL_SERVER_ERROR` | Unexpected safe generic failure |
 
 OpenAI-only failure is not an endpoint error. A valid deterministic result is
 returned with `strategy.source = "deterministic-fallback"` and a limitation
@@ -293,4 +308,3 @@ validation.
 The comparable table must remain usable on narrow screens through a deliberate
 responsive table/card pattern; fields may not disappear solely to fit the
 viewport.
-

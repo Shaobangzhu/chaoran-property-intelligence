@@ -2130,9 +2130,8 @@ Planned sub-block mapping:
 5. `31.5` Add the optional OpenAI explanation adapter with strict structured
    output, `store: false`, evidence identifiers, numerical guardrails, and a
    deterministic non-AI fallback. OpenAI failure must not discard an otherwise
-   valid numeric result. **Source implementation complete on
-   `feat/block-31-5-openai-price-decision-explainer`; owner verification
-   pending:** the Application-owned minimized context, strict evidence/scenario/
+   valid numeric result. **Complete and merged into the Block 31 parent:** the
+   Application-owned minimized context, strict evidence/scenario/
    limitation validation, numeric and seller-motivation guardrails,
    deterministic fallback, and the single-call Responses API adapter use fixed
    configuration, zero retries, no tools, bounded errors, and privacy-safe
@@ -2141,7 +2140,13 @@ Planned sub-block mapping:
    `POST /api/price-estimations` composition, request/response DTOs, origin and
    body-size enforcement, per-user throttling, in-flight duplicate suppression,
    timeouts, safe error mapping, no-store responses, and redacted telemetry. No
-   database migration or result persistence is planned for the MVP.
+   database migration or result persistence is planned for the MVP. **Source
+   implementation complete on `feat/block-31-6-price-estimation-api`; owner
+   verification pending:** the exact 2 KiB DTO boundary, protected route,
+   request-scoped provider composition, independent provider and 75-second total
+   deadlines, per-user/IP throttles, hashed in-flight deduplication, stable
+   errors, public property IDs, and redacted telemetry are implemented without
+   a real provider request, persistence, AWS mutation, UI, or deployment.
 7. `31.7` Add the fourth authenticated `Price Estimation` tab, accessible input
    form, explicit `Set Offer Price` and `Set Listing Price` actions, complete
    loading/error/retry states, property summary, recommendation/range,
@@ -2171,6 +2176,7 @@ See the
 [Block 31.3 RentCast Evidence Adapter](price-decision/block-31-3-rentcast-evidence-adapter.md),
 [Block 31.4 Deterministic Pricing Engine](price-decision/block-31-4-deterministic-pricing-engine.md),
 [Block 31.5 OpenAI Price Decision Explainer](price-decision/block-31-5-openai-explanation-adapter.md),
+[Block 31.6 Protected Price Estimation API](price-decision/block-31-6-protected-price-estimation-api.md),
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
