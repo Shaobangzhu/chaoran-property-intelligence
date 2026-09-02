@@ -83,6 +83,29 @@ describe("production deployment workflow", () => {
     expect(workflow).not.toContain("cdk deploy --all");
   });
 
+  it("keeps production Price Estimation egress behind explicit stage budget approval", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain(
+      "vars.CPI_PRODUCTION_PRICE_ESTIMATION_RUNTIME_ENABLED || 'false'",
+    );
+    expect(workflow).toContain(
+      "vars.CPI_PRODUCTION_PRICE_ESTIMATION_OPENAI_ENABLED || 'false'",
+    );
+    expect(workflow).toContain(
+      "vars.CPI_PRODUCTION_PRICE_ESTIMATION_BUDGET_APPROVED || 'false'",
+    );
+    expect(workflow).toContain(
+      "tools/aws/validatePriceEstimationRuntime.mjs",
+    );
+    expect(
+      workflow.match(/-c priceEstimationRuntimeEnabled=/gu),
+    ).toHaveLength(3);
+    expect(
+      workflow.match(/-c priceEstimationOpenAiEnabled=/gu),
+    ).toHaveLength(3);
+  });
+
   it("keeps every AWS mutation behind the deploy-only input boundary", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const deployOnlySteps = [
@@ -116,6 +139,9 @@ describe("production deployment workflow", () => {
     expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=production");
     expect(workflow).toContain("--cache-control no-store");
     expect(workflow).toContain("pnpm exec playwright test --grep @smoke");
+    expect(workflow).toContain("RuntimeSecretNames");
+    expect(workflow).toContain('index("RENTCAST_API_KEY")');
+    expect(workflow).toContain('index("OPENAI_API_KEY")');
     expect(workflow).not.toContain("rentcast:");
     expect(workflow).not.toContain("telegram:");
     expect(workflow).not.toContain("openai:");

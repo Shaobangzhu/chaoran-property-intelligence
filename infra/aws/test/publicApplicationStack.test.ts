@@ -8,7 +8,12 @@ import { PublicApplicationStack } from "../lib/publicApplicationStack.js";
 
 const environment = { account: "111111111111", region: "us-west-2" };
 
-function createTemplates() {
+function createTemplates(
+  options: {
+    readonly openAiEnabled?: boolean;
+    readonly runtimeEnabled?: boolean;
+  } = {},
+) {
   const app = new App();
   const foundation = new PropertyAlertStack(app, "TestDevFoundation", {
     adminContainerImage: ContainerImage.fromRegistry(
@@ -18,6 +23,7 @@ function createTemplates() {
     deploymentStage: "dev",
     env: environment,
     failureAlertEmail: "dev-alerts@example.com",
+    priceEstimationRuntimeEnabled: options.runtimeEnabled,
   });
   const publicApplication = new PublicApplicationStack(
     app,
@@ -29,12 +35,15 @@ function createTemplates() {
         repositoryArn:
           "arn:aws:ecr:us-west-2:111111111111:repository/cpi-api",
       },
+      applicationSecret: foundation.applicationSecret,
       database: foundation.database,
       databaseCredentialsSecret: foundation.databaseCredentialsSecret,
       databaseSecurityGroup: foundation.databaseSecurityGroup,
       deploymentStage: "dev",
       deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
       env: environment,
+      priceEstimationOpenAiEnabled: options.openAiEnabled,
+      priceEstimationRuntimeEnabled: options.runtimeEnabled,
       releaseSha: "a".repeat(40),
       showingListArtifactBucket: foundation.showingListArtifactBucket,
       vpc: foundation.vpc,
@@ -68,6 +77,7 @@ function createProductionPublicApplicationTemplate(): Template {
         repositoryArn:
           "arn:aws:ecr:us-west-2:111111111111:repository/cpi-api",
       },
+      applicationSecret: foundation.applicationSecret,
       database: foundation.database,
       databaseCredentialsSecret: foundation.databaseCredentialsSecret,
       databaseSecurityGroup: foundation.databaseSecurityGroup,
@@ -85,10 +95,15 @@ function createProductionPublicApplicationTemplate(): Template {
 
 describe("PublicApplicationStack", () => {
   let devTemplates: ReturnType<typeof createTemplates>;
+  let enabledDevTemplates: ReturnType<typeof createTemplates>;
   let productionPublicApplication: Template;
 
   beforeAll(() => {
     devTemplates = createTemplates();
+    enabledDevTemplates = createTemplates({
+      openAiEnabled: true,
+      runtimeEnabled: true,
+    });
     productionPublicApplication =
       createProductionPublicApplicationTemplate();
   }, 20_000);
@@ -207,6 +222,45 @@ describe("PublicApplicationStack", () => {
     expect(service).not.toContain('"Name":"PORT"');
     expect(service).not.toContain("API_PUBLIC_ORIGIN");
     expect(service).not.toContain("PGPASSWORD");
+    expect(service).not.toContain("RENTCAST_API_KEY");
+    expect(service).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("enables bounded provider egress and stage-scoped API credentials only when opted in", () => {
+    const { foundation, publicApplication } = enabledDevTemplates;
+
+    foundation.resourceCountIs("AWS::EC2::NatGateway", 1);
+    foundation.hasResourceProperties("AWS::EC2::Route", {
+      NatGatewayId: Match.anyValue(),
+    });
+    publicApplication.hasResourceProperties("AWS::AppRunner::VpcConnector", {
+      VpcConnectorName: "cpi-dev-api-egress-connector",
+    });
+    const connector = JSON.stringify(
+      publicApplication.findResources("AWS::AppRunner::VpcConnector"),
+    );
+    expect(connector).toContain("ApiEgress");
+
+    publicApplication.hasResourceProperties("AWS::AppRunner::Service", {
+      SourceConfiguration: Match.objectLike({
+        ImageRepository: Match.objectLike({
+          ImageConfiguration: Match.objectLike({
+            RuntimeEnvironmentSecrets: Match.arrayWith([
+              Match.objectLike({ Name: "RENTCAST_API_KEY" }),
+              Match.objectLike({ Name: "OPENAI_API_KEY" }),
+            ]),
+          }),
+        }),
+      }),
+    });
+    const service = JSON.stringify(
+      publicApplication.findResources("AWS::AppRunner::Service"),
+    );
+    expect(service).toContain("RENTCAST_API_KEY::");
+    expect(service).toContain("OPENAI_API_KEY::");
+    expect(
+      JSON.stringify(publicApplication.findResources("AWS::IAM::Policy")),
+    ).toContain("ApplicationSecret");
   });
 
   it("routes same-origin API traffic without caching or Host forwarding", () => {
@@ -352,6 +406,7 @@ describe("PublicApplicationStack", () => {
             repositoryArn:
               "arn:aws:ecr:us-west-2:111111111111:repository/cpi-api",
           },
+          applicationSecret: foundation.applicationSecret,
           database: foundation.database,
           databaseCredentialsSecret: foundation.databaseCredentialsSecret,
           databaseSecurityGroup: foundation.databaseSecurityGroup,
@@ -365,5 +420,11 @@ describe("PublicApplicationStack", () => {
             "arn:aws:wafv2:us-east-1:111111111111:global/webacl/cpi-dev/test",
         }),
     ).toThrow("releaseSha must be a lowercase 40-character Git SHA");
+  });
+
+  it("does not enable OpenAI without the Price Estimation runtime", () => {
+    expect(() => createTemplates({ openAiEnabled: true })).toThrow(
+      "Price Estimation OpenAI enhancement requires the runtime",
+    );
   });
 });

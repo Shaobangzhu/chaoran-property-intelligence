@@ -74,6 +74,9 @@ No AWS secret injection was changed in this block. Consequently, an existing
 deployed API remains disabled for Price Estimation until a separately reviewed
 environment/secret wiring and provider-budget gate is completed.
 
+That post-Block 31 deployment work is now defined separately in the
+[AWS Price Estimation Runtime Enablement runbook](../runbooks/aws-price-estimation-runtime-enablement.md).
+
 ## Concurrency, Deduplication, And Throttling
 
 The in-process request controller applies:
@@ -166,4 +169,3 @@ Focused tests cover:
 - request-scoped four-call RentCast composition;
 - OpenAI single-call failure fallback and missing-key fallback; and
 - API typecheck, build, package regression, and quality gates.
-

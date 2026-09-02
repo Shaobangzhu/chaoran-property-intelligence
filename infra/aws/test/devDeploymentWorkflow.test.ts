@@ -103,6 +103,29 @@ describe("DEV deployment workflow", () => {
     expect(workflow).not.toContain("ChaoranPropertyIntelligenceProduction");
   });
 
+  it("keeps Price Estimation egress behind stage-scoped runtime and budget approval", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain(
+      "vars.CPI_DEV_PRICE_ESTIMATION_RUNTIME_ENABLED || 'false'",
+    );
+    expect(workflow).toContain(
+      "vars.CPI_DEV_PRICE_ESTIMATION_OPENAI_ENABLED || 'false'",
+    );
+    expect(workflow).toContain(
+      "vars.CPI_DEV_PRICE_ESTIMATION_BUDGET_APPROVED || 'false'",
+    );
+    expect(workflow).toContain(
+      "tools/aws/validatePriceEstimationRuntime.mjs",
+    );
+    expect(
+      workflow.match(/-c priceEstimationRuntimeEnabled=/gu),
+    ).toHaveLength(3);
+    expect(
+      workflow.match(/-c priceEstimationOpenAiEnabled=/gu),
+    ).toHaveLength(3);
+  });
+
   it("publishes web content then runs bounded read-only smoke with evidence", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
@@ -120,6 +143,9 @@ describe("DEV deployment workflow", () => {
     expect(workflow).toContain("CPI_EXPECTED_DEPLOYMENT_STAGE=dev");
     expect(workflow).toContain("pnpm exec playwright test --grep @smoke");
     expect(workflow).toContain("list-object-versions");
+    expect(workflow).toContain("RuntimeSecretNames");
+    expect(workflow).toContain('index("RENTCAST_API_KEY")');
+    expect(workflow).toContain('index("OPENAI_API_KEY")');
     expect(workflow).toContain("aws sns publish");
     expect(workflow).not.toMatch(/\bsleep\b/u);
   });
