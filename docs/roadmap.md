@@ -2102,19 +2102,22 @@ Planned sub-block mapping:
    addresses, decision modes, recorded-sale comparables, market evidence,
    deterministic valuation, confidence, explanations, and bounded errors. Use
    fakes and fixtures only; make no provider call and add no API or UI.
-   **Source implementation complete on
-   `feat/block-31-2-price-decision-contracts`; owner verification pending:**
+   **Complete and merged into the Block 31 parent:**
    strict deeply immutable Domain/Application contracts, orchestration ports,
    bounded errors, deterministic fakes, result guards, and 49 focused tests are
-   in place. Domain/Application typecheck and package builds pass. Per the Block
-   31 workflow, the repository owner will run full `pnpm test`, perform any
-   applicable local acceptance, commit, and manually merge this child branch
-   into the Block 31 parent before this sub-block is marked complete.
+   in place. Domain/Application typecheck and package builds pass.
 3. `31.3` Extend the RentCast package with strict, independently tested adapters
    for the smallest verified endpoint set needed by the MVP. Before coding,
    run a separately authorized provider contract audit with an exact request
    budget to verify actual-sale, subject-listing-history, AVM, and ZIP-market
    fields. Do not log credentials, full addresses, owner data, or raw payloads.
+   **Fixture-backed source implementation complete on
+   `feat/block-31-3-rentcast-price-decision-evidence`; owner verification and
+   separately authorized provider audit pending:** the adapter has a sequential
+   maximum of four requests per offer/listing estimation, zero retries,
+   timeout/abort classification, redacted request accounting, allowlist-only
+   parsing, conservative listing-history semantics, and bounded application
+   errors. No credential was read and no real RentCast request was made.
 4. `31.4` Implement the deterministic pricing engine and application
    orchestration. Recorded sale prices remain the primary evidence; RentCast AVM
    and ZIP market statistics are calibration/context. Offer and listing modes
@@ -2154,6 +2157,7 @@ unrelated visual redesign.
 
 See the
 [Block 31.1 Implementation Plan](price-decision/block-31-1-implementation-plan.md),
+[Block 31.3 RentCast Evidence Adapter](price-decision/block-31-3-rentcast-evidence-adapter.md),
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).

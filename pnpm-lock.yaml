@@ -275,7 +275,11 @@ importers:
         specifier: ^8.21.0
         version: 8.23.1
 
-  packages/rentcast: {}
+  packages/rentcast:
+    dependencies:
+      '@chaoran-property-intelligence/application':
+        specifier: workspace:*
+        version: link:../application
 
   packages/s3:
     dependencies:
