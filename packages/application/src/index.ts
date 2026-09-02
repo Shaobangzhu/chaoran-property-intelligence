@@ -235,6 +235,28 @@ export {
   PRICE_DECISION_ENGINE_CONFIG,
 } from "./deterministicPriceDecisionEngine.js";
 export {
+  buildPriceDecisionExplanationContext,
+  DeterministicPriceDecisionExplainer,
+  GeneratePriceDecisionExplanation,
+  InvalidPriceDecisionExplanationContextError,
+  InvalidPriceDecisionNarrativeError,
+  normalizePriceDecisionNarrativeDraft,
+  PriceDecisionExplainerInvalidOutputError,
+  priceDecisionNarrativeDraftSchema,
+  type GeneratePriceDecisionExplanationInput,
+  type GeneratePriceDecisionExplanationOptions,
+  type PriceDecisionExplanation,
+  type PriceDecisionExplanationContext,
+  type PriceDecisionExplainerPort,
+  type PriceDecisionNarrativeDraft,
+} from "./priceDecisionExplanation.js";
+export {
+  buildPriceDecisionExplanationPrompt,
+  PRICE_DECISION_EXPLANATION_INSTRUCTIONS,
+  PRICE_DECISION_EXPLANATION_PROMPT_VERSION,
+  type PriceDecisionExplanationPrompt,
+} from "./priceDecisionExplanationPrompt.js";
+export {
   FakePriceDecisionEngine,
   FakePriceDecisionEvidenceProvider,
   type FakePriceDecisionEngineOutcome,

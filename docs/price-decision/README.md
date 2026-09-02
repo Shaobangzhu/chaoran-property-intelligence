@@ -2,12 +2,12 @@
 
 ## Status
 
-Blocks 31.1 through 31.3 are complete. The pure, fixture-backed Block 31.4
-deterministic pricing engine is ready for owner verification. The separately
-authorized RentCast provider contract audit remains pending. No RentCast or
-OpenAI credential was read, no real provider/model request was made, and no
-database migration, AWS resource, API route, browser UI, or deployment was
-added or changed.
+Blocks 31.1 through 31.4 are complete and merged into the Block 31 parent. The
+optional, fallback-safe Block 31.5 OpenAI explainer source is ready for owner
+verification. The separately authorized RentCast provider contract audit
+remains pending. No RentCast or OpenAI credential was read, no real
+provider/model request was made, and no database migration, AWS resource, API
+route, browser UI, or deployment was added or changed.
 
 ## Product Goal
 
@@ -60,6 +60,10 @@ legal opinion, or guarantee of sale price.
 - [Block 31.4 Deterministic Pricing Engine](block-31-4-deterministic-pricing-engine.md):
   exact comparable selection, scoring, anchor, range, strategy, confidence,
   traceability, and golden-fixture rules.
+- [Block 31.5 OpenAI Price Decision Explainer](block-31-5-openai-explanation-adapter.md):
+  minimized model context, strict structured narrative, hallucination
+  guardrails, bounded provider errors, privacy-safe telemetry, and deterministic
+  fallback.
 - [Product and API Contract](product-and-api-contract.md): user flow, endpoint,
   DTO shape, states, errors, accessibility, and product language.
 - [Valuation Methodology](valuation-methodology.md): evidence hierarchy,

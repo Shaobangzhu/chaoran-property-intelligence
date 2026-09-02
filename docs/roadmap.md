@@ -2121,8 +2121,7 @@ Planned sub-block mapping:
    orchestration. Recorded sale prices remain the primary evidence; RentCast AVM
    and ZIP market statistics are calibration/context. Offer and listing modes
    use separate bounded strategies, and insufficient evidence fails closed.
-   **Source implementation complete on
-   `feat/block-31-4-deterministic-pricing-engine`; owner verification pending:**
+   **Complete and merged into the Block 31 parent:**
    the pure application engine freezes comparable eligibility/expansion,
    normalized scoring, weighted-median anchor, robust outlier/range behavior,
    bounded offer/listing scenarios, confidence weaknesses, evidence-traceable
@@ -2131,7 +2130,13 @@ Planned sub-block mapping:
 5. `31.5` Add the optional OpenAI explanation adapter with strict structured
    output, `store: false`, evidence identifiers, numerical guardrails, and a
    deterministic non-AI fallback. OpenAI failure must not discard an otherwise
-   valid numeric result.
+   valid numeric result. **Source implementation complete on
+   `feat/block-31-5-openai-price-decision-explainer`; owner verification
+   pending:** the Application-owned minimized context, strict evidence/scenario/
+   limitation validation, numeric and seller-motivation guardrails,
+   deterministic fallback, and the single-call Responses API adapter use fixed
+   configuration, zero retries, no tools, bounded errors, and privacy-safe
+   telemetry. No credential was read and no real model request was made.
 6. `31.6` Add the authenticated, administrator-only
    `POST /api/price-estimations` composition, request/response DTOs, origin and
    body-size enforcement, per-user throttling, in-flight duplicate suppression,
@@ -2165,6 +2170,7 @@ See the
 [Block 31.1 Implementation Plan](price-decision/block-31-1-implementation-plan.md),
 [Block 31.3 RentCast Evidence Adapter](price-decision/block-31-3-rentcast-evidence-adapter.md),
 [Block 31.4 Deterministic Pricing Engine](price-decision/block-31-4-deterministic-pricing-engine.md),
+[Block 31.5 OpenAI Price Decision Explainer](price-decision/block-31-5-openai-explanation-adapter.md),
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
