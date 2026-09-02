@@ -29,12 +29,12 @@ describe("Price Estimation DTO", () => {
       address: {
         streetAddress: "100 Test Ave",
         city: "Irvine",
-        state: "CA",
         zipCode: "92618",
       },
       mode: "offer",
     });
     expect(Object.isFrozen(parsed)).toBe(true);
+    expect(Object.isFrozen(parsed.address)).toBe(true);
   });
 
   it.each([

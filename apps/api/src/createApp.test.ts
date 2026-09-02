@@ -133,7 +133,6 @@ describe("createApp", () => {
         address: {
           streetAddress: "100 Test Ave",
           city: "Irvine",
-          state: "CA",
           zipCode: "92618",
         },
         mode: "offer",

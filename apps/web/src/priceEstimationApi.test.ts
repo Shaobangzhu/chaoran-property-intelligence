@@ -111,7 +111,7 @@ describe("priceEstimationApi", () => {
   });
 
   it.each([
-    [400, PriceEstimationValidationError, undefined],
+    [400, PriceEstimationRequestError, "invalid-request"],
     [404, PriceEstimationRequestError, "property-not-found"],
     [409, PriceEstimationRequestError, "in-progress"],
     [422, PriceEstimationRequestError, "insufficient-evidence"],

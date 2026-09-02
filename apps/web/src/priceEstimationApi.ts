@@ -125,6 +125,7 @@ export interface PriceEstimationResult {
 }
 
 export type PriceEstimationFailureCode =
+  | "invalid-request"
   | "property-not-found"
   | "insufficient-evidence"
   | "in-progress"
@@ -208,8 +209,8 @@ function normalizeInput(input: PriceEstimationInput): PriceEstimationInput {
 
 function throwForStatus(response: Response): void {
   if (response.status === 401) throw new SessionAuthenticationRequiredError();
-  if (response.status === 400) throw new PriceEstimationValidationError("form");
   const codeByStatus: Partial<Record<number, PriceEstimationFailureCode>> = {
+    400: "invalid-request",
     404: "property-not-found",
     409: "in-progress",
     422: "insufficient-evidence",

@@ -628,6 +628,8 @@ function formMatchesInput(form: FormValues, input: PriceEstimationInput): boolea
 
 function failureCopy(code: PriceEstimationFailureCode): { title: string; message: string } {
   switch (code) {
+    case "invalid-request":
+      return { title: "Address request was not accepted", message: "Review the property address and try again." };
     case "property-not-found":
       return { title: "Property not found", message: "Check the address and ZIP code, then try again." };
     case "insufficient-evidence":

@@ -184,6 +184,29 @@ describe("PriceEstimationScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a specific message when the server rejects the address request", async () => {
+    const user = userEvent.setup();
+    render(
+      <PriceEstimationScreen
+        estimatePrice={async () => {
+          throw new PriceEstimationRequestError("invalid-request");
+        }}
+      />,
+    );
+    await fillAddress(user);
+
+    await user.click(screen.getByRole("button", { name: "Set Offer Price" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Address request was not accepted",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Review the property address and try again."),
+    ).toBeInTheDocument();
+  });
+
   it("keeps a completed result but labels it when the address changes", async () => {
     const user = userEvent.setup();
     render(
