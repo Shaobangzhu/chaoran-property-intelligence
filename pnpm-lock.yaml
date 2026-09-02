@@ -101,9 +101,15 @@ importers:
       '@chaoran-property-intelligence/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@chaoran-property-intelligence/openai':
+        specifier: workspace:*
+        version: link:../../packages/openai
       '@chaoran-property-intelligence/postgres':
         specifier: workspace:*
         version: link:../../packages/postgres
+      '@chaoran-property-intelligence/rentcast':
+        specifier: workspace:*
+        version: link:../../packages/rentcast
       '@chaoran-property-intelligence/s3':
         specifier: workspace:*
         version: link:../../packages/s3
