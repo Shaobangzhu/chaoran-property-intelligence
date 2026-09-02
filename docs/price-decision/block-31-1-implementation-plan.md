@@ -56,6 +56,22 @@ evidence gate fails.
 Implementation uses Red-Green-Refactor and the repository's package boundaries.
 Every numbered sub-block is independently reviewed and authorized.
 
+### Block 31 Branch And Acceptance Workflow
+
+- The integration branch is
+  `feat/block-31-offerlist-price-decision-assistant`.
+- Each executable `31.x` sub-block is developed on its own child branch created
+  from the current accepted state of that integration branch.
+- The repository owner runs full `pnpm test` and performs applicable local
+  manual acceptance for every sub-block.
+- The repository owner commits and manually merges each accepted child branch
+  back into the integration branch.
+- After all Block 31 sub-blocks are accepted, the repository owner merges the
+  integration branch into `dev`.
+- Every sub-block handoff includes a suggested commit message and the next
+  child-branch name. Implementation does not commit or merge unless separately
+  requested.
+
 ### 31.2 Domain And Application Contracts
 
 Define provider-neutral business types and fakes before writing any adapter.
@@ -258,6 +274,11 @@ focus movement to the result/error summary, keyboard-operable tab/action flow,
 non-color confidence and direction labels, table headers/captions, live loading
 status, and usable layouts at existing desktop/mobile breakpoints.
 
+Price Estimation must reuse the current application's visual language: existing
+workspace widths, typography, spacing, surface treatment, buttons, form states,
+status/error patterns, responsive breakpoints, and icon conventions. Block 31.7
+adds a new workflow, not a separate design system or unrelated redesign.
+
 ## Test Matrix
 
 ### Unit And Contract
@@ -371,6 +392,40 @@ Block 31.1 exits when:
 - cost, privacy, failure, test, rollout, and rollback gates are explicit
 - Block 32 scope is separated
 
-These criteria are satisfied by this documentation set. Executable work begins
-only after separate approval for Block 31.2.
+These criteria were satisfied by this documentation set. Block 31.2 began only
+after the repository owner separately approved its implementation.
 
+## Block 31.2 Implementation Record
+
+Status: source implementation complete on
+`feat/block-31-2-price-decision-contracts`; repository-owner verification,
+commit, and manual merge remain pending.
+
+Implemented boundaries:
+
+- strict California-only address and explicit `offer` / `listing` Domain values
+- normalized provider-neutral subject, recorded-sale, listing, ZIP-market, and
+  external-AVM evidence contracts
+- deep immutability, canonical ordering, unique evidence/property identity,
+  exact dates, whole-dollar bounds, and source-semantic separation
+- `EstimatePropertyPrice` orchestration over injected evidence and deterministic
+  engine ports, with no concrete pricing algorithm added before Block 31.4
+- result contracts for rounded USD recommendations/ranges, mode-specific
+  scenarios, scored comparables, evidence-backed factors, confidence,
+  limitations, and observable flexibility inference
+- bounded invalid-input, subject-not-found, evidence-unavailable,
+  insufficient-evidence, contradictory-evidence, invalid-adapter-result,
+  invalid-engine-result, and clock errors
+- deterministic evidence/engine fakes with no provider, database, API, UI,
+  OpenAI, AWS, environment, or dependency change
+
+Automated implementation evidence:
+
+- 49 focused Domain/Application tests pass
+- Domain and Application package typecheck passes
+- Domain and Application package builds pass
+- `git diff --check` passes
+
+Per the accepted workflow, full `pnpm test` and any applicable local manual
+acceptance are owned by the repository owner. Block 31.2 has no API or UI, so it
+does not create a new visible local browser workflow to accept.

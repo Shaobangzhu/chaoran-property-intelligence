@@ -2102,6 +2102,14 @@ Planned sub-block mapping:
    addresses, decision modes, recorded-sale comparables, market evidence,
    deterministic valuation, confidence, explanations, and bounded errors. Use
    fakes and fixtures only; make no provider call and add no API or UI.
+   **Source implementation complete on
+   `feat/block-31-2-price-decision-contracts`; owner verification pending:**
+   strict deeply immutable Domain/Application contracts, orchestration ports,
+   bounded errors, deterministic fakes, result guards, and 49 focused tests are
+   in place. Domain/Application typecheck and package builds pass. Per the Block
+   31 workflow, the repository owner will run full `pnpm test`, perform any
+   applicable local acceptance, commit, and manually merge this child branch
+   into the Block 31 parent before this sub-block is marked complete.
 3. `31.3` Extend the RentCast package with strict, independently tested adapters
    for the smallest verified endpoint set needed by the MVP. Before coding,
    run a separately authorized provider contract audit with an exact request
@@ -2133,6 +2141,16 @@ plan, and explicit confirmation. A real RentCast/OpenAI request, dependency
 change, migration, AWS mutation, deployment, or production release is never
 implied by this plan. Provider billing state and the application-side request
 budget must be reviewed before any credentialed audit or environment rollout.
+
+Blocks `31.2` through `31.7` are implemented on independent child branches
+created from `feat/block-31-offerlist-price-decision-assistant`. After each
+sub-block, the repository owner runs full `pnpm test` and applicable local
+manual acceptance, commits the reviewed change, and manually merges the child
+back into the Block 31 parent. After all Block 31 sub-blocks are accepted, the
+owner merges the parent into `dev`. Each implementation handoff supplies a
+suggested commit message and the next child-branch name. Block 31.7 must extend
+the existing authenticated UI system and responsive patterns without an
+unrelated visual redesign.
 
 See the
 [Block 31.1 Implementation Plan](price-decision/block-31-1-implementation-plan.md),
