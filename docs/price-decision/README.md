@@ -2,11 +2,12 @@
 
 ## Status
 
-Blocks 31.1 and 31.2 are complete. The fixture-backed Block 31.3 RentCast
-evidence implementation is ready for owner verification; its separately
-authorized four-request provider contract audit remains pending. No RentCast
-credential was read, no real provider request was made, and no database
-migration, AWS resource, or deployment was added or changed.
+Blocks 31.1 through 31.3 are complete. The pure, fixture-backed Block 31.4
+deterministic pricing engine is ready for owner verification. The separately
+authorized RentCast provider contract audit remains pending. No RentCast or
+OpenAI credential was read, no real provider/model request was made, and no
+database migration, AWS resource, API route, browser UI, or deployment was
+added or changed.
 
 ## Product Goal
 
@@ -56,6 +57,9 @@ legal opinion, or guarantee of sale price.
 - [Block 31.3 RentCast Evidence Adapter](block-31-3-rentcast-evidence-adapter.md):
   endpoint composition, call budget, source semantics, privacy controls, error
   mapping, verification, and the pending live-audit gate.
+- [Block 31.4 Deterministic Pricing Engine](block-31-4-deterministic-pricing-engine.md):
+  exact comparable selection, scoring, anchor, range, strategy, confidence,
+  traceability, and golden-fixture rules.
 - [Product and API Contract](product-and-api-contract.md): user flow, endpoint,
   DTO shape, states, errors, accessibility, and product language.
 - [Valuation Methodology](valuation-methodology.md): evidence hierarchy,

@@ -231,6 +231,10 @@ export {
   type PriceDecisionScenario,
 } from "./estimatePropertyPrice.js";
 export {
+  DeterministicPriceDecisionEngine,
+  PRICE_DECISION_ENGINE_CONFIG,
+} from "./deterministicPriceDecisionEngine.js";
+export {
   FakePriceDecisionEngine,
   FakePriceDecisionEvidenceProvider,
   type FakePriceDecisionEngineOutcome,
