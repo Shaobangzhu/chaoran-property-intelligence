@@ -25,11 +25,19 @@ export interface ApiConfig extends ApiHttpSecurityConfig {
   databaseConnection: PostgresConnectionConfig;
   host: "127.0.0.1" | "0.0.0.0";
   port: number;
+  priceEstimation: PriceEstimationConfig | null;
   releaseIdentity: ReleaseIdentity | null;
   showingListArtifactStorage: {
     bucketName: string;
     expectedBucketOwner: string;
   } | null;
+}
+
+export interface PriceEstimationConfig {
+  rentCastApiKey: string;
+  openAIApiKey: string | null;
+  rentCastRequestTimeoutMs: number;
+  openAIRequestTimeoutMs: number;
 }
 
 export function loadApiConfig(
@@ -45,6 +53,7 @@ export function loadApiConfig(
       deploymentMode === "production"
         ? readPort(readRequiredVariable(environment, "PORT"), "PORT")
         : readLocalApiPort(environment),
+    priceEstimation: readPriceEstimationConfig(environment),
     ...readPublicOrigin(environment, deploymentMode),
     originVerificationSecret:
       deploymentMode === "production"
@@ -53,6 +62,39 @@ export function loadApiConfig(
     releaseIdentity: readReleaseIdentity(environment, deploymentMode),
     showingListArtifactStorage: readShowingListArtifactStorage(environment),
   };
+}
+
+function readPriceEstimationConfig(
+  environment: Readonly<Record<string, string | undefined>>,
+): PriceEstimationConfig | null {
+  const rentCastApiKey = readOptionalSecret(environment.RENTCAST_API_KEY);
+  const openAIApiKey = readOptionalSecret(environment.OPENAI_API_KEY);
+  if (rentCastApiKey === null) {
+    if (openAIApiKey !== null) {
+      throw new Error(
+        "Invalid Price Estimation configuration: RENTCAST_API_KEY",
+      );
+    }
+    return null;
+  }
+  return {
+    rentCastApiKey,
+    openAIApiKey,
+    rentCastRequestTimeoutMs: 15_000,
+    openAIRequestTimeoutMs: 30_000,
+  };
+}
+
+function readOptionalSecret(value: string | undefined): string | null {
+  if (value === undefined || value.length === 0) return null;
+  if (
+    value.trim() !== value ||
+    value.length > 512 ||
+    /[\s\u0000-\u001f\u007f]/u.test(value)
+  ) {
+    throw new Error("Invalid Price Estimation provider credential");
+  }
+  return value;
 }
 
 function readReleaseIdentity(

@@ -1,16 +1,23 @@
 import {
   AuthenticationRequiredError,
+  ContradictoryPriceDecisionEvidenceError,
   CurrentShowingListDraftChangedError,
   CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
   type CreateManualListingInput,
   InvalidListingSearchCriteriaInputError,
+  InvalidPriceDecisionEvidenceResultError,
+  InvalidPriceDecisionInputError,
+  InvalidPriceDecisionResultError,
   InvalidManualListingPatchError,
   InvalidShowingListReviewInputError,
   InvalidCredentialsError,
   InvalidManualListingError,
   ListingSearchCriteriaChangedError,
   ManualListingNotFoundError,
+  InsufficientPriceDecisionEvidenceError,
+  PriceDecisionEvidenceUnavailableError,
+  PriceDecisionSubjectNotFoundError,
   ShowingListArtifactChangedError,
   ShowingListArtifactReaderInvalidResponseError,
   ShowingListArtifactReaderUnavailableError,
@@ -58,6 +65,25 @@ import {
   toUpdateManualListingResponse,
 } from "./manualListingDto.js";
 import {
+  InvalidPriceEstimationRequestError,
+  parsePriceEstimationRequest,
+  toPriceEstimationResponse,
+} from "./priceEstimationDto.js";
+import {
+  createPriceEstimationFingerprint,
+  defaultPriceEstimationRequestControlConfig,
+  PriceEstimationInProgressError,
+  PriceEstimationRateLimitedError,
+  PriceEstimationRequestControl,
+  PriceEstimationTimedOutError,
+  type PriceEstimationRequestControlConfig,
+} from "./priceEstimationRequestControl.js";
+import type {
+  PriceEstimationExecution,
+  PriceEstimationProvider,
+  PriceEstimationUseCase,
+} from "./priceEstimationWorkflow.js";
+import {
   InvalidShowingListRequestError,
   parseMarkCurrentShowingListDraftReviewedRequest,
   parseSaveCurrentShowingListDraftRequest,
@@ -85,6 +111,7 @@ const loginJsonBodyLimitBytes = 4_096;
 const listingSearchCriteriaJsonBodyLimitBytes = 4_096;
 const manualListingJsonBodyLimitBytes = 8_192;
 const showingListJsonBodyLimitBytes = 256 * 1_024;
+const priceEstimationJsonBodyLimitBytes = 2_048;
 const requestIdHeaderName = "x-request-id";
 
 export type { ApiLogger } from "./apiLogger.js";
@@ -156,6 +183,8 @@ export interface CreateAppOptions {
   logger: ApiLogger;
   loginRateLimit?: LoginRateLimitConfig;
   now?: () => Date;
+  priceEstimation?: PriceEstimationUseCase | null;
+  priceEstimationRequestControl?: PriceEstimationRequestControlConfig;
   requestIdFactory?: () => string;
   releaseIdentity?: ReleaseIdentity;
   markCurrentShowingListDraftReviewed: MarkCurrentShowingListDraftReviewedUseCase;
@@ -165,6 +194,7 @@ export interface CreateAppOptions {
 }
 
 class AdminAuthorizationRequiredError extends Error {}
+class PriceEstimationUnavailableError extends Error {}
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
@@ -172,6 +202,11 @@ export function createApp(options: CreateAppOptions): Express {
   const requestIdFactory = options.requestIdFactory ?? randomUUID;
   const sessionCookiePolicy = createSessionCookiePolicy(
     options.httpSecurity.deploymentMode,
+  );
+  const priceEstimationRequestControl = new PriceEstimationRequestControl(
+    options.priceEstimationRequestControl ??
+      defaultPriceEstimationRequestControlConfig,
+    () => readNowMilliseconds(now),
   );
 
   app.disable("x-powered-by");
@@ -285,6 +320,80 @@ export function createApp(options: CreateAppOptions): Express {
           current === null ? null : toCurrentShowingListDraftDto(current),
       };
       response.status(200).json(body);
+    },
+  );
+
+  app.post(
+    "/api/price-estimations",
+    authenticate,
+    requireAdmin,
+    createPriceEstimationJsonBodyParser(),
+    async (request, response) => {
+      const input = parsePriceEstimationRequest(request.body);
+      const actor = readAuthenticatedUser(response.locals);
+      const startedAt = readNowMilliseconds(now);
+      let rentCastRequestCount = 0;
+      let openAIRequestCount = 0;
+      const countProviderRequest = (provider: PriceEstimationProvider): void => {
+        if (provider === "rentcast") rentCastRequestCount += 1;
+        else openAIRequestCount += 1;
+      };
+
+      try {
+        const priceEstimation = options.priceEstimation ?? null;
+        if (priceEstimation === null) {
+          throw new PriceEstimationUnavailableError();
+        }
+        const execution = await priceEstimationRequestControl.run<PriceEstimationExecution>(
+          {
+            userId: actor.id,
+            ip: request.ip ?? "unknown",
+            fingerprint: createPriceEstimationFingerprint(input),
+          },
+          (signal) =>
+            priceEstimation.execute(input, {
+              signal,
+              onProviderRequest: countProviderRequest,
+            }),
+        );
+        const context = {
+          requestId: readRequestId(response.locals),
+          mode: input.mode,
+          zipCode: input.address.zipCode,
+          durationMs: boundedDuration(
+            readNowMilliseconds(now) - startedAt,
+          ),
+          comparableCount:
+            execution.prepared.result.scoredComparables.length,
+          confidence: execution.prepared.result.confidence,
+          outcome: execution.explanation.enhancementUnavailable
+            ? "deterministic-fallback"
+            : "success",
+          rentCastRequestCount:
+            execution.providerRequestCounts.rentcast,
+          openAIRequestCount: execution.providerRequestCounts.openai,
+        } as const;
+        options.logger.info("api.price_estimation.completed", context);
+        response.status(200).json(
+          toPriceEstimationResponse(
+            execution,
+            readRequestId(response.locals),
+          ),
+        );
+      } catch (error) {
+        options.logger.info("api.price_estimation.failed", {
+          requestId: readRequestId(response.locals),
+          mode: input.mode,
+          zipCode: input.address.zipCode,
+          durationMs: boundedDuration(
+            readNowMilliseconds(now) - startedAt,
+          ),
+          outcome: priceEstimationFailureOutcome(error),
+          rentCastRequestCount,
+          openAIRequestCount,
+        });
+        throw error;
+      }
     },
   );
 
@@ -516,16 +625,107 @@ export function createApp(options: CreateAppOptions): Express {
 
     if (
       error instanceof InvalidRequestBodyError ||
+      error instanceof InvalidPriceEstimationRequestError ||
+      error instanceof InvalidPriceDecisionInputError ||
       error instanceof InvalidManualListingRequestError ||
       error instanceof InvalidManualListingPatchError ||
       error instanceof InvalidShowingListRequestError ||
       error instanceof InvalidShowingListReviewInputError ||
       isBodyParserError(error)
     ) {
+      if (
+        error instanceof InvalidPriceEstimationRequestError ||
+        error instanceof InvalidPriceDecisionInputError
+      ) {
+        response.status(400).json({
+          error: {
+            code: "INVALID_PRICE_ESTIMATION_REQUEST",
+            message: "Price Estimation request is invalid",
+          },
+        });
+        return;
+      }
       response.status(400).json({
         error: {
           code: "INVALID_REQUEST",
           message: "Request body is invalid",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof PriceDecisionSubjectNotFoundError) {
+      response.status(404).json({
+        error: {
+          code: "PROPERTY_NOT_FOUND",
+          message: "Property was not found",
+        },
+      });
+      return;
+    }
+
+    if (
+      error instanceof InsufficientPriceDecisionEvidenceError ||
+      error instanceof ContradictoryPriceDecisionEvidenceError
+    ) {
+      response.status(422).json({
+        error: {
+          code: "INSUFFICIENT_VALUATION_EVIDENCE",
+          message: "Available evidence cannot support a price recommendation",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof PriceEstimationRateLimitedError) {
+      response.status(429).json({
+        error: {
+          code: "PRICE_ESTIMATION_RATE_LIMITED",
+          message: "Too many Price Estimation requests",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof PriceEstimationInProgressError) {
+      response.status(409).json({
+        error: {
+          code: "PRICE_ESTIMATION_IN_PROGRESS",
+          message: "Another Price Estimation is already in progress",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof PriceEstimationTimedOutError) {
+      response.status(504).json({
+        error: {
+          code: "PRICE_ESTIMATION_TIMED_OUT",
+          message: "Price Estimation timed out",
+        },
+      });
+      return;
+    }
+
+    if (error instanceof PriceEstimationUnavailableError) {
+      response.status(503).json({
+        error: {
+          code: "PRICE_ESTIMATION_UNAVAILABLE",
+          message: "Price Estimation is not configured",
+        },
+      });
+      return;
+    }
+
+    if (
+      error instanceof PriceDecisionEvidenceUnavailableError ||
+      error instanceof InvalidPriceDecisionEvidenceResultError ||
+      error instanceof InvalidPriceDecisionResultError
+    ) {
+      response.status(502).json({
+        error: {
+          code: "PRICE_EVIDENCE_UNAVAILABLE",
+          message: "Price evidence is temporarily unavailable",
         },
       });
       return;
@@ -646,6 +846,19 @@ function createListingSearchCriteriaJsonBodyParser(): RequestHandler {
   };
 }
 
+function createPriceEstimationJsonBodyParser(): RequestHandler {
+  const parser = createJsonBodyParser(priceEstimationJsonBodyLimitBytes);
+  return (request, response, next) => {
+    parser(request, response, (error?: unknown) => {
+      next(
+        error === undefined
+          ? undefined
+          : new InvalidPriceEstimationRequestError(),
+      );
+    });
+  };
+}
+
 function createAdminAuthorizationMiddleware(): RequestHandler {
   return (_request, response, next) => {
     const user = readAuthenticatedUser(response.locals);
@@ -722,11 +935,50 @@ function readAuthenticatedUser(
 }
 
 function readLogContext(locals: Record<string, unknown>): ApiLogContext {
+  return { requestId: readRequestId(locals) };
+}
+
+function readRequestId(locals: Record<string, unknown>): string {
   const requestId = locals.requestId;
   if (typeof requestId !== "string") {
     throw new Error("Request context did not provide a request ID");
   }
-  return { requestId };
+  return requestId;
+}
+
+function readNowMilliseconds(now: () => Date): number {
+  const value = now();
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
+    throw new Error("API clock was invalid");
+  }
+  return value.getTime();
+}
+
+function boundedDuration(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
+}
+
+function priceEstimationFailureOutcome(error: unknown): string {
+  if (error instanceof PriceDecisionSubjectNotFoundError) return "not-found";
+  if (
+    error instanceof InsufficientPriceDecisionEvidenceError ||
+    error instanceof ContradictoryPriceDecisionEvidenceError
+  ) {
+    return "insufficient-evidence";
+  }
+  if (error instanceof PriceEstimationRateLimitedError) return "rate-limited";
+  if (error instanceof PriceEstimationInProgressError) return "in-progress";
+  if (error instanceof PriceEstimationTimedOutError) return "timed-out";
+  if (error instanceof PriceEstimationUnavailableError) return "unconfigured";
+  if (
+    error instanceof PriceDecisionEvidenceUnavailableError ||
+    error instanceof InvalidPriceDecisionEvidenceResultError ||
+    error instanceof InvalidPriceDecisionResultError
+  ) {
+    return "evidence-unavailable";
+  }
+  return "internal-error";
 }
 
 function isBodyParserError(error: unknown): boolean {

@@ -21,6 +21,7 @@ describe("loadApiConfig", () => {
       deploymentMode: "local",
       host: "127.0.0.1",
       port: 3000,
+      priceEstimation: null,
       publicOrigin: "http://127.0.0.1:5173",
       originVerificationSecret: null,
       releaseIdentity: null,
@@ -150,6 +151,7 @@ describe("loadApiConfig", () => {
       deploymentMode: "production",
       host: "0.0.0.0",
       port: 8080,
+      priceEstimation: null,
       publicOrigin: "https://app.example.com",
       originVerificationSecret: "o".repeat(32),
       releaseIdentity: {
@@ -159,6 +161,42 @@ describe("loadApiConfig", () => {
       showingListArtifactStorage: null,
       trustedPublicOriginHeaderName: null,
     });
+  });
+
+  it("loads bounded Price Estimation provider configuration", () => {
+    expect(
+      loadApiConfig({
+        DATABASE_URL: "postgresql://localhost/cpi",
+        RENTCAST_API_KEY: "rentcast-secret",
+        OPENAI_API_KEY: "openai-secret",
+      }).priceEstimation,
+    ).toEqual({
+      rentCastApiKey: "rentcast-secret",
+      openAIApiKey: "openai-secret",
+      rentCastRequestTimeoutMs: 15_000,
+      openAIRequestTimeoutMs: 30_000,
+    });
+    expect(
+      loadApiConfig({
+        DATABASE_URL: "postgresql://localhost/cpi",
+        RENTCAST_API_KEY: "rentcast-secret",
+      }).priceEstimation,
+    ).toMatchObject({ openAIApiKey: null });
+  });
+
+  it("rejects unusable Price Estimation provider configuration", () => {
+    expect(() =>
+      loadApiConfig({
+        DATABASE_URL: "postgresql://localhost/cpi",
+        OPENAI_API_KEY: "openai-secret",
+      }),
+    ).toThrow("Invalid Price Estimation configuration: RENTCAST_API_KEY");
+    expect(() =>
+      loadApiConfig({
+        DATABASE_URL: "postgresql://localhost/cpi",
+        RENTCAST_API_KEY: " rentcast-secret ",
+      }),
+    ).toThrow("Invalid Price Estimation provider credential");
   });
 
   it("loads paired private Showing List artifact storage configuration", () => {
