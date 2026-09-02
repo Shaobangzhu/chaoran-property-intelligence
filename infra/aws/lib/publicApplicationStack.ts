@@ -73,11 +73,14 @@ export interface PublicApplicationStackProps extends StackProps {
     imageIdentifier: string;
     repositoryArn: string;
   };
+  applicationSecret: Secret;
   database: DatabaseCluster;
   databaseCredentialsSecret: Secret;
   databaseSecurityGroup: SecurityGroup;
   deploymentStage: DeploymentStage;
   deploymentFailureAlertEmail?: string;
+  priceEstimationOpenAiEnabled?: boolean;
+  priceEstimationRuntimeEnabled?: boolean;
   repositoryRoot?: string;
   releaseSha: string;
   showingListArtifactBucket: IBucket;
@@ -98,6 +101,15 @@ export class PublicApplicationStack extends Stack {
     }
 
     const isProduction = props.deploymentStage === "production";
+    const priceEstimationRuntimeEnabled =
+      props.priceEstimationRuntimeEnabled ?? false;
+    const priceEstimationOpenAiEnabled =
+      props.priceEstimationOpenAiEnabled ?? false;
+    if (priceEstimationOpenAiEnabled && !priceEstimationRuntimeEnabled) {
+      throw new Error(
+        "Price Estimation OpenAI enhancement requires the runtime",
+      );
+    }
     const deploymentFailureAlertEmail =
       props.deploymentFailureAlertEmail ??
       new CfnParameter(this, "DeploymentFailureAlertEmail", {
@@ -191,7 +203,12 @@ export class PublicApplicationStack extends Stack {
     );
     const s3Endpoint = new GatewayVpcEndpoint(this, "ApiS3Endpoint", {
       service: GatewayVpcEndpointAwsService.S3,
-      subnets: [{ subnetType: SubnetType.PRIVATE_ISOLATED }],
+      subnets: [
+        { subnetType: SubnetType.PRIVATE_ISOLATED },
+        ...(priceEstimationRuntimeEnabled
+          ? [{ subnetType: SubnetType.PRIVATE_WITH_EGRESS }]
+          : []),
+      ],
       vpc: props.vpc,
     });
     apiSecurityGroup.addEgressRule(
@@ -203,11 +220,15 @@ export class PublicApplicationStack extends Stack {
     const connector = new CfnVpcConnector(this, "ApiVpcConnector", {
       securityGroups: [apiSecurityGroup.securityGroupId],
       subnets: props.vpc.selectSubnets({
-        subnetType: SubnetType.PRIVATE_ISOLATED,
+        subnetType: priceEstimationRuntimeEnabled
+          ? SubnetType.PRIVATE_WITH_EGRESS
+          : SubnetType.PRIVATE_ISOLATED,
       }).subnetIds,
       vpcConnectorName: stageResourceName(
         props.deploymentStage,
-        "api-connector",
+        priceEstimationRuntimeEnabled
+          ? "api-egress-connector"
+          : "api-connector",
       ),
     });
 
@@ -223,6 +244,9 @@ export class PublicApplicationStack extends Stack {
     props.databaseCredentialsSecret.grantRead(instanceRole);
     jwtSigningSecret.grantRead(instanceRole);
     originVerificationSecret.grantRead(instanceRole);
+    if (priceEstimationRuntimeEnabled) {
+      props.applicationSecret.grantRead(instanceRole);
+    }
     props.showingListArtifactBucket.grantRead(
       instanceRole,
       "showing-lists/current.pdf",
@@ -269,6 +293,28 @@ export class PublicApplicationStack extends Stack {
                 props.databaseCredentialsSecret.secretArn,
               ),
               keyValue("JWT_SIGNING_SECRET", jwtSigningSecret.secretArn),
+              ...(priceEstimationRuntimeEnabled
+                ? [
+                    keyValue(
+                      "RENTCAST_API_KEY",
+                      secretJsonFieldArn(
+                        props.applicationSecret,
+                        "RENTCAST_API_KEY",
+                      ),
+                    ),
+                  ]
+                : []),
+              ...(priceEstimationOpenAiEnabled
+                ? [
+                    keyValue(
+                      "OPENAI_API_KEY",
+                      secretJsonFieldArn(
+                        props.applicationSecret,
+                        "OPENAI_API_KEY",
+                      ),
+                    ),
+                  ]
+                : []),
             ],
             runtimeEnvironmentVariables: [
               keyValue("API_DEPLOYMENT_MODE", "production"),
@@ -429,6 +475,13 @@ export class PublicApplicationStack extends Stack {
 
 function keyValue(name: string, value: string) {
   return { name, value };
+}
+
+function secretJsonFieldArn(
+  secret: Secret,
+  field: "OPENAI_API_KEY" | "RENTCAST_API_KEY",
+): string {
+  return `${secret.secretArn}:${field}::`;
 }
 
 function resolveApiImageSource(

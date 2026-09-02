@@ -71,6 +71,7 @@ export interface PropertyAlertStackProps extends StackProps {
   containerImage?: ContainerImage;
   deploymentStage?: DeploymentStage;
   failureAlertEmail?: string;
+  priceEstimationRuntimeEnabled?: boolean;
   repositoryRoot?: string;
   scheduleEnabled?: boolean;
   showingListSchedule?: {
@@ -83,6 +84,7 @@ export interface PropertyAlertStackProps extends StackProps {
 }
 
 export class PropertyAlertStack extends Stack {
+  readonly applicationSecret: Secret;
   readonly database: DatabaseCluster;
   readonly databaseCredentialsSecret: Secret;
   readonly databaseSecurityGroup: SecurityGroup;
@@ -98,16 +100,27 @@ export class PropertyAlertStack extends Stack {
 
     const deploymentStage = props.deploymentStage ?? "production";
     const isProduction = deploymentStage === "production";
+    const priceEstimationRuntimeEnabled =
+      props.priceEstimationRuntimeEnabled ?? false;
 
     this.vpc = new Vpc(this, "Vpc", {
       maxAzs: 2,
-      natGateways: 0,
+      natGateways: priceEstimationRuntimeEnabled ? 1 : 0,
       subnetConfiguration: [
         {
           cidrMask: 24,
           name: "Public",
           subnetType: SubnetType.PUBLIC,
         },
+        ...(priceEstimationRuntimeEnabled
+          ? [
+              {
+                cidrMask: 24,
+                name: "ApiEgress",
+                subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+              },
+            ]
+          : []),
         {
           cidrMask: 24,
           name: "Database",
@@ -199,7 +212,7 @@ export class PropertyAlertStack extends Stack {
       }),
     });
 
-    const applicationSecret = new Secret(this, "ApplicationSecret", {
+    this.applicationSecret = new Secret(this, "ApplicationSecret", {
       description: "Provider credentials and scheduled generation configuration",
       generateSecretString: {
         excludePunctuation: true,
@@ -487,15 +500,15 @@ export class PropertyAlertStack extends Stack {
           "username",
         ),
         RENTCAST_API_KEY: EcsSecret.fromSecretsManager(
-          applicationSecret,
+          this.applicationSecret,
           "RENTCAST_API_KEY",
         ),
         TELEGRAM_BOT_TOKEN: EcsSecret.fromSecretsManager(
-          applicationSecret,
+          this.applicationSecret,
           "TELEGRAM_BOT_TOKEN",
         ),
         TELEGRAM_CHAT_ID: EcsSecret.fromSecretsManager(
-          applicationSecret,
+          this.applicationSecret,
           "TELEGRAM_CHAT_ID",
         ),
       },
@@ -561,7 +574,7 @@ export class PropertyAlertStack extends Stack {
         }),
         secrets: {
           OPENAI_API_KEY: EcsSecret.fromSecretsManager(
-            applicationSecret,
+            this.applicationSecret,
             "OPENAI_API_KEY",
           ),
           PGPASSWORD: EcsSecret.fromSecretsManager(
@@ -573,15 +586,15 @@ export class PropertyAlertStack extends Stack {
             "username",
           ),
           SHOWING_LIST_GENERATION_CONFIG: EcsSecret.fromSecretsManager(
-            applicationSecret,
+            this.applicationSecret,
             "SHOWING_LIST_GENERATION_CONFIG",
           ),
           TELEGRAM_BOT_TOKEN: EcsSecret.fromSecretsManager(
-            applicationSecret,
+            this.applicationSecret,
             "TELEGRAM_BOT_TOKEN",
           ),
           TELEGRAM_CHAT_ID: EcsSecret.fromSecretsManager(
-            applicationSecret,
+            this.applicationSecret,
             "TELEGRAM_CHAT_ID",
           ),
         },

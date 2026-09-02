@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { createApplicationSecret } from "../lib/applicationSecret.js";
+import {
+  applicationSecretName,
+  createApplicationSecret,
+} from "../lib/applicationSecret.js";
 
 describe("createApplicationSecret", () => {
+  it("resolves only stage-scoped application Secret names", () => {
+    expect(applicationSecretName("dev")).toBe("cpi/dev/application");
+    expect(applicationSecretName("production")).toBe(
+      "cpi/production/application",
+    );
+  });
+
   it("returns only the production provider and generation values", () => {
     expect(
       createApplicationSecret({

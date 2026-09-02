@@ -2188,3 +2188,34 @@ See the
 [Price Decision Product and API Contract](price-decision/product-and-api-contract.md),
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
+
+### AWS Price Estimation Runtime Enablement
+
+Enable the merged Price Estimation workflow in App Runner without reopening
+Block 31. The task is owned by branch
+`feat/aws-price-estimation-runtime-enablement` and remains independently
+disabled per stage until its provider credentials, managed-NAT recurring cost,
+and request budget are explicitly approved.
+
+Implementation scope:
+
+1. Add an opt-in `ApiEgress` private subnet tier with one managed NAT Gateway,
+   while keeping Aurora in isolated database subnets.
+2. Grant the App Runner instance role stage-scoped access to the existing
+   application Secret and inject only RentCast/OpenAI JSON fields.
+3. Keep RentCast runtime enablement, optional OpenAI enhancement, and budget
+   approval behind exact DEV/Production GitHub environment variables that
+   default to `false`.
+4. Bind the same flags into verification synth, account-backed diff, and deploy
+   so the approved infrastructure plan cannot diverge from the deployed plan.
+5. Add stage-aware safe Secret synchronization, infrastructure/workflow
+   regression tests, rollout/rollback guidance, and a one-request manual DEV
+   acceptance budget.
+
+See the
+[AWS Price Estimation Runtime Enablement runbook](runbooks/aws-price-estimation-runtime-enablement.md).
+
+**Source status:** implementation and automated verification are complete on
+`feat/aws-price-estimation-runtime-enablement`. Stage Secret updates, GitHub
+environment opt-in, account-backed diff approval, deployment, and the budgeted
+manual acceptance request remain explicit operator actions.

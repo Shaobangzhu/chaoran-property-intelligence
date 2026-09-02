@@ -56,14 +56,38 @@ function createDevTemplate(): Template {
   return Template.fromStack(stack);
 }
 
+function createPriceEstimationEnabledDevTemplate(): Template {
+  const app = new App();
+  return Template.fromStack(
+    new PropertyAlertStack(app, "PriceEstimationEnabledDevStack", {
+      adminContainerImage: ContainerImage.fromRegistry(
+        "example.invalid/admin:test",
+      ),
+      containerImage: ContainerImage.fromRegistry(
+        "example.invalid/worker:test",
+      ),
+      deploymentStage: "dev",
+      env: {
+        account: "111111111111",
+        region: "us-west-2",
+      },
+      failureAlertEmail: "dev-alerts@example.com",
+      priceEstimationRuntimeEnabled: true,
+    }),
+  );
+}
+
 describe("PropertyAlertStack", () => {
   let devTemplate: Template;
   let parameterizedTemplate: Template;
+  let priceEstimationEnabledDevTemplate: Template;
   let productionTemplate: Template;
 
   beforeAll(() => {
     devTemplate = createDevTemplate();
     parameterizedTemplate = createParameterizedTemplate();
+    priceEstimationEnabledDevTemplate =
+      createPriceEstimationEnabledDevTemplate();
     productionTemplate = createTemplate();
   }, 20_000);
 
@@ -274,6 +298,23 @@ describe("PropertyAlertStack", () => {
         }),
       ]),
     });
+  });
+
+  it("adds one opt-in NAT gateway without moving Aurora out of isolated subnets", () => {
+    priceEstimationEnabledDevTemplate.resourceCountIs(
+      "AWS::EC2::NatGateway",
+      1,
+    );
+    priceEstimationEnabledDevTemplate.resourceCountIs("AWS::EC2::Subnet", 6);
+    priceEstimationEnabledDevTemplate.hasResourceProperties(
+      "AWS::EC2::Route",
+      { NatGatewayId: Match.anyValue() },
+    );
+    const resources = JSON.stringify(
+      priceEstimationEnabledDevTemplate.toJSON().Resources,
+    );
+    expect(resources).toContain("ApiEgress");
+    expect(resources).toContain("DatabaseSubnet");
   });
 
   it("uses one encrypted Aurora Serverless v2 writer that can pause", () => {
