@@ -3,17 +3,23 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { createApplicationSecret } from "../lib/applicationSecret.js";
+import {
+  applicationSecretName,
+  createApplicationSecret,
+  type ApplicationSecretStage,
+} from "../lib/applicationSecret.js";
 
 const secret = createApplicationSecret(process.env);
-const applyChanges = process.argv.includes("--apply");
+const options = readOptions(process.argv.slice(2));
 const awsProfile = process.env.CPI_AWS_PROFILE?.trim() || "cpi-admin";
 
-if (!applyChanges) {
-  console.log("Application secret configuration is valid. No AWS changes made.");
+if (!options.applyChanges) {
+  console.log(
+    `${options.stage} application secret configuration is valid. No AWS changes made.`,
+  );
 } else {
   const cliInput = JSON.stringify({
-    SecretId: "cpi/production/application",
+    SecretId: applicationSecretName(options.stage),
     SecretString: JSON.stringify(secret),
   });
   const temporaryDirectory = mkdtempSync(
@@ -54,5 +60,33 @@ if (!applyChanges) {
     );
   }
 
-  console.log("Production application secret updated without displaying values.");
+  console.log(
+    `${options.stage} application secret updated without displaying values.`,
+  );
+}
+
+function readOptions(argv: readonly string[]): {
+  readonly applyChanges: boolean;
+  readonly stage: ApplicationSecretStage;
+} {
+  let applyChanges = false;
+  let stage: ApplicationSecretStage = "production";
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--apply") {
+      applyChanges = true;
+    } else if (argument === "--stage") {
+      const value = argv[index + 1];
+      if (value !== "dev" && value !== "production") {
+        throw new Error("--stage must be dev or production");
+      }
+      stage = value;
+      index += 1;
+    } else {
+      throw new Error(`Unknown argument: ${argument}`);
+    }
+  }
+
+  return { applyChanges, stage };
 }

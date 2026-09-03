@@ -137,8 +137,11 @@ flowchart LR
   connectivity.
 - App Runner is the selected compute target. It deploys the API as an image from
   private ECR and uses a VPC Connector in private subnets for outbound database
-  traffic. The connector security group is the only new principal allowed into
-  the Aurora security group.
+  traffic. By default the connector remains in isolated subnets. Stage-specific
+  Price Estimation enablement moves it to dedicated private egress subnets with
+  one managed NAT Gateway for RentCast/OpenAI HTTPS while Aurora remains in its
+  isolated subnets. The connector security group is the only new principal
+  allowed into the Aurora security group.
 - App Runner service ingress remains on its managed public hostname. CloudFront
   overwrites a dedicated origin verification header, and Express rejects a
   missing or mismatched value before authentication. The value is generated and
@@ -146,9 +149,10 @@ flowchart LR
   `GET /api/health`, which returns no application data and performs no database
   query so App Runner can probe the container directly.
 - The App Runner instance role can read only its stage database secret, API-auth
-  secrets, and current Showing List artifact. It does not receive RentCast,
-  OpenAI, or Telegram
-  credentials because the API does not call either service.
+  secrets, and current Showing List artifact by default. Explicit Price
+  Estimation enablement additionally grants the stage application Secret and
+  injects only its RentCast JSON field; the OpenAI field has a separate opt-in.
+  Telegram and Showing List configuration are never injected into the API.
 - The first configuration uses `0.25 vCPU`, `0.5 GB`, and a minimum of one
   provisioned instance. At the current `us-west-2` memory rate, the idle memory
   baseline is approximately USD 2.56 per 730-hour month, plus active CPU,
@@ -431,9 +435,13 @@ VPC address space.
 | Fargate worker | No security-group ingress | All IPv4 egress | Receives a temporary public IP only while running |
 | Aurora writer | TCP 5432 from the worker security group only | Disabled | No |
 
-There is no NAT gateway. The short-lived worker runs in a public subnet so it
-can call RentCast and Telegram over HTTPS. A public IP does not by itself allow
-inbound traffic; the worker security group has no ingress rules.
+There is no NAT gateway by default. The short-lived worker runs in a public
+subnet so it can call RentCast and Telegram over HTTPS. A public IP does not by
+itself allow inbound traffic; the worker security group has no ingress rules.
+When a stage explicitly enables the Price Estimation API runtime and accepts
+its cost gate, one managed NAT Gateway and dedicated `ApiEgress` private
+subnets are added for App Runner public HTTPS. Aurora remains in isolated
+database subnets.
 
 Aurora runs only in isolated subnets. It has no route to the internet and no
 CIDR-based PostgreSQL ingress. Database access is expressed as a
@@ -691,8 +699,8 @@ configuration required before publishing the workflow is:
 | `CDK_DEFAULT_ACCOUNT` | Local process environment | No | CDK account binding |
 | `CPI_ALERT_EMAIL` | `.env.local`; GitHub secret | Personal data | Both CloudFormation stacks |
 | `CPI_MONTHLY_BUDGET_USD` | `.env.local`; GitHub variable | No | Guardrails stack |
-| `RENTCAST_API_KEY` | `.env.local`; AWS Secret | Yes | Worker container |
-| `OPENAI_API_KEY` | `.env.local`; AWS Secret | Yes | Weekly Showing List task |
+| `RENTCAST_API_KEY` | `.env.local`/`.env.dev.local`; stage AWS Secret | Yes | Worker container; opt-in Price Estimation API |
+| `OPENAI_API_KEY` | `.env.local`/`.env.dev.local`; stage AWS Secret | Yes | Weekly Showing List task; separately opt-in Price Estimation API |
 | `SHOWING_LIST_GENERATION_CONFIG` | `.env.local`; AWS Secret | Client/listing configuration | Weekly Showing List task |
 | `TELEGRAM_BOT_TOKEN` | `.env.local`; AWS Secret | Yes | Worker container |
 | `TELEGRAM_CHAT_ID` | `.env.local`; AWS Secret | Yes | Worker container |
@@ -707,6 +715,9 @@ configuration required before publishing the workflow is:
 | `CPI_RELEASE_SHA` | CDK context; App Runner environment; Web release manifest | No | Immutable deployed commit identity |
 | `PORT` | App Runner environment | No | Production Express listener |
 | `DATABASE_CREDENTIALS_SECRET_JSON` | App Runner secret environment | Yes | Existing Aurora username/password JSON secret |
+| `CPI_*_PRICE_ESTIMATION_RUNTIME_ENABLED` | Stage GitHub environment variable | No | Enables App Runner provider egress and RentCast injection |
+| `CPI_*_PRICE_ESTIMATION_OPENAI_ENABLED` | Stage GitHub environment variable | No | Enables optional App Runner OpenAI injection |
+| `CPI_*_PRICE_ESTIMATION_BUDGET_APPROVED` | Stage GitHub environment variable | No | Explicit NAT and provider billing gate |
 | `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |
 | `SHOWING_LIST_ARTIFACT_BUCKET` | Generated task environment | No | Weekly task and future API |
 | `SHOWING_LIST_TIME_ZONE` | Generated from CDK context | No | Weekly identity |

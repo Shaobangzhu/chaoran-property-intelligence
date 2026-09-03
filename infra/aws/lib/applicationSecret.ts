@@ -6,6 +6,12 @@ export interface ApplicationSecret {
   TELEGRAM_CHAT_ID: string;
 }
 
+export type ApplicationSecretStage = "dev" | "production";
+
+export function applicationSecretName(stage: ApplicationSecretStage): string {
+  return `cpi/${stage}/application`;
+}
+
 export function createApplicationSecret(
   environment: NodeJS.ProcessEnv,
 ): ApplicationSecret {

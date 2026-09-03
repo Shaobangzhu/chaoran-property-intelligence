@@ -15,6 +15,16 @@ const deploymentStage = resolveDeploymentStage(
   app.node.tryGetContext("targetStage") as unknown,
 );
 const releaseSha = resolveReleaseSha(app);
+const priceEstimationRuntimeEnabled = readBooleanContext(
+  app,
+  "priceEstimationRuntimeEnabled",
+  false,
+);
+const priceEstimationOpenAiEnabled = readBooleanContext(
+  app,
+  "priceEstimationOpenAiEnabled",
+  false,
+);
 
 const guardrailsStack = new AccountGuardrailsStack(
   app,
@@ -40,6 +50,7 @@ if (deploymentStage === "production") {
     "ChaoranPropertyIntelligenceProduction",
     {
       env: environment,
+      priceEstimationRuntimeEnabled,
       repositoryRoot: path.resolve(process.cwd(), "../.."),
       scheduleEnabled: app.node.tryGetContext("scheduleEnabled") === "true",
       showingListSchedule: resolveShowingListSchedule(app),
@@ -67,11 +78,14 @@ if (deploymentStage === "production") {
     "ChaoranPropertyIntelligenceProductionPublicApplication",
     {
       crossRegionReferences: true,
+      applicationSecret: productionStack.applicationSecret,
       database: productionStack.database,
       databaseCredentialsSecret: productionStack.databaseCredentialsSecret,
       databaseSecurityGroup: productionStack.databaseSecurityGroup,
       deploymentStage: "production",
       env: environment,
+      priceEstimationOpenAiEnabled,
+      priceEstimationRuntimeEnabled,
       releaseSha,
       repositoryRoot: path.resolve(process.cwd(), "../.."),
       showingListArtifactBucket: productionStack.showingListArtifactBucket,
@@ -94,6 +108,7 @@ if (deploymentStage === "production") {
     {
       deploymentStage: "dev",
       env: environment,
+      priceEstimationRuntimeEnabled,
       repositoryRoot: path.resolve(process.cwd(), "../.."),
       scheduleEnabled: false,
       showingListSchedule: {
@@ -127,11 +142,14 @@ if (deploymentStage === "production") {
     "ChaoranPropertyIntelligenceDevPublicApplication",
     {
       crossRegionReferences: true,
+      applicationSecret: devStack.applicationSecret,
       database: devStack.database,
       databaseCredentialsSecret: devStack.databaseCredentialsSecret,
       databaseSecurityGroup: devStack.databaseSecurityGroup,
       deploymentStage: "dev",
       env: environment,
+      priceEstimationOpenAiEnabled,
+      priceEstimationRuntimeEnabled,
       releaseSha,
       repositoryRoot: path.resolve(process.cwd(), "../.."),
       showingListArtifactBucket: devStack.showingListArtifactBucket,

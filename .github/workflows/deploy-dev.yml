@@ -17,6 +17,9 @@ env:
   AWS_REGION: us-west-2
   CPI_ALERT_EMAIL: ${{ secrets.CPI_ALERT_EMAIL }}
   CPI_MONTHLY_BUDGET_USD: ${{ vars.CPI_MONTHLY_BUDGET_USD || '20' }}
+  CPI_PRICE_ESTIMATION_BUDGET_APPROVED: ${{ vars.CPI_DEV_PRICE_ESTIMATION_BUDGET_APPROVED || 'false' }}
+  CPI_PRICE_ESTIMATION_OPENAI_ENABLED: ${{ vars.CPI_DEV_PRICE_ESTIMATION_OPENAI_ENABLED || 'false' }}
+  CPI_PRICE_ESTIMATION_RUNTIME_ENABLED: ${{ vars.CPI_DEV_PRICE_ESTIMATION_RUNTIME_ENABLED || 'false' }}
 
 jobs:
   classify:
@@ -118,6 +121,13 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Validate Price Estimation runtime cost gate
+        run: >-
+          node tools/aws/validatePriceEstimationRuntime.mjs
+          --runtime-enabled "$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED"
+          --openai-enabled "$CPI_PRICE_ESTIMATION_OPENAI_ENABLED"
+          --budget-approved "$CPI_PRICE_ESTIMATION_BUDGET_APPROVED"
+
       - name: Build release candidate
         run: |-
           pnpm build
@@ -129,7 +139,12 @@ jobs:
             --output apps/web/dist/release.json
 
       - name: Synthesize isolated DEV stacks
-        run: pnpm --dir infra/aws synth:dev
+        run: >-
+          pnpm --dir infra/aws exec cdk synth
+          --app 'node dist/bin/app.js'
+          -c targetStage=dev
+          -c priceEstimationRuntimeEnabled="$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED"
+          -c priceEstimationOpenAiEnabled="$CPI_PRICE_ESTIMATION_OPENAI_ENABLED"
 
       - name: Generate Allure report
         if: always()
@@ -198,6 +213,8 @@ jobs:
             '' \
             "- Release SHA: \`$GITHUB_SHA\`" \
             "- Trigger: \`$GITHUB_EVENT_NAME\`" \
+            "- Price Estimation runtime: \`$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED\`" \
+            "- Price Estimation OpenAI: \`$CPI_PRICE_ESTIMATION_OPENAI_ENABLED\`" \
             "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             > deployment-plan/run-context.md
 
@@ -218,6 +235,10 @@ jobs:
       - name: Validate deployment configuration
         run: |-
           test -n "${{ vars.AWS_ACCOUNT_ID }}"
+          node tools/aws/validatePriceEstimationRuntime.mjs \
+            --runtime-enabled "$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED" \
+            --openai-enabled "$CPI_PRICE_ESTIMATION_OPENAI_ENABLED" \
+            --budget-approved "$CPI_PRICE_ESTIMATION_BUDGET_APPROVED"
 
       - name: Configure temporary AWS credentials
         uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
@@ -243,6 +264,8 @@ jobs:
             ChaoranPropertyIntelligenceDevPublicApplication \
             -c targetStage=dev \
             -c releaseSha="$GITHUB_SHA" \
+            -c priceEstimationRuntimeEnabled="$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED" \
+            -c priceEstimationOpenAiEnabled="$CPI_PRICE_ESTIMATION_OPENAI_ENABLED" \
             --ci \
             --exclusively \
             --fail \
@@ -328,6 +351,10 @@ jobs:
           test -n "${{ vars.AWS_ACCOUNT_ID }}"
           test -n "$CPI_ALERT_EMAIL"
           test -n "$CPI_MONTHLY_BUDGET_USD"
+          node tools/aws/validatePriceEstimationRuntime.mjs \
+            --runtime-enabled "$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED" \
+            --openai-enabled "$CPI_PRICE_ESTIMATION_OPENAI_ENABLED" \
+            --budget-approved "$CPI_PRICE_ESTIMATION_BUDGET_APPROVED"
 
       - name: Configure temporary AWS credentials
         uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
@@ -388,6 +415,8 @@ jobs:
             ChaoranPropertyIntelligenceDevPublicApplication \
             -c targetStage=dev \
             -c releaseSha="$GITHUB_SHA" \
+            -c priceEstimationRuntimeEnabled="$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED" \
+            -c priceEstimationOpenAiEnabled="$CPI_PRICE_ESTIMATION_OPENAI_ENABLED" \
             -c scheduleEnabled=false \
             -c showingListScheduleEnabled=false \
             -c showingListScheduleWeekday=MON \
@@ -461,8 +490,22 @@ jobs:
           if [ -n "$service_arn" ] && [ "$service_arn" != "None" ]; then
             aws apprunner describe-service \
               --service-arn "$service_arn" \
-              --query '{ServiceName:Service.ServiceName,Status:Service.Status,ImageIdentifier:Service.SourceConfiguration.ImageRepository.ImageIdentifier}' \
+              --query '{ServiceName:Service.ServiceName,Status:Service.Status,ImageIdentifier:Service.SourceConfiguration.ImageRepository.ImageIdentifier,EgressType:Service.NetworkConfiguration.EgressConfiguration.EgressType,VpcConnectorArn:Service.NetworkConfiguration.EgressConfiguration.VpcConnectorArn,RuntimeSecretNames:Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentSecrets[].Name}' \
               --output json > deployment-evidence/post-deploy-api.json
+            if [ "$CPI_PRICE_ESTIMATION_RUNTIME_ENABLED" = "true" ]; then
+              jq -e '.RuntimeSecretNames | index("RENTCAST_API_KEY") != null' \
+                deployment-evidence/post-deploy-api.json >/dev/null
+            else
+              jq -e '.RuntimeSecretNames | index("RENTCAST_API_KEY") == null' \
+                deployment-evidence/post-deploy-api.json >/dev/null
+            fi
+            if [ "$CPI_PRICE_ESTIMATION_OPENAI_ENABLED" = "true" ]; then
+              jq -e '.RuntimeSecretNames | index("OPENAI_API_KEY") != null' \
+                deployment-evidence/post-deploy-api.json >/dev/null
+            else
+              jq -e '.RuntimeSecretNames | index("OPENAI_API_KEY") == null' \
+                deployment-evidence/post-deploy-api.json >/dev/null
+            fi
           fi
 
       - name: Generate Allure report
