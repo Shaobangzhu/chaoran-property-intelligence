@@ -142,7 +142,7 @@ jobs:
             allure-report/
             playwright-report/
             test-results/playwright/
-          retention-days: 14
+          retention-days: 30
 
       - name: Publish quality summary
         if: always() && needs.detect-changes.outputs.docs_only != 'true'

@@ -175,7 +175,7 @@ jobs:
             allure-report/
             playwright-report/
             test-results/playwright/
-          retention-days: 14
+          retention-days: 30
 
       - name: Publish verification summary
         if: always()

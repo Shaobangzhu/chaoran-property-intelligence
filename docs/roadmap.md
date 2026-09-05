@@ -2219,3 +2219,37 @@ See the
 `feat/aws-price-estimation-runtime-enablement`. Stage Secret updates, GitHub
 environment opt-in, account-backed diff approval, deployment, and the budgeted
 manual acceptance request remain explicit operator actions.
+
+### Protected Allure Report Portal
+
+Publish one Access-protected Allure report per Pacific calendar day from the
+trusted Nightly DEV Regression workflow. The task is owned by branch
+`feat/allure-cloudflare-pages-publishing` and does not reopen Block 28 or Block
+31.
+
+Implementation scope:
+
+1. Preserve GitHub diagnostic artifacts while standardizing report-containing
+   PR and DEV verification artifacts on 30-day retention.
+2. Restore only per-run report and history artifacts created by prior runs of
+   the same trusted nightly workflow; never expose the Cloudflare token to
+   pull-request code or duplicate the complete rolling site in every artifact.
+3. Carry Allure 3 `history.jsonl` into the next Allure generation, keep the
+   newest run for each date, prune outside an inclusive 30-day window, and
+   rebuild `latest/` without symlinks.
+4. Publish the complete static site to the `cpi-allure-reports` Direct Upload
+   production branch from a dedicated `allure-reports` GitHub Environment.
+5. Retain raw Playwright output, traces, screenshots, Allure results, flake
+   evidence, and deployment evidence in GitHub only. Cloudflare Access exact-
+   email policy remains the online confidentiality boundary.
+6. Validate path safety, metadata escaping, malformed report cleanup, bounded
+   file count and size, missing-report cleanup, daily replacement, and 30-day
+   pruning.
+
+See the
+[Protected Allure Portal On Cloudflare Pages runbook](runbooks/allure-cloudflare-pages.md).
+
+**Source status:** implementation is complete on
+`feat/allure-cloudflare-pages-publishing`. The Pages project, Access policies,
+API token, and GitHub Environment are operator-owned prerequisites; no
+Cloudflare deployment is performed during source implementation.

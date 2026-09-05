@@ -25,6 +25,10 @@ coverage
 # Playwright local reports and traces
 allure-report/
 allure-results/
+allure-history/
+allure-pages-report-bundle/
+allure-pages-site/
+current-nightly-diagnostics/
 playwright-report/
 test-results/
 
