@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -15,6 +16,8 @@ concurrency:
 jobs:
   regression:
     name: AWS DEV read-only regression
+    outputs:
+      tested_sha: ${{ steps.source.outputs.tested_sha }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -45,9 +48,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Record tested source identity
+        id: source
         run: |-
           tested_sha="$(git rev-parse HEAD)"
           echo "CPI_TESTED_GIT_SHA=$tested_sha" >> "$GITHUB_ENV"
+          echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
           {
             echo "## Nightly AWS DEV Regression"
             echo
@@ -140,6 +145,32 @@ jobs:
           fi
           echo "exit_code=$analysis_status" >> "$GITHUB_OUTPUT"
 
+      - name: Restore prior Allure history
+        id: restore-history
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |-
+          node tools/allure-portal/restoreWorkflowArtifact.mjs \
+            --repository "$GITHUB_REPOSITORY" \
+            --workflow nightly-dev-regression.yml \
+            --current-run-id "$GITHUB_RUN_ID" \
+            --artifact-name allure-history-state \
+            --output "$RUNNER_TEMP/allure-history-state.zip" \
+            --github-output "$RUNNER_TEMP/allure-history-restore-output"
+          mkdir -p allure-history
+          if grep -q '^found=true$' "$RUNNER_TEMP/allure-history-restore-output"; then
+            if [ "$(unzip -Z1 "$RUNNER_TEMP/allure-history-state.zip")" != \
+              "history.jsonl" ]; then
+              echo "Refusing an invalid history artifact layout." >&2
+              exit 1
+            fi
+            unzip -q "$RUNNER_TEMP/allure-history-state.zip" \
+              -d allure-history
+            test -f allure-history/history.jsonl
+            test ! -L allure-history/history.jsonl
+          fi
+
       - name: Generate Allure report
         if: always()
         run: |-
@@ -149,10 +180,20 @@ jobs:
             echo "No Allure results were produced."
           fi
 
+      - name: Upload renewable Allure 3 history
+        if: always() && steps.restore-history.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: ignore
+          name: allure-history-state
+          overwrite: true
+          path: allure-history/history.jsonl
+          retention-days: 30
+
       - name: Upload nightly diagnostics
         id: nightly-diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
           name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
@@ -179,3 +220,162 @@ jobs:
         run: |-
           test "${{ steps.playwright.outputs.exit_code || '1' }}" = "0"
           test "${{ steps.flake-analysis.outputs.exit_code || '1' }}" = "0"
+
+  publish-allure:
+    name: Publish protected 30-day Allure portal
+    needs: regression
+    if: always()
+    environment:
+      name: allure-reports
+      url: https://cpi-allure-reports.pages.dev
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout the tested DEV source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.regression.outputs.tested_sha || 'dev' }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+
+      - name: Resolve report source identity
+        id: source
+        env:
+          CPI_TESTED_SHA: ${{ needs.regression.outputs.tested_sha }}
+        run: |-
+          tested_sha="$CPI_TESTED_SHA"
+          if [ -z "$tested_sha" ]; then
+            tested_sha="$(git rev-parse HEAD)"
+          fi
+          printf '%s' "$tested_sha" | grep -Eq '^[a-f0-9]{40}$'
+          echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Restore prior daily report bundles
+        id: previous-reports
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |-
+          node tools/allure-portal/restoreReportArtifacts.mjs \
+            --repository "$GITHUB_REPOSITORY" \
+            --workflow nightly-dev-regression.yml \
+            --current-run-id "$GITHUB_RUN_ID" \
+            --artifact-prefix allure-pages-report- \
+            --output-directory "$RUNNER_TEMP/allure-pages-report-artifacts" \
+            --max-artifacts 100 \
+            --github-output "$GITHUB_OUTPUT"
+          mkdir -p allure-pages-site
+          shopt -s nullglob
+          for archive in "$RUNNER_TEMP"/allure-pages-report-artifacts/*.zip; do
+            archive_entries="$(unzip -Z1 "$archive")"
+            if [ -z "$archive_entries" ] || \
+              printf '%s\n' "$archive_entries" | \
+                grep -Ev '^runs/[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+(/|$)' | \
+                grep -q . || \
+              printf '%s\n' "$archive_entries" | \
+                grep -Eq '(^|/)\.\.?(/|$)|\\'; then
+              echo "Refusing an invalid report artifact layout." >&2
+              exit 1
+            fi
+            unzip -oq "$archive" -d allure-pages-site
+          done
+
+      - name: Download current nightly diagnostics
+        id: current-diagnostics
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: current-nightly-diagnostics
+
+      - name: Build and prune the protected report portal
+        id: portal
+        env:
+          CPI_REGRESSION_RESULT: ${{ needs.regression.result }}
+        run: |-
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+          node tools/allure-portal/manageAllurePortal.mjs build \
+            --site allure-pages-site \
+            --report current-nightly-diagnostics/allure-report \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow "Nightly DEV Regression" \
+            --repository "$GITHUB_REPOSITORY" \
+            --server-url "$GITHUB_SERVER_URL" \
+            --source-sha "${{ steps.source.outputs.tested_sha }}" \
+            --generated-at "$generated_at" \
+            --status "$CPI_REGRESSION_RESULT" \
+            --timezone America/Los_Angeles \
+            --retention-days 30 \
+            --max-file-bytes 25000000 \
+            --max-files 19000 \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Stage current daily report bundle
+        if: steps.portal.outputs.current_report_published == 'true'
+        env:
+          CPI_REPORT_DIRECTORY: ${{ steps.portal.outputs.report_directory }}
+        run: |-
+          printf '%s' "$CPI_REPORT_DIRECTORY" | \
+            grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+$'
+          mkdir -p allure-pages-report-bundle/runs
+          cp -R \
+            "allure-pages-site/runs/$CPI_REPORT_DIRECTORY" \
+            "allure-pages-report-bundle/runs/$CPI_REPORT_DIRECTORY"
+
+      - name: Upload current daily report bundle
+        if: steps.portal.outputs.current_report_published == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: allure-pages-report-${{ github.run_id }}
+          overwrite: true
+          path: allure-pages-report-bundle/
+          retention-days: 30
+
+      - name: Validate Cloudflare Pages deployment configuration
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: |-
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$CLOUDFLARE_PAGES_PROJECT_NAME" = "cpi-allure-reports"
+
+      - name: Deploy portal to the Cloudflare Pages production branch
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: >-
+          pnpm dlx wrangler@4.129.0 pages deploy allure-pages-site
+          --project-name="$CLOUDFLARE_PAGES_PROJECT_NAME"
+          --branch=main
+
+      - name: Publish protected portal summary
+        if: always()
+        run: |-
+          {
+            echo "## Protected Allure Portal"
+            echo
+            echo "Portal: https://cpi-allure-reports.pages.dev"
+            echo
+            echo "Retained daily reports: ${{ steps.portal.outputs.report_count || 'unknown' }}"
+            echo "Prior report bundles restored: ${{ steps.previous-reports.outputs.restored_count || '0' }}"
+            echo
+            echo "Current report published: ${{ steps.portal.outputs.current_report_published || 'false' }}"
+            echo
+            echo "Cloudflare Access remains the authentication and authorization boundary."
+          } >> "$GITHUB_STEP_SUMMARY"
