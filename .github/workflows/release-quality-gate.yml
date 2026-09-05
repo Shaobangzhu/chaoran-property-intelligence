@@ -31,8 +31,21 @@ jobs:
     steps:
       - name: Enforce protected dev-to-main release path
         run: |-
-          test "$CPI_RELEASE_HEAD_REF" = "dev"
-          test "$CPI_RELEASE_HEAD_REPOSITORY" = "$GITHUB_REPOSITORY"
+          if [ "$CPI_RELEASE_HEAD_REF" != "dev" ]; then
+            echo "::error title=Invalid release source::Open feature branches against dev. Only the protected dev branch can be promoted to main."
+            {
+              echo "## Release promotion rejected"
+              echo
+              echo "This gate accepts only a same-repository \`dev -> main\` pull request."
+              echo
+              echo "Retarget this feature pull request to \`dev\`. After it is merged and deployed to AWS DEV, open the release pull request from \`dev\` to \`main\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ "$CPI_RELEASE_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error title=Invalid release repository::The protected dev branch must belong to this repository."
+            exit 1
+          fi
 
       - name: Checkout exact release candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -126,7 +139,7 @@ jobs:
 
       - name: Analyze retry and quarantine evidence
         id: flake-analysis
-        if: always()
+        if: always() && steps.playwright.outcome == 'success'
         run: |-
           mkdir -p test-results/flake-evidence
           if [ -f test-results/playwright-results.json ]; then
@@ -151,7 +164,7 @@ jobs:
           echo "exit_code=$analysis_status" >> "$GITHUB_OUTPUT"
 
       - name: Generate Allure report
-        if: always()
+        if: always() && steps.playwright.outcome == 'success'
         run: |-
           if [ -d allure-results ]; then
             pnpm report:allure
@@ -161,7 +174,7 @@ jobs:
 
       - name: Upload release diagnostics
         id: release-diagnostics
-        if: always()
+        if: always() && steps.playwright.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
@@ -177,7 +190,7 @@ jobs:
           retention-days: 30
 
       - name: Publish release quality summary
-        if: always()
+        if: always() && steps.playwright.outcome == 'success'
         env:
           CPI_QUALITY_ARTIFACT_URL: ${{ steps.release-diagnostics.outputs.artifact-url }}
         run: |-
@@ -185,7 +198,7 @@ jobs:
           cat test-results/flake-evidence/retry-analysis.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce exact release regression outcome
-        if: always()
+        if: always() && steps.playwright.outcome == 'success'
         run: |-
           test "${{ steps.playwright.outputs.exit_code || '1' }}" = "0"
           test "${{ steps.flake-analysis.outputs.exit_code || '1' }}" = "0"
