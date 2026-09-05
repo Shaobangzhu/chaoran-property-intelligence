@@ -41,9 +41,23 @@ describe("release promotion gate workflow", () => {
 
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("- main");
-    expect(workflow).toContain('test "$CPI_RELEASE_HEAD_REF" = "dev"');
+    expect(workflow).toContain(
+      'if [ "$CPI_RELEASE_HEAD_REF" != "dev" ]; then',
+    );
+    expect(workflow).toContain("Open feature branches against dev");
+    expect(workflow).toContain("Retarget this feature pull request");
     expect(workflow).toContain("CPI_RELEASE_HEAD_REPOSITORY");
     expect(workflow).not.toMatch(/^\s*push:/mu);
+  });
+
+  it("does not emit secondary report failures when release preflight fails", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const guardedEvidenceSteps = workflow.match(
+      /if: always\(\) && steps\.playwright\.outcome == 'success'/gu,
+    );
+
+    expect(guardedEvidenceSteps).toHaveLength(5);
+    expect(workflow).not.toMatch(/^\s+if: always\(\)\s*$/gmu);
   });
 
   it("checks out the exact candidate with full ancestry", () => {

@@ -36,7 +36,6 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).not.toContain("id-token: write");
     expect(workflow).not.toContain("configure-aws-credentials");
     expect(workflow).not.toContain("AWS_ACCESS_KEY_ID");
-    expect(workflow).not.toMatch(/^\s*environment:/mu);
     expect(workflow).not.toMatch(/^\s+aws\s/imu);
   });
 
@@ -70,5 +69,47 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).toContain("test-results/playwright/");
     expect(workflow).toContain("artifact-url");
     expect(workflow).toContain("retention-days: 30");
+  });
+
+  it("publishes one Access-protected daily report through a least-privilege job", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("name: Publish protected 30-day Allure portal");
+    expect(workflow).toContain("name: allure-reports");
+    expect(workflow).toContain("secrets.CLOUDFLARE_API_TOKEN");
+    expect(workflow).toContain("vars.CLOUDFLARE_ACCOUNT_ID");
+    expect(workflow).toContain("vars.CLOUDFLARE_PAGES_PROJECT_NAME");
+    expect(workflow).toContain("wrangler@4.129.0 pages deploy");
+    expect(workflow).toContain("node-version: 24.19.0");
+    expect(workflow).toContain("version: 11.19.0");
+    expect(workflow).toContain("--branch=main");
+    expect(workflow).toContain("--retention-days 30");
+    expect(workflow).toContain("--max-file-bytes 25000000");
+    expect(workflow).toContain("--max-files 19000");
+    expect(workflow).toContain("restoreReportArtifacts.mjs");
+    expect(workflow).toContain("allure-pages-report-${{ github.run_id }}");
+    expect(workflow).toContain("archive_entries=\"$(unzip -Z1 \"$archive\")\"");
+    expect(workflow).toContain("grep -Eq '(^|/)\\.\\.?(/|$)|\\\\'");
+    expect(workflow).toContain("overwrite: true");
+    expect(workflow).toContain("allure-history-state");
+    expect(workflow).toContain("allure-history/history.jsonl");
+    expect(workflow).not.toContain("allure-results/history");
+    expect(workflow).not.toContain("pull_request:");
+    expect(workflow).not.toMatch(
+      /uses:\s+actions\/(?:download|upload)-artifact@v4/u,
+    );
+  });
+
+  it("keeps the Cloudflare credential outside the regression job", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const publishJobStart = workflow.indexOf("  publish-allure:");
+
+    expect(publishJobStart).toBeGreaterThan(0);
+    expect(workflow.slice(0, publishJobStart)).not.toContain(
+      "CLOUDFLARE_API_TOKEN",
+    );
+    expect(workflow.slice(publishJobStart)).toContain(
+      "CLOUDFLARE_API_TOKEN",
+    );
   });
 });

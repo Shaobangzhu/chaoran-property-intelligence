@@ -8,9 +8,11 @@ implemented, but Block 28.7 does not execute a GitHub Actions run, access AWS,
 deploy a stack, run a migration, enable a schedule, start a worker, call
 RentCast or OpenAI, send Telegram, or publish SNS.
 
-The nightly workflow is a test consumer, not a deployment mechanism. It has no
-AWS credentials, no `id-token` permission, and no GitHub environment. It cannot
-mutate infrastructure or read CloudFormation outputs.
+The nightly regression job is a test consumer, not an AWS deployment mechanism.
+It has no AWS credentials or `id-token` permission and cannot mutate
+infrastructure or read CloudFormation outputs. A separate `publish-allure` job
+uses the protected `allure-reports` GitHub Environment only to publish the
+bounded Allure HTML portal to Cloudflare Pages.
 
 ## One-Time Setup
 
@@ -25,6 +27,8 @@ Before enabling meaningful scheduled runs:
    scheduled workflows from the default branch, while this workflow explicitly
    checks out `dev` as its test source.
 5. Review artifact visibility and retention for the repository.
+6. Complete the Cloudflare Pages, Access, token, and GitHub Environment setup in
+   [Protected Allure Portal On Cloudflare Pages](allure-cloudflare-pages.md).
 
 The CloudFront URL is public routing metadata, not a secret. Do not put session
 cookies, credentials, API keys, or secret values in this variable.
@@ -53,7 +57,8 @@ flowchart TD
     Regression --> Analyze[Retry and quarantine analysis]
     Analyze --> Reports[Allure and Playwright reports]
     Reports --> Artifact[30-day diagnostic artifact]
-    Artifact --> Summary[Actions quality and flake summary]
+    Artifact --> Portal[Access-protected 30-day Allure portal]
+    Portal --> Summary[Actions quality and flake summary]
     Summary --> Gate[Enforce test and flake outcomes]
 ```
 
@@ -136,10 +141,13 @@ failure screenshots and traces, Playwright JSON, and bounded flake evidence.
 The Actions page displays the tested `dev` SHA, Allure summary, retry counts,
 quarantine state, and artifact link.
 
-Do not publish the artifact externally until screenshots, traces, cookies,
-request payloads, and response bodies have been reviewed. The bounded flake
-JSON is safer for trend processing than raw Playwright output, but it is not a
-public report by default.
+The generated Allure HTML is published only behind the separately verified
+Cloudflare Access exact-email policy. Playwright HTML, screenshots, traces,
+cookies, raw result files, request/response diagnostics, flake evidence, and
+deployment evidence remain GitHub-only artifacts. The portal retains the
+newest report per Pacific calendar day for 30 days and carries forward bounded
+Allure history. See the dedicated portal runbook for privacy, credentials,
+state restoration, cleanup, rollback, and acceptance.
 
 ## Release Identity Binding
 
