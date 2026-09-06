@@ -1816,7 +1816,7 @@ Modernize the repository's quality platform and AWS delivery path so the project
 demonstrates both application engineering and Senior SDET/Test Automation
 Architect judgment. The target architecture adds a focused Playwright browser
 and black-box API layer, Allure and workflow artifacts, dependency-aware PR
-gates, AWS DEV deployment, nightly DEV regression, flaky-test engineering, and
+gates, AWS DEV deployment, weekly DEV regression, flaky-test engineering, and
 safe production smoke around the approved CloudFront/private-S3/App Runner/VPC
 Connector public Web/API architecture.
 
@@ -1908,7 +1908,7 @@ Planned sub-block mapping:
    public stack owns a dedicated failure topic. The first real run remains
    separately authorized and its second approval must explicitly cover API
    startup migrations. No AWS action or notification was executed.
-8. `28.7` Add nightly AWS DEV regression and flaky-test engineering controls:
+8. `28.7` Add weekly AWS DEV regression and flaky-test engineering controls:
    bounded retries, explicit quarantine metadata, owner, expiry, and
    remediation path. **Complete in source without remote execution:** a
    credential-free scheduled/manual workflow checks out protected `dev`, uses a
@@ -1922,7 +1922,7 @@ Planned sub-block mapping:
 9. `28.8` Complete `dev -> main` full regression against AWS DEV and
    controlled production deployment with safe production smoke only.
    **Complete in source without AWS execution:** DEV Web/API now expose matching
-   immutable release manifests, and nightly plus the same-repository
+   immutable release manifests, and weekly plus the same-repository
    `dev -> main` gate require the exact candidate SHA before accepting remote
    regression. Production adds separate edge/public-application stacks while
    preserving the existing foundation and unprefixed production physical-name
@@ -2007,7 +2007,8 @@ Planned sub-block mapping:
    identity. Every `dev` push produces classification evidence; docs/test-only
    descendants skip AWS and approvals, while runtime, infrastructure,
    delivery, dependency, unknown, and manual cases retain the full path.
-   Release and nightly gates accept a prior deployed ancestor only after
+   Release and scheduled regression gates accept a prior deployed ancestor only
+   after
    proving zero intervening deployable files. See the
    [29.4a record](operations/block-29-4a-dependency-aware-dev-deployment.md).
 7. `29.5` Promote the exact deployed candidate through the protected
@@ -2222,8 +2223,8 @@ manual acceptance request remain explicit operator actions.
 
 ### Protected Allure Report Portal
 
-Publish one Access-protected Allure report per Pacific calendar day from the
-trusted Nightly DEV Regression workflow. The task is owned by branch
+Publish one Access-protected Allure report per scheduled or manual run from the
+trusted Weekly DEV Regression workflow. The task is owned by branch
 `feat/allure-cloudflare-pages-publishing` and does not reopen Block 28 or Block
 31.
 
@@ -2232,8 +2233,9 @@ Implementation scope:
 1. Preserve GitHub diagnostic artifacts while standardizing report-containing
    PR and DEV verification artifacts on 30-day retention.
 2. Restore only per-run report and history artifacts created by prior runs of
-   the same trusted nightly workflow; never expose the Cloudflare token to
-   pull-request code or duplicate the complete rolling site in every artifact.
+   the same trusted weekly workflow, plus unexpired legacy nightly artifacts
+   during the filename migration; never expose the Cloudflare token to pull-
+   request code or duplicate the complete rolling site in every artifact.
 3. Carry Allure 3 `history.jsonl` into the next Allure generation, keep the
    newest run for each date, prune outside an inclusive 30-day window, and
    rebuild `latest/` without symlinks.
@@ -2243,7 +2245,7 @@ Implementation scope:
    evidence, and deployment evidence in GitHub only. Cloudflare Access exact-
    email policy remains the online confidentiality boundary.
 6. Validate path safety, metadata escaping, malformed report cleanup, bounded
-   file count and size, missing-report cleanup, daily replacement, and 30-day
+   file count and size, missing-report cleanup, same-day replacement, and 30-day
    pruning.
 
 See the

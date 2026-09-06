@@ -204,7 +204,7 @@ describe("Allure portal", () => {
         siteDirectory: path.join(root, "site"),
         sourceSha: SOURCE_SHA,
         status: "success",
-        workflow: "Nightly DEV Regression",
+        workflow: "Weekly DEV Regression",
       }),
     ).rejects.toThrow("file safety limit");
   });
@@ -227,7 +227,7 @@ describe("Allure portal", () => {
         siteDirectory: path.join(root, "site"),
         sourceSha: SOURCE_SHA,
         status: "success",
-        workflow: "Nightly DEV Regression",
+        workflow: "Weekly DEV Regression",
       }),
     ).rejects.toThrow("byte safety limit");
   });
@@ -247,7 +247,7 @@ async function buildPortal({ generatedAt, report, runId, site }) {
     sourceSha: SOURCE_SHA,
     status: "success",
     timeZone: "America/Los_Angeles",
-    workflow: "Nightly DEV Regression",
+    workflow: "Weekly DEV Regression",
   });
 }
 

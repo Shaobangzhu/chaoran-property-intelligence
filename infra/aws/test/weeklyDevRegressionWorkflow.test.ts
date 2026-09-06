@@ -5,17 +5,20 @@ import { describe, expect, it } from "vitest";
 
 const workflowPath = fileURLToPath(
   new URL(
-    "../../../.github/workflows/nightly-dev-regression.yml",
+    "../../../.github/workflows/weekly-dev-regression.yml",
     import.meta.url,
   ),
 );
 
-describe("nightly DEV regression workflow", () => {
+describe("weekly DEV regression workflow", () => {
   it("supports scheduled and manual runs against the protected dev source", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("schedule:");
-    expect(workflow).toContain('cron: "23 9 * * *"');
+    expect(workflow).toContain('cron: "0 22 * * 0"');
+    expect(workflow).toContain('timezone: "America/Los_Angeles"');
+    expect(workflow).toContain("group: weekly-dev-regression");
+    expect(workflow).toContain("CPI_TEST_ENVIRONMENT: aws-dev-weekly");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("ref: dev");
     expect(workflow).toContain("fetch-depth: 0");
@@ -71,7 +74,7 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).toContain("retention-days: 30");
   });
 
-  it("publishes one Access-protected daily report through a least-privilege job", () => {
+  it("publishes one Access-protected weekly report through a least-privilege job", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("name: Publish protected 30-day Allure portal");
@@ -87,6 +90,13 @@ describe("nightly DEV regression workflow", () => {
     expect(workflow).toContain("--max-file-bytes 25000000");
     expect(workflow).toContain("--max-files 19000");
     expect(workflow).toContain("restoreReportArtifacts.mjs");
+    expect(workflow).toContain("--workflow weekly-dev-regression.yml");
+    expect(workflow).toContain(
+      "--fallback-workflow nightly-dev-regression.yml",
+    );
+    expect(workflow).toContain(
+      "weekly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}",
+    );
     expect(workflow).toContain("allure-pages-report-${{ github.run_id }}");
     expect(workflow).toContain("archive_entries=\"$(unzip -Z1 \"$archive\")\"");
     expect(workflow).toContain("grep -Eq '(^|/)\\.\\.?(/|$)|\\\\'");
