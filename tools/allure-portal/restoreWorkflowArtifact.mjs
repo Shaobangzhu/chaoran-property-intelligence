@@ -7,6 +7,7 @@ const GITHUB_API_VERSION = "2022-11-28";
 export async function restorePreviousWorkflowArtifact({
   artifactName,
   currentRunId,
+  fallbackWorkflow,
   fetchImplementation = globalThis.fetch,
   outputZip,
   repository,
@@ -16,6 +17,7 @@ export async function restorePreviousWorkflowArtifact({
   validateInput({
     artifactName,
     currentRunId,
+    fallbackWorkflow,
     outputZip,
     repository,
     token,
@@ -31,47 +33,66 @@ export async function restorePreviousWorkflowArtifact({
     .split("/")
     .map(encodeURIComponent)
     .join("/");
-  const runsUrl = `https://api.github.com/repos/${encodedRepository}/actions/workflows/${encodeURIComponent(workflow)}/runs?status=completed&per_page=50`;
-  const runsResponse = await fetchImplementation(runsUrl, { headers });
-  const runsBody = await readJsonResponse(runsResponse, "workflow runs");
-  const runs = Array.isArray(runsBody.workflow_runs)
-    ? runsBody.workflow_runs
-    : [];
+  const workflowCandidates = [...new Set([workflow, fallbackWorkflow])].filter(
+    (candidate) => candidate !== undefined,
+  );
 
-  for (const run of runs) {
-    if (!Number.isInteger(run?.id) || String(run.id) === String(currentRunId)) {
-      continue;
-    }
-    const artifactsUrl = `https://api.github.com/repos/${encodedRepository}/actions/runs/${run.id}/artifacts?per_page=100`;
-    const artifactsResponse = await fetchImplementation(artifactsUrl, { headers });
-    const artifactsBody = await readJsonResponse(
-      artifactsResponse,
-      `artifacts for workflow run ${run.id}`,
+  for (const [workflowIndex, workflowCandidate] of workflowCandidates.entries()) {
+    const isFallbackWorkflow = workflowIndex > 0;
+    const runsUrl = isFallbackWorkflow
+      ? `https://api.github.com/repos/${encodedRepository}/actions/runs?status=completed&per_page=100`
+      : `https://api.github.com/repos/${encodedRepository}/actions/workflows/${encodeURIComponent(workflowCandidate)}/runs?status=completed&per_page=50`;
+    const runsResponse = await fetchImplementation(runsUrl, { headers });
+    const runsBody = await readJsonResponse(runsResponse, "workflow runs");
+    const runs = (Array.isArray(runsBody.workflow_runs)
+      ? runsBody.workflow_runs
+      : []
+    ).filter(
+      (run) =>
+        !isFallbackWorkflow ||
+        run?.path === `.github/workflows/${workflowCandidate}`,
     );
-    const artifact = Array.isArray(artifactsBody.artifacts)
-      ? artifactsBody.artifacts.find(
-          (candidate) =>
-            candidate?.name === artifactName &&
-            candidate.expired === false &&
-            typeof candidate.archive_download_url === "string",
-        )
-      : undefined;
-    if (artifact === undefined) {
-      continue;
-    }
 
-    const archiveResponse = await fetchImplementation(
-      artifact.archive_download_url,
-      { headers, redirect: "follow" },
-    );
-    if (!archiveResponse.ok) {
-      throw new Error(
-        `GitHub artifact download failed with HTTP ${archiveResponse.status}`,
+    for (const run of runs) {
+      if (!Number.isInteger(run?.id) || String(run.id) === String(currentRunId)) {
+        continue;
+      }
+      const artifactsUrl = `https://api.github.com/repos/${encodedRepository}/actions/runs/${run.id}/artifacts?per_page=100`;
+      const artifactsResponse = await fetchImplementation(artifactsUrl, {
+        headers,
+      });
+      const artifactsBody = await readJsonResponse(
+        artifactsResponse,
+        `artifacts for workflow run ${run.id}`,
       );
+      const artifact = Array.isArray(artifactsBody.artifacts)
+        ? artifactsBody.artifacts.find(
+            (candidate) =>
+              candidate?.name === artifactName &&
+              candidate.expired === false &&
+              typeof candidate.archive_download_url === "string",
+          )
+        : undefined;
+      if (artifact === undefined) {
+        continue;
+      }
+
+      const archiveResponse = await fetchImplementation(
+        artifact.archive_download_url,
+        { headers, redirect: "follow" },
+      );
+      if (!archiveResponse.ok) {
+        throw new Error(
+          `GitHub artifact download failed with HTTP ${archiveResponse.status}`,
+        );
+      }
+      await mkdir(path.dirname(outputZip), { recursive: true });
+      await writeFile(
+        outputZip,
+        Buffer.from(await archiveResponse.arrayBuffer()),
+      );
+      return { found: true, sourceRunId: String(run.id) };
     }
-    await mkdir(path.dirname(outputZip), { recursive: true });
-    await writeFile(outputZip, Buffer.from(await archiveResponse.arrayBuffer()));
-    return { found: true, sourceRunId: String(run.id) };
   }
 
   await rm(outputZip, { force: true });
@@ -83,6 +104,7 @@ async function main() {
   const result = await restorePreviousWorkflowArtifact({
     artifactName: args["artifact-name"],
     currentRunId: args["current-run-id"],
+    fallbackWorkflow: args["fallback-workflow"],
     outputZip: args.output,
     repository: args.repository,
     token: process.env.GITHUB_TOKEN,
@@ -128,6 +150,7 @@ function readArguments(argv) {
 function validateInput({
   artifactName,
   currentRunId,
+  fallbackWorkflow,
   outputZip,
   repository,
   token,
@@ -141,6 +164,12 @@ function validateInput({
   }
   if (!/^[A-Za-z0-9_.-]+$/u.test(workflow)) {
     throw new Error("workflow must be a workflow file name");
+  }
+  if (
+    fallbackWorkflow !== undefined &&
+    !/^[A-Za-z0-9_.-]+$/u.test(fallbackWorkflow)
+  ) {
+    throw new Error("fallbackWorkflow must be a workflow file name");
   }
   if (!/^[A-Za-z0-9_.-]+$/u.test(artifactName)) {
     throw new Error("artifactName contains unsupported characters");

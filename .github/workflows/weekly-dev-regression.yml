@@ -1,8 +1,9 @@
-name: Nightly DEV Regression
+name: Weekly DEV Regression
 
 on:
   schedule:
-    - cron: "23 9 * * *"
+    - cron: "0 22 * * 0"
+      timezone: "America/Los_Angeles"
   workflow_dispatch:
 
 permissions:
@@ -11,7 +12,7 @@ permissions:
 
 concurrency:
   cancel-in-progress: false
-  group: nightly-dev-regression
+  group: weekly-dev-regression
 
 jobs:
   regression:
@@ -24,7 +25,7 @@ jobs:
     env:
       CPI_PLAYWRIGHT_REMOTE_BASE_URL: ${{ vars.CPI_AWS_DEV_BASE_URL }}
       CPI_PLAYWRIGHT_RETRIES: "1"
-      CPI_TEST_ENVIRONMENT: aws-dev-nightly
+      CPI_TEST_ENVIRONMENT: aws-dev-weekly
 
     steps:
       - name: Checkout protected dev branch
@@ -54,7 +55,7 @@ jobs:
           echo "CPI_TESTED_GIT_SHA=$tested_sha" >> "$GITHUB_ENV"
           echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
           {
-            echo "## Nightly AWS DEV Regression"
+            echo "## Weekly AWS DEV Regression"
             echo
             echo "Test source branch: \`dev\`"
             echo
@@ -109,7 +110,7 @@ jobs:
             --summary-file test-results/deployed-release.md
           cat test-results/deployed-release.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run read-only nightly Playwright regression
+      - name: Run read-only weekly Playwright regression
         id: playwright
         run: |-
           pnpm allure:clean
@@ -153,7 +154,8 @@ jobs:
         run: |-
           node tools/allure-portal/restoreWorkflowArtifact.mjs \
             --repository "$GITHUB_REPOSITORY" \
-            --workflow nightly-dev-regression.yml \
+            --workflow weekly-dev-regression.yml \
+            --fallback-workflow nightly-dev-regression.yml \
             --current-run-id "$GITHUB_RUN_ID" \
             --artifact-name allure-history-state \
             --output "$RUNNER_TEMP/allure-history-state.zip" \
@@ -190,13 +192,13 @@ jobs:
           path: allure-history/history.jsonl
           retention-days: 30
 
-      - name: Upload nightly diagnostics
-        id: nightly-diagnostics
+      - name: Upload weekly diagnostics
+        id: weekly-diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
-          name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          name: weekly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
           path: |-
             allure-results/
             allure-report/
@@ -207,10 +209,10 @@ jobs:
             test-results/playwright-results.json
           retention-days: 30
 
-      - name: Publish nightly quality summary
+      - name: Publish weekly quality summary
         if: always()
         env:
-          CPI_QUALITY_ARTIFACT_URL: ${{ steps.nightly-diagnostics.outputs.artifact-url }}
+          CPI_QUALITY_ARTIFACT_URL: ${{ steps.weekly-diagnostics.outputs.artifact-url }}
         run: |-
           pnpm report:github-summary
           cat test-results/flake-evidence/retry-analysis.md >> "$GITHUB_STEP_SUMMARY"
@@ -226,6 +228,8 @@ jobs:
     needs: regression
     if: always()
     environment:
+      # Keep this Environment for the scoped Cloudflare credential. Scheduled
+      # publishing requires its reviewers, wait timer, and protection rules off.
       name: allure-reports
       url: https://cpi-allure-reports.pages.dev
     permissions:
@@ -262,14 +266,15 @@ jobs:
           printf '%s' "$tested_sha" | grep -Eq '^[a-f0-9]{40}$'
           echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Restore prior daily report bundles
+      - name: Restore prior report bundles
         id: previous-reports
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |-
           node tools/allure-portal/restoreReportArtifacts.mjs \
             --repository "$GITHUB_REPOSITORY" \
-            --workflow nightly-dev-regression.yml \
+            --workflow weekly-dev-regression.yml \
+            --fallback-workflow nightly-dev-regression.yml \
             --current-run-id "$GITHUB_RUN_ID" \
             --artifact-prefix allure-pages-report- \
             --output-directory "$RUNNER_TEMP/allure-pages-report-artifacts" \
@@ -291,13 +296,13 @@ jobs:
             unzip -oq "$archive" -d allure-pages-site
           done
 
-      - name: Download current nightly diagnostics
+      - name: Download current weekly diagnostics
         id: current-diagnostics
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: nightly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
-          path: current-nightly-diagnostics
+          name: weekly-dev-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: current-weekly-diagnostics
 
       - name: Build and prune the protected report portal
         id: portal
@@ -307,10 +312,10 @@ jobs:
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
           node tools/allure-portal/manageAllurePortal.mjs build \
             --site allure-pages-site \
-            --report current-nightly-diagnostics/allure-report \
+            --report current-weekly-diagnostics/allure-report \
             --run-id "$GITHUB_RUN_ID" \
             --run-attempt "$GITHUB_RUN_ATTEMPT" \
-            --workflow "Nightly DEV Regression" \
+            --workflow "Weekly DEV Regression" \
             --repository "$GITHUB_REPOSITORY" \
             --server-url "$GITHUB_SERVER_URL" \
             --source-sha "${{ steps.source.outputs.tested_sha }}" \
@@ -322,7 +327,7 @@ jobs:
             --max-files 19000 \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Stage current daily report bundle
+      - name: Stage current report bundle
         if: steps.portal.outputs.current_report_published == 'true'
         env:
           CPI_REPORT_DIRECTORY: ${{ steps.portal.outputs.report_directory }}
@@ -334,7 +339,7 @@ jobs:
             "allure-pages-site/runs/$CPI_REPORT_DIRECTORY" \
             "allure-pages-report-bundle/runs/$CPI_REPORT_DIRECTORY"
 
-      - name: Upload current daily report bundle
+      - name: Upload current report bundle
         if: steps.portal.outputs.current_report_published == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -372,7 +377,7 @@ jobs:
             echo
             echo "Portal: https://cpi-allure-reports.pages.dev"
             echo
-            echo "Retained daily reports: ${{ steps.portal.outputs.report_count || 'unknown' }}"
+            echo "Retained reports: ${{ steps.portal.outputs.report_count || 'unknown' }}"
             echo "Prior report bundles restored: ${{ steps.previous-reports.outputs.restored_count || '0' }}"
             echo
             echo "Current report published: ${{ steps.portal.outputs.current_report_published || 'false' }}"

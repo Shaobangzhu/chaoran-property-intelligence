@@ -55,7 +55,7 @@ describe("restorePreviousWorkflowArtifact", () => {
       outputZip,
       repository: "owner/repository",
       token: "test-token",
-      workflow: "nightly-dev-regression.yml",
+      workflow: "weekly-dev-regression.yml",
     });
 
     expect(result).toEqual({ found: true, sourceRunId: "200" });
@@ -84,11 +84,66 @@ describe("restorePreviousWorkflowArtifact", () => {
       outputZip,
       repository: "owner/repository",
       token: "test-token",
-      workflow: "nightly-dev-regression.yml",
+      workflow: "weekly-dev-regression.yml",
     });
 
     expect(result).toEqual({ found: false, sourceRunId: undefined });
     await expect(pathExists(outputZip)).resolves.toBe(false);
+  });
+
+  it("falls back to the retired nightly workflow during the weekly migration", async () => {
+    const root = await createTemporaryDirectory();
+    const outputZip = path.join(root, "state.zip");
+    const fetchImplementation = vi.fn(async (url) => {
+      if (url.includes("/workflows/weekly-dev-regression.yml/")) {
+        return jsonResponse({ workflow_runs: [] });
+      }
+      if (url.includes("/actions/runs?")) {
+        return jsonResponse({
+          workflow_runs: [
+            {
+              id: 250,
+              path: ".github/workflows/untrusted.yml",
+            },
+            {
+              id: 200,
+              path: ".github/workflows/nightly-dev-regression.yml",
+            },
+          ],
+        });
+      }
+      if (url.includes("/runs/200/artifacts")) {
+        return jsonResponse({
+          artifacts: [
+            {
+              archive_download_url: "https://api.github.com/artifacts/42/zip",
+              expired: false,
+              name: "allure-history-state",
+            },
+          ],
+        });
+      }
+      if (url === "https://api.github.com/artifacts/42/zip") {
+        return new Response(new Uint8Array([80, 75, 3, 4]), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const result = await restorePreviousWorkflowArtifact({
+      artifactName: "allure-history-state",
+      currentRunId: "400",
+      fallbackWorkflow: "nightly-dev-regression.yml",
+      fetchImplementation,
+      outputZip,
+      repository: "owner/repository",
+      token: "test-token",
+      workflow: "weekly-dev-regression.yml",
+    });
+
+    expect(result).toEqual({ found: true, sourceRunId: "200" });
+    expect(new Uint8Array(await readFile(outputZip))).toEqual(
+      new Uint8Array([80, 75, 3, 4]),
+    );
   });
 
   it("rejects unsuccessful GitHub API responses without exposing the token", async () => {
@@ -105,7 +160,7 @@ describe("restorePreviousWorkflowArtifact", () => {
         outputZip: path.join(root, "state.zip"),
         repository: "owner/repository",
         token: "sensitive-token",
-        workflow: "nightly-dev-regression.yml",
+        workflow: "weekly-dev-regression.yml",
       }),
     ).rejects.toThrow("HTTP 403");
   });

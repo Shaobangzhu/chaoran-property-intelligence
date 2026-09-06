@@ -314,7 +314,7 @@ successfully before AWS credentials or `development` approvals. Runtime,
 infrastructure, delivery, dependency, unknown, empty-diff, and manual-dispatch
 cases use the complete existing verification, plan, and deploy path.
 
-Release and nightly gates may accept a deployed SHA behind the tested candidate
+Release and weekly gates may accept a deployed SHA behind the tested candidate
 only when it is an ancestor and the shared classifier proves that all
 intervening files are documentation or tests. Any ambiguity fails closed and
 requires deployment. See the
