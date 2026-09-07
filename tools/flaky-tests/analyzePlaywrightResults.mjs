@@ -108,7 +108,10 @@ export function renderFlakeAnalysis(analysis) {
     lines.push("");
   }
   if (analysis.noTestsDiscovered) {
-    lines.push("**No tests were discovered; the nightly gate fails closed.**", "");
+    lines.push(
+      "**No tests were discovered; the scheduled regression gate fails closed.**",
+      "",
+    );
   }
   if (analysis.staleQuarantines.length > 0) {
     lines.push("### Stale Quarantines", "");
@@ -142,7 +145,7 @@ export function renderFlakeAnalysis(analysis) {
     lines.push("");
   }
   lines.push(
-    "A retry is diagnostic evidence, not a clean first-attempt pass. Unexpected retry usage fails the nightly gate.",
+    "A retry is diagnostic evidence, not a clean first-attempt pass. Unexpected retry usage fails the scheduled regression gate.",
     "",
   );
   return lines.join("\n");

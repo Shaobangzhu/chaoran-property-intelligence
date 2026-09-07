@@ -83,11 +83,11 @@ pnpm build
 | `18.6` | First controlled AWS DEV deployment | Conditionally feasible | `18.4` and `18.5`, AWS credentials, explicit approval | May modify AWS DEV only. Must classify CDK diff and prove no production replacement. |
 | `18.7` | Automatic DEV continuous deployment | Feasible after first DEV deploy | Stable manual DEV deployment | Use DEV OIDC role and protected `development` environment. Production workflow remains manual. |
 | `18.8` | Playwright system-level automation | Feasible before or after DEV, best after local taxonomy | Local test framework and deterministic local servers | Initial local foundation is implemented in Block 28.1 with 3 API smoke tests and 3 UI smoke tests. Do not replace Vitest. |
-| `18.9` | Post-deployment acceptance on AWS DEV | Feasible after Playwright and DEV CD | `18.7` and smoke tags | Smoke only on merge to `dev`; full regression belongs to release and nightly gates. |
+| `18.9` | Post-deployment acceptance on AWS DEV | Feasible after Playwright and DEV CD | `18.7` and smoke tags | Smoke only on merge to `dev`; full regression belongs to release and weekly gates. |
 | `18.10` | Unified observability and failure notification | Feasible after test outputs exist | Vitest/Playwright result artifacts | Public reports must be sanitized. SNS topic should be DEV/test-specific. |
 | `18.11` | Release-candidate quality gate | Feasible after DEV CD and regression suite | `dev -> main` PR model | Must verify the exact deployed SHA or immutable artifact identity. No production deployment from PR. |
 | `18.12` | Controlled production Web/API deployment | Feasible only after DEV proves runtime | Public runtime and release gate complete | Preserve manual production confirmation and existing retained resources. Run safe smoke only. |
-| `18.13` | Nightly AWS DEV regression and flake engineering | Feasible after DEV and Playwright regression | DEV stable enough for nightly runs | Retries are diagnostic tolerance, not a fix for nondeterminism. |
+| `18.13` | Weekly AWS DEV regression and flake engineering | Feasible after DEV and Playwright regression | DEV stable enough for weekly runs | Retries are diagnostic tolerance, not a fix for nondeterminism. |
 | `18.14` | Final interview-quality architecture document | Feasible later, not now as completed-state doc | Actual implementation complete | Must document only functionality that exists and avoid invented coverage, SLOs, scale, or reliability statistics. |
 
 Overall conclusion: the sequence is feasible as staged work. The ordering should
@@ -644,8 +644,8 @@ framework.
 
 Block 28.7 implements the policy with:
 
-- `.github/workflows/nightly-dev-regression.yml`, scheduled daily at `09:23
-  UTC` with manual dispatch
+- `.github/workflows/weekly-dev-regression.yml`, scheduled every Sunday at
+  `22:00 America/Los_Angeles` with manual dispatch
 - repository variable `CPI_AWS_DEV_BASE_URL` as the public, non-secret target
 - explicit checkout of protected `dev`, because scheduled workflow definitions
   are loaded from the default branch
@@ -656,7 +656,7 @@ Block 28.7 implements the policy with:
 - `tests/flaky-tests.json`, currently empty, with strict owner/reason/evidence/
   remediation/introduced/expiry metadata and a 30-day maximum
 
-An unregistered retry fails the nightly workflow. An active quarantine permits
+An unregistered retry fails the weekly workflow. An active quarantine permits
 a retry-pass to remain operationally visible, but it never skips the test and
 cannot override an exhausted Playwright failure. Expired, malformed, duplicate,
 or stale quarantine entries fail before evidence is accepted.
@@ -664,10 +664,10 @@ Zero discovered tests also fail closed. Attempts lasting at least 10 seconds
 are reported in a bounded top-20 list without turning duration alone into a
 failure.
 
-The nightly artifact retains Allure, Playwright reports, traces/screenshots,
+The weekly artifact retains Allure, Playwright reports, traces/screenshots,
 raw JSON, and bounded flake evidence for 30 days. The flake summary omits error
 payloads and attachments. See the
-[Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md).
+[Weekly AWS DEV Regression Runbook](../runbooks/weekly-dev-regression.md).
 
 ## Production Safety
 
@@ -723,7 +723,7 @@ Recommended execution order:
 9. Implement `18.7` automatic DEV CD.
 10. Implement `18.9` DEV post-deployment acceptance.
 11. Implement `18.11` release-candidate gate.
-12. Implement `18.13` nightly DEV regression and flake engineering.
+12. Implement `18.13` weekly DEV regression and flake engineering.
 13. Implement `18.12` controlled production Web/API deployment extension after
     DEV proves the path.
 14. Complete `18.14` final interview architecture document using only actual
@@ -734,7 +734,7 @@ which reduces cloud-debugging risk.
 
 The Block 28 implementation numbering consolidates the original prompt map:
 protected push-to-`dev` delivery was completed in Block 28.6, while Block 28.7
-implements the nightly/flaky-test capability originally listed as `18.13`.
+implements the scheduled/flaky-test capability originally listed as `18.13`.
 Repository implementation status, ADR 0016, and the Block 28 roadmap are the
 authority for subsequent steps.
 

@@ -3,7 +3,7 @@
 ## Purpose And Scope
 
 This runbook covers the protected online Allure portal published by
-`.github/workflows/nightly-dev-regression.yml` to the existing Cloudflare Pages
+`.github/workflows/weekly-dev-regression.yml` to the existing Cloudflare Pages
 Direct Upload project `cpi-allure-reports`.
 
 The portal is a quality-observability surface, not an application runtime. It
@@ -11,7 +11,7 @@ does not deploy CPI Web/API code, mutate AWS, run migrations, enable worker
 schedules, call RentCast or OpenAI, send Telegram messages, or replace GitHub
 Actions as the authoritative test runner.
 
-Only the nightly workflow publishes online. Pull-request, release, DEV deploy,
+Only the weekly workflow publishes online. Pull-request, release, DEV deploy,
 and Production workflows continue to retain downloadable diagnostics without
 receiving the Cloudflare credential. This prevents pull-request code from
 accessing the Pages deployment token and keeps screenshots, traces, raw result
@@ -36,24 +36,27 @@ folder. Dates outside the inclusive 30-calendar-day window are deleted before
 deployment. `latest/` is rebuilt from the newest retained report rather than
 implemented as an HTTP redirect or symlink.
 
-The nightly workflow is also the daily cleanup. Its portal job uses `if:
-always()`, so it restores retained daily bundles, prunes expired dates, and
+The weekly workflow also performs retention cleanup. Its portal job uses `if:
+always()`, so it restores retained bundles, prunes expired dates, and
 deploys the cleaned site even when regression fails or no new Allure report is
-available. If the workflow itself never starts, no external scheduler can clean
-the project; GitHub schedule health must therefore remain monitored.
+available. Because cleanup now runs weekly, an expired report can remain visible
+for up to six extra days; manually dispatch the workflow when exact-day removal
+is required. If the workflow itself never starts, no external scheduler can
+clean the project; GitHub schedule health must therefore remain monitored.
 
 Cloudflare Pages deployments are immutable. The workflow rebuilds the logical
-site from one `allure-pages-report-GITHUB_RUN_ID` artifact per prior nightly run
+site from one `allure-pages-report-GITHUB_RUN_ID` artifact per prior weekly run
 instead of repeatedly storing the full 30-day site. Each bundle has 30-day
 retention, contains only one generated report below `runs/`, and is read only
-from completed runs of this same workflow. This avoids quadratic GitHub artifact
-storage growth. A separate `allure-history-state` artifact carries Allure 3's
+from completed runs of the weekly workflow or the explicitly named retired
+nightly workflow during migration. This avoids quadratic GitHub artifact storage
+growth. A separate `allure-history-state` artifact carries Allure 3's
 `history.jsonl` into the next report generation. The checked-in `allurerc.mjs`
 limits the trend file to 30 launches. Because the portal keeps at most one launch
-per day, this aligns the visible trend horizon with the portal's 30-day retention
-policy.
+per run, this bounds the visible trend horizon within the portal's 30-day
+retention policy.
 
-Allure uses its Awesome single-file mode so 30 daily reports remain practical
+Allure uses its Awesome single-file mode so retained reports remain practical
 under Pages limits. The portal builder rejects symbolic links, malformed stored
 report entries, unsafe archive layouts, files above 25,000,000 bytes, and sites
 above a 19,000-file safety ceiling. Those ceilings leave headroom below the
@@ -104,25 +107,30 @@ runner addresses change, so a static client-IP restriction is not compatible
 with this workflow. If the token has an expiration date, rotate the Environment
 secret before that date.
 
-The `allure-reports` Environment may require owner review. Because the job runs
-daily, required review changes the portal from automatic publication/cleanup to
-a daily approval queue; use that tradeoff deliberately.
+For unattended scheduled publication, leave the `allure-reports` Environment
+in place but disable its **Required reviewers**, **Wait timer**, and custom
+deployment protection rules. Workflow YAML cannot bypass those Environment
+rules, and Environment secrets are withheld until protection rules pass.
+Deployment branch restrictions may remain enabled when they allow the
+repository default branch. Re-check these settings if `publish-allure` ever
+waits for review.
 
 ## Workflow Contract
 
-The nightly workflow:
+The weekly workflow:
 
 1. Checks out protected `dev` and records the exact tested SHA.
 2. Runs the existing read-only AWS DEV regression and flake analysis.
-3. Restores the last `allure-history-state` from a prior run of the same
-   workflow into `allure-history/history.jsonl`.
+3. Restores the last `allure-history-state` from a prior weekly run, with a
+   temporary fallback to the retired nightly workflow during migration, into
+   `allure-history/history.jsonl`.
 4. Generates the report with the Allure 3 history configuration and renews the
    history artifact only when restoration was successful (including a normal
    first run with no prior artifact).
 5. Uploads the existing full diagnostic artifact for 30 days.
 6. Starts an isolated `publish-allure` job even when regression fails.
-7. Restores the prior per-run report bundles and downloads only the current
-   workflow's diagnostic artifact.
+7. Restores prior weekly per-run report bundles plus unexpired legacy nightly
+   bundles and downloads only the current workflow's diagnostic artifact.
 8. Adds the current report when available, keeps the newest report for the day,
    prunes dates outside 30 days, rebuilds `latest/`, and validates file count
    and size.
@@ -149,11 +157,12 @@ After the run:
    date.
 6. Open `latest/` and the dated report; confirm they show the same run ID.
 7. Confirm an unapproved email remains blocked.
-8. Confirm GitHub Actions retained `nightly-dev-regression-*`,
+8. Confirm GitHub Actions retained `weekly-dev-regression-*`,
    `allure-pages-report-GITHUB_RUN_ID`, and `allure-history-state` artifacts.
 
-The second daily run is the first run that can prove history continuation.
-Inspect Allure trend/history widgets after it completes.
+The second weekly run is the first new-workflow run that can prove history
+continuation without relying only on the migration fallback. Inspect Allure
+trend/history widgets after it completes.
 
 ## Failure And Recovery
 
@@ -171,7 +180,7 @@ Inspect Allure trend/history widgets after it completes.
 Cloudflare Pages production deployment is atomic. A failed Wrangler upload does
 not partially replace the last successful site. To roll back visible content,
 use Cloudflare Pages deployment rollback to a known protected deployment, then
-repair or rerun the nightly workflow. Do not weaken Access to diagnose a report
+repair or rerun the weekly workflow. Do not weaken Access to diagnose a report
 publication failure.
 
 ## Privacy Boundary

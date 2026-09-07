@@ -64,7 +64,7 @@ describe("restorePreviousReportArtifacts", () => {
       outputDirectory: root,
       repository: "owner/repository",
       token: "test-token",
-      workflow: "nightly-dev-regression.yml",
+      workflow: "weekly-dev-regression.yml",
     });
 
     expect(restored).toEqual([{ artifactId: "30", runId: "300" }]);
@@ -75,6 +75,74 @@ describe("restorePreviousReportArtifacts", () => {
     expect(requests.every(({ options }) =>
       options.headers.authorization === "Bearer test-token",
     )).toBe(true);
+  });
+
+  it("combines weekly and unexpired legacy nightly report artifacts", async () => {
+    const root = await createTemporaryDirectory();
+    const fetchImplementation = vi.fn(async (url) => {
+      if (url.includes("/workflows/weekly-dev-regression.yml/")) {
+        return jsonResponse({ workflow_runs: [{ id: 300 }] });
+      }
+      if (url.includes("/actions/runs?")) {
+        return jsonResponse({
+          workflow_runs: [
+            {
+              id: 250,
+              path: ".github/workflows/untrusted.yml",
+            },
+            {
+              id: 200,
+              path: ".github/workflows/nightly-dev-regression.yml",
+            },
+          ],
+        });
+      }
+      if (url.includes("/runs/300/artifacts")) {
+        return jsonResponse({
+          artifacts: [
+            {
+              archive_download_url: "https://api.github.com/artifacts/30/zip",
+              expired: false,
+              id: 30,
+              name: "allure-pages-report-300",
+            },
+          ],
+        });
+      }
+      if (url.includes("/runs/200/artifacts")) {
+        return jsonResponse({
+          artifacts: [
+            {
+              archive_download_url: "https://api.github.com/artifacts/20/zip",
+              expired: false,
+              id: 20,
+              name: "allure-pages-report-200",
+            },
+          ],
+        });
+      }
+      if (url.includes("/artifacts/")) {
+        return new Response(new Uint8Array([80, 75, 3, 4]), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const restored = await restorePreviousReportArtifacts({
+      artifactPrefix: "allure-pages-report-",
+      currentRunId: "400",
+      fallbackWorkflow: "nightly-dev-regression.yml",
+      fetchImplementation,
+      outputDirectory: root,
+      repository: "owner/repository",
+      token: "test-token",
+      workflow: "weekly-dev-regression.yml",
+    });
+
+    expect(restored).toEqual([
+      { artifactId: "30", runId: "300" },
+      { artifactId: "20", runId: "200" },
+    ]);
+    expect(await readdir(root)).toEqual(["200-20.zip", "300-30.zip"]);
   });
 
   it("rejects unsuccessful artifact downloads without exposing the token", async () => {
@@ -106,7 +174,7 @@ describe("restorePreviousReportArtifacts", () => {
         outputDirectory: root,
         repository: "owner/repository",
         token: "sensitive-token",
-        workflow: "nightly-dev-regression.yml",
+        workflow: "weekly-dev-regression.yml",
       }),
     ).rejects.toThrow("HTTP 403");
   });

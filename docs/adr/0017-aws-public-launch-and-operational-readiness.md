@@ -117,7 +117,7 @@ through the full reviewed deployment path.
 
 The release candidate SHA and deployed runtime SHA may differ only when the
 deployed SHA is a Git ancestor and every intervening path is explicitly
-non-deployable documentation or test evidence. Release and nightly gates read
+non-deployable documentation or test evidence. Release and weekly gates read
 both public release identities and fail closed on divergence, stage mismatch,
 non-ancestor history, or any undeployed runtime-capable change. Production
 retains exact-main plan and deployment identity.

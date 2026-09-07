@@ -7,6 +7,7 @@ const GITHUB_API_VERSION = "2022-11-28";
 export async function restorePreviousReportArtifacts({
   artifactPrefix,
   currentRunId,
+  fallbackWorkflow,
   fetchImplementation = globalThis.fetch,
   maxArtifacts = 100,
   outputDirectory,
@@ -17,6 +18,7 @@ export async function restorePreviousReportArtifacts({
   validateInput({
     artifactPrefix,
     currentRunId,
+    fallbackWorkflow,
     maxArtifacts,
     outputDirectory,
     repository,
@@ -33,60 +35,86 @@ export async function restorePreviousReportArtifacts({
     .split("/")
     .map(encodeURIComponent)
     .join("/");
-  const runsUrl = `https://api.github.com/repos/${encodedRepository}/actions/workflows/${encodeURIComponent(workflow)}/runs?status=completed&per_page=100`;
-  const runsResponse = await fetchImplementation(runsUrl, { headers });
-  const runsBody = await readJsonResponse(runsResponse, "workflow runs");
-  const runs = Array.isArray(runsBody.workflow_runs)
-    ? runsBody.workflow_runs
-    : [];
-
   await rm(outputDirectory, { force: true, recursive: true });
   await mkdir(outputDirectory, { recursive: true });
   const restored = [];
+  const seenRunIds = new Set();
+  const workflowCandidates = [...new Set([workflow, fallbackWorkflow])].filter(
+    (candidate) => candidate !== undefined,
+  );
 
-  for (const run of runs) {
-    if (
-      restored.length >= maxArtifacts ||
-      !Number.isInteger(run?.id) ||
-      String(run.id) === String(currentRunId)
-    ) {
-      continue;
+  for (const [workflowIndex, workflowCandidate] of workflowCandidates.entries()) {
+    if (restored.length >= maxArtifacts) {
+      break;
     }
-
-    const artifactsUrl = `https://api.github.com/repos/${encodedRepository}/actions/runs/${run.id}/artifacts?per_page=100`;
-    const artifactsResponse = await fetchImplementation(artifactsUrl, { headers });
-    const artifactsBody = await readJsonResponse(
-      artifactsResponse,
-      `artifacts for workflow run ${run.id}`,
+    const isFallbackWorkflow = workflowIndex > 0;
+    const runsUrl = isFallbackWorkflow
+      ? `https://api.github.com/repos/${encodedRepository}/actions/runs?status=completed&per_page=100`
+      : `https://api.github.com/repos/${encodedRepository}/actions/workflows/${encodeURIComponent(workflowCandidate)}/runs?status=completed&per_page=100`;
+    const runsResponse = await fetchImplementation(runsUrl, { headers });
+    const runsBody = await readJsonResponse(runsResponse, "workflow runs");
+    const runs = (Array.isArray(runsBody.workflow_runs)
+      ? runsBody.workflow_runs
+      : []
+    ).filter(
+      (run) =>
+        !isFallbackWorkflow ||
+        run?.path === `.github/workflows/${workflowCandidate}`,
     );
-    const artifact = Array.isArray(artifactsBody.artifacts)
-      ? artifactsBody.artifacts.find(
-          (candidate) =>
-            candidate?.name === `${artifactPrefix}${run.id}` &&
-            candidate.expired === false &&
-            Number.isInteger(candidate.id) &&
-            typeof candidate.archive_download_url === "string",
-        )
-      : undefined;
-    if (artifact === undefined) {
-      continue;
-    }
 
-    const archiveResponse = await fetchImplementation(
-      artifact.archive_download_url,
-      { headers, redirect: "follow" },
-    );
-    if (!archiveResponse.ok) {
-      throw new Error(
-        `GitHub report artifact download failed with HTTP ${archiveResponse.status}`,
+    for (const run of runs) {
+      if (restored.length >= maxArtifacts) {
+        break;
+      }
+      if (
+        !Number.isInteger(run?.id) ||
+        String(run.id) === String(currentRunId) ||
+        seenRunIds.has(String(run.id))
+      ) {
+        continue;
+      }
+      seenRunIds.add(String(run.id));
+
+      const artifactsUrl = `https://api.github.com/repos/${encodedRepository}/actions/runs/${run.id}/artifacts?per_page=100`;
+      const artifactsResponse = await fetchImplementation(artifactsUrl, {
+        headers,
+      });
+      const artifactsBody = await readJsonResponse(
+        artifactsResponse,
+        `artifacts for workflow run ${run.id}`,
       );
+      const artifact = Array.isArray(artifactsBody.artifacts)
+        ? artifactsBody.artifacts.find(
+            (candidate) =>
+              candidate?.name === `${artifactPrefix}${run.id}` &&
+              candidate.expired === false &&
+              Number.isInteger(candidate.id) &&
+              typeof candidate.archive_download_url === "string",
+          )
+        : undefined;
+      if (artifact === undefined) {
+        continue;
+      }
+
+      const archiveResponse = await fetchImplementation(
+        artifact.archive_download_url,
+        { headers, redirect: "follow" },
+      );
+      if (!archiveResponse.ok) {
+        throw new Error(
+          `GitHub report artifact download failed with HTTP ${archiveResponse.status}`,
+        );
+      }
+      const outputZip = path.join(
+        outputDirectory,
+        `${run.id}-${artifact.id}.zip`,
+      );
+      await writeFile(
+        outputZip,
+        Buffer.from(await archiveResponse.arrayBuffer()),
+      );
+      restored.push({ artifactId: String(artifact.id), runId: String(run.id) });
     }
-    const outputZip = path.join(
-      outputDirectory,
-      `${run.id}-${artifact.id}.zip`,
-    );
-    await writeFile(outputZip, Buffer.from(await archiveResponse.arrayBuffer()));
-    restored.push({ artifactId: String(artifact.id), runId: String(run.id) });
   }
 
   return restored;
@@ -97,6 +125,7 @@ async function main() {
   const restored = await restorePreviousReportArtifacts({
     artifactPrefix: args["artifact-prefix"],
     currentRunId: args["current-run-id"],
+    fallbackWorkflow: args["fallback-workflow"],
     maxArtifacts: readPositiveInteger(
       args["max-artifacts"] ?? "100",
       "max-artifacts",
@@ -141,6 +170,7 @@ function readArguments(argv) {
 function validateInput({
   artifactPrefix,
   currentRunId,
+  fallbackWorkflow,
   maxArtifacts,
   outputDirectory,
   repository,
@@ -155,6 +185,12 @@ function validateInput({
   }
   if (!/^[A-Za-z0-9_.-]+$/u.test(workflow)) {
     throw new Error("workflow must be a workflow file name");
+  }
+  if (
+    fallbackWorkflow !== undefined &&
+    !/^[A-Za-z0-9_.-]+$/u.test(fallbackWorkflow)
+  ) {
+    throw new Error("fallbackWorkflow must be a workflow file name");
   }
   if (!/^[A-Za-z0-9_.-]+-$/u.test(artifactPrefix)) {
     throw new Error("artifactPrefix contains unsupported characters");

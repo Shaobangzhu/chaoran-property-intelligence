@@ -6,7 +6,7 @@ Block 28 turns the project into a clearer Software Quality Engineering
 portfolio artifact while preserving its production safety boundaries. The block
 adds release-confidence layers around the existing TypeScript/AWS application:
 browser E2E, black-box API automation, quality observability, dependency-aware
-CI, AWS DEV delivery, nightly regression, and safe production smoke.
+CI, AWS DEV delivery, weekly regression, and safe production smoke.
 
 ## Block 28.0 Outcome
 
@@ -339,12 +339,13 @@ revisions caused by the tightened Docker asset context. These offline results
 do not replace the mandatory account-backed plan. See the
 [AWS DEV Deployment Runbook](../runbooks/aws-dev-deployment.md).
 
-### 28.7 Nightly DEV Regression And Flake Engineering
+### 28.7 Weekly DEV Regression And Flake Engineering
 
 Implementation status: complete in source, not run against AWS DEV.
 
-The credential-free nightly workflow runs daily at `09:23 UTC` and by manual
-dispatch. GitHub loads schedules from the default branch, so the workflow
+The credential-free weekly workflow runs every Sunday at `22:00` in
+`America/Los_Angeles` and by manual dispatch. GitHub loads schedules from the
+default branch, so the workflow
 explicitly checks out protected `dev`, records that commit, and tests the
 CloudFront origin supplied by repository variable `CPI_AWS_DEV_BASE_URL`. It
 does not request OIDC, enter the protected deployment environment, call AWS,
@@ -366,18 +367,18 @@ Quarantine does not add `test.skip` and cannot hide a failure after all
 attempts.
 
 The workflow records test-source SHA but the deployed API does not yet expose
-release identity. Therefore nightly evidence is environmental regression, not
+release identity. Therefore weekly evidence is environmental regression, not
 yet release-candidate attestation. Block 28.8 owns that remaining identity gate.
 No scheduled workflow or real remote test was started during implementation.
 See the
-[Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md).
+[Weekly AWS DEV Regression Runbook](../runbooks/weekly-dev-regression.md).
 
 ### 28.8 Mainline Production Safety Gate
 
 Implementation status: complete in source, not run against AWS or production.
 
 DEV delivery publishes one strict `{ gitSha, stage }` manifest through
-`/api/release` and `/release.json`. Nightly and the new same-repository
+`/api/release` and `/release.json`. Weekly and the new same-repository
 `dev -> main` gate require both paths to match the exact candidate SHA. The
 release gate uses no AWS credentials and combines complete Vitest regression,
 typecheck/build, bounded DEV readiness, all remote-safe Playwright checks,

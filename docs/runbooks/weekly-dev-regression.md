@@ -1,4 +1,4 @@
-# Nightly AWS DEV Regression Runbook
+# Weekly AWS DEV Regression Runbook
 
 ## Purpose And Boundary
 
@@ -8,7 +8,7 @@ implemented, but Block 28.7 does not execute a GitHub Actions run, access AWS,
 deploy a stack, run a migration, enable a schedule, start a worker, call
 RentCast or OpenAI, send Telegram, or publish SNS.
 
-The nightly regression job is a test consumer, not an AWS deployment mechanism.
+The weekly regression job is a test consumer, not an AWS deployment mechanism.
 It has no AWS credentials or `id-token` permission and cannot mutate
 infrastructure or read CloudFormation outputs. A separate `publish-allure` job
 uses the protected `allure-reports` GitHub Environment only to publish the
@@ -23,7 +23,7 @@ Before enabling meaningful scheduled runs:
    HTTPS origin, without a path, query, or fragment.
 3. Confirm `dev` is protected and contains the compatible Playwright suite,
    flake tools, and quarantine registry.
-4. Merge the nightly workflow to the repository default branch. GitHub runs
+4. Merge the weekly workflow to the repository default branch. GitHub runs
    scheduled workflows from the default branch, while this workflow explicitly
    checks out `dev` as its test source.
 5. Review artifact visibility and retention for the repository.
@@ -35,12 +35,12 @@ cookies, credentials, API keys, or secret values in this variable.
 
 ## Schedule And Concurrency
 
-`.github/workflows/nightly-dev-regression.yml` runs at `09:23 UTC` daily and
-also supports manual dispatch. The non-round minute reduces synchronized load
-with common midnight schedules. Daylight-saving changes affect the equivalent
-local Pacific time.
+`.github/workflows/weekly-dev-regression.yml` runs every Sunday at `22:00` in
+the `America/Los_Angeles` time zone and also supports manual dispatch. GitHub's
+timezone-aware schedule keeps the wall-clock time at 10:00 PM across Pacific
+daylight-saving changes.
 
-The concurrency group allows only one logical nightly run at a time and does
+The concurrency group allows only one logical weekly run at a time and does
 not cancel an in-progress regression. The job timeout is 30 minutes.
 
 ## Execution Contract
@@ -71,7 +71,7 @@ not require a DEV account or data mutation. The suite remains Chromium-first.
 
 ## Retry Policy
 
-Nightly retries are explicitly set to one. The Playwright configuration accepts
+Weekly retries are explicitly set to one. The Playwright configuration accepts
 only zero or one, so a workflow or local command cannot silently raise the
 retry budget.
 
@@ -87,7 +87,7 @@ The JSON reporter is machine input for
 It does not copy error messages, stack traces, stdout, stderr, request bodies,
 responses, cookies, or attachments into the flake summary.
 
-An unregistered retry fails the nightly gate even when Playwright passes on the
+An unregistered retry fails the weekly gate even when Playwright passes on the
 second attempt. A quarantined retry remains visible but may pass the flake gate.
 A test that still fails after retry always fails through Playwright; quarantine
 cannot convert a product or system failure into success.
@@ -124,7 +124,7 @@ To quarantine a confirmed flake:
 
 ## Outcomes
 
-| Condition | Playwright | Flake gate | Nightly result |
+| Condition | Playwright | Flake gate | Weekly result |
 | --- | --- | --- | --- |
 | First-attempt pass | Pass | Pass | Pass |
 | Retry pass, no registry entry | Pass/flaky | Fail | Fail |
@@ -158,7 +158,7 @@ be an older ancestor only when the shared deployment-impact classifier proves
 that every intervening file is documentation or test evidence.
 
 A deployment failure, pending approval, divergent history, stage mismatch, or
-undeployed runtime-capable change therefore fails nightly evidence instead of
+undeployed runtime-capable change therefore fails weekly evidence instead of
 silently testing the wrong release. Playwright expects the actual deployed SHA
 while reports retain the checked-out candidate SHA as source identity.
 
@@ -168,9 +168,9 @@ check as designed.
 
 ## Failure Handling
 
-The GitHub Actions failure and retained artifacts are authoritative. Nightly
+The GitHub Actions failure and retained artifacts are authoritative. Weekly
 does not assume AWS credentials solely to publish SNS; this keeps scheduled
 read-only testing outside the deployment trust boundary. Investigate health,
 test, retry, policy, and stale-quarantine failures from the summary before
-rerunning. Do not repair a nightly failure with a deployment, migration, data
+rerunning. Do not repair a weekly failure with a deployment, migration, data
 edit, or schedule change without separate authorization.

@@ -30,14 +30,14 @@ readiness, read-only remote smoke, rollback evidence, and a dedicated failure
 topic. The workflow has not been run against AWS; first deployment and DEV
 migration authorization remain external gates.
 
-Block 28.7 adds a credential-free nightly regression consumer and explicit
+Block 28.7 adds a credential-free weekly regression consumer and explicit
 flake policy in source. It checks out protected `dev`, targets a repository-
 configured public DEV origin, permits at most one reported retry, and fails
 unexpected, expired, malformed, duplicate, or stale quarantine evidence. It has
 not executed a remote run. Release identity binding remains a Block 28.8 gate.
 
 Block 28.8 completes that binding in source. DEV deployment now publishes the
-same immutable commit/stage manifest through Web and API paths; nightly and
+same immutable commit/stage manifest through Web and API paths; weekly and
 `dev -> main` regression require both identities to match the exact candidate.
 The production public runtime is defined in separate edge/application stacks,
 and production delivery requires a plan run followed by a digest-bound deploy
@@ -129,7 +129,7 @@ changes must conservatively broaden the gate.
    Stop at synth and diff review.
 7. `28.6` Add the protected DEV deployment workflow with environment
    protection, health check, API smoke, UI smoke, and failure notifications.
-8. `28.7` Add nightly DEV regression with artifacts, flake tracking, and a
+8. `28.7` Add weekly DEV regression with artifacts, flake tracking, and a
    deterministic retry policy.
 9. `28.8` Complete the dev-to-main regression gate and production-safe smoke
    workflow without broadening production mutation authority.
@@ -244,5 +244,5 @@ Tradeoffs:
 - [ADR 0004: Single-User Authentication](0004-single-user-authentication.md)
 - [AWS Deployment Runbook](../runbooks/aws-deployment.md)
 - [AWS DEV Deployment Runbook](../runbooks/aws-dev-deployment.md)
-- [Nightly AWS DEV Regression Runbook](../runbooks/nightly-dev-regression.md)
+- [Weekly AWS DEV Regression Runbook](../runbooks/weekly-dev-regression.md)
 - [AWS System Design and Configuration](../aws-system-design.md)
