@@ -297,6 +297,22 @@ export class AccountGuardrailsStack extends Stack {
     );
     githubDevDeployRole.addToPolicy(
       new PolicyStatement({
+        actions: [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+        ],
+        resources: [
+          this.formatArn({
+            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+            resource: "secret",
+            resourceName: "cpi/dev/application-*",
+            service: "secretsmanager",
+          }),
+        ],
+      }),
+    );
+    githubDevDeployRole.addToPolicy(
+      new PolicyStatement({
         actions: ["sns:Publish"],
         resources: [
           this.formatArn({

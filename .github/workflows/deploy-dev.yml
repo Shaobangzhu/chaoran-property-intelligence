@@ -368,6 +368,49 @@ jobs:
           actual_account="$(aws sts get-caller-identity --query Account --output text)"
           test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
 
+      - name: Synchronize DEV application provider secrets
+        env:
+          CPI_DEV_OPENAI_API_KEY: ${{ secrets.CPI_DEV_OPENAI_API_KEY }}
+          CPI_DEV_RENTCAST_API_KEY: ${{ secrets.CPI_DEV_RENTCAST_API_KEY }}
+          CPI_DEV_TELEGRAM_BOT_TOKEN: ${{ secrets.CPI_DEV_TELEGRAM_BOT_TOKEN }}
+          CPI_DEV_TELEGRAM_CHAT_ID: ${{ secrets.CPI_DEV_TELEGRAM_CHAT_ID }}
+        run: |-
+          set -euo pipefail
+          test -n "$CPI_DEV_OPENAI_API_KEY"
+          test -n "$CPI_DEV_RENTCAST_API_KEY"
+          test -n "$CPI_DEV_TELEGRAM_BOT_TOKEN"
+          test -n "$CPI_DEV_TELEGRAM_CHAT_ID"
+
+          umask 077
+          secret_directory="$(mktemp -d)"
+          trap 'rm -rf "$secret_directory"' EXIT
+
+          aws secretsmanager get-secret-value \
+            --secret-id cpi/dev/application \
+            --query SecretString \
+            --output text > "$secret_directory/current.json"
+          jq -e 'type == "object"' "$secret_directory/current.json" >/dev/null
+          jq \
+            '.OPENAI_API_KEY = env.CPI_DEV_OPENAI_API_KEY
+            | .RENTCAST_API_KEY = env.CPI_DEV_RENTCAST_API_KEY
+            | .TELEGRAM_BOT_TOKEN = env.CPI_DEV_TELEGRAM_BOT_TOKEN
+            | .TELEGRAM_CHAT_ID = env.CPI_DEV_TELEGRAM_CHAT_ID' \
+            "$secret_directory/current.json" \
+            > "$secret_directory/merged.json"
+          if jq -e --slurp '.[0] == .[1]' \
+            "$secret_directory/current.json" \
+            "$secret_directory/merged.json" >/dev/null; then
+            exit 0
+          fi
+          jq -n \
+            --rawfile secret_string "$secret_directory/merged.json" \
+            '{SecretId: "cpi/dev/application", SecretString: $secret_string}' \
+            > "$secret_directory/put-secret.json"
+          aws secretsmanager put-secret-value \
+            --cli-input-json "file://$secret_directory/put-secret.json" \
+            --query VersionId \
+            --output text >/dev/null
+
       - name: Capture pre-deployment rollback evidence
         run: |-
           mkdir -p deployment-evidence

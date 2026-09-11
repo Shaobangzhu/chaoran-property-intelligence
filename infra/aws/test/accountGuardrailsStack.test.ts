@@ -183,6 +183,13 @@ describe("AccountGuardrailsStack", () => {
     expect(devPolicyDocument).toContain("cloudfront:CreateInvalidation");
     expect(devPolicyDocument).toContain("aws:ResourceTag/cpi:deployment-stage");
     expect(devPolicyDocument).toContain("apprunner:DescribeService");
+    expect(devPolicyDocument).toContain(
+      "secretsmanager:GetSecretValue",
+    );
+    expect(devPolicyDocument).toContain(
+      "secretsmanager:PutSecretValue",
+    );
+    expect(devPolicyDocument).toContain("cpi/dev/application-");
     expect(devPolicyDocument).not.toContain("cdk-hnb659fds-*");
 
     const statements = devPolicy?.Properties?.PolicyDocument?.Statement as
