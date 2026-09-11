@@ -613,7 +613,16 @@ function deepFreeze<T>(value: T): DeepReadonly<T> {
   return value as DeepReadonly<T>;
 }
 
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
+type DeepReadonly<T> = T extends
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  ? T
+  : T extends (...args: never[]) => unknown
   ? T
   : T extends readonly (infer Item)[]
     ? readonly DeepReadonly<Item>[]

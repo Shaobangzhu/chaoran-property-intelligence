@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  SaveListingSearchProfileInput,
+import {
+  createListingRefreshRequestPlan,
+  type SaveListingSearchProfileInput,
 } from "@chaoran-property-intelligence/application";
 import {
   defaultListingSearchCriteria,
@@ -89,6 +90,72 @@ describe("PostgresListingSearchProfileRepository", () => {
     expect(result.status === "updated" && result.profile.appliedRevision).toBe(
       1,
     );
+  });
+
+  it("atomically saves changed criteria and creates one criteria refresh run", async () => {
+    const criteria = createChangedCriteria();
+    const database = new RecordingSqlDatabase([
+      { rows: [createProfileRow()] },
+      {
+        rows: [
+          createProfileRow({
+            criteria,
+            revision: "2",
+            updated_by_user_id: actorUserId,
+            updated_at: new Date(updatedAt),
+          }),
+        ],
+      },
+      { rows: [createRunRow(criteria.cities)] },
+    ]);
+    const repository = new PostgresListingSearchProfileRepository(database);
+
+    const result = await repository.savePrimaryProfileAndQueueRefresh({
+      ...createSaveInput(criteria),
+      runId: refreshRunId,
+      plan: createListingRefreshRequestPlan(criteria),
+    });
+
+    expect(database.transactionCount).toBe(1);
+    expect(database.queries[2]?.text).toContain(
+      "INSERT INTO listing_search_runs",
+    );
+    expect(database.queries[2]?.parameters).toEqual([
+      refreshRunId,
+      "primary",
+      2,
+      "criteria-change",
+      updatedAt,
+      JSON.stringify(criteria.cities),
+      criteria.cities.length,
+      criteria.cities.length,
+    ]);
+    expect(result).toMatchObject({
+      status: "updated",
+      profile: { revision: 2, appliedRevision: 1 },
+      run: {
+        runId: refreshRunId,
+        requestedRevision: 2,
+        status: "queued",
+      },
+    });
+  });
+
+  it("does not create a refresh run for an unchanged atomic save", async () => {
+    const database = new RecordingSqlDatabase([
+      { rows: [createProfileRow()] },
+    ]);
+    const repository = new PostgresListingSearchProfileRepository(database);
+
+    await expect(
+      repository.savePrimaryProfileAndQueueRefresh({
+        ...createSaveInput(defaultListingSearchCriteria),
+        runId: refreshRunId,
+        plan: createListingRefreshRequestPlan(defaultListingSearchCriteria),
+      }),
+    ).resolves.toMatchObject({ status: "unchanged" });
+
+    expect(database.queries).toHaveLength(1);
   });
 
   it("returns unchanged for canonically equal criteria without incrementing revision", async () => {
@@ -187,6 +254,7 @@ describe("PostgresListingSearchProfileRepository", () => {
 });
 
 const actorUserId = "0198c7d2-7668-7775-b0fc-b789690a60c1";
+const refreshRunId = "0198c7d2-7668-7775-b0fc-b789690a60c2";
 const createdAt = "2026-08-20T19:00:00.000Z";
 const initialUpdatedAt = "2026-08-21T19:00:00.000Z";
 const updatedAt = "2026-08-22T19:00:00.000Z";
@@ -271,5 +339,30 @@ function createProfileRow(
     created_at: new Date(createdAt),
     updated_at: new Date(initialUpdatedAt),
     ...overrides,
+  };
+}
+
+function createRunRow(
+  selectedMarkets: readonly string[],
+): Record<string, unknown> {
+  return {
+    run_id: refreshRunId,
+    profile_key: "primary",
+    requested_revision: "2",
+    effective_revision: null,
+    trigger_reason: "criteria-change",
+    status: "queued",
+    claim_token: null,
+    requested_at: new Date(updatedAt),
+    started_at: null,
+    completed_at: null,
+    selected_markets: selectedMarkets,
+    selected_market_count: selectedMarkets.length,
+    planned_provider_request_count: selectedMarkets.length,
+    actual_provider_request_count: 0,
+    returned_listing_count: 0,
+    published_current_count: 0,
+    failure_code: null,
+    superseded_by_run_id: null,
   };
 }

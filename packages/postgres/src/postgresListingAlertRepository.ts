@@ -544,7 +544,7 @@ function readRevision(value: unknown): number {
   return parsed;
 }
 
-async function upsertListing(
+export async function upsertListing(
   connection: SqlConnection,
   listing: RentCastNormalizedListing,
   listingKey: string,
@@ -576,7 +576,45 @@ async function upsertListing(
   ]);
 }
 
-async function upsertObservation(
+export async function upsertListingReturningId(
+  connection: SqlConnection,
+  listing: RentCastNormalizedListing,
+  listingKey: string,
+  notificationStatus: "baseline" | "pending" | "sent",
+): Promise<string> {
+  const result = await connection.query(`${upsertListingSql}\nRETURNING id`, [
+    listingKey,
+    listing.source,
+    listing.sourceListingId,
+    listing.mlsName,
+    listing.mlsNumber,
+    listing.formattedAddress,
+    listing.addressLine1,
+    listing.addressLine2,
+    listing.city,
+    listing.state,
+    listing.zipCode,
+    listing.latitude,
+    listing.longitude,
+    listing.propertyType,
+    listing.bedrooms,
+    listing.bathrooms,
+    listing.price,
+    listing.status,
+    listing.listedDate,
+    listing.lastSeenDate,
+    listing.firstDiscoveredAt,
+    notificationStatus,
+  ]);
+  if (result.rows.length !== 1) {
+    throw new InvalidListingAlertStateError(
+      "Listing upsert did not return its persistent identity",
+    );
+  }
+  return readString(readRecord(result.rows[0]), "id");
+}
+
+export async function upsertObservation(
   connection: SqlConnection,
   observation: ListingPriceObservation,
 ): Promise<void> {
@@ -622,7 +660,7 @@ function observationParameters(
   ];
 }
 
-async function persistEvent(
+export async function persistEvent(
   connection: SqlConnection,
   event: ListingAlertEvent,
 ): Promise<void> {
