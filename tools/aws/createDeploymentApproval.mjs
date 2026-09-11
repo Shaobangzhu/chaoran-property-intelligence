@@ -8,8 +8,8 @@ export function createDeploymentApproval({ commit, rawDiff, stage }) {
   if (!gitShaPattern.test(commit)) {
     throw new Error("commit must be a lowercase 40-character Git SHA");
   }
-  if (stage !== "production") {
-    throw new Error("stage must be production");
+  if (stage !== "production" && stage !== "account-guardrails") {
+    throw new Error("stage must be production or account-guardrails");
   }
   const normalizedDiff = rawDiff
     .replace(/\u001B\[[0-?]*[ -/]*[@-~]/gu, "")
@@ -23,8 +23,12 @@ export function createDeploymentApproval({ commit, rawDiff, stage }) {
 }
 
 export function renderDeploymentApproval(approval) {
+  const title =
+    approval.stage === "account-guardrails"
+      ? "Account Guardrails Deployment Approval"
+      : "Production Deployment Approval";
   return [
-    "# Production Deployment Approval",
+    `# ${title}`,
     "",
     `Commit: \`${approval.commit}\``,
     "",
@@ -64,7 +68,7 @@ async function main() {
     args.expectedDigest !== approval.approvalDigest
   ) {
     process.stderr.write(
-      "Approved production plan does not match this commit and current AWS diff.\n",
+      `Approved ${args.stage} plan does not match this commit and current AWS diff.\n`,
     );
     process.exitCode = 2;
   }

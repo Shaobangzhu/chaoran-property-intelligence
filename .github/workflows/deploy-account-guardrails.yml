@@ -1,0 +1,180 @@
+name: Deploy account guardrails
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Create a reviewed plan or deploy that exact plan
+        required: true
+        type: choice
+        options:
+          - plan
+          - deploy
+      confirmation:
+        description: Type plan-account-guardrails or deploy-account-guardrails
+        required: true
+        type: string
+      approved_plan_digest:
+        description: Approval digest from the matching plan run; required for deploy
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: false
+  group: account-guardrails-deployment
+
+env:
+  AWS_REGION: us-west-2
+  CPI_ALERT_EMAIL: ${{ secrets.CPI_ALERT_EMAIL }}
+  CPI_APPROVED_PLAN_DIGEST: ${{ inputs.approved_plan_digest }}
+  CPI_GUARDRAILS_OPERATION: ${{ inputs.operation }}
+  CPI_MONTHLY_BUDGET_USD: ${{ vars.CPI_MONTHLY_BUDGET_USD || '20' }}
+
+jobs:
+  guardrails:
+    name: Plan or deploy account guardrails
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((inputs.operation == 'plan' &&
+        inputs.confirmation == 'plan-account-guardrails') ||
+       (inputs.operation == 'deploy' &&
+        inputs.confirmation == 'deploy-account-guardrails' &&
+        inputs.approved_plan_digest != ''))
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout immutable main revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate bounded guardrails configuration
+        run: |-
+          test -n "${{ vars.AWS_ACCOUNT_ID }}"
+          test -n "$CPI_ALERT_EMAIL"
+          printf '%s' "$CPI_MONTHLY_BUDGET_USD" | grep -Eq '^[1-9][0-9]*$'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [ "$CPI_GUARDRAILS_OPERATION" = "deploy" ]; then
+            printf '%s' "$CPI_APPROVED_PLAN_DIGEST" | grep -Eq '^[a-f0-9]{64}$'
+          fi
+
+      - name: Verify Guardrails implementation
+        run: |-
+          pnpm test:infra
+          pnpm --dir infra/aws typecheck
+          pnpm --dir infra/aws build
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cpi-github-account-guardrails-${{ inputs.operation }}
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy
+
+      - name: Verify target AWS account
+        run: |-
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Capture account-backed Guardrails CDK diff
+        run: |-
+          mkdir -p guardrails-plan
+          set +e
+          pnpm --dir infra/aws exec cdk diff \
+            ChaoranPropertyIntelligenceGuardrails \
+            -c targetStage=dev \
+            --ci \
+            --exclusively \
+            --fail \
+            --method template \
+            --no-color 2>&1 | tee guardrails-plan/cdk-diff.txt
+          diff_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "$diff_status" -gt 1 ]; then
+            exit "$diff_status"
+          fi
+
+      - name: Classify Guardrails CREATE UPDATE REPLACE DELETE
+        run: |-
+          node tools/aws/classifyCdkDiff.mjs \
+            --input guardrails-plan/cdk-diff.txt \
+            --output guardrails-plan/cdk-diff-summary.md \
+            --title "Account Guardrails" \
+            --fail-on-delete
+          cat guardrails-plan/cdk-diff-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or verify immutable Guardrails plan approval
+        id: approval
+        run: |-
+          if [ "$CPI_GUARDRAILS_OPERATION" = "plan" ]; then
+            node tools/aws/createDeploymentApproval.mjs \
+              --commit "$GITHUB_SHA" \
+              --diff guardrails-plan/cdk-diff.txt \
+              --stage account-guardrails \
+              --output guardrails-plan/approval.json \
+              --github-output "$GITHUB_OUTPUT" \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            node tools/aws/createDeploymentApproval.mjs \
+              --commit "$GITHUB_SHA" \
+              --diff guardrails-plan/cdk-diff.txt \
+              --stage account-guardrails \
+              --output guardrails-plan/approval.json \
+              --expected-digest "$CPI_APPROVED_PLAN_DIGEST" \
+              --github-output "$GITHUB_OUTPUT" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Guardrails deployment plan
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: account-guardrails-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: guardrails-plan/
+          retention-days: 90
+
+      - name: Deploy approved account Guardrails stack only
+        if: inputs.operation == 'deploy'
+        run: |-
+          mkdir -p guardrails-evidence
+          pnpm --dir infra/aws exec cdk deploy \
+            ChaoranPropertyIntelligenceGuardrails \
+            -c targetStage=dev \
+            --exclusively \
+            --outputs-file "$GITHUB_WORKSPACE/guardrails-evidence/cdk-outputs.json" \
+            --require-approval never \
+            --parameters ChaoranPropertyIntelligenceGuardrails:AlertEmail="$CPI_ALERT_EMAIL" \
+            --parameters ChaoranPropertyIntelligenceGuardrails:MonthlyBudgetUsd="$CPI_MONTHLY_BUDGET_USD"
+
+      - name: Upload Guardrails deployment evidence
+        if: always() && inputs.operation == 'deploy'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: account-guardrails-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: guardrails-evidence/
+          retention-days: 90

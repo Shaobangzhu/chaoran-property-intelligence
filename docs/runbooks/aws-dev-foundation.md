@@ -132,9 +132,15 @@ removes the files before the step ends.
 The `cpi-github-deploy-dev` role needs `GetSecretValue` and `PutSecretValue`
 only for `cpi/dev/application`. Because that role is owned by
 `ChaoranPropertyIntelligenceGuardrails`, deploy the reviewed Guardrails change
-once with an administrator identity before relying on the automated sync. The
-DEV workflow intentionally does not deploy the Guardrails stack and cannot
-grant permissions to its own role.
+once through the manually triggered `Deploy account guardrails` workflow before
+relying on the automated sync. Run `plan` from `main` with confirmation
+`plan-account-guardrails`, review the classified diff and retain its approval
+digest, then run `deploy` against the same commit with confirmation
+`deploy-account-guardrails` and that digest. The workflow reuses the protected
+`production` environment because its OIDC role owns the existing Guardrails
+deployment boundary, but it targets only the Guardrails stack. The DEV workflow
+intentionally does not deploy that stack and cannot grant permissions to its
+own role.
 
 If an EventBridge Pipe-launched task exits before a refresh starts, inspect its
 bounded CloudWatch stream under `/cpi/dev/alert-worker`. A missing provider
