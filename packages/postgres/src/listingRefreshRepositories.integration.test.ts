@@ -326,6 +326,30 @@ describeWithDisposablePostgres(
           database,
           "retention-provider-2",
         );
+        const observationReferencedId = await insertOldProviderListing(
+          database,
+          "retention-observation-protected",
+        );
+        const pendingEventReferencedId = await insertOldProviderListing(
+          database,
+          "retention-pending-event-protected",
+        );
+        const retainedEventReferencedId = await insertOldProviderListing(
+          database,
+          "retention-retained-event-protected",
+        );
+        const showingListReferencedId = await insertOldProviderListing(
+          database,
+          "retention-showing-list-protected",
+        );
+        const recentProviderId = await insertOldProviderListing(
+          database,
+          "retention-recent-provider",
+        );
+        await database.query(
+          "UPDATE listings SET updated_at = '2026-04-01T08:00:00Z' WHERE id = $1",
+          [recentProviderId],
+        );
         await database.query(
           `INSERT INTO listing_alert_events (
              event_key, listing_key, address_key, kind, formatted_address,
@@ -337,6 +361,114 @@ describeWithDisposablePostgres(
              '2025-01-01T08:01:00Z'
            FROM listings WHERE id = $1`,
           [eventReferencedId],
+        );
+        await database.query(
+          `INSERT INTO listing_price_observations (
+             address_key, listing_key, source_listing_id, latest_price,
+             latest_listed_date, latest_last_seen_date, comparison_ready,
+             observed_at, created_at, updated_at
+           ) SELECT
+             'address:v1:retention-observation-protected', deduplication_key,
+             source_listing_id, 825000, '2025-01-01', '2025-01-01', true,
+             '2025-01-01T08:00:00Z', '2025-01-01T08:00:00Z',
+             '2025-01-01T08:00:00Z'
+           FROM listings WHERE id = $1`,
+          [observationReferencedId],
+        );
+        await insertRetentionEvent(database, pendingEventReferencedId, {
+          identity: "pending",
+          observedAt: "2025-01-01T08:00:00Z",
+          status: "pending",
+        });
+        await insertRetentionEvent(database, retainedEventReferencedId, {
+          identity: "retained",
+          observedAt: "2026-08-01T08:00:00Z",
+          status: "sent",
+        });
+        await database.query(
+          `INSERT INTO current_showing_list_draft (
+             generation_id, created_by_user_id, prompt_version, model,
+             duration_ms, generation_input, draft, artifact_key,
+             artifact_etag, status, delivery_status, generated_at, updated_at
+           ) VALUES (
+             $1, $2, 'retention-test-v1', 'fake-model', 1,
+             jsonb_build_object('listingIds', jsonb_build_array($3::text)),
+             '{}'::jsonb, 'showing-lists/current.pdf', 'retention-etag',
+             'draft', 'pending', '2026-09-01T08:00:00Z',
+             '2026-09-01T08:00:00Z'
+           )`,
+          [randomUUID(), actorUserId, showingListReferencedId],
+        );
+
+        const membershipRunId = randomUUID();
+        await database.query(
+          `INSERT INTO listing_search_runs (
+             run_id, profile_key, requested_revision, effective_revision,
+             trigger_reason, status, claim_token, requested_at, started_at,
+             completed_at, selected_markets, selected_market_count,
+             planned_provider_request_count, actual_provider_request_count,
+             returned_listing_count, published_current_count
+           ) VALUES (
+             $1, 'primary', 2, 1, 'scheduled', 'succeeded', $2,
+             '2025-01-01T08:00:00Z', '2025-01-01T08:00:30Z',
+             '2025-01-01T08:01:00Z', '["Chino"]', 1, 1, 1, 4, 2
+           )`,
+          [membershipRunId, randomUUID()],
+        );
+        const currentMembershipId = await insertOldProviderListing(
+          database,
+          "retention-current-membership",
+        );
+        const missingMembershipId = await insertOldProviderListing(
+          database,
+          "retention-missing-membership",
+        );
+        const inactiveMembershipId = await insertOldProviderListing(
+          database,
+          "retention-inactive-membership",
+        );
+        const outOfScopeMembershipId = await insertOldProviderListing(
+          database,
+          "retention-out-of-scope-membership",
+        );
+        const recentInactiveMembershipId = await insertOldProviderListing(
+          database,
+          "retention-recent-inactive-membership",
+        );
+        await insertRetentionMembership(
+          database,
+          membershipRunId,
+          currentMembershipId,
+          "current",
+          "2025-01-01T08:00:00Z",
+        );
+        await insertRetentionMembership(
+          database,
+          membershipRunId,
+          missingMembershipId,
+          "missing",
+          "2025-01-01T08:00:00Z",
+        );
+        await insertRetentionMembership(
+          database,
+          membershipRunId,
+          inactiveMembershipId,
+          "inactive",
+          "2025-01-01T08:00:00Z",
+        );
+        await insertRetentionMembership(
+          database,
+          membershipRunId,
+          outOfScopeMembershipId,
+          "out_of_scope",
+          "2025-01-01T08:00:00Z",
+        );
+        await insertRetentionMembership(
+          database,
+          membershipRunId,
+          recentInactiveMembershipId,
+          "inactive",
+          "2026-08-01T08:00:00Z",
         );
         await database.query(
           `INSERT INTO listings (
@@ -372,6 +504,28 @@ describeWithDisposablePostgres(
               recordKey: immediatelyUnreferencedId,
             }),
             expect.objectContaining({ recordKind: "alert-event" }),
+            expect.objectContaining({
+              recordKind: "search-membership",
+              recordKey: `primary/${inactiveMembershipId}`,
+            }),
+            expect.objectContaining({
+              recordKind: "search-membership",
+              recordKey: `primary/${outOfScopeMembershipId}`,
+            }),
+          ]),
+        );
+        expect(firstCandidates).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ recordKey: currentMembershipId }),
+            expect.objectContaining({ recordKey: missingMembershipId }),
+            expect.objectContaining({ recordKey: observationReferencedId }),
+            expect.objectContaining({ recordKey: pendingEventReferencedId }),
+            expect.objectContaining({ recordKey: retainedEventReferencedId }),
+            expect.objectContaining({ recordKey: showingListReferencedId }),
+            expect.objectContaining({ recordKey: recentProviderId }),
+            expect.objectContaining({
+              recordKey: `primary/${recentInactiveMembershipId}`,
+            }),
           ]),
         );
         const firstCounts = aggregateRetentionCandidates(firstCandidates);
@@ -383,21 +537,56 @@ describeWithDisposablePostgres(
         });
 
         const secondCandidates = await retention.listCandidates(input);
-        expect(secondCandidates).toEqual([
-          expect.objectContaining({
-            recordKind: "provider-listing",
-            recordKey: eventReferencedId,
-          }),
-        ]);
+        expect(secondCandidates).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              recordKind: "provider-listing",
+              recordKey: eventReferencedId,
+            }),
+            expect.objectContaining({
+              recordKind: "provider-listing",
+              recordKey: inactiveMembershipId,
+            }),
+            expect.objectContaining({
+              recordKind: "provider-listing",
+              recordKey: outOfScopeMembershipId,
+            }),
+          ]),
+        );
         await retention.execute({
           ...input,
           expectedCandidates: aggregateRetentionCandidates(secondCandidates),
         });
+        const repeatCandidates = await retention.listCandidates(input);
+        expect(repeatCandidates).toEqual([]);
+        await expect(
+          retention.execute({
+            ...input,
+            expectedCandidates:
+              aggregateRetentionCandidates(repeatCandidates),
+          }),
+        ).resolves.toMatchObject({ deleted: { total: 0 }, hasMore: false });
         await expect(
           database.query(
-            "SELECT source, count(*)::integer AS count FROM listings GROUP BY source",
+            "SELECT count(*)::integer AS count FROM listings WHERE source = 'manual'",
           ),
-        ).resolves.toEqual({ rows: [{ source: "manual", count: 1 }] });
+        ).resolves.toEqual({ rows: [{ count: 1 }] });
+        const protectedRows = await database.query(
+          `SELECT id FROM listings
+           WHERE id = ANY($1::uuid[])
+           ORDER BY id`,
+          [[
+            currentMembershipId,
+            missingMembershipId,
+            observationReferencedId,
+            pendingEventReferencedId,
+            retainedEventReferencedId,
+            showingListReferencedId,
+            recentProviderId,
+            recentInactiveMembershipId,
+          ]],
+        );
+        expect(protectedRows.rows).toHaveLength(8);
       });
     });
   },
@@ -432,6 +621,59 @@ async function insertOldProviderListing(
     throw new Error("Disposable retention listing identity was malformed");
   }
   return row.id;
+}
+
+async function insertRetentionEvent(
+  database: SqlDatabase,
+  listingId: string,
+  input: {
+    readonly identity: string;
+    readonly observedAt: string;
+    readonly status: "pending" | "sent";
+  },
+): Promise<void> {
+  await database.query(
+    `INSERT INTO listing_alert_events (
+       event_key, listing_key, address_key, kind, formatted_address,
+       previous_price, current_price, status, observed_at, sent_at
+     ) SELECT
+       $2, deduplication_key, $3, 'new-listing', formatted_address,
+       NULL, 825000, $4, $5,
+       CASE WHEN $4 = 'sent' THEN $5::timestamptz ELSE NULL END
+     FROM listings WHERE id = $1`,
+    [
+      listingId,
+      `new:v1:retention-${input.identity}`,
+      `address:v1:retention-${input.identity}`,
+      input.status,
+      input.observedAt,
+    ],
+  );
+}
+
+async function insertRetentionMembership(
+  database: SqlDatabase,
+  runId: string,
+  listingId: string,
+  state: "current" | "missing" | "inactive" | "out_of_scope",
+  lifecycleChangedAt: string,
+): Promise<void> {
+  const absenceCount = state === "missing" ? 1 : state === "inactive" ? 2 : 0;
+  await database.query(
+    `INSERT INTO listing_search_memberships (
+       profile_key, listing_id, applied_revision, last_successful_run_id,
+       lifecycle_state, first_matched_at, last_matched_at,
+       last_server_observed_at, consecutive_complete_run_absence_count,
+       inactive_at, lifecycle_changed_at, created_at, updated_at
+     ) VALUES (
+       'primary', $1, 1, $2, $3,
+       '2025-01-01T08:00:00Z', '2025-01-01T08:00:00Z',
+       '2025-01-01T08:00:00Z', $4,
+       CASE WHEN $3 = 'inactive' THEN $5::timestamptz ELSE NULL END,
+       $5, '2025-01-01T08:00:00Z', $5
+     )`,
+    [listingId, runId, state, absenceCount, lifecycleChangedAt],
+  );
 }
 
 function aggregateRetentionCandidates(

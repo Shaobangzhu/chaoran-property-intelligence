@@ -242,6 +242,15 @@ export {
   type ListingRetentionRepositoryPort,
 } from "./listingRetentionContracts.js";
 export {
+  ExecuteListingRetention,
+  InvalidListingRetentionClockError,
+  InvalidListingRetentionInputError,
+  InvalidListingRetentionResultError,
+  PreviewListingRetention,
+  type ExecuteListingRetentionOptions,
+  type PreviewListingRetentionOptions,
+} from "./listingRetentionUseCases.js";
+export {
   InvalidListingRefreshExecutionInputError,
   ListingRefreshExecutionError,
   ReconcileListingRefresh,

@@ -54,7 +54,12 @@ export class PostgresListingRetentionRepository
         if (keys.length === 0) {
           continue;
         }
-        const deletedCount = await deleteCandidates(connection, kind, keys);
+        const deletedCount = await deleteCandidates(
+          connection,
+          kind,
+          keys,
+          normalized,
+        );
         addDeletedCount(deleted, kind, deletedCount);
       }
       deleted.total =
@@ -175,24 +180,38 @@ async function deleteCandidates(
   connection: SqlConnection,
   kind: ListingRetentionRecordKind,
   keys: readonly string[],
+  input: InspectListingRetentionInput,
 ): Promise<number> {
   switch (kind) {
     case "search-membership": {
       const listingIds = keys.map(parseMembershipKey);
       const result = await connection.query(
         `DELETE FROM listing_search_memberships
-         WHERE profile_key = 'primary' AND listing_id = ANY($1::uuid[])
+         WHERE profile_key = 'primary'
+           AND listing_id = ANY($1::uuid[])
+           AND lifecycle_state IN ('inactive', 'out_of_scope')
+           AND lifecycle_changed_at + make_interval(days => CASE
+             WHEN lifecycle_state = 'inactive' THEN $3::integer
+             ELSE $4::integer
+           END) <= $2
          RETURNING listing_id`,
-        [listingIds],
+        [
+          listingIds,
+          input.asOf,
+          input.policy.inactiveMembershipDays,
+          input.policy.outOfScopeMembershipDays,
+        ],
       );
       return result.rows.length;
     }
     case "alert-event": {
       const result = await connection.query(
         `DELETE FROM listing_alert_events
-         WHERE id = ANY($1::uuid[]) AND status = 'sent'
+         WHERE id = ANY($1::uuid[])
+           AND status = 'sent'
+           AND observed_at + make_interval(days => $3::integer) <= $2
          RETURNING id`,
-        [keys],
+        [keys, input.asOf, input.policy.alertEventDays],
       );
       return result.rows.length;
     }
@@ -201,8 +220,17 @@ async function deleteCandidates(
         `DELETE FROM listing_search_runs
          WHERE run_id = ANY($1::uuid[])
            AND status IN ('succeeded', 'failed', 'superseded')
+           AND completed_at + make_interval(days => $3::integer) <= $2
+           AND NOT EXISTS (
+             SELECT 1 FROM listing_search_memberships m
+             WHERE m.last_successful_run_id = listing_search_runs.run_id
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM listing_search_runs child
+             WHERE child.superseded_by_run_id = listing_search_runs.run_id
+           )
          RETURNING run_id`,
-        [keys],
+        [keys, input.asOf, input.policy.runDetailDays],
       );
       return result.rows.length;
     }
@@ -211,6 +239,7 @@ async function deleteCandidates(
         `DELETE FROM listings l
          WHERE l.id = ANY($1::uuid[])
            AND l.source = 'rentcast'
+           AND l.updated_at + make_interval(days => $3::integer) <= $2
            AND NOT EXISTS (
              SELECT 1 FROM listing_search_memberships m WHERE m.listing_id = l.id
            )
@@ -227,7 +256,7 @@ async function deleteCandidates(
              WHERE (d.generation_input -> 'listingIds') ? l.id::text
            )
          RETURNING l.id`,
-        [keys],
+        [keys, input.asOf, input.policy.unreferencedProviderListingDays],
       );
       return result.rows.length;
     }
