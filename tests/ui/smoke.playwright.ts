@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 
 const adminCredentials = {
   email: "admin@example.com",
@@ -25,7 +25,8 @@ test.describe("@smoke UI smoke", () => {
   });
 
   test("shows the private sign-in screen", async ({ page }) => {
-    const response = await page.goto("/");
+    test.setTimeout(isRemoteSmoke ? 150_000 : 30_000);
+    const response = await openPrivateSignInScreen(page);
 
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
@@ -69,7 +70,51 @@ test.describe("@smoke UI smoke", () => {
   });
 });
 
-async function signIn(page: import("@playwright/test").Page): Promise<void> {
+async function openPrivateSignInScreen(page: Page): Promise<Response | null> {
+  if (!isRemoteSmoke) {
+    return page.goto("/");
+  }
+
+  let readyResponse: Response | null = null;
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.goto("/", {
+            waitUntil: "domcontentloaded",
+          });
+          const signInHeading = page.getByRole("heading", { name: "Sign in" });
+          await signInHeading
+            .waitFor({ state: "visible", timeout: 10_000 })
+            .catch(() => undefined);
+          const signInVisible = await signInHeading
+            .isVisible()
+            .catch(() => false);
+          if (response !== null && response.ok() && signInVisible) {
+            readyResponse = response;
+            return "ready";
+          }
+
+          const bodyText = await page
+            .locator("body")
+            .innerText()
+            .catch(() => "unavailable");
+          return `HTTP ${response?.status() ?? "no-response"}; body ${bodyText.slice(0, 160)}`;
+        } catch (error) {
+          return error instanceof Error ? error.message : "navigation failed";
+        }
+      },
+      {
+        intervals: [1_000, 2_000, 5_000],
+        message: "DEV web runtime did not reach the private sign-in screen",
+        timeout: 120_000,
+      },
+    )
+    .toBe("ready");
+  return readyResponse;
+}
+
+async function signIn(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByLabel("Email").fill(adminCredentials.email);
   await page.getByLabel("Password").fill(adminCredentials.password);
