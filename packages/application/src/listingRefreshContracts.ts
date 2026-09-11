@@ -132,6 +132,8 @@ export const listingSearchMembershipSchema = z
     lastServerObservedAt: canonicalTimestampSchema,
     consecutiveCompleteRunAbsenceCount: boundedCountSchema,
     inactiveAt: canonicalTimestampSchema.nullable(),
+    explicitProviderStatus: z.literal("sold").nullable(),
+    explicitProviderStatusObservedAt: canonicalTimestampSchema.nullable(),
   })
   .superRefine(assertMembershipRelationships);
 
@@ -483,6 +485,7 @@ function assertRunRelationships(
         run.failureCode === null ||
         run.supersededByRunId !== null ||
         run.publishedCurrentCount !== 0 ||
+        (run.startedAt === null) !== (run.effectiveRevision === null) ||
         (run.startedAt === null && !hasZeroResultCounts)
       ) {
         addContractIssue(context, "Failed run state was inconsistent");
@@ -521,12 +524,22 @@ function assertMembershipRelationships(
   switch (membership.lifecycleState) {
     case "current":
     case "out_of_scope":
-      if (absenceCount !== 0 || membership.inactiveAt !== null) {
+      if (
+        absenceCount !== 0 ||
+        membership.inactiveAt !== null ||
+        membership.explicitProviderStatus !== null ||
+        membership.explicitProviderStatusObservedAt !== null
+      ) {
         addContractIssue(context, "Active membership state was inconsistent");
       }
       break;
     case "missing":
-      if (absenceCount < 1 || membership.inactiveAt !== null) {
+      if (
+        absenceCount < 1 ||
+        membership.inactiveAt !== null ||
+        membership.explicitProviderStatus !== null ||
+        membership.explicitProviderStatusObservedAt !== null
+      ) {
         addContractIssue(context, "Missing membership state was inconsistent");
       }
       break;
@@ -534,13 +547,20 @@ function assertMembershipRelationships(
       if (
         absenceCount < 2 ||
         membership.inactiveAt === null ||
-        membership.inactiveAt < membership.lastServerObservedAt
+        membership.inactiveAt < membership.lastServerObservedAt ||
+        membership.explicitProviderStatus !== null ||
+        membership.explicitProviderStatusObservedAt !== null
       ) {
         addContractIssue(context, "Inactive membership state was inconsistent");
       }
       break;
     case "sold":
-      if (membership.inactiveAt !== null) {
+      if (
+        membership.inactiveAt !== null ||
+        membership.explicitProviderStatus !== "sold" ||
+        membership.explicitProviderStatusObservedAt !==
+          membership.lastServerObservedAt
+      ) {
         addContractIssue(context, "Sold membership state was inconsistent");
       }
       break;

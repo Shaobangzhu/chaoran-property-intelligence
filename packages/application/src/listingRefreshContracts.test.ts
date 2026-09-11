@@ -175,6 +175,13 @@ describe("listing refresh run contract", () => {
     },
     {
       ...createRun(),
+      status: "failed",
+      startedAt,
+      completedAt,
+      failureCode: "provider-timeout",
+    },
+    {
+      ...createRun(),
       status: "superseded",
       completedAt,
       supersededByRunId: runId,
@@ -288,7 +295,11 @@ describe("listing search membership contract", () => {
       consecutiveCompleteRunAbsenceCount: 2,
       inactiveAt: completedAt,
     }),
-    createMembership({ lifecycleState: "sold" }),
+    createMembership({
+      lifecycleState: "sold",
+      explicitProviderStatus: "sold",
+      explicitProviderStatusObservedAt: completedAt,
+    }),
   ])("accepts and freezes a consistent $lifecycleState membership", (input) => {
     const membership = normalizeListingSearchMembership(input);
 
@@ -318,6 +329,10 @@ describe("listing search membership contract", () => {
       lifecycleState: "inactive",
       consecutiveCompleteRunAbsenceCount: 2,
       inactiveAt: null,
+    },
+    {
+      ...createMembership(),
+      lifecycleState: "sold",
     },
   ])("rejects malformed or impossible membership state", (input) => {
     expect(() => normalizeListingSearchMembership(input)).toThrow(
@@ -361,6 +376,8 @@ function createMembership(overrides: Record<string, unknown> = {}) {
     lastServerObservedAt: completedAt,
     consecutiveCompleteRunAbsenceCount: 0,
     inactiveAt: null,
+    explicitProviderStatus: null,
+    explicitProviderStatusObservedAt: null,
     ...overrides,
   };
 }
