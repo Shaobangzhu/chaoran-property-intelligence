@@ -486,14 +486,25 @@ deployment. Preserve the existing `cpi-daily-property-alert` physical name for
 the first expression update to avoid an unrelated Scheduler replacement; a
 semantic rename is a separately reviewed change.
 
-The API persists configuration and bounded run state. Its default runtime does
-not receive RentCast or Telegram credentials. A stage-isolated asynchronous
-dispatch path sends an SQS message containing only `runId`, `schemaVersion`, and
-`stage`. An EventBridge Pipe filters the stage and starts the existing Fargate
-task with only `LISTING_REFRESH_RUN_ID` overridden. The worker transactionally
-claims the database run, coalesces superseded unstarted criteria revisions, and
-publishes membership only after every selected market succeeds. A failed run
-preserves the prior applied inventory and does not increment absence counters.
+The API persists configuration and bounded run state. In AWS it does not receive
+RentCast or Telegram credentials. A stage-isolated asynchronous dispatch path
+sends an SQS message containing only `runId`, `schemaVersion`, and `stage`. An
+EventBridge Pipe filters the stage and starts the existing Fargate task with only
+`LISTING_REFRESH_RUN_ID` overridden. In local development, where no AWS dispatch
+configuration exists, the API starts the built alert-worker entry point as a
+detached process with the run ID and inherited `.env.local` configuration. That
+local path therefore performs real RentCast requests and eligible Telegram
+delivery; automated tests replace process launch and provider ports with fakes.
+The worker transactionally claims the database run, coalesces superseded
+unstarted criteria revisions, and publishes membership only after every selected
+market succeeds. A failed run preserves the prior applied inventory and does not
+increment absence counters.
+
+The Search Criteria client polls a queued or running run while it can make
+progress. If dispatch fails immediately, or a queued run remains unclaimed for
+five minutes, the client stops polling and presents `Dispatch unavailable / not
+started` with an explicit Retry action. Retry dispatches the same durable run;
+it does not create a duplicate criteria revision or provider-request plan.
 
 Each stage owns a distinct SQS queue, dead-letter queue, Pipe, and Pipe role.
 The App Runner role can call only `sqs:SendMessage` on its exact stage queue;

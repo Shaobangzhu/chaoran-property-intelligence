@@ -290,6 +290,38 @@ describe("SearchCriteriaScreen", () => {
     expect(screen.getByRole("button", { name: "Save criteria" })).toBeDisabled();
   });
 
+  it("reports an immediate dispatch failure without spinning forever", async () => {
+    const user = userEvent.setup();
+    const retryRefresh = vi.fn(async (): Promise<RetryListingRefreshResult> => ({
+      refresh: refreshRun("queued"),
+      refreshDispatch: "dispatched",
+    }));
+    renderScreen({
+      retryRefresh,
+      saveCriteria: async (input) => ({
+        ...savedSnapshot({ criteria: input.criteria, revision: 3 }),
+        refreshDispatch: "failed",
+      }),
+    });
+    await screen.findByRole("heading", { name: "Search Criteria" });
+
+    await user.selectOptions(screen.getByLabelText("Property type"), "Condo");
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+
+    expect(
+      await screen.findByText(
+        "Saved as revision 3. Refresh dispatch failed; the queued run remains available.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Dispatch unavailable / not started"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".refresh-status-card .spin")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Retry refresh (5 requests)" }),
+    ).toBeEnabled();
+  });
+
   it("shows a failed refresh without changing the applied revision and retries explicitly", async () => {
     const user = userEvent.setup();
     const retryRefresh = vi.fn(async (): Promise<RetryListingRefreshResult> => ({
@@ -329,6 +361,73 @@ describe("SearchCriteriaScreen", () => {
     expect(screen.getByText("Saved revision 3; refresh queued")).toBeInTheDocument();
   });
 
+  it("stops polling an unclaimed queued run and exposes an explicit retry", async () => {
+    const user = userEvent.setup();
+    const loadRefresh = vi.fn(async () => refreshRun("queued"));
+    const retryRefresh = vi.fn(async (): Promise<RetryListingRefreshResult> => ({
+      refresh: refreshRun("queued"),
+      refreshDispatch: "dispatched",
+    }));
+    renderScreen({
+      loadCriteria: async () =>
+        snapshot({
+          revision: 3,
+          appliedRevision: 2,
+          refresh: refreshRun("queued"),
+        }),
+      loadRefresh,
+      now: () => Date.parse("2026-08-24T15:05:00.000Z"),
+      retryRefresh,
+    });
+
+    expect(
+      await screen.findByText("Dispatch unavailable / not started"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".refresh-status-card .spin")).toBeNull();
+    expect(loadRefresh).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "Retry refresh (5 requests)" }),
+    );
+
+    expect(retryRefresh).toHaveBeenCalledWith({
+      expectedRevision: 3,
+      confirmedPlannedProviderRequestCount: 5,
+    });
+    expect(await screen.findByText("Refresh retry queued.")).toBeInTheDocument();
+    expect(screen.getByText("Saved revision 3; refresh queued")).toBeInTheDocument();
+  });
+
+  it("reaches the queued start deadline even when no status poll can run", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T14:59:00.000Z"));
+    renderScreen({
+      loadCriteria: async () =>
+        snapshot({
+          revision: 3,
+          appliedRevision: 2,
+          refresh: refreshRun("queued"),
+        }),
+      now: Date.now,
+      retryRefresh: async () => ({
+        refresh: refreshRun("queued"),
+        refreshDispatch: "dispatched",
+      }),
+    });
+
+    await act(async () => Promise.resolve());
+    expect(screen.getByText("Saved revision 3; refresh queued")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(queuedStartTimeoutForTest);
+    });
+
+    expect(
+      screen.getByText("Dispatch unavailable / not started"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".refresh-status-card .spin")).toBeNull();
+  });
+
   it("reports running and last-successful refresh state", async () => {
     const { rerender } = render(
       <SearchCriteriaScreen
@@ -339,6 +438,7 @@ describe("SearchCriteriaScreen", () => {
             refresh: refreshRun("running"),
           })
         }
+        now={() => Date.parse("2026-08-24T15:01:00.000Z")}
         saveCriteria={async (input) =>
           savedSnapshot({ criteria: input.criteria, revision: 4 })
         }
@@ -364,6 +464,7 @@ describe("SearchCriteriaScreen", () => {
             }),
           })
         }
+        now={() => Date.parse("2026-08-24T15:06:00.000Z")}
         saveCriteria={async (input) =>
           savedSnapshot({ criteria: input.criteria, revision: 4 })
         }
@@ -395,6 +496,7 @@ describe("SearchCriteriaScreen", () => {
     const view = render(
       <SearchCriteriaScreen
         loadCriteria={loadCriteria}
+        now={() => Date.parse("2026-08-24T15:01:00.000Z")}
         saveCriteria={async (input) =>
           savedSnapshot({ criteria: input.criteria, revision: 4 })
         }
@@ -409,6 +511,7 @@ describe("SearchCriteriaScreen", () => {
       <SearchCriteriaScreen
         loadCriteria={loadCriteria}
         loadRefresh={loadRefresh}
+        now={() => Date.parse("2026-08-24T15:01:00.000Z")}
         saveCriteria={async (input) =>
           savedSnapshot({ criteria: input.criteria, revision: 4 })
         }
@@ -549,6 +652,8 @@ describe("SearchCriteriaScreen", () => {
   });
 });
 
+const queuedStartTimeoutForTest = 5 * 60 * 1_000;
+
 function renderScreen(
   overrides: Partial<{
     loadCriteria: (signal: AbortSignal) => Promise<ListingSearchCriteriaSnapshot>;
@@ -563,6 +668,7 @@ function renderScreen(
     retryRefresh: (
       input: RetryListingRefreshInput,
     ) => Promise<RetryListingRefreshResult>;
+    now: () => number;
   }> = {},
 ): void {
   render(
@@ -574,6 +680,10 @@ function renderScreen(
       {...(overrides.retryRefresh === undefined
         ? {}
         : { retryRefresh: overrides.retryRefresh })}
+      now={
+        overrides.now ??
+        (() => Date.parse("2026-08-22T20:01:00.000Z"))
+      }
       saveCriteria={
         overrides.saveCriteria ??
         (async (input) =>

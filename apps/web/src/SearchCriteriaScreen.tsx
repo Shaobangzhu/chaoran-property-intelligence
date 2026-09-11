@@ -64,6 +64,7 @@ export type ListingRefreshRetrier = (
 interface SearchCriteriaScreenProps {
   loadCriteria: ListingSearchCriteriaLoader;
   loadRefresh?: ListingRefreshLoader;
+  now?: () => number;
   retryRefresh?: ListingRefreshRetrier;
   saveCriteria: ListingSearchCriteriaSaver;
 }
@@ -90,6 +91,11 @@ type ScreenState =
     };
 
 type Operation = "idle" | "saving" | "reloading" | "retrying";
+type RefreshDispatchAttempt = {
+  attemptedAt: number;
+  runId: string;
+  status: "dispatched" | "failed";
+};
 type Feedback =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string }
@@ -104,10 +110,12 @@ const bathroomOptions = Array.from(
   { length: maximumListingSearchBathrooms * 2 + 1 },
   (_value, index) => index / 2,
 );
+const queuedStartTimeoutMs = 5 * 60 * 1_000;
 
 export function SearchCriteriaScreen({
   loadCriteria,
   loadRefresh,
+  now = Date.now,
   retryRefresh,
   saveCriteria,
 }: SearchCriteriaScreenProps): React.JSX.Element {
@@ -115,6 +123,11 @@ export function SearchCriteriaScreen({
   const [state, setState] = useState<ScreenState>({ status: "loading" });
   const [operation, setOperation] = useState<Operation>("idle");
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [refreshDispatchAttempt, setRefreshDispatchAttempt] =
+    useState<RefreshDispatchAttempt | null>(null);
+  const [timedOutQueuedRunId, setTimedOutQueuedRunId] = useState<string | null>(
+    null,
+  );
   const [showValidation, setShowValidation] = useState(false);
   const [cityDisclosureOpen, setCityDisclosureOpen] = useState(false);
   const cityDisclosureRef = useRef<HTMLDivElement>(null);
@@ -125,6 +138,8 @@ export function SearchCriteriaScreen({
     setState({ status: "loading" });
     setOperation("idle");
     setFeedback(null);
+    setRefreshDispatchAttempt(null);
+    setTimedOutQueuedRunId(null);
     setShowValidation(false);
     setCityDisclosureOpen(false);
 
@@ -149,9 +164,44 @@ export function SearchCriteriaScreen({
   }, [loadCriteria, requestNumber]);
 
   const refreshRun = state.status === "ready" ? state.persisted.refresh : null;
+  const queuedStartUnavailable = isQueuedStartUnavailable(
+    refreshRun,
+    refreshDispatchAttempt,
+    timedOutQueuedRunId,
+    now(),
+  );
+  useEffect(() => {
+    if (
+      refreshRun?.status !== "queued" ||
+      refreshRun.startedAt !== null ||
+      queuedStartUnavailable
+    ) {
+      return;
+    }
+
+    const startTime = queuedStartTime(refreshRun, refreshDispatchAttempt);
+    if (!Number.isFinite(startTime)) return;
+    const remaining = startTime + queuedStartTimeoutMs - now();
+    if (remaining <= 0) {
+      setTimedOutQueuedRunId(refreshRun.runId);
+      return;
+    }
+
+    const timer = setTimeout(
+      () => setTimedOutQueuedRunId(refreshRun.runId),
+      remaining,
+    );
+    return () => clearTimeout(timer);
+  }, [
+    now,
+    queuedStartUnavailable,
+    refreshDispatchAttempt,
+    refreshRun,
+  ]);
   useEffect(() => {
     if (
       loadRefresh === undefined ||
+      queuedStartUnavailable ||
       (refreshRun?.status !== "queued" && refreshRun?.status !== "running")
     ) {
       return;
@@ -185,7 +235,7 @@ export function SearchCriteriaScreen({
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [loadRefresh, refreshRun?.runId, refreshRun?.status]);
+  }, [loadRefresh, queuedStartUnavailable, refreshRun?.runId, refreshRun?.status]);
 
   useEffect(() => {
     if (!cityDisclosureOpen) {
@@ -272,8 +322,24 @@ export function SearchCriteriaScreen({
       });
       setShowValidation(false);
       setCityDisclosureOpen(false);
+      const dispatchStatus =
+        "refreshDispatch" in saved &&
+        (saved.refreshDispatch === "dispatched" ||
+          saved.refreshDispatch === "failed")
+          ? saved.refreshDispatch
+          : null;
+      setRefreshDispatchAttempt(
+        saved.refresh === null || dispatchStatus === null
+          ? null
+          : {
+              attemptedAt: now(),
+              runId: saved.refresh.runId,
+              status: dispatchStatus,
+            },
+      );
+      setTimedOutQueuedRunId(null);
       setFeedback({
-        kind: "success",
+        kind: dispatchStatus === "failed" ? "error" : "success",
         message:
           "refreshDispatch" in saved && saved.refreshDispatch === "failed"
             ? `Saved as revision ${saved.revision}. Refresh dispatch failed; the queued run remains available.`
@@ -346,11 +412,19 @@ export function SearchCriteriaScreen({
   };
 
   const handleRetryRefresh = async (): Promise<void> => {
+    const refresh = state.status === "ready" ? state.persisted.refresh : null;
     if (
       state.status !== "ready" ||
       operation !== "idle" ||
       retryRefresh === undefined ||
-      state.persisted.refresh?.status !== "failed"
+      refresh === null ||
+      (refresh.status !== "failed" &&
+        !isQueuedStartUnavailable(
+          refresh,
+          refreshDispatchAttempt,
+          timedOutQueuedRunId,
+          now(),
+        ))
     ) {
       return;
     }
@@ -360,7 +434,7 @@ export function SearchCriteriaScreen({
       const result = await retryRefresh({
         expectedRevision: state.persisted.revision,
         confirmedPlannedProviderRequestCount:
-          state.persisted.refresh.plannedProviderRequestCount,
+          refresh.plannedProviderRequestCount,
       });
       setState((current) =>
         current.status !== "ready"
@@ -373,6 +447,12 @@ export function SearchCriteriaScreen({
               },
             },
       );
+      setRefreshDispatchAttempt({
+        attemptedAt: now(),
+        runId: result.refresh.runId,
+        status: result.refreshDispatch,
+      });
+      setTimedOutQueuedRunId(null);
       setFeedback({
         kind: result.refreshDispatch === "failed" ? "error" : "success",
         message:
@@ -428,6 +508,7 @@ export function SearchCriteriaScreen({
       <RefreshStatusPanel
         appliedRevision={persisted.appliedRevision}
         isRetrying={operation === "retrying"}
+        queuedStartUnavailable={queuedStartUnavailable}
         {...(retryRefresh === undefined
           ? {}
           : { onRetry: () => void handleRetryRefresh() })}
@@ -647,12 +728,14 @@ function RefreshStatusPanel({
   appliedRevision,
   isRetrying,
   onRetry,
+  queuedStartUnavailable,
   refresh,
   savedRevision,
 }: {
   appliedRevision: number;
   isRetrying: boolean;
   onRetry?: () => void;
+  queuedStartUnavailable: boolean;
   refresh: ListingRefreshSnapshot | null;
   savedRevision: number;
 }): React.JSX.Element {
@@ -660,8 +743,11 @@ function RefreshStatusPanel({
     savedRevision,
     appliedRevision,
     refresh,
+    queuedStartUnavailable,
   );
-  const canRetry = refresh?.status === "failed" && onRetry !== undefined;
+  const canRetry =
+    (refresh?.status === "failed" || queuedStartUnavailable) &&
+    onRetry !== undefined;
   return (
     <section
       className={`refresh-status-card refresh-status-${presentation.tone}`}
@@ -695,7 +781,7 @@ function RefreshStatusPanel({
           )}
           {isRetrying
             ? "Retrying"
-            : `Retry refresh (${refresh.plannedProviderRequestCount} requests)`}
+            : `Retry refresh (${refresh?.plannedProviderRequestCount ?? 0} requests)`}
         </button>
       ) : null}
     </section>
@@ -706,7 +792,15 @@ function describeRefreshStatus(
   savedRevision: number,
   appliedRevision: number,
   refresh: ListingRefreshSnapshot | null,
+  queuedStartUnavailable: boolean,
 ): { tone: "active" | "failed" | "ready"; title: string; detail: string } {
+  if (refresh?.status === "queued" && queuedStartUnavailable) {
+    return {
+      tone: "failed",
+      title: "Dispatch unavailable / not started",
+      detail: `Revision ${refresh.requestedRevision} has not been claimed by a worker. Showing revision ${appliedRevision}; retry the ${refresh.plannedProviderRequestCount}-request refresh when dispatch is available.`,
+    };
+  }
   if (refresh?.status === "queued") {
     return {
       tone: "active",
@@ -747,6 +841,37 @@ function describeRefreshStatus(
     title: `Saved revision ${savedRevision}; showing revision ${appliedRevision}`,
     detail: "No completed refresh status is available yet.",
   };
+}
+
+function isQueuedStartUnavailable(
+  refresh: ListingRefreshSnapshot | null,
+  dispatchAttempt: RefreshDispatchAttempt | null,
+  timedOutRunId: string | null,
+  currentTime: number,
+): boolean {
+  if (refresh?.status !== "queued" || refresh.startedAt !== null) return false;
+  if (timedOutRunId === refresh.runId) return true;
+  if (
+    dispatchAttempt?.runId === refresh.runId &&
+    dispatchAttempt.status === "failed"
+  ) {
+    return true;
+  }
+
+  const startTime = queuedStartTime(refresh, dispatchAttempt);
+  return (
+    Number.isFinite(startTime) &&
+    currentTime - startTime >= queuedStartTimeoutMs
+  );
+}
+
+function queuedStartTime(
+  refresh: ListingRefreshSnapshot,
+  dispatchAttempt: RefreshDispatchAttempt | null,
+): number {
+  return dispatchAttempt?.runId === refresh.runId
+    ? dispatchAttempt.attemptedAt
+    : Date.parse(refresh.requestedAt);
 }
 
 function applyRefreshToSnapshot(

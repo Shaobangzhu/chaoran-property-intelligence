@@ -13,7 +13,6 @@ import {
   SaveCurrentShowingListDraft,
   ShowingListArtifactReaderUnavailableError,
   type ShowingListArtifactReaderPort,
-  type ListingRefreshDispatchPort,
   ListHistoricalListingInventory,
   RetryLatestListingRefresh,
   UpdateListingSearchCriteriaAndQueueRefresh,
@@ -44,6 +43,7 @@ import type { Server } from "node:http";
 import { loadApiConfig } from "./apiConfig.js";
 import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
+import { LocalListingRefreshDispatcher } from "./localListingRefreshDispatcher.js";
 import { PriceEstimationWorkflow } from "./priceEstimationWorkflow.js";
 import { SqsListingRefreshDispatcher } from "./sqsListingRefreshDispatcher.js";
 
@@ -52,14 +52,6 @@ class UnconfiguredShowingListArtifactReader
 {
   async readCurrentArtifact(): Promise<never> {
     throw new ShowingListArtifactReaderUnavailableError();
-  }
-}
-
-class UnconfiguredListingRefreshDispatcher
-  implements ListingRefreshDispatchPort
-{
-  async dispatch(_runId: string): Promise<never> {
-    throw new Error("Listing refresh dispatch is not configured");
   }
 }
 
@@ -95,7 +87,7 @@ async function startApi(): Promise<void> {
     const listingInventoryQuery = new PostgresListingInventoryQuery(database);
     const listingRefreshDispatcher =
       config.listingRefreshDispatch === null
-        ? new UnconfiguredListingRefreshDispatcher()
+        ? new LocalListingRefreshDispatcher()
         : new SqsListingRefreshDispatcher(config.listingRefreshDispatch);
     const getListingSearchCriteria = new GetListingSearchCriteria(
       listingSearchProfileRepository,

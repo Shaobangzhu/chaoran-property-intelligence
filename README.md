@@ -67,7 +67,7 @@ flowchart TD
 | Workspace | User workflow |
 | --- | --- |
 | Listings | Browse stored listing snapshots, synchronize list and map selection, and create/edit/archive manual listings with confirmed map coordinates |
-| Search Criteria | Save markets, property type, price, bedroom, and bathroom criteria with revision/conflict handling; current source applies them on a later worker run |
+| Search Criteria | Save markets, property type, price, bedroom, and bathroom criteria with revision/conflict handling; each changed save queues an immediate background refresh |
 | Showing List | Review, edit, reorder, and download the current generated showing-list draft |
 | Price Estimation | Submit a California address for offer/listing guidance, comparable evidence, ranges, confidence, and limitations |
 
@@ -87,10 +87,11 @@ The client validates API responses and provides loading, empty, error, retry,
 and session-expiry states. The ArcGIS browser key has referrer restrictions and
 a bounded Content Security Policy; server credentials stay in backend runtimes.
 
-ADR 0019 proposes an asynchronous refresh after a changed criteria save,
-current-versus-historical listing lifecycle views, and visible saved/applied
-run status. These behaviors are not implemented on the base branch; the current
-Listings workspace still reads accumulated unarchived snapshots.
+ADR 0019 defines the implemented asynchronous refresh after a changed criteria
+save, current-versus-historical listing lifecycle views, and visible
+saved/applied run status. A queued run that no worker claims within five minutes
+is shown as unavailable instead of spinning indefinitely and can be retried
+explicitly.
 
 Details: [ArcGIS migration](docs/knowledge-base/block-22-arcgis-map-engine-migration.md),
 [3D terrain](docs/knowledge-base/block-23-3d-fire-terrain.md),
@@ -122,10 +123,10 @@ allowing the same use cases to run with production adapters or test fakes.
 The administrator CLI provisions accounts through dedicated local, DEV, and
 Production paths.
 
-The proposed criteria-refresh lifecycle keeps provider work in the background:
+The criteria-refresh lifecycle keeps provider work in the background:
 configuration commits first, a durable run is dispatched asynchronously, and
 only a complete successful multi-market result replaces current membership.
-Weekly reconciliation is planned for Monday at 08:00 Pacific, but both AWS
+Weekly reconciliation is configured for Monday at 08:00 Pacific, but both AWS
 business schedules remain disabled by default and during feature rollout.
 
 Details: [authentication and showing-list workflows](docs/knowledge-base/blocks-16-18.md),
@@ -151,8 +152,8 @@ A durable outbox retains pending delivery work for retry. Search-profile
 revision checks prevent conflicting updates, and a newly applied profile
 establishes a quiet baseline before normal alerting resumes.
 
-ADR 0019 proposes additive `listing_search_runs` and
-`listing_search_memberships` tables. They will separate current applied
+Migration 008 adds `listing_search_runs` and `listing_search_memberships`. They
+separate current applied
 inventory from historical, missing, inactive, and out-of-scope records while
 keeping `listings` as the latest canonical row. The proposed retention defaults
 are 90 days for run detail and inactive/out-of-scope membership, 180 days for
@@ -229,7 +230,7 @@ Use the [launch completion record](docs/operations/block-29-completion-record.md
 for later deployment evidence; earlier design documents also retain historical
 pre-deployment status.
 
-The proposed refresh feature adds a stage-isolated asynchronous dispatch path
+The refresh feature adds a stage-isolated asynchronous dispatch path
 from a durable run identity to the existing Fargate worker. It does not place
 RentCast credentials in App Runner or React, and its infrastructure acceptance
 requires the property-alert schedule to remain `DISABLED` even after changing
@@ -398,6 +399,14 @@ pnpm api:start
 # Terminal 2: frontend at 127.0.0.1:5173
 pnpm web:dev
 ```
+
+`pnpm api:start` also builds the alert worker. Saving changed Search Criteria or
+selecting Retry launches that worker against the local database with the
+`RENTCAST_API_KEY`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` inherited from
+`.env.local`. This is a live provider path: it consumes one RentCast request per
+selected market and sends Telegram only when the reconciliation produces an
+eligible alert. Merely starting the servers or using the read-only Listings
+checks does not invoke either provider.
 
 Open [the local application](http://127.0.0.1:5173). Vite proxies `/api`
 to Express so the browser uses one origin. Confirm the read path with the

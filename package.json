@@ -11,7 +11,7 @@
     "alert-worker:dry-run": "pnpm build:alert-worker && node apps/alert-worker/dist/index.js --dry-run",
     "listing-retention:preview": "pnpm build:alert-worker && node --env-file-if-exists=.env.local apps/alert-worker/dist/listingRetentionCli.js --preview",
     "listing-retention:execute": "pnpm build:alert-worker && node --env-file-if-exists=.env.local apps/alert-worker/dist/listingRetentionCli.js --execute",
-    "api:start": "pnpm build:api && AWS_ACCOUNT_ID= SHOWING_LIST_ARTIFACT_BUCKET= node --env-file-if-exists=.env.local apps/api/dist/server.js",
+    "api:start": "pnpm build:alert-worker && pnpm build:api && AWS_ACCOUNT_ID= SHOWING_LIST_ARTIFACT_BUCKET= node --env-file-if-exists=.env.local apps/api/dist/server.js",
     "rentcast:five-city-direct-coverage-audit": "pnpm build:alert-worker && node apps/alert-worker/dist/fiveCityDirectCoverageAuditCli.js",
     "rentcast:five-city-direct-coverage-audit:execute-five-requests": "pnpm build:alert-worker && node --env-file-if-exists=.env.local apps/alert-worker/dist/fiveCityDirectCoverageAuditCli.js --execute-five-requests --markets=chino,chino-hills,eastvale,corona,jurupa-valley",
     "rentcast:irvine-coverage-audit": "pnpm build:alert-worker && node apps/alert-worker/dist/irvineCoverageAuditCli.js",
