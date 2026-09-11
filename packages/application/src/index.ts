@@ -239,15 +239,28 @@ export {
   type ListingRetentionRepositoryPort,
 } from "./listingRetentionContracts.js";
 export {
+  GetCurrentListingInventory,
+  GetLatestListingRefreshStatus,
   GetListingSearchCriteria,
+  InvalidListingRefreshRetryInputError,
   InvalidListingSearchCriteriaInputError,
   InvalidListingSearchCriteriaResultError,
+  ListHistoricalListingInventory,
+  ListingRefreshRetryUnavailableError,
   ListingSearchCriteriaChangedError,
   ListingSearchProfileUnavailableError,
+  RetryLatestListingRefresh,
   UpdateListingSearchCriteria,
+  UpdateListingSearchCriteriaAndQueueRefresh,
   type EditableListingSearchCriteria,
+  type ListingRefreshDispatchStatus,
   type ListingSearchCriteriaResult,
+  type RetryLatestListingRefreshInput,
+  type RetryLatestListingRefreshOptions,
+  type RetryLatestListingRefreshResult,
   type UpdateListingSearchCriteriaInput,
+  type UpdateListingSearchCriteriaAndQueueRefreshOptions,
+  type UpdateListingSearchCriteriaAndQueueRefreshResult,
   type UpdateListingSearchCriteriaOptions,
 } from "./listingSearchCriteriaUseCases.js";
 export {

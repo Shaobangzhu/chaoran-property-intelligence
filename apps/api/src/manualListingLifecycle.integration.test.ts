@@ -51,7 +51,9 @@ describe("manual listing authenticated API lifecycle integration", () => {
       getCurrentUser: new StaticCurrentUser(),
       getCurrentShowingListArtifact: unusedShowingListUseCase(),
       getCurrentShowingListDraft: unusedShowingListUseCase(),
+      getCurrentListingInventory: unusedShowingListUseCase(),
       getListingSearchCriteria: unusedShowingListUseCase(),
+      getLatestListingRefreshStatus: unusedShowingListUseCase(),
       httpSecurity: {
         deploymentMode: "local",
         originVerificationSecret: null,
@@ -62,8 +64,10 @@ describe("manual listing authenticated API lifecycle integration", () => {
       logger,
       login: new UnusedLogin(),
       markCurrentShowingListDraftReviewed: unusedShowingListUseCase(),
+      listHistoricalListingInventory: unusedShowingListUseCase(),
       requestIdFactory: () => "0198c7d2-7668-7775-b0fc-b789690a60ff",
       saveCurrentShowingListDraft: unusedShowingListUseCase(),
+      retryLatestListingRefresh: unusedShowingListUseCase(),
       updateListingSearchCriteria: unusedShowingListUseCase(),
       updateManualListing: new UpdateManualListing({ now, repository }),
     });

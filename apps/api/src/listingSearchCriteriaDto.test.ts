@@ -116,16 +116,17 @@ describe("listing search criteria DTO", () => {
       updatedByUserId: "0198c7d2-7668-7775-b0fc-b789690a60c1",
     };
 
-    const response = toListingSearchCriteriaResponse(result);
+    const response = toListingSearchCriteriaResponse(result, null);
 
     expect(response).toEqual({
       searchCriteria: {
         criteria: validCriteria(),
         revision: 3,
+        appliedRevision: 2,
         updatedAt: "2026-08-22T20:00:00.000Z",
       },
+      refresh: null,
     });
-    expect(JSON.stringify(response)).not.toContain("appliedRevision");
     expect(JSON.stringify(response)).not.toContain("updatedByUserId");
   });
 });

@@ -10,10 +10,24 @@ import {
 
 import {
   normalizeListingSearchProfile,
+  PRIMARY_LISTING_SEARCH_PROFILE_KEY,
   type ListingSearchProfile,
   type ListingSearchProfileQueryPort,
   type ListingSearchProfileRepositoryPort,
 } from "./listingSearchProfile.js";
+import {
+  createListingRefreshRequestPlan,
+  normalizeListingRefreshRun,
+  type CurrentListingInventory,
+  type CurrentListingInventoryQueryPort,
+  type HistoricalListingInventoryQueryPort,
+  type ListingHistoryPage,
+  type ListingHistoryQuery,
+  type ListingRefreshDispatchPort,
+  type ListingRefreshRun,
+  type ListingRefreshRunRepositoryPort,
+  type ListingSearchProfileRefreshRepositoryPort,
+} from "./listingRefreshContracts.js";
 
 export interface EditableListingSearchCriteria {
   readonly propertyType: ListingPropertyType;
@@ -27,6 +41,7 @@ export interface EditableListingSearchCriteria {
 export interface ListingSearchCriteriaResult {
   readonly criteria: EditableListingSearchCriteria;
   readonly revision: number;
+  readonly appliedRevision: number;
   readonly updatedAt: string;
 }
 
@@ -38,6 +53,46 @@ export interface UpdateListingSearchCriteriaInput {
 
 export interface UpdateListingSearchCriteriaOptions {
   readonly repository: ListingSearchProfileRepositoryPort;
+  readonly now: () => Date;
+}
+
+export type ListingRefreshDispatchStatus =
+  | "not-required"
+  | "dispatched"
+  | "failed";
+
+export interface UpdateListingSearchCriteriaAndQueueRefreshResult {
+  readonly searchCriteria: ListingSearchCriteriaResult;
+  readonly refreshRun: ListingRefreshRun | null;
+  readonly refreshDispatch: ListingRefreshDispatchStatus;
+}
+
+export interface UpdateListingSearchCriteriaAndQueueRefreshOptions {
+  readonly repository: ListingSearchProfileRefreshRepositoryPort;
+  readonly runRepository: ListingRefreshRunRepositoryPort;
+  readonly dispatcher: ListingRefreshDispatchPort;
+  readonly createId: () => string;
+  readonly now: () => Date;
+}
+
+export interface RetryLatestListingRefreshInput {
+  readonly expectedRevision: number;
+  readonly confirmedPlannedProviderRequestCount: number;
+}
+
+export interface RetryLatestListingRefreshResult {
+  readonly refreshRun: ListingRefreshRun;
+  readonly refreshDispatch: Exclude<
+    ListingRefreshDispatchStatus,
+    "not-required"
+  >;
+}
+
+export interface RetryLatestListingRefreshOptions {
+  readonly profileRepository: ListingSearchProfileQueryPort;
+  readonly runRepository: ListingRefreshRunRepositoryPort;
+  readonly dispatcher: ListingRefreshDispatchPort;
+  readonly createId: () => string;
   readonly now: () => Date;
 }
 
@@ -66,6 +121,20 @@ export class InvalidListingSearchCriteriaResultError extends Error {
   constructor() {
     super("Listing search criteria result was invalid");
     this.name = "InvalidListingSearchCriteriaResultError";
+  }
+}
+
+export class InvalidListingRefreshRetryInputError extends Error {
+  constructor() {
+    super("Listing refresh retry input was invalid");
+    this.name = "InvalidListingRefreshRetryInputError";
+  }
+}
+
+export class ListingRefreshRetryUnavailableError extends Error {
+  constructor() {
+    super("Listing refresh retry was unavailable");
+    this.name = "ListingRefreshRetryUnavailableError";
   }
 }
 
@@ -109,6 +178,162 @@ export class UpdateListingSearchCriteria {
       updatedAt,
     });
     return projectCriteria(profile);
+  }
+}
+
+export class GetLatestListingRefreshStatus {
+  constructor(private readonly repository: ListingRefreshRunRepositoryPort) {}
+
+  async execute(): Promise<ListingRefreshRun | null> {
+    const run = await this.repository.findLatestRun();
+    return run === null ? null : requireValidRun(run);
+  }
+}
+
+export class UpdateListingSearchCriteriaAndQueueRefresh {
+  constructor(
+    private readonly options: UpdateListingSearchCriteriaAndQueueRefreshOptions,
+  ) {}
+
+  async execute(
+    input: UpdateListingSearchCriteriaInput,
+  ): Promise<UpdateListingSearchCriteriaAndQueueRefreshResult> {
+    const normalizedInput = normalizeUpdateInput(input);
+    const requestedAt = readClock(this.options.now);
+    const plan = createListingRefreshRequestPlan(normalizedInput.criteria);
+    const runId = readCreatedId(this.options.createId);
+    const persistenceResult =
+      await this.options.repository.savePrimaryProfileAndQueueRefresh({
+        criteria: normalizedInput.criteria,
+        expectedRevision: normalizedInput.expectedRevision,
+        updatedByUserId: normalizedInput.actorUserId,
+        updatedAt: requestedAt,
+        runId,
+        plan,
+      });
+
+    if (persistenceResult.status === "conflict") {
+      throw new ListingSearchCriteriaChangedError();
+    }
+
+    const profile = requireValidProfile(persistenceResult.profile);
+    assertExpectedSaveResult(profile, {
+      actorUserId: normalizedInput.actorUserId,
+      criteria: normalizedInput.criteria,
+      expectedRevision: normalizedInput.expectedRevision,
+      status: persistenceResult.status,
+      updatedAt: requestedAt,
+    });
+
+    if (persistenceResult.status === "unchanged") {
+      const latest = await this.options.runRepository.findLatestRun();
+      return Object.freeze({
+        searchCriteria: projectCriteria(profile),
+        refreshRun: latest === null ? null : requireValidRun(latest),
+        refreshDispatch: "not-required" as const,
+      });
+    }
+
+    const run = requireValidRun(persistenceResult.run);
+    assertQueuedRun(run, {
+      plan,
+      requestedAt,
+      revision: profile.revision,
+      runId,
+      triggerReason: "criteria-change",
+    });
+    const refreshDispatch = await dispatchRun(this.options.dispatcher, runId);
+    return Object.freeze({
+      searchCriteria: projectCriteria(profile),
+      refreshRun: run,
+      refreshDispatch,
+    });
+  }
+}
+
+export class RetryLatestListingRefresh {
+  constructor(private readonly options: RetryLatestListingRefreshOptions) {}
+
+  async execute(
+    input: RetryLatestListingRefreshInput,
+  ): Promise<RetryLatestListingRefreshResult> {
+    const normalizedInput = normalizeRetryInput(input);
+    const [profileValue, latestValue] = await Promise.all([
+      this.options.profileRepository.findPrimaryProfile(),
+      this.options.runRepository.findLatestRun(),
+    ]);
+    if (profileValue === null || latestValue === null) {
+      throw new ListingRefreshRetryUnavailableError();
+    }
+    const profile = requireValidProfile(profileValue);
+    const latest = requireValidRun(latestValue);
+    const plan = createListingRefreshRequestPlan(profile.criteria);
+    if (
+      profile.revision !== normalizedInput.expectedRevision ||
+      latest.requestedRevision !== profile.revision ||
+      (latest.status !== "queued" &&
+        latest.status !== "failed" &&
+        latest.status !== "superseded") ||
+      JSON.stringify(latest.selectedMarkets) !==
+        JSON.stringify(plan.selectedMarkets) ||
+      latest.selectedMarketCount !== plan.selectedMarketCount ||
+      latest.plannedProviderRequestCount !==
+        plan.plannedProviderRequestCount ||
+      normalizedInput.confirmedPlannedProviderRequestCount !==
+        plan.plannedProviderRequestCount
+    ) {
+      throw new ListingRefreshRetryUnavailableError();
+    }
+
+    if (latest.status === "queued") {
+      return Object.freeze({
+        refreshRun: latest,
+        refreshDispatch: await dispatchRun(
+          this.options.dispatcher,
+          latest.runId,
+        ),
+      });
+    }
+
+    const requestedAt = readClock(this.options.now);
+    const runId = readCreatedId(this.options.createId);
+    const run = requireValidRun(
+      await this.options.runRepository.queueRun({
+        runId,
+        profileKey: PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+        revision: profile.revision,
+        triggerReason: "manual-retry",
+        requestedAt,
+        plan,
+      }),
+    );
+    assertQueuedRun(run, {
+      plan,
+      requestedAt,
+      revision: profile.revision,
+      runId,
+      triggerReason: "manual-retry",
+    });
+    return Object.freeze({
+      refreshRun: run,
+      refreshDispatch: await dispatchRun(this.options.dispatcher, runId),
+    });
+  }
+}
+
+export class GetCurrentListingInventory {
+  constructor(private readonly query: CurrentListingInventoryQueryPort) {}
+
+  execute(): Promise<CurrentListingInventory | null> {
+    return this.query.findCurrentInventory();
+  }
+}
+
+export class ListHistoricalListingInventory {
+  constructor(private readonly query: HistoricalListingInventoryQueryPort) {}
+
+  execute(query: ListingHistoryQuery): Promise<ListingHistoryPage> {
+    return this.query.findListingHistory(query);
   }
 }
 
@@ -218,8 +443,89 @@ function projectCriteria(
       cities: Object.freeze([...profile.criteria.cities]),
     }),
     revision: profile.revision,
+    appliedRevision: profile.appliedRevision,
     updatedAt: profile.updatedAt,
   });
+}
+
+function normalizeRetryInput(
+  input: unknown,
+): RetryLatestListingRefreshInput {
+  const keys = new Set([
+    "expectedRevision",
+    "confirmedPlannedProviderRequestCount",
+  ]);
+  if (
+    !isExactRecord(input, keys) ||
+    !isPositiveSafeInteger(input.expectedRevision) ||
+    !isPositiveSafeInteger(input.confirmedPlannedProviderRequestCount)
+  ) {
+    throw new InvalidListingRefreshRetryInputError();
+  }
+  return Object.freeze({
+    expectedRevision: input.expectedRevision,
+    confirmedPlannedProviderRequestCount:
+      input.confirmedPlannedProviderRequestCount,
+  });
+}
+
+function requireValidRun(value: unknown): ListingRefreshRun {
+  try {
+    return normalizeListingRefreshRun(value);
+  } catch {
+    throw new InvalidListingSearchCriteriaResultError();
+  }
+}
+
+function assertQueuedRun(
+  run: ListingRefreshRun,
+  expected: {
+    readonly runId: string;
+    readonly revision: number;
+    readonly requestedAt: string;
+    readonly triggerReason: "criteria-change" | "manual-retry";
+    readonly plan: ReturnType<typeof createListingRefreshRequestPlan>;
+  },
+): void {
+  if (
+    run.runId !== expected.runId ||
+    run.profileKey !== PRIMARY_LISTING_SEARCH_PROFILE_KEY ||
+    run.requestedRevision !== expected.revision ||
+    run.triggerReason !== expected.triggerReason ||
+    run.status !== "queued" ||
+    run.requestedAt !== expected.requestedAt ||
+    JSON.stringify(run.selectedMarkets) !==
+      JSON.stringify(expected.plan.selectedMarkets) ||
+    run.selectedMarketCount !== expected.plan.selectedMarketCount ||
+    run.plannedProviderRequestCount !==
+      expected.plan.plannedProviderRequestCount
+  ) {
+    throw new InvalidListingSearchCriteriaResultError();
+  }
+}
+
+async function dispatchRun(
+  dispatcher: ListingRefreshDispatchPort,
+  runId: string,
+): Promise<"dispatched" | "failed"> {
+  try {
+    await dispatcher.dispatch(runId);
+    return "dispatched";
+  } catch {
+    return "failed";
+  }
+}
+
+function readCreatedId(createId: () => string): string {
+  const value = createId();
+  if (!isUuid(value)) {
+    throw new Error("Listing refresh ID factory returned an invalid ID");
+  }
+  return value;
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
 function criteriaAreEqual(
