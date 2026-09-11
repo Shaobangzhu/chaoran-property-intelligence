@@ -7,6 +7,23 @@ export interface ProductionConfig {
   telegramChatId: string;
 }
 
+export interface ListingRefreshProviderConfig {
+  rentCastApiKey: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+}
+
+export class ListingRefreshProviderConfigurationError extends Error {
+  constructor(cause: unknown) {
+    const reason =
+      cause instanceof Error ? cause.message : "Unknown configuration error";
+    super(`Listing refresh provider configuration was unavailable: ${reason}`, {
+      cause,
+    });
+    this.name = "ListingRefreshProviderConfigurationError";
+  }
+}
+
 export interface TelegramConfig {
   botToken: string;
   chatId: string;
@@ -15,14 +32,27 @@ export interface TelegramConfig {
 export function loadProductionConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): ProductionConfig {
-  const telegram = loadTelegramConfig(environment);
+  const provider = loadListingRefreshProviderConfig(environment);
 
   return {
     databaseConnection: loadDatabaseConnectionConfig(environment),
-    rentCastApiKey: readRequiredVariable(environment, "RENTCAST_API_KEY"),
-    telegramBotToken: telegram.botToken,
-    telegramChatId: telegram.chatId,
+    ...provider,
   };
+}
+
+export function loadListingRefreshProviderConfig(
+  environment: Readonly<Record<string, string | undefined>>,
+): ListingRefreshProviderConfig {
+  try {
+    const telegram = loadTelegramConfig(environment);
+    return {
+      rentCastApiKey: readRequiredVariable(environment, "RENTCAST_API_KEY"),
+      telegramBotToken: telegram.botToken,
+      telegramChatId: telegram.chatId,
+    };
+  } catch (error) {
+    throw new ListingRefreshProviderConfigurationError(error);
+  }
 }
 
 export function loadTelegramConfig(

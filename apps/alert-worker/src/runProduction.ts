@@ -25,7 +25,8 @@ import { TelegramBotClient } from "@chaoran-property-intelligence/telegram";
 import { randomUUID } from "node:crypto";
 
 import {
-  loadProductionConfig,
+  loadDatabaseConnectionConfig,
+  loadListingRefreshProviderConfig,
   readOptionalVariable,
 } from "./productionConfig.js";
 import { RentCastListingSource } from "./rentCastListingSource.js";
@@ -113,26 +114,44 @@ export async function runProduction(
   runtime: ProductionRuntime,
   dependencies: ProductionDependencies = defaultDependencies,
 ): Promise<void> {
-  const config = loadProductionConfig(runtime.environment);
-  const database = dependencies.createDatabase(config.databaseConnection);
+  const database = dependencies.createDatabase(
+    loadDatabaseConnectionConfig(runtime.environment),
+  );
 
   try {
     await dependencies.runMigrations(database);
     const repository = dependencies.createRepository(database);
     await repository.initializeLegacyListingAlertState();
+    let providerConfig:
+      | ReturnType<typeof loadListingRefreshProviderConfig>
+      | undefined;
+    const readProviderConfig = () => {
+      providerConfig ??= loadListingRefreshProviderConfig(
+        runtime.environment,
+      );
+      return providerConfig;
+    };
     const reconcile = new ReconcileListingRefresh({
       alertRepository: repository,
       createId: runtime.createId ?? randomUUID,
       now: runtime.now,
-      notifications: dependencies.createNotifications({
-        botToken: config.telegramBotToken,
-        chatId: config.telegramChatId,
-        fetch: runtime.fetch,
-      }),
+      notifications: {
+        async sendListingAlerts(events) {
+          const config = readProviderConfig();
+          await dependencies
+            .createNotifications({
+              botToken: config.telegramBotToken,
+              chatId: config.telegramChatId,
+              fetch: runtime.fetch,
+            })
+            .sendListingAlerts(events);
+        },
+      },
       profileQuery: dependencies.createSearchProfileQuery(database),
       runRepository: dependencies.createRefreshRunRepository(database),
       sourceFactory: {
         create(input) {
+          const config = readProviderConfig();
           return dependencies.createSource({
             apiKey: config.rentCastApiKey,
             fetch: runtime.fetch,

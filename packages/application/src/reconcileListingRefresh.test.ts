@@ -178,6 +178,41 @@ describe("ReconcileListingRefresh", () => {
     expect(JSON.stringify(runRepository.completions)).not.toContain("secret");
   });
 
+  it("records a bounded provider-configuration failure after claiming", async () => {
+    const runRepository = new FakeRunRepository([
+      claimedResult(createRun(), 1),
+    ]);
+    const sourceFactory: RecordingSourceFactory = {
+      createCalls: [],
+      create(input) {
+        this.createCalls.push(input);
+        const error = new Error("provider configuration detail");
+        error.name = "ListingRefreshProviderConfigurationError";
+        throw error;
+      },
+    };
+
+    await expect(
+      createUseCase({ runRepository, sourceFactory }).execute({
+        signaledRunId: runId,
+      }),
+    ).rejects.toMatchObject({
+      name: "ListingRefreshExecutionError",
+      failureCode: "worker-configuration-unavailable",
+    });
+    expect(runRepository.completions).toEqual([
+      expect.objectContaining({
+        outcome: "failed",
+        actualProviderRequestCount: 0,
+        returnedListingCount: 0,
+        failureCode: "worker-configuration-unavailable",
+      }),
+    ]);
+    expect(JSON.stringify(runRepository.completions)).not.toContain(
+      "provider configuration detail",
+    );
+  });
+
   it("rejects a mismatched request plan before constructing a provider source", async () => {
     const mismatched = createRun({
       selectedMarkets: ["Chino"],

@@ -43,7 +43,6 @@ describe("runProduction", () => {
       "migrate",
       "repository:create",
       "repository:legacy-initialize",
-      "notifications:telegram-secret:123456789",
       "profile:create",
       "run-repository:create",
       "run:claim:none",
@@ -132,6 +131,41 @@ describe("runProduction", () => {
     );
 
     expect(events).toContain(`run:claim:${signaledRunId}`);
+    expect(events.some((event) => event.startsWith("source:"))).toBe(false);
+    expect(events.at(-1)).toBe("database:close");
+  });
+
+  it("claims and fails a durable run when provider configuration is unavailable", async () => {
+    const events: string[] = [];
+    const database = new FakeSqlDatabase(events);
+    const profile = createProfile({ revision: 2, appliedRevision: 1 });
+    const dependencies = createDependencies(
+      database,
+      events,
+      profile,
+      createRun({
+        runId: signaledRunId,
+        requestedRevision: 2,
+        selectedMarkets: profile.criteria.cities,
+        selectedMarketCount: profile.criteria.cities.length,
+        plannedProviderRequestCount: profile.criteria.cities.length,
+      }),
+    );
+
+    await expect(
+      runProduction(
+        createRuntime({
+          LISTING_REFRESH_RUN_ID: signaledRunId,
+          TELEGRAM_BOT_TOKEN: " ",
+        }),
+        dependencies,
+      ),
+    ).rejects.toMatchObject({
+      failureCode: "worker-configuration-unavailable",
+    });
+
+    expect(events).toContain(`run:claim:${signaledRunId}`);
+    expect(events).toContain("run:complete:failed:0:0:0");
     expect(events.some((event) => event.startsWith("source:"))).toBe(false);
     expect(events.at(-1)).toBe("database:close");
   });
