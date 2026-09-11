@@ -46,6 +46,7 @@ describe("PostgresListingRefreshRunRepository", () => {
         claimToken,
         run: { runId, status: "running", effectiveRevision: 2 },
         criteria: defaultListingSearchCriteria,
+        appliedRevision: 1,
       },
     });
     expect(database.transactionCount).toBe(1);

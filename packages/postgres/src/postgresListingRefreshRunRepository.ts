@@ -175,6 +175,7 @@ export class PostgresListingRefreshRunRepository
           claimToken: claim.claimToken,
           run,
           criteria: profile.criteria,
+          appliedRevision: profile.appliedRevision,
         },
       });
     });
@@ -230,7 +231,7 @@ export class PostgresListingRefreshRunRepository
       if (
         completion.outcome === "succeeded" &&
         (completion.candidates.length > completion.returnedListingCount ||
-          (run.triggerReason === "criteria-change" &&
+          (profile.appliedRevision !== completion.expectedEffectiveRevision &&
             completion.candidates.some(
               (candidate) => candidate.event !== null,
             )))

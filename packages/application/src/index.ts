@@ -2,10 +2,13 @@ export { CheckNewListings } from "./checkNewListings.js";
 export {
   AmbiguousListingAddressObservationError,
   CheckListingAlerts,
+  createListingAlertTransition,
   InvalidListingAlertClockError,
   ListingSearchRevisionBaselineConflictError,
+  prepareUniqueListingAlertCandidates,
   type CheckListingAlertsOptions,
   type ListingAlertCriteriaPort,
+  type PreparedListingCandidate,
   type ListingSearchRevisionBaselineContext,
 } from "./checkListingAlerts.js";
 export { createListingKey } from "./listingIdentity.js";
@@ -238,6 +241,16 @@ export {
   type ListingRetentionReport,
   type ListingRetentionRepositoryPort,
 } from "./listingRetentionContracts.js";
+export {
+  InvalidListingRefreshExecutionInputError,
+  ListingRefreshExecutionError,
+  ReconcileListingRefresh,
+  type ListingRefreshSourceFactoryInput,
+  type ListingRefreshSourceFactoryPort,
+  type ReconcileListingRefreshInput,
+  type ReconcileListingRefreshOptions,
+  type ReconcileListingRefreshResult,
+} from "./reconcileListingRefresh.js";
 export {
   GetCurrentListingInventory,
   GetLatestListingRefreshStatus,

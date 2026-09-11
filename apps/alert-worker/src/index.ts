@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { prepareProductionPriceAlerts } from "./prepareProductionPriceAlerts.js";
 import { runAlertWorker } from "./runAlertWorker.js";
 import { runProduction } from "./runProduction.js";
@@ -32,6 +34,7 @@ process.exitCode = await runAlertWorker(
         environment: process.env,
         fetch: globalThis.fetch,
         now: () => new Date(),
+        createId: randomUUID,
       }),
     runShowingListProduction: () =>
       runShowingListProduction({

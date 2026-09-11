@@ -143,6 +143,7 @@ const claimedRunResultSchema = z.strictObject({
     claimToken: uuidSchema,
     run: listingRefreshRunSchema,
     criteria: z.unknown(),
+    appliedRevision: positiveRevisionSchema,
   }),
 });
 export const claimLatestListingRefreshRunResultSchema = z.discriminatedUnion(
@@ -193,6 +194,7 @@ export interface ListingRefreshRunClaim {
   readonly claimToken: string;
   readonly run: ListingRefreshRun;
   readonly criteria: ListingSearchCriteriaV1;
+  readonly appliedRevision: number;
 }
 
 export interface ClaimLatestListingRefreshRunInput {
@@ -377,6 +379,13 @@ export function normalizeClaimLatestListingRefreshRunResult(
   if (result.data.claim.run.status !== "running") {
     return throwInvalidContract();
   }
+  if (
+    result.data.claim.run.effectiveRevision === null ||
+    result.data.claim.appliedRevision >
+      result.data.claim.run.effectiveRevision
+  ) {
+    return throwInvalidContract();
+  }
 
   let criteria: ListingSearchCriteriaV1;
   try {
@@ -390,6 +399,7 @@ export function normalizeClaimLatestListingRefreshRunResult(
       claimToken: result.data.claim.claimToken,
       run: result.data.claim.run,
       criteria,
+      appliedRevision: result.data.claim.appliedRevision,
     },
   });
 }

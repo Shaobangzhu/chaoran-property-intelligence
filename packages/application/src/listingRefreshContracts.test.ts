@@ -205,6 +205,7 @@ describe("listing refresh claim and completion result contracts", () => {
           startedAt,
         }),
         criteria: defaultListingSearchCriteria,
+        appliedRevision: 1,
       },
     });
 
@@ -232,6 +233,7 @@ describe("listing refresh claim and completion result contracts", () => {
         claimToken: nextRunId,
         run: createRun(),
         criteria: defaultListingSearchCriteria,
+        appliedRevision: 1,
       },
     },
   ])("rejects an invalid claim result", (result) => {

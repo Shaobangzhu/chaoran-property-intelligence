@@ -13,6 +13,8 @@ export interface RentCastListingSourceOptions {
   searchCriteria: RentCastSaleListingsSearchCriteria;
   searchAreas: readonly RentCastSaleListingsSearchArea[];
   now: () => Date;
+  onProviderRequest?: () => void;
+  onProviderResponse?: (returnedListingCount: number) => void;
 }
 
 export class RentCastListingCoverageExceededError extends Error {
@@ -41,6 +43,8 @@ export class RentCastListingSource implements ListingSourcePort {
   private readonly searchCriteria: RentCastSaleListingsSearchCriteria;
   private readonly searchAreas: readonly RentCastSaleListingsSearchArea[];
   private readonly now: () => Date;
+  private readonly onProviderRequest: () => void;
+  private readonly onProviderResponse: (returnedListingCount: number) => void;
 
   constructor(options: RentCastListingSourceOptions) {
     const searchAreas = options.searchAreas;
@@ -52,15 +56,19 @@ export class RentCastListingSource implements ListingSourcePort {
     this.searchCriteria = options.searchCriteria;
     this.searchAreas = Object.freeze([...searchAreas]);
     this.now = options.now;
+    this.onProviderRequest = options.onProviderRequest ?? (() => {});
+    this.onProviderResponse = options.onProviderResponse ?? (() => {});
   }
 
   async getActiveSaleListings(): Promise<RentCastNormalizedListing[]> {
     const pages: RentCastSaleListingsPage[] = [];
     for (const searchArea of this.searchAreas) {
+      this.onProviderRequest();
       const page = await this.client.searchSaleListings(
         this.searchCriteria,
         searchArea,
       );
+      this.onProviderResponse(page.listings.length);
       validateCompletePage(page);
       pages.push(page);
     }
