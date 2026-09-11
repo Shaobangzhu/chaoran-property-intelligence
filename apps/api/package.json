@@ -5,6 +5,7 @@
   "type": "module",
   "main": "./dist/server.js",
   "dependencies": {
+    "@aws-sdk/client-sqs": "3.1115.0",
     "@chaoran-property-intelligence/application": "workspace:*",
     "@chaoran-property-intelligence/auth": "workspace:*",
     "@chaoran-property-intelligence/domain": "workspace:*",

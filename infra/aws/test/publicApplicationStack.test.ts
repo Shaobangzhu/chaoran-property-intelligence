@@ -42,6 +42,7 @@ function createTemplates(
       deploymentStage: "dev",
       deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
       env: environment,
+      listingRefreshQueue: foundation.listingRefreshQueue,
       priceEstimationOpenAiEnabled: options.openAiEnabled,
       priceEstimationRuntimeEnabled: options.runtimeEnabled,
       releaseSha: "a".repeat(40),
@@ -84,6 +85,7 @@ function createProductionPublicApplicationTemplate(): Template {
       deploymentFailureAlertEmail: "production-deploy-alerts@example.com",
       deploymentStage: "production",
       env: environment,
+      listingRefreshQueue: foundation.listingRefreshQueue,
       releaseSha: "b".repeat(40),
       showingListArtifactBucket: foundation.showingListArtifactBucket,
       vpc: foundation.vpc,
@@ -224,6 +226,37 @@ describe("PublicApplicationStack", () => {
     expect(service).not.toContain("PGPASSWORD");
     expect(service).not.toContain("RENTCAST_API_KEY");
     expect(service).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("grants only stage-scoped SQS dispatch and keeps provider secrets out of the default API", () => {
+    const { publicApplication } = devTemplates;
+
+    publicApplication.hasResourceProperties("AWS::EC2::VPCEndpoint", {
+      PrivateDnsEnabled: true,
+      ServiceName: "com.amazonaws.us-west-2.sqs",
+      VpcEndpointType: "Interface",
+    });
+    publicApplication.hasResourceProperties("AWS::AppRunner::Service", {
+      SourceConfiguration: Match.objectLike({
+        ImageRepository: Match.objectLike({
+          ImageConfiguration: Match.objectLike({
+            RuntimeEnvironmentVariables: Match.arrayWith([
+              Match.objectLike({ Name: "LISTING_REFRESH_QUEUE_URL" }),
+            ]),
+          }),
+        }),
+      }),
+    });
+
+    const policies = JSON.stringify(
+      publicApplication.findResources("AWS::IAM::Policy"),
+    );
+    expect(policies).toContain('"Action":"sqs:SendMessage"');
+    expect(policies).toContain("ListingRefreshQueue");
+    expect(policies).not.toContain('"Action":"sqs:*"');
+    expect(policies).not.toContain("TELEGRAM_BOT_TOKEN");
+    expect(policies).not.toContain("TELEGRAM_CHAT_ID");
+    expect(policies).not.toContain("ApplicationSecret");
   });
 
   it("enables bounded provider egress and stage-scoped API credentials only when opted in", () => {
@@ -413,6 +446,7 @@ describe("PublicApplicationStack", () => {
           deploymentFailureAlertEmail: "dev-deploy-alerts@example.com",
           deploymentStage: "dev",
           env: environment,
+          listingRefreshQueue: foundation.listingRefreshQueue,
           releaseSha: "main",
           showingListArtifactBucket: foundation.showingListArtifactBucket,
           vpc: foundation.vpc,

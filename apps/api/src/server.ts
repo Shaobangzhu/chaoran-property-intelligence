@@ -45,6 +45,7 @@ import { loadApiConfig } from "./apiConfig.js";
 import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
 import { PriceEstimationWorkflow } from "./priceEstimationWorkflow.js";
+import { SqsListingRefreshDispatcher } from "./sqsListingRefreshDispatcher.js";
 
 class UnconfiguredShowingListArtifactReader
   implements ShowingListArtifactReaderPort
@@ -92,7 +93,10 @@ async function startApi(): Promise<void> {
     const listingRefreshRunRepository =
       new PostgresListingRefreshRunRepository(database);
     const listingInventoryQuery = new PostgresListingInventoryQuery(database);
-    const listingRefreshDispatcher = new UnconfiguredListingRefreshDispatcher();
+    const listingRefreshDispatcher =
+      config.listingRefreshDispatch === null
+        ? new UnconfiguredListingRefreshDispatcher()
+        : new SqsListingRefreshDispatcher(config.listingRefreshDispatch);
     const getListingSearchCriteria = new GetListingSearchCriteria(
       listingSearchProfileRepository,
     );

@@ -32,6 +32,8 @@ import {
 import {
   GatewayVpcEndpointAwsService,
   GatewayVpcEndpoint,
+  InterfaceVpcEndpoint,
+  InterfaceVpcEndpointAwsService,
   CfnSecurityGroupIngress,
   Peer,
   Port,
@@ -54,6 +56,7 @@ import {
   type IBucket,
 } from "aws-cdk-lib/aws-s3";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
+import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import type { Construct } from "constructs";
@@ -79,6 +82,7 @@ export interface PublicApplicationStackProps extends StackProps {
   databaseSecurityGroup: SecurityGroup;
   deploymentStage: DeploymentStage;
   deploymentFailureAlertEmail?: string;
+  listingRefreshQueue: IQueue;
   priceEstimationOpenAiEnabled?: boolean;
   priceEstimationRuntimeEnabled?: boolean;
   repositoryRoot?: string;
@@ -211,6 +215,31 @@ export class PublicApplicationStack extends Stack {
       ],
       vpc: props.vpc,
     });
+    const sqsEndpointSecurityGroup = new SecurityGroup(
+      this,
+      "ApiSqsEndpointSecurityGroup",
+      {
+        allowAllOutbound: false,
+        description: `Accept ${props.deploymentStage} API requests to the private SQS endpoint`,
+        vpc: props.vpc,
+      },
+    );
+    sqsEndpointSecurityGroup.addIngressRule(
+      apiSecurityGroup,
+      Port.tcp(443),
+      "Allow listing refresh dispatch from App Runner",
+    );
+    const sqsEndpoint = new InterfaceVpcEndpoint(this, "ApiSqsEndpoint", {
+      privateDnsEnabled: true,
+      securityGroups: [sqsEndpointSecurityGroup],
+      service: InterfaceVpcEndpointAwsService.SQS,
+      subnets: {
+        subnetType: priceEstimationRuntimeEnabled
+          ? SubnetType.PRIVATE_WITH_EGRESS
+          : SubnetType.PRIVATE_ISOLATED,
+      },
+      vpc: props.vpc,
+    });
     apiSecurityGroup.addEgressRule(
       Peer.anyIpv4(),
       Port.tcp(443),
@@ -244,6 +273,12 @@ export class PublicApplicationStack extends Stack {
     props.databaseCredentialsSecret.grantRead(instanceRole);
     jwtSigningSecret.grantRead(instanceRole);
     originVerificationSecret.grantRead(instanceRole);
+    instanceRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["sqs:SendMessage"],
+        resources: [props.listingRefreshQueue.queueArn],
+      }),
+    );
     if (priceEstimationRuntimeEnabled) {
       props.applicationSecret.grantRead(instanceRole);
     }
@@ -327,6 +362,10 @@ export class PublicApplicationStack extends Stack {
               keyValue("AWS_ACCOUNT_ID", this.account),
               keyValue("JWT_AUDIENCE", `cpi-${props.deploymentStage}-web`),
               keyValue("JWT_ISSUER", `cpi-${props.deploymentStage}-api`),
+              keyValue(
+                "LISTING_REFRESH_QUEUE_URL",
+                props.listingRefreshQueue.queueUrl,
+              ),
               keyValue("NODE_EXTRA_CA_CERTS", "/app/certs/global-bundle.pem"),
               keyValue("PGDATABASE", databaseName),
               keyValue("PGHOST", props.database.clusterEndpoint.hostname),
@@ -350,6 +389,7 @@ export class PublicApplicationStack extends Stack {
     service.node.addDependency(imageAccessRole);
     service.node.addDependency(instanceRole);
     service.node.addDependency(s3Endpoint);
+    service.node.addDependency(sqsEndpoint);
 
     const viewerRequestFunction = new Function(this, "ViewerRequestFunction", {
       code: FunctionCode.fromInline(viewerRequestFunctionCode()),

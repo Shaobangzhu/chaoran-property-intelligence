@@ -343,12 +343,12 @@ describe("PropertyAlertStack", () => {
     });
   });
 
-  it("runs every day at 8 AM Los Angeles time with retries and a DLQ", () => {
-    productionTemplate.resourceCountIs("AWS::SQS::Queue", 2);
+  it("keeps the property schedule disabled on Monday at 8 AM without complete-run retries", () => {
+    productionTemplate.resourceCountIs("AWS::SQS::Queue", 4);
     productionTemplate.hasResourceProperties("AWS::Scheduler::Schedule", {
       FlexibleTimeWindow: { Mode: "OFF" },
       Name: "cpi-daily-property-alert",
-      ScheduleExpression: "cron(0 8 * * ? *)",
+      ScheduleExpression: "cron(0 8 ? * MON *)",
       ScheduleExpressionTimezone: "America/Los_Angeles",
       State: "DISABLED",
       Target: Match.objectLike({
@@ -357,10 +357,111 @@ describe("PropertyAlertStack", () => {
         }),
         RetryPolicy: {
           MaximumEventAgeInSeconds: 3_600,
-          MaximumRetryAttempts: 2,
+          MaximumRetryAttempts: 0,
         },
       }),
     });
+  });
+
+  it("dispatches stage-filtered opaque run wake-ups to the existing worker", () => {
+    productionTemplate.hasResourceProperties("AWS::SQS::Queue", {
+      MessageRetentionPeriod: 1_209_600,
+      QueueName: "cpi-listing-refresh-dead-letter",
+      SqsManagedSseEnabled: true,
+    });
+    productionTemplate.hasResourceProperties("AWS::SQS::Queue", {
+      MessageRetentionPeriod: 345_600,
+      QueueName: "cpi-listing-refresh",
+      RedrivePolicy: Match.objectLike({ maxReceiveCount: 3 }),
+      SqsManagedSseEnabled: true,
+      VisibilityTimeout: 1_200,
+    });
+    productionTemplate.hasResourceProperties("AWS::Pipes::Pipe", {
+      DesiredState: "RUNNING",
+      Name: "cpi-listing-refresh-dispatch",
+      SourceParameters: {
+        FilterCriteria: {
+          Filters: [
+            {
+              Pattern:
+                '{"body":{"schemaVersion":[1],"stage":["production"]}}',
+            },
+          ],
+        },
+        SqsQueueParameters: {
+          BatchSize: 1,
+          MaximumBatchingWindowInSeconds: 0,
+        },
+      },
+      TargetParameters: {
+        EcsTaskParameters: Match.objectLike({
+          LaunchType: "FARGATE",
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Environment: [
+                  {
+                    Name: "LISTING_REFRESH_RUN_ID",
+                    Value: "$.body.runId",
+                  },
+                ],
+                Name: "AlertWorker",
+              },
+            ],
+          },
+          PlatformVersion: "LATEST",
+          TaskCount: 1,
+        }),
+      },
+    });
+
+    const policies = JSON.stringify(
+      productionTemplate.findResources("AWS::IAM::Policy"),
+    );
+    expect(policies).toContain("sqs:ReceiveMessage");
+    expect(policies).toContain("sqs:DeleteMessage");
+    expect(policies).toContain("ecs:RunTask");
+    expect(policies).toContain("iam:PassRole");
+    expect(policies).toContain("iam:PassedToService");
+    expect(policies).not.toContain('"Action":"sqs:*"');
+
+    devTemplate.hasResourceProperties("AWS::SQS::Queue", {
+      QueueName: "cpi-dev-listing-refresh",
+    });
+    devTemplate.hasResourceProperties("AWS::Pipes::Pipe", {
+      Name: "cpi-dev-listing-refresh-dispatch",
+    });
+  });
+
+  it("rejects simultaneous enabled weekly schedules without the reviewed offset", () => {
+    const app = new App();
+
+    expect(
+      () =>
+        new PropertyAlertStack(app, "UnsafeScheduleStack", {
+          adminContainerImage: ContainerImage.fromRegistry(
+            "example.invalid/admin:test",
+          ),
+          containerImage: ContainerImage.fromRegistry(
+            "example.invalid/worker:test",
+          ),
+          env: {
+            account: "111111111111",
+            region: "us-west-2",
+          },
+          failureAlertEmail: "alerts@example.com",
+          scheduleEnabled: true,
+          showingListSchedule: {
+            enabled: true,
+            hour: "8",
+            minute: "0",
+            timeZone: "America/Los_Angeles",
+            weekDay: "MON",
+          },
+        }),
+    ).toThrow(
+      "Enabled Showing List schedule must start at least 30 minutes after Monday listing reconciliation",
+    );
   });
 
   it("adds a separate disabled weekly Showing List task and schedule", () => {

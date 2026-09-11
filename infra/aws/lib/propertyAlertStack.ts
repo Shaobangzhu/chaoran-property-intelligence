@@ -40,6 +40,7 @@ import {
   DatabaseClusterEngine,
   ParameterGroup,
 } from "aws-cdk-lib/aws-rds";
+import { CfnPipe } from "aws-cdk-lib/aws-pipes";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import {
   Schedule,
@@ -56,7 +57,11 @@ import {
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
-import { Queue, QueueEncryption } from "aws-cdk-lib/aws-sqs";
+import {
+  Queue,
+  QueueEncryption,
+  type IQueue,
+} from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 
 import {
@@ -88,6 +93,7 @@ export class PropertyAlertStack extends Stack {
   readonly database: DatabaseCluster;
   readonly databaseCredentialsSecret: Secret;
   readonly databaseSecurityGroup: SecurityGroup;
+  readonly listingRefreshQueue: IQueue;
   readonly showingListArtifactBucket: Bucket;
   readonly vpc: Vpc;
 
@@ -519,6 +525,128 @@ export class PropertyAlertStack extends Stack {
       softLimit: 1_024,
     });
 
+    const listingRefreshDeadLetterQueue = new Queue(
+      this,
+      "ListingRefreshDeadLetterQueue",
+      {
+        encryption: QueueEncryption.SQS_MANAGED,
+        queueName: stageResourceName(
+          deploymentStage,
+          "listing-refresh-dead-letter",
+        ),
+        retentionPeriod: Duration.days(14),
+      },
+    );
+    this.listingRefreshQueue = new Queue(this, "ListingRefreshQueue", {
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: listingRefreshDeadLetterQueue,
+      },
+      encryption: QueueEncryption.SQS_MANAGED,
+      queueName: stageResourceName(deploymentStage, "listing-refresh"),
+      retentionPeriod: Duration.days(4),
+      visibilityTimeout: Duration.minutes(20),
+    });
+
+    const pipeRole = new Role(this, "ListingRefreshPipeRole", {
+      assumedBy: new ServicePrincipal("pipes.amazonaws.com"),
+      description: `Consume ${deploymentStage} listing refresh wake-ups and start the existing worker`,
+    });
+    pipeRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ReceiveMessage",
+        ],
+        resources: [this.listingRefreshQueue.queueArn],
+      }),
+    );
+    pipeRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["ecs:RunTask"],
+        conditions: {
+          ArnEquals: { "ecs:cluster": cluster.clusterArn },
+        },
+        resources: [taskDefinition.taskDefinitionArn],
+      }),
+    );
+    const executionRole = taskDefinition.executionRole;
+    if (executionRole === undefined) {
+      throw new Error("Alert worker execution role was not created");
+    }
+    pipeRole.addToPolicy(
+      new PolicyStatement({
+        actions: ["iam:PassRole"],
+        conditions: {
+          StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" },
+        },
+        resources: [
+          executionRole.roleArn,
+          taskDefinition.taskRole.roleArn,
+        ],
+      }),
+    );
+
+    const listingRefreshPipe = new CfnPipe(this, "ListingRefreshPipe", {
+      description: `Start one ${deploymentStage} listing refresh worker for an opaque run wake-up`,
+      desiredState: "RUNNING",
+      name: stageResourceName(deploymentStage, "listing-refresh-dispatch"),
+      roleArn: pipeRole.roleArn,
+      source: this.listingRefreshQueue.queueArn,
+      sourceParameters: {
+        filterCriteria: {
+          filters: [
+            {
+              pattern: JSON.stringify({
+                body: {
+                  schemaVersion: [1],
+                  stage: [deploymentStage],
+                },
+              }),
+            },
+          ],
+        },
+        sqsQueueParameters: {
+          batchSize: 1,
+          maximumBatchingWindowInSeconds: 0,
+        },
+      },
+      target: cluster.clusterArn,
+      targetParameters: {
+        ecsTaskParameters: {
+          launchType: "FARGATE",
+          networkConfiguration: {
+            awsvpcConfiguration: {
+              assignPublicIp: "ENABLED",
+              securityGroups: [workerSecurityGroup.securityGroupId],
+              subnets: this.vpc.selectSubnets({
+                subnetType: SubnetType.PUBLIC,
+              }).subnetIds,
+            },
+          },
+          overrides: {
+            containerOverrides: [
+              {
+                environment: [
+                  {
+                    name: "LISTING_REFRESH_RUN_ID",
+                    value: "$.body.runId",
+                  },
+                ],
+                name: "AlertWorker",
+              },
+            ],
+          },
+          platformVersion: "LATEST",
+          taskCount: 1,
+          taskDefinitionArn: taskDefinition.taskDefinitionArn,
+        },
+      },
+    });
+    listingRefreshPipe.node.addDependency(pipeRole);
+    listingRefreshPipe.node.addDependency(taskDefinition);
+
     const showingListSchedule = props.showingListSchedule ?? {
       enabled: false,
       weekDay: "MON",
@@ -526,6 +654,10 @@ export class PropertyAlertStack extends Stack {
       minute: "0",
       timeZone: "America/Los_Angeles",
     };
+    assertShowingListScheduleOffset(
+      props.scheduleEnabled ?? false,
+      showingListSchedule,
+    );
     const showingListTaskDefinition = new FargateTaskDefinition(
       this,
       "ShowingListTaskDefinition",
@@ -623,7 +755,7 @@ export class PropertyAlertStack extends Stack {
       deadLetterQueue,
       maxEventAge: Duration.hours(1),
       platformVersion: FargatePlatformVersion.LATEST,
-      retryAttempts: 2,
+      retryAttempts: 0,
       securityGroups: [workerSecurityGroup],
       taskDefinition,
       vpcSubnets: {
@@ -631,12 +763,13 @@ export class PropertyAlertStack extends Stack {
       },
     });
     new Schedule(this, "DailySchedule", {
-      description: "Run the property alert worker every morning",
+      description: "Run the property alert worker every Monday morning",
       enabled: props.scheduleEnabled ?? false,
       schedule: ScheduleExpression.cron({
         hour: "8",
         minute: "0",
         timeZone: TimeZone.AMERICA_LOS_ANGELES,
+        weekDay: "MON",
       }),
       scheduleName: stageResourceName(
         deploymentStage,
@@ -682,5 +815,29 @@ export class PropertyAlertStack extends Stack {
       target: showingListTarget,
       timeWindow: TimeWindow.off(),
     });
+  }
+}
+
+function assertShowingListScheduleOffset(
+  propertyAlertEnabled: boolean,
+  showingListSchedule: NonNullable<
+    PropertyAlertStackProps["showingListSchedule"]
+  >,
+): void {
+  if (!propertyAlertEnabled || !showingListSchedule.enabled) return;
+
+  const showingHour = Number.parseInt(showingListSchedule.hour, 10);
+  const showingMinute = Number.parseInt(showingListSchedule.minute, 10);
+  const showingStartMinutes = showingHour * 60 + showingMinute;
+  if (
+    showingListSchedule.timeZone !== "America/Los_Angeles" ||
+    showingListSchedule.weekDay !== "MON" ||
+    !Number.isInteger(showingHour) ||
+    !Number.isInteger(showingMinute) ||
+    showingStartMinutes < 8 * 60 + 30
+  ) {
+    throw new Error(
+      "Enabled Showing List schedule must start at least 30 minutes after Monday listing reconciliation",
+    );
   }
 }

@@ -454,8 +454,8 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Setting | Value |
 | --- | --- |
 | Schedule name | `cpi-daily-property-alert` |
-| Current source expression | Every day at 8:00 AM |
-| ADR 0019 target expression | Every Monday at 8:00 AM |
+| Last verified deployed expression | Every day at 8:00 AM |
+| Current source expression | Every Monday at 8:00 AM |
 | Time zone | `America/Los_Angeles` |
 | Current state | `DISABLED` |
 | Fargate CPU | 256 CPU units |
@@ -466,14 +466,15 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Hard process limit | 15 minutes |
 | RentCast requests per run | 1-7 sequential requests, one per selected market |
 | RentCast request timeout | 30 seconds, no automatic retry |
-| Scheduler retry attempts | 2 |
+| Last verified deployed Scheduler retries | 2 |
+| Current source Scheduler retries | 0 |
 | Maximum scheduler event age | 1 hour |
 | Dead-letter retention | 14 days, SQS-managed encryption |
 
-### Proposed Criteria-Triggered Refresh And Listing Lifecycle
+### Implemented-In-Source Criteria-Triggered Refresh And Listing Lifecycle
 
-ADR 0019 proposes replacing the deferred-only criteria application and planned
-daily cadence with two complementary triggers:
+ADR 0019 replaces the deferred-only criteria application and planned daily
+cadence in source with two complementary triggers:
 
 - a changed Search Criteria save records one durable asynchronous refresh run
 - recurring reconciliation is every Monday at 08:00 Pacific
@@ -485,20 +486,30 @@ deployment. Preserve the existing `cpi-daily-property-alert` physical name for
 the first expression update to avoid an unrelated Scheduler replacement; a
 semantic rename is a separately reviewed change.
 
-The API persists configuration and bounded run state but never receives the
-RentCast or Telegram credentials. A stage-isolated asynchronous dispatch path
-passes only an opaque run ID to Fargate. The worker transactionally claims the
-run, coalesces superseded unstarted criteria revisions, and publishes membership
-only after every selected market succeeds. A failed run preserves the prior
-applied inventory and does not increment absence counters.
+The API persists configuration and bounded run state. Its default runtime does
+not receive RentCast or Telegram credentials. A stage-isolated asynchronous
+dispatch path sends an SQS message containing only `runId`, `schemaVersion`, and
+`stage`. An EventBridge Pipe filters the stage and starts the existing Fargate
+task with only `LISTING_REFRESH_RUN_ID` overridden. The worker transactionally
+claims the database run, coalesces superseded unstarted criteria revisions, and
+publishes membership only after every selected market succeeds. A failed run
+preserves the prior applied inventory and does not increment absence counters.
 
-`listings` remains the latest canonical provider/manual record. Proposed
+Each stage owns a distinct SQS queue, dead-letter queue, Pipe, and Pipe role.
+The App Runner role can call only `sqs:SendMessage` on its exact stage queue;
+the Pipe role can consume only that queue, run only the existing worker task
+definition on its cluster, and pass only that task's roles. App Runner reaches
+SQS through a private interface endpoint. The database ledger, not SQS, remains
+the refresh source of truth. Queue redelivery is safe because run claiming is
+atomic and an already claimed or terminal run cannot publish twice.
+
+`listings` remains the latest canonical provider/manual record. The
 search-run and search-membership tables distinguish current inventory from
 historical, missing, inactive, and out-of-scope records. Monthly cleanup applies
 bounded retention without automatically deleting manual listings or records
 still referenced by alert, observation, membership, or Showing List state.
 
-The proposed complete-provider Scheduler target has no automatic replay;
+The complete-provider Scheduler target has no automatic replay in source;
 failure is recorded for an explicit retry so a late-market failure cannot
 silently multiply a seven-request plan. Before either recurring job is enabled,
 the Weekly Showing List schedule must be offset at least 30 minutes after the
@@ -749,12 +760,13 @@ configuration required before publishing the workflow is:
 | `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
 | `CPI_DEPLOYMENT_STAGE` | App Runner environment; Web release manifest | No | Release evidence stage (`dev` or `production`) |
 | `CPI_RELEASE_SHA` | CDK context; App Runner environment; Web release manifest | No | Immutable deployed commit identity |
+| `LISTING_REFRESH_QUEUE_URL` | Generated App Runner environment | No | Exact stage-scoped asynchronous refresh queue |
 | `PORT` | App Runner environment | No | Production Express listener |
 | `DATABASE_CREDENTIALS_SECRET_JSON` | App Runner secret environment | Yes | Existing Aurora username/password JSON secret |
 | `CPI_*_PRICE_ESTIMATION_RUNTIME_ENABLED` | Stage GitHub environment variable | No | Enables App Runner provider egress and RentCast injection |
 | `CPI_*_PRICE_ESTIMATION_OPENAI_ENABLED` | Stage GitHub environment variable | No | Enables optional App Runner OpenAI injection |
 | `CPI_*_PRICE_ESTIMATION_BUDGET_APPROVED` | Stage GitHub environment variable | No | Explicit NAT and provider billing gate |
-| `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |
+| `AWS_ACCOUNT_ID` | Generated runtime environment | No | S3 expected-owner and stage-queue guards |
 | `SHOWING_LIST_ARTIFACT_BUCKET` | Generated task environment | No | Weekly task and future API |
 | `SHOWING_LIST_TIME_ZONE` | Generated from CDK context | No | Weekly identity |
 | `SHOWING_LIST_DOWNLOAD_URL_TTL_SECONDS` | Task environment; 60-900 | No | S3 presigner |
