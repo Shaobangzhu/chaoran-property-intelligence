@@ -114,3 +114,26 @@ and before any separately authorized deployment.
 - distinct DEV alert email and later DEV-only application credentials
 - public Web/API account-backed diff completed under its separate runbook
 - reviewed rollback and teardown plan
+
+## DEV Worker Configuration Recovery
+
+The DEV foundation creates `cpi/dev/application` with empty placeholder fields.
+A successful CloudFormation deployment therefore does not prove that the
+listing worker can call RentCast or Telegram. Before testing a Search Criteria
+save, prepare the distinct ignored `.env.dev.local` file and run the validation
+and explicitly authorized synchronization documented in
+`aws-price-estimation-runtime-enablement.md`.
+
+If an EventBridge Pipe-launched task exits before a refresh starts, inspect its
+bounded CloudWatch stream under `/cpi/dev/alert-worker`. A missing provider
+variable means the stage Secret was not populated; do not retry repeatedly,
+because queue redelivery cannot repair configuration. Synchronize the DEV
+Secret, then use the existing UI Retry action. The retry is safe and does not
+create another criteria revision.
+
+Current worker code claims a durable run before loading provider credentials.
+Consequently, a missing RentCast or Telegram value is persisted as
+`worker-configuration-unavailable`, and the UI reports a terminal refresh
+failure instead of leaving an indefinitely queued run. This recovery does not
+enable either AWS schedule; both schedules remain disabled until separately
+authorized.

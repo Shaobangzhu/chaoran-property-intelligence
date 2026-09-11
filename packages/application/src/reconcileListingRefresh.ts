@@ -340,6 +340,9 @@ function safeFailureCode(error: unknown): string {
     return "ambiguous-listing-address";
   }
   if (error instanceof Error) {
+    if (error.name === "ListingRefreshProviderConfigurationError") {
+      return "worker-configuration-unavailable";
+    }
     if (error.name === "RentCastListingCoverageExceededError") {
       return "provider-coverage-exceeded";
     }

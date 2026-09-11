@@ -506,6 +506,15 @@ five minutes, the client stops polling and presents `Dispatch unavailable / not
 started` with an explicit Retry action. Retry dispatches the same durable run;
 it does not create a duplicate criteria revision or provider-request plan.
 
+The worker loads database connectivity first, claims the durable run, and only
+then loads the RentCast and Telegram configuration needed for provider work.
+Missing provider configuration is recorded as
+`worker-configuration-unavailable` before the process exits non-zero. This
+keeps a launched task from leaving an indefinitely queued run, while preserving
+the last successfully applied listing inventory. It does not make blank Secret
+values valid: every AWS stage must populate its application Secret before a
+criteria-triggered refresh can succeed.
+
 Each stage owns a distinct SQS queue, dead-letter queue, Pipe, and Pipe role.
 The App Runner role can call only `sqs:SendMessage` on its exact stage queue;
 the Pipe role can consume only that queue, run only the existing worker task
