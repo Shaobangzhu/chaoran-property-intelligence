@@ -6,6 +6,8 @@ import {
   SessionAuthenticationRequiredError,
   archiveManualListing,
   createManualListing,
+  fetchCurrentListingInventory,
+  fetchListingHistory,
   fetchListings,
   updateManualListing,
 } from "./listingsApi.js";
@@ -95,6 +97,133 @@ describe("fetchListings", () => {
     await expect(
       fetchListings({ fetchImplementation }),
     ).rejects.toThrow("Listings response was invalid");
+  });
+});
+
+describe("revisioned listing inventory", () => {
+  it("loads the current applied revision and freshness timestamp", async () => {
+    const currentListing = inventoryListingDto("current");
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse({
+        current: {
+          appliedRevision: 3,
+          refreshedAt: "2026-08-22T20:05:00.000Z",
+          listings: [currentListing],
+        },
+      }),
+    );
+
+    await expect(
+      fetchCurrentListingInventory({ fetchImplementation }),
+    ).resolves.toEqual({
+      appliedRevision: 3,
+      refreshedAt: "2026-08-22T20:05:00.000Z",
+      listings: [currentListing],
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "/api/listings/current",
+      expect.objectContaining({
+        credentials: "same-origin",
+        method: "GET",
+      }),
+    );
+  });
+
+  it("accepts the absence of a completed current inventory", async () => {
+    await expect(
+      fetchCurrentListingInventory({
+        fetchImplementation: async () => jsonResponse({ current: null }),
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("requests a bounded historical page with lifecycle filters and cursor", async () => {
+    const historyListing = inventoryListingDto("missing", {
+      currentDisplayEligible: false,
+    });
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse({
+        history: { listings: [historyListing], nextCursor: "cursor-2" },
+      }),
+    );
+
+    await expect(
+      fetchListingHistory(
+        {
+          lifecycleStates: ["missing", "inactive"],
+          cursor: "cursor-1",
+          limit: 25,
+        },
+        { fetchImplementation },
+      ),
+    ).resolves.toEqual({
+      listings: [historyListing],
+      nextCursor: "cursor-2",
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "/api/listings/history?lifecycleStates=missing%2Cinactive&limit=25&cursor=cursor-1",
+      expect.objectContaining({ credentials: "same-origin", method: "GET" }),
+    );
+  });
+
+  it("rejects invalid history requests before fetch", async () => {
+    const fetchImplementation = vi.fn();
+
+    await expect(
+      fetchListingHistory(
+        { lifecycleStates: [], cursor: null, limit: 25 },
+        { fetchImplementation },
+      ),
+    ).rejects.toThrow("Listing history request was invalid");
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("rejects lifecycle data in the wrong inventory projection", async () => {
+    await expect(
+      fetchCurrentListingInventory({
+        fetchImplementation: async () =>
+          jsonResponse({
+            current: {
+              appliedRevision: 3,
+              refreshedAt: "2026-08-22T20:05:00.000Z",
+              listings: [
+                inventoryListingDto("missing", {
+                  currentDisplayEligible: false,
+                }),
+              ],
+            },
+          }),
+      }),
+    ).rejects.toThrow("Listings response was invalid");
+
+    await expect(
+      fetchListingHistory(
+        { lifecycleStates: ["missing"], cursor: null, limit: 25 },
+        {
+          fetchImplementation: async () =>
+            jsonResponse({
+              history: {
+                listings: [inventoryListingDto("current")],
+                nextCursor: null,
+              },
+            }),
+        },
+      ),
+    ).rejects.toThrow("Listings response was invalid");
+  });
+
+  it("reports an expired current or history session with the shared error", async () => {
+    const fetchImplementation = async () => jsonResponse({}, 401);
+
+    await expect(
+      fetchCurrentListingInventory({ fetchImplementation }),
+    ).rejects.toBeInstanceOf(SessionAuthenticationRequiredError);
+    await expect(
+      fetchListingHistory(
+        { lifecycleStates: ["sold"], cursor: null, limit: 25 },
+        { fetchImplementation },
+      ),
+    ).rejects.toBeInstanceOf(SessionAuthenticationRequiredError);
   });
 });
 
@@ -304,6 +433,33 @@ const manualListingDto = {
   longitude: -117.5664,
   price: 735000,
 } as const;
+
+function inventoryListingDto(
+  lifecycleState: "current" | "out_of_scope" | "missing" | "inactive" | "sold",
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    ...listingDto,
+    lifecycle: {
+      state: lifecycleState,
+      appliedRevision: 3,
+      firstMatchedAt: "2026-08-19T17:00:00.000Z",
+      lastMatchedAt: "2026-08-22T20:05:00.000Z",
+      lastServerObservedAt: "2026-08-22T20:05:00.000Z",
+      consecutiveCompleteRunAbsenceCount: lifecycleState === "missing" ? 1 : 0,
+      inactiveAt:
+        lifecycleState === "inactive" || lifecycleState === "sold"
+          ? "2026-08-22T20:05:00.000Z"
+          : null,
+      explicitProviderStatus: lifecycleState === "sold" ? "sold" : null,
+      explicitProviderStatusObservedAt:
+        lifecycleState === "sold" ? "2026-08-22T20:05:00.000Z" : null,
+    },
+    acquisitionEligible: lifecycleState === "current",
+    currentDisplayEligible: lifecycleState === "current",
+    ...overrides,
+  };
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

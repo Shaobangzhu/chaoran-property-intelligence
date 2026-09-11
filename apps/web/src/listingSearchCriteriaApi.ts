@@ -8,6 +8,10 @@ import {
 } from "@chaoran-property-intelligence/domain";
 
 import { SessionAuthenticationRequiredError } from "./listingsApi.js";
+import {
+  parseListingRefresh,
+  type ListingRefreshSnapshot,
+} from "./listingRefreshApi.js";
 
 export interface EditableListingSearchCriteria {
   propertyType: ListingPropertyType;
@@ -21,7 +25,14 @@ export interface EditableListingSearchCriteria {
 export interface ListingSearchCriteriaSnapshot {
   criteria: EditableListingSearchCriteria;
   revision: number;
+  appliedRevision: number;
   updatedAt: string;
+  refresh: ListingRefreshSnapshot | null;
+}
+
+export interface SavedListingSearchCriteriaSnapshot
+  extends ListingSearchCriteriaSnapshot {
+  refreshDispatch: "not-required" | "dispatched" | "failed";
 }
 
 export interface UpdateListingSearchCriteriaInput {
@@ -64,11 +75,11 @@ export async function fetchListingSearchCriteria(
 export async function updateListingSearchCriteria(
   input: UpdateListingSearchCriteriaInput,
   options: ListingSearchCriteriaRequestOptions = {},
-): Promise<ListingSearchCriteriaSnapshot> {
+): Promise<SavedListingSearchCriteriaSnapshot> {
   const normalizedInput = normalizeUpdateInput(input);
   const response = await request("PUT", options, normalizedInput);
   throwForStatus(response, "save");
-  return parseListingSearchCriteriaResponse(await readJson(response));
+  return parseListingSearchCriteriaResponse(await readJson(response), true);
 }
 
 async function request(
@@ -122,27 +133,60 @@ async function readJson(response: Response): Promise<unknown> {
 
 function parseListingSearchCriteriaResponse(
   value: unknown,
-): ListingSearchCriteriaSnapshot {
-  const response = strictRecord(value, ["searchCriteria"]);
+): ListingSearchCriteriaSnapshot;
+function parseListingSearchCriteriaResponse(
+  value: unknown,
+  includeDispatch: true,
+): SavedListingSearchCriteriaSnapshot;
+function parseListingSearchCriteriaResponse(
+  value: unknown,
+  includeDispatch = false,
+): SavedListingSearchCriteriaSnapshot | ListingSearchCriteriaSnapshot {
+  const response = strictRecord(
+    value,
+    includeDispatch
+      ? ["searchCriteria", "refresh", "refreshDispatch"]
+      : ["searchCriteria", "refresh"],
+  );
   const snapshot = strictRecord(response.searchCriteria, [
     "criteria",
     "revision",
+    "appliedRevision",
     "updatedAt",
   ]);
   const revision = snapshot.revision;
+  const appliedRevision = snapshot.appliedRevision;
   if (
     typeof revision !== "number" ||
     !Number.isSafeInteger(revision) ||
-    revision < 1
+    revision < 1 ||
+    typeof appliedRevision !== "number" ||
+    !Number.isSafeInteger(appliedRevision) ||
+    appliedRevision < 1 ||
+    appliedRevision > revision
   ) {
     throw invalidResponse();
   }
 
-  return {
+  const result: ListingSearchCriteriaSnapshot = {
     criteria: normalizeEditableCriteria(snapshot.criteria),
     revision,
+    appliedRevision,
     updatedAt: readCanonicalTimestamp(snapshot.updatedAt),
+    refresh:
+      response.refresh === null
+        ? null
+        : parseListingRefresh(response.refresh),
   };
+  if (!includeDispatch) return result;
+  if (
+    response.refreshDispatch !== "not-required" &&
+    response.refreshDispatch !== "dispatched" &&
+    response.refreshDispatch !== "failed"
+  ) {
+    throw invalidResponse();
+  }
+  return { ...result, refreshDispatch: response.refreshDispatch };
 }
 
 function normalizeUpdateInput(

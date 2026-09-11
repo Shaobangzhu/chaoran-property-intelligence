@@ -2190,6 +2190,44 @@ See the
 and
 [Price Decision Valuation Methodology](price-decision/valuation-methodology.md).
 
+### Criteria-Triggered Listing Refresh And Lifecycle
+
+Replace the confusing accumulated-snapshot experience with an asynchronously
+refreshed, revisioned current inventory while retaining conservative history
+and bounded PostgreSQL storage.
+
+The feature is owned by `feat/search-criteria-refresh-lifecycle`. Its accepted
+source plan is:
+
+1. Save a changed Search Criteria revision and one durable queued refresh run;
+   unchanged saves create no run.
+2. Dispatch provider work asynchronously, coalesce superseded unstarted
+   revisions, and prohibit concurrent primary-profile refreshes.
+3. Preserve one request per selected market, sequential completeness, and
+   all-or-nothing publication.
+4. Add run and membership persistence so Listings defaults to the last complete
+   applied inventory and exposes history explicitly.
+5. Use conservative `current`, `out_of_scope`, `missing`, and `inactive`
+   lifecycle states. Reserve `sold` for explicit provider evidence.
+6. Retain the quiet changed-revision baseline so widened criteria do not create
+   a Telegram notification burst.
+7. Add configurable 90/180/365-day retention boundaries and monthly bounded
+   cleanup; never automatically delete manual listings or referenced evidence.
+8. Change the disabled property-alert source expression from daily to Monday
+   08:00 in `America/Los_Angeles`, remove automatic complete-run Scheduler
+   replay, and keep `scheduleEnabled=false` through source implementation and
+   deployment.
+9. Complete fixture, disposable-database, API/browser, retention, CDK, quota,
+   security, and rollback acceptance before any live provider or AWS mutation.
+
+Documentation is proposed in
+[ADR 0019](adr/0019-criteria-triggered-listing-refresh-and-lifecycle.md) and the
+[implementation plan](listing-refresh/implementation-plan.md), with gates in
+the [acceptance plan](runbooks/listing-refresh-lifecycle-acceptance.md). No real
+RentCast request, Telegram delivery, local shared-database migration, AWS
+deployment, task execution, or schedule state change is included in the
+documentation phase.
+
 ### AWS Price Estimation Runtime Enablement
 
 Enable the merged Price Estimation workflow in App Runner without reopening

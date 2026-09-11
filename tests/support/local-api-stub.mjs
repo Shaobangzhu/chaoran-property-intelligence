@@ -30,6 +30,22 @@ const listing = {
   status: "Active",
   zipCode: "92880",
 };
+const currentListing = {
+  ...listing,
+  lifecycle: {
+    state: "current",
+    appliedRevision: 3,
+    firstMatchedAt: "2026-08-19T17:00:00.000Z",
+    lastMatchedAt: "2026-08-22T20:05:00.000Z",
+    lastServerObservedAt: "2026-08-22T20:05:00.000Z",
+    consecutiveCompleteRunAbsenceCount: 0,
+    inactiveAt: null,
+    explicitProviderStatus: null,
+    explicitProviderStatusObservedAt: null,
+  },
+  acquisitionEligible: true,
+  currentDisplayEligible: true,
+};
 
 const server = createServer((request, response) => {
   void handleRequest(request, response);
@@ -111,6 +127,27 @@ async function handleRequest(request, response) {
     }
 
     sendJson(response, 200, { listings: [listing] });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/listings/current") {
+    if (!isAuthenticated(request)) {
+      sendJson(response, 401, {
+        error: {
+          code: "AUTHENTICATION_REQUIRED",
+          message: "Authentication is required",
+        },
+      });
+      return;
+    }
+
+    sendJson(response, 200, {
+      current: {
+        appliedRevision: 3,
+        refreshedAt: "2026-08-22T20:05:00.000Z",
+        listings: [currentListing],
+      },
+    });
     return;
   }
 

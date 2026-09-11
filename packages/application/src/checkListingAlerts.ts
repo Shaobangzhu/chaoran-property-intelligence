@@ -83,7 +83,7 @@ export class CheckListingAlerts {
 
   async execute(): Promise<void> {
     const sourceListings = await this.source.getActiveSaleListings();
-    const candidates = prepareUniqueCandidates(
+    const candidates = prepareUniqueListingAlertCandidates(
       sourceListings.filter((listing) =>
         this.criteria.matchesAcquisitionCriteria(listing),
       ),
@@ -140,7 +140,7 @@ export class CheckListingAlerts {
       actionableCandidates.length === 0 ? null : readObservedAt(this.now);
     const transitions = actionableCandidates.map(
       ({ candidate, previous, isNewListingEligible }) =>
-        createTransition(
+        createListingAlertTransition(
           candidate,
           previous,
           isNewListingEligible,
@@ -194,13 +194,13 @@ export class CheckListingAlerts {
   }
 }
 
-interface PreparedListingCandidate {
+export interface PreparedListingCandidate {
   listing: RentCastNormalizedListing;
   addressKey: ListingAddressKey;
   listingKey: string;
 }
 
-function prepareUniqueCandidates(
+export function prepareUniqueListingAlertCandidates(
   listings: readonly RentCastNormalizedListing[],
 ): PreparedListingCandidate[] {
   const candidatesByAddress = new Map<
@@ -239,7 +239,7 @@ function createBaselineEntry(
   };
 }
 
-function createTransition(
+export function createListingAlertTransition(
   candidate: PreparedListingCandidate,
   previous: ListingPriceObservation | undefined,
   isNewListingEligible: boolean,

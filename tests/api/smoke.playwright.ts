@@ -109,6 +109,21 @@ test.describe("@smoke API smoke", () => {
       ],
     });
 
+    const currentListingsResponse = await request.get("/api/listings/current");
+    await expect(currentListingsResponse).toBeOK();
+    await expect(currentListingsResponse.json()).resolves.toMatchObject({
+      current: {
+        appliedRevision: 3,
+        listings: [
+          {
+            formattedAddress: "123 Main St, Eastvale, CA 92880",
+            lifecycle: { appliedRevision: 3, state: "current" },
+            source: "rentcast",
+          },
+        ],
+      },
+    });
+
     const logoutResponse = await request.post("/api/auth/logout");
     expect(logoutResponse.status()).toBe(204);
 

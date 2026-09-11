@@ -3,7 +3,9 @@ import {
   CreateManualListing,
   GetCurrentShowingListArtifact,
   GetCurrentShowingListDraft,
+  GetCurrentListingInventory,
   GetListingSearchCriteria,
+  GetLatestListingRefreshStatus,
   GetCurrentUser,
   ListListings,
   Login,
@@ -11,7 +13,9 @@ import {
   SaveCurrentShowingListDraft,
   ShowingListArtifactReaderUnavailableError,
   type ShowingListArtifactReaderPort,
-  UpdateListingSearchCriteria,
+  ListHistoricalListingInventory,
+  RetryLatestListingRefresh,
+  UpdateListingSearchCriteriaAndQueueRefresh,
   UpdateManualListing,
 } from "@chaoran-property-intelligence/application";
 import {
@@ -22,6 +26,8 @@ import {
 import {
   createPostgresDatabase,
   PostgresListingQuery,
+  PostgresListingInventoryQuery,
+  PostgresListingRefreshRunRepository,
   PostgresListingSearchProfileRepository,
   PostgresManualListingRepository,
   PostgresCurrentShowingListDraftRepository,
@@ -37,7 +43,9 @@ import type { Server } from "node:http";
 import { loadApiConfig } from "./apiConfig.js";
 import { loadAuthConfig } from "./authConfig.js";
 import { createApp } from "./createApp.js";
+import { LocalListingRefreshDispatcher } from "./localListingRefreshDispatcher.js";
 import { PriceEstimationWorkflow } from "./priceEstimationWorkflow.js";
+import { SqsListingRefreshDispatcher } from "./sqsListingRefreshDispatcher.js";
 
 class UnconfiguredShowingListArtifactReader
   implements ShowingListArtifactReaderPort
@@ -74,13 +82,39 @@ async function startApi(): Promise<void> {
     });
     const listingSearchProfileRepository =
       new PostgresListingSearchProfileRepository(database);
+    const listingRefreshRunRepository =
+      new PostgresListingRefreshRunRepository(database);
+    const listingInventoryQuery = new PostgresListingInventoryQuery(database);
+    const listingRefreshDispatcher =
+      config.listingRefreshDispatch === null
+        ? new LocalListingRefreshDispatcher()
+        : new SqsListingRefreshDispatcher(config.listingRefreshDispatch);
     const getListingSearchCriteria = new GetListingSearchCriteria(
       listingSearchProfileRepository,
     );
-    const updateListingSearchCriteria = new UpdateListingSearchCriteria({
-      repository: listingSearchProfileRepository,
+    const getLatestListingRefreshStatus = new GetLatestListingRefreshStatus(
+      listingRefreshRunRepository,
+    );
+    const updateListingSearchCriteria =
+      new UpdateListingSearchCriteriaAndQueueRefresh({
+        createId: randomUUID,
+        dispatcher: listingRefreshDispatcher,
+        now: () => new Date(),
+        repository: listingSearchProfileRepository,
+        runRepository: listingRefreshRunRepository,
+      });
+    const retryLatestListingRefresh = new RetryLatestListingRefresh({
+      createId: randomUUID,
+      dispatcher: listingRefreshDispatcher,
+      profileRepository: listingSearchProfileRepository,
+      runRepository: listingRefreshRunRepository,
       now: () => new Date(),
     });
+    const getCurrentListingInventory = new GetCurrentListingInventory(
+      listingInventoryQuery,
+    );
+    const listHistoricalListingInventory =
+      new ListHistoricalListingInventory(listingInventoryQuery);
     const manualListingRepository = new PostgresManualListingRepository(database);
     const createManualListing = new CreateManualListing({
       repository: manualListingRepository,
@@ -148,6 +182,8 @@ async function startApi(): Promise<void> {
       getCurrentShowingListArtifact,
       getCurrentShowingListDraft,
       getListingSearchCriteria,
+      getLatestListingRefreshStatus,
+      getCurrentListingInventory,
       httpSecurity: {
         deploymentMode: config.deploymentMode,
         publicOrigin: config.publicOrigin,
@@ -164,11 +200,13 @@ async function startApi(): Promise<void> {
         },
       },
       markCurrentShowingListDraftReviewed,
+      listHistoricalListingInventory,
       priceEstimation,
       ...(config.releaseIdentity === null
         ? {}
         : { releaseIdentity: config.releaseIdentity }),
       saveCurrentShowingListDraft,
+      retryLatestListingRefresh,
       updateListingSearchCriteria,
       updateManualListing,
     });

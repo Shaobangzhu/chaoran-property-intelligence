@@ -454,7 +454,8 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Setting | Value |
 | --- | --- |
 | Schedule name | `cpi-daily-property-alert` |
-| Planned expression | Every day at 8:00 AM |
+| Last verified deployed expression | Every day at 8:00 AM |
+| Current source expression | Every Monday at 8:00 AM |
 | Time zone | `America/Los_Angeles` |
 | Current state | `DISABLED` |
 | Fargate CPU | 256 CPU units |
@@ -463,11 +464,76 @@ EventBridge Scheduler targets an ECS Fargate one-off task:
 | Operating system | Linux |
 | Platform version | Latest |
 | Hard process limit | 15 minutes |
-| RentCast requests per run | 1-6 sequential requests, one per selected market |
+| RentCast requests per run | 1-7 sequential requests, one per selected market |
 | RentCast request timeout | 30 seconds, no automatic retry |
-| Scheduler retry attempts | 2 |
+| Last verified deployed Scheduler retries | 2 |
+| Current source Scheduler retries | 0 |
 | Maximum scheduler event age | 1 hour |
 | Dead-letter retention | 14 days, SQS-managed encryption |
+
+### Implemented-In-Source Criteria-Triggered Refresh And Listing Lifecycle
+
+ADR 0019 replaces the deferred-only criteria application and planned daily
+cadence in source with two complementary triggers:
+
+- a changed Search Criteria save records one durable asynchronous refresh run
+- recurring reconciliation is every Monday at 08:00 Pacific
+
+The recurring schedule remains `DISABLED` in source defaults, DEV, deployment
+workflows, and rollout plans. The expression change does not authorize an
+enabled-state change, provider request, Fargate task start, migration, or
+deployment. Preserve the existing `cpi-daily-property-alert` physical name for
+the first expression update to avoid an unrelated Scheduler replacement; a
+semantic rename is a separately reviewed change.
+
+The API persists configuration and bounded run state. In AWS it does not receive
+RentCast or Telegram credentials. A stage-isolated asynchronous dispatch path
+sends an SQS message containing only `runId`, `schemaVersion`, and `stage`. An
+EventBridge Pipe filters the stage and starts the existing Fargate task with only
+`LISTING_REFRESH_RUN_ID` overridden. In local development, where no AWS dispatch
+configuration exists, the API starts the built alert-worker entry point as a
+detached process with the run ID and inherited `.env.local` configuration. That
+local path therefore performs real RentCast requests and eligible Telegram
+delivery; automated tests replace process launch and provider ports with fakes.
+The worker transactionally claims the database run, coalesces superseded
+unstarted criteria revisions, and publishes membership only after every selected
+market succeeds. A failed run preserves the prior applied inventory and does not
+increment absence counters.
+
+The Search Criteria client polls a queued or running run while it can make
+progress. If dispatch fails immediately, or a queued run remains unclaimed for
+five minutes, the client stops polling and presents `Dispatch unavailable / not
+started` with an explicit Retry action. Retry dispatches the same durable run;
+it does not create a duplicate criteria revision or provider-request plan.
+
+The worker loads database connectivity first, claims the durable run, and only
+then loads the RentCast and Telegram configuration needed for provider work.
+Missing provider configuration is recorded as
+`worker-configuration-unavailable` before the process exits non-zero. This
+keeps a launched task from leaving an indefinitely queued run, while preserving
+the last successfully applied listing inventory. It does not make blank Secret
+values valid: every AWS stage must populate its application Secret before a
+criteria-triggered refresh can succeed.
+
+Each stage owns a distinct SQS queue, dead-letter queue, Pipe, and Pipe role.
+The App Runner role can call only `sqs:SendMessage` on its exact stage queue;
+the Pipe role can consume only that queue, run only the existing worker task
+definition on its cluster, and pass only that task's roles. App Runner reaches
+SQS through a private interface endpoint. The database ledger, not SQS, remains
+the refresh source of truth. Queue redelivery is safe because run claiming is
+atomic and an already claimed or terminal run cannot publish twice.
+
+`listings` remains the latest canonical provider/manual record. The
+search-run and search-membership tables distinguish current inventory from
+historical, missing, inactive, and out-of-scope records. Monthly cleanup applies
+bounded retention without automatically deleting manual listings or records
+still referenced by alert, observation, membership, or Showing List state.
+
+The complete-provider Scheduler target has no automatic replay in source;
+failure is recorded for an explicit retry so a late-market failure cannot
+silently multiply a seven-request plan. Before either recurring job is enabled,
+the Weekly Showing List schedule must be offset at least 30 minutes after the
+listing refresh or use another reviewed dependency.
 
 The container command is:
 
@@ -544,10 +610,10 @@ provider, or notification adapters. It projects property type, maximum price,
 minimum bedrooms, and minimum bathrooms into one explicit RentCast area for
 each selected market, with `price=*:<maximumPrice>`, `limit=500`, and
 `includeTotalCount=true`; minimum-price decisions remain Domain filters. Chino,
-Chino Hills, Eastvale, Corona, and Jurupa Valley each use a direct city request;
-Stevenson Ranch uses ZIP `91381`. The canonical sequential request count is
-therefore 1-6, exactly matching the number of selected markets. Missing or
-malformed profiles fail closed.
+Chino Hills, Eastvale, Corona, Jurupa Valley, and Irvine each use a direct city
+request; Stevenson Ranch uses ZIP `91381`. The canonical sequential request
+count is therefore 1-7, exactly matching the number of selected markets.
+Missing or malformed profiles fail closed.
 
 An unapplied profile revision now performs the complete selected-market request
 set and an atomic silent baseline: PostgreSQL locks the profile and candidate
@@ -568,11 +634,12 @@ body. Block 26.5 retires that executable path while retaining these figures as
 historical evidence.
 
 The supported successor audits are an exactly confirmed five-request direct
-city command and an independently confirmed one-request ZIP `91381` command.
-Safe preview commands do not load `.env.local`. There is no ordinary combined
-six-request audit; auditing all six markets requires two separate approvals.
-Audit output records actual request cost and a 50-request monthly planning
-reference, while requiring operators to verify the account's current plan and
+city command, an independently confirmed one-request ZIP `91381` command, and
+an independently confirmed one-request Irvine command. Safe preview commands
+do not load `.env.local`. There is no ordinary combined seven-request audit;
+auditing all seven markets requires the separately guarded commands. Audit
+output records actual request cost and a 50-request monthly planning reference,
+while requiring operators to verify the account's current plan and
 usage. At that planning level, five-market production costs 5 requests per run
 and all-six production costs 6, allowing at most 10 or 8 runs respectively
 before audits, retries, and other usage. The recurring Scheduler must remain
@@ -713,12 +780,13 @@ configuration required before publishing the workflow is:
 | `API_ORIGIN_VERIFICATION_SECRET` | API-auth Secret | Yes | CloudFront-to-App Runner origin guard |
 | `CPI_DEPLOYMENT_STAGE` | App Runner environment; Web release manifest | No | Release evidence stage (`dev` or `production`) |
 | `CPI_RELEASE_SHA` | CDK context; App Runner environment; Web release manifest | No | Immutable deployed commit identity |
+| `LISTING_REFRESH_QUEUE_URL` | Generated App Runner environment | No | Exact stage-scoped asynchronous refresh queue |
 | `PORT` | App Runner environment | No | Production Express listener |
 | `DATABASE_CREDENTIALS_SECRET_JSON` | App Runner secret environment | Yes | Existing Aurora username/password JSON secret |
 | `CPI_*_PRICE_ESTIMATION_RUNTIME_ENABLED` | Stage GitHub environment variable | No | Enables App Runner provider egress and RentCast injection |
 | `CPI_*_PRICE_ESTIMATION_OPENAI_ENABLED` | Stage GitHub environment variable | No | Enables optional App Runner OpenAI injection |
 | `CPI_*_PRICE_ESTIMATION_BUDGET_APPROVED` | Stage GitHub environment variable | No | Explicit NAT and provider billing gate |
-| `AWS_ACCOUNT_ID` | Generated task environment | No | S3 expected-owner guard |
+| `AWS_ACCOUNT_ID` | Generated runtime environment | No | S3 expected-owner and stage-queue guards |
 | `SHOWING_LIST_ARTIFACT_BUCKET` | Generated task environment | No | Weekly task and future API |
 | `SHOWING_LIST_TIME_ZONE` | Generated from CDK context | No | Weekly identity |
 | `SHOWING_LIST_DOWNLOAD_URL_TTL_SECONDS` | Task environment; 60-900 | No | S3 presigner |
@@ -794,6 +862,8 @@ The following are release gates, not suggestions:
 - [ADR 0003: API, Web, and Map Foundation](adr/0003-api-web-map-foundation.md)
 - [ADR 0004: Single-User Authentication](adr/0004-single-user-authentication.md)
 - [ADR 0006: Latest-Only Showing List Publication](adr/0006-latest-only-showing-list-publication.md)
+- [ADR 0019: Criteria-Triggered Listing Refresh And Lifecycle](adr/0019-criteria-triggered-listing-refresh-and-lifecycle.md)
+- [Listing refresh lifecycle acceptance](runbooks/listing-refresh-lifecycle-acceptance.md)
 - [AWS: secure static website with CloudFront and S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/getting-started-secure-static-website-cloudformation-template.html)
 - [AWS: CloudFront cache behavior settings](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html)
 - [AWS: App Runner VPC access](https://docs.aws.amazon.com/apprunner/latest/dg/network-vpc.html)

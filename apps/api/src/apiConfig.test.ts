@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import { loadApiConfig } from "./apiConfig.js";
 
 const productionReleaseEnvironment = {
+  AWS_ACCOUNT_ID: "111111111111",
   CPI_DEPLOYMENT_STAGE: "dev",
   CPI_RELEASE_SHA: "a".repeat(40),
+  LISTING_REFRESH_QUEUE_URL:
+    "https://sqs.us-west-2.amazonaws.com/111111111111/cpi-dev-listing-refresh",
 };
 
 describe("loadApiConfig", () => {
@@ -20,6 +23,7 @@ describe("loadApiConfig", () => {
       },
       deploymentMode: "local",
       host: "127.0.0.1",
+      listingRefreshDispatch: null,
       port: 3000,
       priceEstimation: null,
       publicOrigin: "http://127.0.0.1:5173",
@@ -150,6 +154,12 @@ describe("loadApiConfig", () => {
       },
       deploymentMode: "production",
       host: "0.0.0.0",
+      listingRefreshDispatch: {
+        queueUrl:
+          "https://sqs.us-west-2.amazonaws.com/111111111111/cpi-dev-listing-refresh",
+        region: "us-west-2",
+        stage: "dev",
+      },
       port: 8080,
       priceEstimation: null,
       publicOrigin: "https://app.example.com",
@@ -184,6 +194,35 @@ describe("loadApiConfig", () => {
     ).toMatchObject({ openAIApiKey: null });
   });
 
+  it("requires one exact stage-scoped listing refresh queue in production", () => {
+    const base = {
+      API_DEPLOYMENT_MODE: "production",
+      API_ORIGIN_VERIFICATION_SECRET: "o".repeat(32),
+      API_PUBLIC_ORIGIN: "https://app.example.com",
+      DATABASE_URL: "postgresql://private-host/cpi",
+      PORT: "3000",
+      ...productionReleaseEnvironment,
+    };
+
+    expect(() =>
+      loadApiConfig({ ...base, LISTING_REFRESH_QUEUE_URL: undefined }),
+    ).toThrow("Missing required environment variable: LISTING_REFRESH_QUEUE_URL");
+    expect(() =>
+      loadApiConfig({
+        ...base,
+        LISTING_REFRESH_QUEUE_URL:
+          "https://sqs.us-west-2.amazonaws.com/111111111111/cpi-listing-refresh",
+      }),
+    ).toThrow("Invalid listing refresh dispatch configuration");
+    expect(() =>
+      loadApiConfig({
+        ...base,
+        LISTING_REFRESH_QUEUE_URL:
+          "https://sqs.us-west-2.amazonaws.com/222222222222/cpi-dev-listing-refresh",
+      }),
+    ).toThrow("Invalid listing refresh dispatch configuration");
+  });
+
   it("rejects unusable Price Estimation provider configuration", () => {
     expect(() =>
       loadApiConfig({
@@ -214,7 +253,6 @@ describe("loadApiConfig", () => {
 
   it.each([
     { SHOWING_LIST_ARTIFACT_BUCKET: "cpi-private-artifacts" },
-    { AWS_ACCOUNT_ID: "191227990660" },
     {
       AWS_ACCOUNT_ID: "1912-2799-0660",
       SHOWING_LIST_ARTIFACT_BUCKET: "cpi-private-artifacts",

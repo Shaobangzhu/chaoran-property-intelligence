@@ -103,6 +103,34 @@ describe("DEV deployment workflow", () => {
     expect(workflow).not.toContain("ChaoranPropertyIntelligenceProduction");
   });
 
+  it("synchronizes protected provider values without replacing showing-list configuration", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain(
+      "Synchronize DEV application provider secrets",
+    );
+    expect(workflow).toContain(
+      "CPI_DEV_OPENAI_API_KEY: ${{ secrets.CPI_DEV_OPENAI_API_KEY }}",
+    );
+    expect(workflow).toContain(
+      "CPI_DEV_RENTCAST_API_KEY: ${{ secrets.CPI_DEV_RENTCAST_API_KEY }}",
+    );
+    expect(workflow).toContain(
+      "CPI_DEV_TELEGRAM_BOT_TOKEN: ${{ secrets.CPI_DEV_TELEGRAM_BOT_TOKEN }}",
+    );
+    expect(workflow).toContain(
+      "CPI_DEV_TELEGRAM_CHAT_ID: ${{ secrets.CPI_DEV_TELEGRAM_CHAT_ID }}",
+    );
+    expect(workflow).toContain("aws secretsmanager get-secret-value");
+    expect(workflow).toContain("aws secretsmanager put-secret-value");
+    expect(workflow).toContain("--cli-input-json");
+    expect(workflow).toContain('secret_directory="$(mktemp -d)"');
+    expect(workflow).toContain('trap \'rm -rf "$secret_directory"\' EXIT');
+    expect(workflow).toContain("umask 077");
+    expect(workflow).toContain("jq -e --slurp '.[0] == .[1]'");
+    expect(workflow).not.toContain(".SHOWING_LIST_GENERATION_CONFIG =");
+  });
+
   it("keeps Price Estimation egress behind stage-scoped runtime and budget approval", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 

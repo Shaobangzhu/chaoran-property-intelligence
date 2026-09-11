@@ -114,3 +114,44 @@ and before any separately authorized deployment.
 - distinct DEV alert email and later DEV-only application credentials
 - public Web/API account-backed diff completed under its separate runbook
 - reviewed rollback and teardown plan
+
+## DEV Worker Configuration Recovery
+
+The DEV foundation creates `cpi/dev/application` with empty placeholder fields.
+A successful CloudFormation deployment therefore does not prove that the
+listing worker can call RentCast or Telegram. The protected GitHub
+`development` environment is the deployment source for
+`CPI_DEV_OPENAI_API_KEY`, `CPI_DEV_RENTCAST_API_KEY`,
+`CPI_DEV_TELEGRAM_BOT_TOKEN`, and `CPI_DEV_TELEGRAM_CHAT_ID`. After the second
+deployment approval, `deploy-dev.yml` merges those four values into
+`cpi/dev/application` before CDK deployment. The merge preserves the existing
+`SHOWING_LIST_GENERATION_CONFIG` value, skips a new Secret version when nothing
+changed, uses owner-only temporary files, suppresses the AWS response, and
+removes the files before the step ends.
+
+The `cpi-github-deploy-dev` role needs `GetSecretValue` and `PutSecretValue`
+only for `cpi/dev/application`. Because that role is owned by
+`ChaoranPropertyIntelligenceGuardrails`, deploy the reviewed Guardrails change
+once through the manually triggered `Deploy account guardrails` workflow before
+relying on the automated sync. Run `plan` from `main` with confirmation
+`plan-account-guardrails`, review the classified diff and retain its approval
+digest, then run `deploy` against the same commit with confirmation
+`deploy-account-guardrails` and that digest. The workflow reuses the protected
+`production` environment because its OIDC role owns the existing Guardrails
+deployment boundary, but it targets only the Guardrails stack. The DEV workflow
+intentionally does not deploy that stack and cannot grant permissions to its
+own role.
+
+If an EventBridge Pipe-launched task exits before a refresh starts, inspect its
+bounded CloudWatch stream under `/cpi/dev/alert-worker`. A missing provider
+variable means the stage Secret was not populated; do not retry repeatedly,
+because queue redelivery cannot repair configuration. Synchronize the DEV
+Secret, then use the existing UI Retry action. The retry is safe and does not
+create another criteria revision.
+
+Current worker code claims a durable run before loading provider credentials.
+Consequently, a missing RentCast or Telegram value is persisted as
+`worker-configuration-unavailable`, and the UI reports a terminal refresh
+failure instead of leaving an indefinitely queued run. This recovery does not
+enable either AWS schedule; both schedules remain disabled until separately
+authorized.

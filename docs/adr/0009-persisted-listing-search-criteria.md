@@ -6,6 +6,11 @@ Accepted for Block 21 implementation. This ADR records architecture only. It
 does not authorize a database migration, provider request, deployment, or AWS
 operation.
 
+ADR 0019 proposes the next lifecycle: a changed save creates an asynchronous
+refresh run, while weekly reconciliation replaces the planned daily cadence.
+Until that proposal is implemented, this ADR continues to describe the active
+save/next-worker-run behavior.
+
 ## Context
 
 The listing-alert boundary currently hard-codes California, active status, one
@@ -91,6 +96,10 @@ Existing durable pending events are not deleted or rewritten. Existing stored
 listing snapshots and manual listings are not removed. Once the revision is
 baselined, later runs resume ordinary new-listing and price-drop detection.
 
+ADR 0019 retains the quiet revision baseline but proposes requesting it
+asynchronously after a changed save. The criteria HTTP request still must not
+wait for provider acquisition or make a browser-to-RentCast call.
+
 The profile revision is marked applied only in the same database transaction
 that commits its baseline. A provider, validation, cap, or database failure
 leaves the revision unapplied and creates no partial alert state.
@@ -131,3 +140,8 @@ the existing listing snapshot view.
 - Supporting multiple profiles, client-specific alerts, multi-select property
   types, arbitrary California cities, or immediate preview requests requires a
   separately planned version.
+
+## References
+
+- [ADR 0019: Criteria-Triggered Listing Refresh And Lifecycle](0019-criteria-triggered-listing-refresh-and-lifecycle.md)
+- [Listing refresh lifecycle acceptance](../runbooks/listing-refresh-lifecycle-acceptance.md)

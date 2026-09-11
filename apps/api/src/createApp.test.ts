@@ -9,6 +9,7 @@ import {
   type ArchiveManualListingInput,
   type CreateManualListingInput,
   type CurrentShowingListDraft,
+  type CurrentListingInventory,
   InvalidCredentialsError,
   InvalidListingSearchCriteriaInputError,
   InvalidListingSearchCriteriaResultError,
@@ -21,6 +22,9 @@ import {
   PriceDecisionSubjectNotFoundError,
   type AuthenticatedUser,
   type ListingRecord,
+  type ListingHistoryPage,
+  type ListingHistoryQuery,
+  type ListingRefreshRun,
   type ListingSearchCriteriaResult,
   type LoginInput,
   type LoginResult,
@@ -30,6 +34,9 @@ import {
   type SaveCurrentShowingListDraftInput,
   type UpdateManualListingInput,
   type UpdateListingSearchCriteriaInput,
+  type RetryLatestListingRefreshInput,
+  type RetryLatestListingRefreshResult,
+  type UpdateListingSearchCriteriaAndQueueRefreshResult,
 } from "@chaoran-property-intelligence/application";
 import { describe, expect, it, vi } from "vitest";
 
@@ -43,10 +50,14 @@ import {
   type GetCurrentShowingListArtifactUseCase,
   type GetCurrentShowingListDraftUseCase,
   type GetListingSearchCriteriaUseCase,
+  type GetLatestListingRefreshStatusUseCase,
+  type GetCurrentListingInventoryUseCase,
+  type ListHistoricalListingInventoryUseCase,
   type ListListingsUseCase,
   type LoginUseCase,
   type MarkCurrentShowingListDraftReviewedUseCase,
   type SaveCurrentShowingListDraftUseCase,
+  type RetryLatestListingRefreshUseCase,
   type UpdateManualListingUseCase,
   type UpdateListingSearchCriteriaUseCase,
 } from "./createApp.js";
@@ -1009,8 +1020,8 @@ describe("createApp", () => {
     const body = await response.json();
     expect(body).toEqual({
       searchCriteria: createListingSearchCriteriaResult(),
+      refresh: null,
     });
-    expect(JSON.stringify(body)).not.toContain("appliedRevision");
     expect(JSON.stringify(body)).not.toContain("updatedByUserId");
     expect(JSON.stringify(body)).not.toContain('"state"');
   });
@@ -1057,9 +1068,15 @@ describe("createApp", () => {
         criteria: updatedCriteria,
         revision: 2,
       }),
+      refresh: createListingRefreshRunDto({ requestedRevision: 2 }),
+      refreshDispatch: "dispatched",
     });
     expect(logger.infos).toContainEqual({
-      context: { requestId },
+      context: {
+        requestId,
+        refreshDispatch: "dispatched",
+        refreshStatus: "queued",
+      },
       event: "api.listing_search_criteria.updated",
     });
   });
@@ -1241,6 +1258,137 @@ describe("createApp", () => {
         { context: { requestId }, event: "api.request.failed" },
       ]);
       expect(JSON.stringify(logger.errors)).not.toContain("780000");
+    }
+  });
+
+  it("returns the latest bounded refresh status to an administrator", async () => {
+    const getLatestListingRefreshStatus =
+      new FakeGetLatestListingRefreshStatus(createListingRefreshRun());
+    const app = createTestApp({ getLatestListingRefreshStatus });
+
+    expect((await request(app, "/api/listing-refresh/latest")).status).toBe(401);
+    const response = await request(app, "/api/listing-refresh/latest", {
+      headers: sessionHeaders(),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      refresh: createListingRefreshRunDto(),
+    });
+    expect(getLatestListingRefreshStatus.calls).toBe(1);
+  });
+
+  it("requires an exact confirmed request count and rate limits refresh retry", async () => {
+    const retryLatestListingRefresh = new FakeRetryLatestListingRefresh();
+    const logger = new RecordingLogger();
+    const app = createTestApp({
+      listingRefreshRetryRateLimit: { limit: 1, windowMs: 60_000 },
+      logger,
+      retryLatestListingRefresh,
+    });
+    const requestOptions = {
+      body: JSON.stringify({
+        expectedRevision: 1,
+        confirmedPlannedProviderRequestCount: 2,
+      }),
+      headers: manualListingHeaders(),
+      method: "POST",
+    };
+
+    const response = await request(
+      app,
+      "/api/listing-refresh/retry",
+      requestOptions,
+    );
+    expect(response.status).toBe(202);
+    expect(retryLatestListingRefresh.inputs).toEqual([
+      { expectedRevision: 1, confirmedPlannedProviderRequestCount: 2 },
+    ]);
+    await expect(response.json()).resolves.toEqual({
+      refresh: createListingRefreshRunDto({ triggerReason: "manual-retry" }),
+      refreshDispatch: "dispatched",
+    });
+    expect(logger.infos).toContainEqual({
+      event: "api.listing_refresh.retry.requested",
+      context: {
+        requestId,
+        plannedProviderRequestCount: 2,
+        refreshDispatch: "dispatched",
+        refreshStatus: "queued",
+      },
+    });
+
+    const rateLimited = await request(
+      app,
+      "/api/listing-refresh/retry",
+      requestOptions,
+    );
+    expect(rateLimited.status).toBe(429);
+    expect(retryLatestListingRefresh.inputs).toHaveLength(1);
+  });
+
+  it("authenticates refresh retry before parsing its bounded body", async () => {
+    const retryLatestListingRefresh = new FakeRetryLatestListingRefresh();
+    const response = await request(
+      createTestApp({ retryLatestListingRefresh }),
+      "/api/listing-refresh/retry",
+      {
+        body: "{",
+        headers: jsonHeaders(localOrigin),
+        method: "POST",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(retryLatestListingRefresh.inputs).toEqual([]);
+  });
+
+  it("serves current inventory and bounded historical lifecycle queries", async () => {
+    const getCurrentListingInventory = new FakeGetCurrentListingInventory(null);
+    const listHistoricalListingInventory =
+      new FakeListHistoricalListingInventory();
+    const app = createTestApp({
+      getCurrentListingInventory,
+      listHistoricalListingInventory,
+    });
+
+    const current = await request(app, "/api/listings/current", {
+      headers: sessionHeaders(),
+    });
+    expect(current.status).toBe(200);
+    await expect(current.json()).resolves.toEqual({ current: null });
+
+    const history = await request(
+      app,
+      "/api/listings/history?lifecycleStates=missing%2Cinactive&limit=50&cursor=next",
+      { headers: sessionHeaders() },
+    );
+    expect(history.status).toBe(200);
+    await expect(history.json()).resolves.toEqual({
+      history: { listings: [], nextCursor: null },
+    });
+    expect(listHistoricalListingInventory.queries).toEqual([
+      {
+        lifecycleStates: ["missing", "inactive"],
+        cursor: "next",
+        limit: 50,
+      },
+    ]);
+  });
+
+  it("rejects unbounded or expanded listing history queries", async () => {
+    for (const query of ["limit=101", "unknown=value"]) {
+      const history = new FakeListHistoricalListingInventory();
+      const response = await request(
+        createTestApp({ listHistoricalListingInventory: history }),
+        `/api/listings/history?${query}`,
+        { headers: sessionHeaders() },
+      );
+      expect(response.status).toBe(400);
+      expect(history.queries).toEqual([]);
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: "INVALID_LISTING_HISTORY_QUERY" },
+      });
     }
   });
 
@@ -1974,11 +2122,83 @@ class FakeUpdateListingSearchCriteria
 
   async execute(
     input: UpdateListingSearchCriteriaInput,
-  ): Promise<ListingSearchCriteriaResult> {
+  ): Promise<UpdateListingSearchCriteriaAndQueueRefreshResult> {
     this.inputs.push(input);
     if (this.failure !== undefined) {
       throw this.failure;
     }
+    return {
+      searchCriteria: this.result,
+      refreshRun: createListingRefreshRun({
+        requestedRevision: this.result.revision,
+      }),
+      refreshDispatch: "dispatched",
+    };
+  }
+}
+
+class FakeGetLatestListingRefreshStatus
+  implements GetLatestListingRefreshStatusUseCase
+{
+  calls = 0;
+
+  constructor(private readonly result: ListingRefreshRun | null = null) {}
+
+  async execute(): Promise<ListingRefreshRun | null> {
+    this.calls += 1;
+    return this.result;
+  }
+}
+
+class FakeGetCurrentListingInventory
+  implements GetCurrentListingInventoryUseCase
+{
+  calls = 0;
+
+  constructor(private readonly result: CurrentListingInventory | null = null) {}
+
+  async execute(): Promise<CurrentListingInventory | null> {
+    this.calls += 1;
+    return this.result;
+  }
+}
+
+class FakeListHistoricalListingInventory
+  implements ListHistoricalListingInventoryUseCase
+{
+  readonly queries: ListingHistoryQuery[] = [];
+
+  constructor(
+    private readonly result: ListingHistoryPage = {
+      items: [],
+      nextCursor: null,
+    },
+  ) {}
+
+  async execute(query: ListingHistoryQuery): Promise<ListingHistoryPage> {
+    this.queries.push(query);
+    return this.result;
+  }
+}
+
+class FakeRetryLatestListingRefresh
+  implements RetryLatestListingRefreshUseCase
+{
+  readonly inputs: RetryLatestListingRefreshInput[] = [];
+
+  constructor(
+    private readonly result: RetryLatestListingRefreshResult = {
+      refreshRun: createListingRefreshRun({ triggerReason: "manual-retry" }),
+      refreshDispatch: "dispatched",
+    },
+    private readonly failure?: Error,
+  ) {}
+
+  async execute(
+    input: RetryLatestListingRefreshInput,
+  ): Promise<RetryLatestListingRefreshResult> {
+    this.inputs.push(input);
+    if (this.failure !== undefined) throw this.failure;
     return this.result;
   }
 }
@@ -2173,7 +2393,9 @@ function createTestApp(
     getCurrentUser: new FakeGetCurrentUser(),
     getCurrentShowingListArtifact: new FakeGetCurrentShowingListArtifact(),
     getCurrentShowingListDraft: new FakeGetCurrentShowingListDraft(),
+    getCurrentListingInventory: new FakeGetCurrentListingInventory(),
     getListingSearchCriteria: new FakeGetListingSearchCriteria(),
+    getLatestListingRefreshStatus: new FakeGetLatestListingRefreshStatus(),
     httpSecurity: localHttpSecurity,
     logger: new RecordingLogger(),
     now: () => now,
@@ -2181,6 +2403,9 @@ function createTestApp(
     requestIdFactory: () => requestId,
     markCurrentShowingListDraftReviewed:
       new FakeMarkCurrentShowingListDraftReviewed(),
+    listHistoricalListingInventory:
+      new FakeListHistoricalListingInventory(),
+    retryLatestListingRefresh: new FakeRetryLatestListingRefresh(),
     saveCurrentShowingListDraft: new FakeSaveCurrentShowingListDraft(),
     updateListingSearchCriteria: new FakeUpdateListingSearchCriteria(),
     updateManualListing: new FakeUpdateManualListing(),
@@ -2422,9 +2647,42 @@ function createListingSearchCriteriaResult(
       cities: ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
     },
     revision: 1,
+    appliedRevision: 1,
     updatedAt: "2026-08-20T20:00:00.000Z",
     ...overrides,
   };
+}
+
+function createListingRefreshRun(
+  overrides: Partial<ListingRefreshRun> = {},
+): ListingRefreshRun {
+  return {
+    runId: "0198c7d2-7668-7775-b0fc-b789690a60d1",
+    profileKey: "primary",
+    requestedRevision: 1,
+    effectiveRevision: null,
+    triggerReason: "criteria-change",
+    status: "queued",
+    requestedAt: "2026-08-20T20:00:00.000Z",
+    startedAt: null,
+    completedAt: null,
+    selectedMarkets: ["Chino", "Corona"],
+    selectedMarketCount: 2,
+    plannedProviderRequestCount: 2,
+    actualProviderRequestCount: 0,
+    returnedListingCount: 0,
+    publishedCurrentCount: 0,
+    failureCode: null,
+    supersededByRunId: null,
+    ...overrides,
+  };
+}
+
+function createListingRefreshRunDto(
+  overrides: Partial<ListingRefreshRun> = {},
+) {
+  const { profileKey: _profileKey, ...dto } = createListingRefreshRun(overrides);
+  return dto;
 }
 
 function createListingSearchCriteriaUpdateBody(): Record<string, unknown> {
