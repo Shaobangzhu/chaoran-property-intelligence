@@ -58,6 +58,19 @@ describe("createDeploymentApproval", () => {
     expect(changedDiff.approvalDigest).not.toBe(baseline.approvalDigest);
   });
 
+  it("supports an isolated account Guardrails approval identity", () => {
+    const approval = createDeploymentApproval({
+      commit: "e".repeat(40),
+      rawDiff: "Stack ChaoranPropertyIntelligenceGuardrails\n",
+      stage: "account-guardrails",
+    });
+
+    expect(approval.stage).toBe("account-guardrails");
+    expect(renderDeploymentApproval(approval)).toContain(
+      "# Account Guardrails Deployment Approval",
+    );
+  });
+
   it("rejects non-production and malformed commit input", () => {
     expect(() =>
       createDeploymentApproval({
@@ -65,7 +78,7 @@ describe("createDeploymentApproval", () => {
         rawDiff: "none",
         stage: "dev",
       }),
-    ).toThrow("stage must be production");
+    ).toThrow("stage must be production or account-guardrails");
     expect(() =>
       createDeploymentApproval({
         commit: "main",
