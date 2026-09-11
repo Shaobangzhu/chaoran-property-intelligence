@@ -21,7 +21,7 @@ import {
 } from "./listingSearchCriteriaUseCases.js";
 
 describe("listing search criteria use cases", () => {
-  it("gets a bounded editable view without persistence metadata", async () => {
+  it("gets a bounded editable view with saved and applied revisions", async () => {
     const repository = new FakeListingSearchProfileRepository({
       profile: createProfile(),
     });
@@ -31,9 +31,9 @@ describe("listing search criteria use cases", () => {
     expect(result).toEqual({
       criteria: editableDefaultCriteria(),
       revision: 1,
+      appliedRevision: 1,
       updatedAt: initialUpdatedAt,
     });
-    expect(result).not.toHaveProperty("appliedRevision");
     expect(result).not.toHaveProperty("updatedByUserId");
     expect(result.criteria).not.toHaveProperty("state");
     expect(result.criteria).not.toHaveProperty("status");
@@ -102,6 +102,7 @@ describe("listing search criteria use cases", () => {
         cities: ["Chino", "Corona"],
       },
       revision: 2,
+      appliedRevision: 1,
       updatedAt,
     });
     expect(repository.currentProfile).toMatchObject({
@@ -143,7 +144,12 @@ describe("listing search criteria use cases", () => {
       createUpdateInput({ criteria }),
     );
 
-    expect(result).toEqual({ criteria, revision: 2, updatedAt });
+    expect(result).toEqual({
+      criteria,
+      revision: 2,
+      appliedRevision: 1,
+      updatedAt,
+    });
     expect(repository.calls).toHaveLength(1);
     expect(repository.currentProfile).toMatchObject({
       appliedRevision: 1,
@@ -169,7 +175,12 @@ describe("listing search criteria use cases", () => {
       createUpdateInput({ criteria }),
     );
 
-    expect(result).toEqual({ criteria, revision: 2, updatedAt });
+    expect(result).toEqual({
+      criteria,
+      revision: 2,
+      appliedRevision: 1,
+      updatedAt,
+    });
     expect(repository.calls).toHaveLength(1);
     expect(repository.currentProfile).toMatchObject({
       appliedRevision: 1,
@@ -200,6 +211,7 @@ describe("listing search criteria use cases", () => {
     expect(result).toEqual({
       criteria: editableDefaultCriteria(),
       revision: 1,
+      appliedRevision: 1,
       updatedAt: initialUpdatedAt,
     });
     expect(repository.currentProfile).toEqual(createProfile());

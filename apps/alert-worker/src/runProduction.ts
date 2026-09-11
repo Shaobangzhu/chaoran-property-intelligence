@@ -1,21 +1,16 @@
 import {
-  CheckListingAlerts,
-  ListingSearchProfileUnavailableError,
-  normalizeListingSearchProfile,
+  ReconcileListingRefresh,
   type ListingAlertNotificationPort,
   type ListingAlertStateRepositoryPort,
+  type ListingRefreshRunRepositoryPort,
   type ListingSearchProfileQueryPort,
-  type ListingSearchRevisionBaselineRepositoryPort,
   type ListingSourcePort,
 } from "@chaoran-property-intelligence/application";
-import {
-  matchesListingAcquisitionCriteria,
-  matchesNewListingCriteria,
-  type ListingSearchCriteriaV1,
-} from "@chaoran-property-intelligence/domain";
+import type { ListingSearchCriteriaV1 } from "@chaoran-property-intelligence/domain";
 import {
   createPostgresDatabase,
   PostgresListingAlertRepository,
+  PostgresListingRefreshRunRepository,
   PostgresListingSearchProfileRepository,
   runBundledMigrations,
   type PostgresConnectionConfig,
@@ -27,8 +22,12 @@ import {
   type RentCastSaleListingsSearchCriteria,
 } from "@chaoran-property-intelligence/rentcast";
 import { TelegramBotClient } from "@chaoran-property-intelligence/telegram";
+import { randomUUID } from "node:crypto";
 
-import { loadProductionConfig } from "./productionConfig.js";
+import {
+  loadProductionConfig,
+  readOptionalVariable,
+} from "./productionConfig.js";
 import { RentCastListingSource } from "./rentCastListingSource.js";
 import { selectRentCastSaleListingsSearchAreas } from "./rentCastSearchAreas.js";
 
@@ -36,6 +35,7 @@ export interface ProductionRuntime {
   environment: Readonly<Record<string, string | undefined>>;
   fetch: typeof fetch;
   now: () => Date;
+  createId?: () => string;
 }
 
 export interface ProductionSourceOptions {
@@ -44,6 +44,8 @@ export interface ProductionSourceOptions {
   now: () => Date;
   searchAreas: readonly RentCastSaleListingsSearchArea[];
   searchCriteria: RentCastSaleListingsSearchCriteria;
+  onProviderRequest: () => void;
+  onProviderResponse: (returnedListingCount: number) => void;
 }
 
 export interface ProductionNotificationOptions {
@@ -53,9 +55,7 @@ export interface ProductionNotificationOptions {
 }
 
 export interface ProductionListingAlertRepository
-  extends
-    ListingAlertStateRepositoryPort,
-    ListingSearchRevisionBaselineRepositoryPort {
+  extends ListingAlertStateRepositoryPort {
   initializeLegacyListingAlertState(): Promise<void>;
 }
 
@@ -63,6 +63,9 @@ export interface ProductionDependencies {
   createDatabase(connection: PostgresConnectionConfig): SqlDatabase;
   runMigrations(database: SqlDatabase): Promise<void>;
   createRepository(database: SqlDatabase): ProductionListingAlertRepository;
+  createRefreshRunRepository(
+    database: SqlDatabase,
+  ): ListingRefreshRunRepositoryPort;
   createSearchProfileQuery(
     database: SqlDatabase,
   ): ListingSearchProfileQueryPort;
@@ -78,6 +81,9 @@ const defaultDependencies: ProductionDependencies = {
   createRepository(database) {
     return new PostgresListingAlertRepository(database);
   },
+  createRefreshRunRepository(database) {
+    return new PostgresListingRefreshRunRepository(database);
+  },
   createSearchProfileQuery(database) {
     return new PostgresListingSearchProfileRepository(database);
   },
@@ -90,6 +96,8 @@ const defaultDependencies: ProductionDependencies = {
       searchAreas: options.searchAreas,
       searchCriteria: options.searchCriteria,
       now: options.now,
+      onProviderRequest: options.onProviderRequest,
+      onProviderResponse: options.onProviderResponse,
     });
   },
   createNotifications(options) {
@@ -110,47 +118,40 @@ export async function runProduction(
 
   try {
     await dependencies.runMigrations(database);
-    const profileQuery = dependencies.createSearchProfileQuery(database);
-    const rawProfile = await profileQuery.findPrimaryProfile();
-    if (rawProfile === null) {
-      throw new ListingSearchProfileUnavailableError();
-    }
-    const profile = normalizeListingSearchProfile(rawProfile);
-    const searchAreas = selectRentCastSaleListingsSearchAreas(
-      profile.criteria.cities,
-    );
     const repository = dependencies.createRepository(database);
     await repository.initializeLegacyListingAlertState();
-
-    const checkListingAlerts = new CheckListingAlerts({
-      source: dependencies.createSource({
-        apiKey: config.rentCastApiKey,
-        fetch: runtime.fetch,
-        now: runtime.now,
-        searchAreas,
-        searchCriteria: projectRentCastSearchCriteria(profile.criteria),
-      }),
-      repository,
+    const reconcile = new ReconcileListingRefresh({
+      alertRepository: repository,
+      createId: runtime.createId ?? randomUUID,
+      now: runtime.now,
       notifications: dependencies.createNotifications({
         botToken: config.telegramBotToken,
         chatId: config.telegramChatId,
         fetch: runtime.fetch,
       }),
-      criteria: {
-        matchesAcquisitionCriteria: (listing) =>
-          matchesListingAcquisitionCriteria(listing, profile.criteria),
-        matchesNewListingCriteria: (listing) =>
-          matchesNewListingCriteria(listing, profile.criteria),
-      },
-      now: runtime.now,
-      revisionBaseline: {
-        revision: profile.revision,
-        appliedRevision: profile.appliedRevision,
-        repository,
+      profileQuery: dependencies.createSearchProfileQuery(database),
+      runRepository: dependencies.createRefreshRunRepository(database),
+      sourceFactory: {
+        create(input) {
+          return dependencies.createSource({
+            apiKey: config.rentCastApiKey,
+            fetch: runtime.fetch,
+            now: runtime.now,
+            searchAreas: selectRentCastSaleListingsSearchAreas(
+              input.criteria.cities,
+            ),
+            searchCriteria: projectRentCastSearchCriteria(input.criteria),
+            onProviderRequest: input.onProviderRequest,
+            onProviderResponse: input.onProviderResponse,
+          });
+        },
       },
     });
-
-    await checkListingAlerts.execute();
+    await reconcile.execute({
+      signaledRunId:
+        readOptionalVariable(runtime.environment, "LISTING_REFRESH_RUN_ID") ??
+        null,
+    });
   } finally {
     await database.close();
   }

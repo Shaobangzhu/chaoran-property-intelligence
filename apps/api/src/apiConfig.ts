@@ -24,6 +24,7 @@ export interface ApiHttpSecurityConfig {
 export interface ApiConfig extends ApiHttpSecurityConfig {
   databaseConnection: PostgresConnectionConfig;
   host: "127.0.0.1" | "0.0.0.0";
+  listingRefreshDispatch: ListingRefreshDispatchConfig | null;
   port: number;
   priceEstimation: PriceEstimationConfig | null;
   releaseIdentity: ReleaseIdentity | null;
@@ -31,6 +32,12 @@ export interface ApiConfig extends ApiHttpSecurityConfig {
     bucketName: string;
     expectedBucketOwner: string;
   } | null;
+}
+
+export interface ListingRefreshDispatchConfig {
+  queueUrl: string;
+  region: string;
+  stage: ApplicationDeploymentStage;
 }
 
 export interface PriceEstimationConfig {
@@ -44,11 +51,17 @@ export function loadApiConfig(
   environment: Readonly<Record<string, string | undefined>>,
 ): ApiConfig {
   const deploymentMode = readDeploymentMode(environment);
+  const releaseIdentity = readReleaseIdentity(environment, deploymentMode);
 
   return {
     databaseConnection: readDatabaseConnection(environment, deploymentMode),
     deploymentMode,
     host: deploymentMode === "production" ? "0.0.0.0" : "127.0.0.1",
+    listingRefreshDispatch: readListingRefreshDispatch(
+      environment,
+      deploymentMode,
+      releaseIdentity?.stage ?? null,
+    ),
     port:
       deploymentMode === "production"
         ? readPort(readRequiredVariable(environment, "PORT"), "PORT")
@@ -59,8 +72,61 @@ export function loadApiConfig(
       deploymentMode === "production"
         ? readOriginVerificationSecret(environment)
         : null,
-    releaseIdentity: readReleaseIdentity(environment, deploymentMode),
+    releaseIdentity,
     showingListArtifactStorage: readShowingListArtifactStorage(environment),
+  };
+}
+
+function readListingRefreshDispatch(
+  environment: Readonly<Record<string, string | undefined>>,
+  deploymentMode: ApiDeploymentMode,
+  stage: ApplicationDeploymentStage | null,
+): ListingRefreshDispatchConfig | null {
+  const queueUrl = environment.LISTING_REFRESH_QUEUE_URL;
+  if (deploymentMode === "local" && queueUrl === undefined) {
+    return null;
+  }
+  if (queueUrl === undefined || stage === null) {
+    throw new Error(
+      "Missing required environment variable: LISTING_REFRESH_QUEUE_URL",
+    );
+  }
+
+  const expectedAccount = readRequiredVariable(environment, "AWS_ACCOUNT_ID");
+  let parsed: URL;
+  try {
+    parsed = new URL(queueUrl);
+  } catch {
+    throw new Error(
+      "Invalid listing refresh dispatch configuration: LISTING_REFRESH_QUEUE_URL",
+    );
+  }
+  const hostnameMatch = /^sqs\.([a-z0-9-]+)\.amazonaws\.com$/u.exec(
+    parsed.hostname,
+  );
+  const expectedQueueName =
+    stage === "production"
+      ? "cpi-listing-refresh"
+      : `cpi-${stage}-listing-refresh`;
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username.length > 0 ||
+    parsed.password.length > 0 ||
+    parsed.port.length > 0 ||
+    parsed.search.length > 0 ||
+    parsed.hash.length > 0 ||
+    hostnameMatch === null ||
+    parsed.pathname !== `/${expectedAccount}/${expectedQueueName}`
+  ) {
+    throw new Error(
+      "Invalid listing refresh dispatch configuration: LISTING_REFRESH_QUEUE_URL",
+    );
+  }
+
+  return {
+    queueUrl: parsed.toString(),
+    region: hostnameMatch[1]!,
+    stage,
   };
 }
 
@@ -177,10 +243,7 @@ function readShowingListArtifactStorage(
 ): ApiConfig["showingListArtifactStorage"] {
   const bucketName = environment.SHOWING_LIST_ARTIFACT_BUCKET;
   const expectedBucketOwner = environment.AWS_ACCOUNT_ID;
-  if (
-    (bucketName === undefined || bucketName.length === 0) &&
-    (expectedBucketOwner === undefined || expectedBucketOwner.length === 0)
-  ) {
+  if (bucketName === undefined || bucketName.length === 0) {
     return null;
   }
   if (

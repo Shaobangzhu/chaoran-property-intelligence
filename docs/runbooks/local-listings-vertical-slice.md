@@ -8,8 +8,11 @@ Verify the local read path and its authentication boundary:
 React -> Vite /api proxy -> Express -> PostgreSQL
 ```
 
-This procedure never calls RentCast, Telegram, or AWS. It uses only the local
-Docker database and loopback HTTP services.
+The read-only checks in this procedure never call RentCast, Telegram, or AWS.
+They use only the local Docker database and loopback HTTP services. Do not save
+Search Criteria or retry a listing refresh while following this read-only
+runbook: either action intentionally launches the real local alert worker using
+the RentCast and Telegram configuration inherited from `.env.local`.
 
 ## Safety Boundary
 
@@ -18,6 +21,7 @@ Docker database and loopback HTTP services.
 - Never print or commit `.env.local`.
 - Do not run this procedure against Aurora or any remote PostgreSQL host.
 - Do not use production listing data as a fixture.
+- Do not save Search Criteria or select Retry during this read-only check.
 - Keep temporary fixture keys prefixed with `block-15-5-` and remove only those
   exact rows after the content-state check.
 

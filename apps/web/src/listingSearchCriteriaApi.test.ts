@@ -47,7 +47,10 @@ describe("listing search criteria API", () => {
     await expect(
       fetchListingSearchCriteria({
         fetchImplementation: async () =>
-          jsonResponse({ searchCriteria: sixMarketSnapshot }),
+          jsonResponse({
+            searchCriteria: withoutRefresh(sixMarketSnapshot),
+            refresh: null,
+          }),
       }),
     ).resolves.toEqual(sixMarketSnapshot);
   });
@@ -72,7 +75,10 @@ describe("listing search criteria API", () => {
     await expect(
       fetchListingSearchCriteria({
         fetchImplementation: async () =>
-          jsonResponse({ searchCriteria: sevenMarketSnapshot }),
+          jsonResponse({
+            searchCriteria: withoutRefresh(sevenMarketSnapshot),
+            refresh: null,
+          }),
       }),
     ).resolves.toEqual(sevenMarketSnapshot);
   });
@@ -80,7 +86,7 @@ describe("listing search criteria API", () => {
   it("saves only revision and canonical editable criteria", async () => {
     const fetchImplementation = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        jsonResponse(responseBody({ revision: 3 })),
+        jsonResponse(responseBody({ revision: 3 }, true)),
     );
 
     await expect(
@@ -199,13 +205,30 @@ function snapshot(overrides: Record<string, unknown> = {}) {
       ] as const,
     },
     revision: 2,
+    appliedRevision: 2,
     updatedAt: "2026-08-22T20:00:00.000Z",
+    refresh: null,
     ...overrides,
   };
 }
 
-function responseBody(overrides: Record<string, unknown> = {}) {
-  return { searchCriteria: snapshot(overrides) };
+function responseBody(
+  overrides: Record<string, unknown> = {},
+  includeDispatch = false,
+) {
+  return {
+    searchCriteria: (() => {
+      const { refresh: _refresh, ...searchCriteria } = snapshot(overrides);
+      return searchCriteria;
+    })(),
+    refresh: null,
+    ...(includeDispatch ? { refreshDispatch: "dispatched" } : {}),
+  };
+}
+
+function withoutRefresh(value: ReturnType<typeof snapshot>) {
+  const { refresh: _refresh, ...searchCriteria } = value;
+  return searchCriteria;
 }
 
 function jsonResponse(body: unknown): Response {

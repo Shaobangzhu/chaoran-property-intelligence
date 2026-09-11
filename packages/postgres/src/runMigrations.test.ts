@@ -59,7 +59,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(7);
+    expect(database.transactionCount).toBe(8);
     expect(database.queries[2]?.text).toContain(
       "CREATE TABLE IF NOT EXISTS alert_worker_state",
     );
@@ -167,6 +167,33 @@ describe("runMigrations", () => {
     expect(database.queries[15]?.parameters).toEqual([
       "007_create_listing_search_profile",
     ]);
+    expect(database.queries[16]?.text).toContain(
+      "CREATE TABLE listing_search_runs",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "CREATE TABLE listing_search_memberships",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listing_search_runs_criteria_revision_unique",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listing_search_runs_one_running_profile_unique",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listing_search_memberships_current_idx",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listing_search_memberships_retention_idx",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listings_rentcast_retention_idx",
+    );
+    expect(database.queries[16]?.text).toContain(
+      "listing_alert_events_retention_idx",
+    );
+    expect(database.queries[17]?.parameters).toEqual([
+      "008_create_listing_search_runs_and_memberships",
+    ]);
   });
 
   it("applies the remaining bundled migrations when the initial schema exists", async () => {
@@ -177,7 +204,7 @@ describe("runMigrations", () => {
 
     await runBundledMigrations(database);
 
-    expect(database.transactionCount).toBe(6);
+    expect(database.transactionCount).toBe(7);
     expect(database.queries[2]?.text).toContain(
       "ADD COLUMN id uuid NOT NULL DEFAULT gen_random_uuid()",
     );
@@ -209,6 +236,12 @@ describe("runMigrations", () => {
     );
     expect(database.queries[13]?.parameters).toEqual([
       "007_create_listing_search_profile",
+    ]);
+    expect(database.queries[14]?.text).toContain(
+      "CREATE TABLE listing_search_runs",
+    );
+    expect(database.queries[15]?.parameters).toEqual([
+      "008_create_listing_search_runs_and_memberships",
     ]);
   });
 });

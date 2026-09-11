@@ -9,11 +9,20 @@ export {
 } from "./cityFilter.js";
 export {
   matchesListingAcquisitionCriteria,
+  matchesCurrentListingCriteria,
   matchesMvpSearchCriteria,
   matchesNewListingCriteria,
   matchesPriceAlertAcquisitionCriteria,
   type ListingCandidate,
 } from "./listingFilter.js";
+export {
+  InvalidListingMembershipLifecycleTransitionError,
+  assertListingMembershipLifecycleTransition,
+  isListingMembershipLifecycleState,
+  listingMembershipLifecycleStates,
+  type ListingMembershipLifecycleState,
+  type ListingMembershipLifecycleTransition,
+} from "./listingMembershipLifecycle.js";
 export {
   defaultListingSearchCriteria,
   InvalidListingSearchCriteriaError,

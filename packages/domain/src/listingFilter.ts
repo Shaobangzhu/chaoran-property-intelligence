@@ -26,6 +26,13 @@ export function matchesNewListingCriteria(
   );
 }
 
+export function matchesCurrentListingCriteria(
+  listing: ListingCandidate,
+  criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,
+): boolean {
+  return matchesNewListingCriteria(listing, criteria);
+}
+
 export function matchesListingAcquisitionCriteria(
   listing: ListingCandidate,
   criteria: ListingSearchCriteriaV1 = defaultListingSearchCriteria,

@@ -62,6 +62,11 @@ build, browser-evidence, security, diff, quota, and rollback gates. All 114 test
 files and 1,101 tests pass. No production schedule, deployment, profile,
 database, Telegram, AWS, or wildfire artifact changed.
 
+ADR 0019 proposes criteria-triggered refresh, current-inventory membership,
+bounded retention, and a disabled Monday 08:00 Pacific recurring expression.
+It does not change this ADR's one-request-per-market, canonical order,
+completeness, all-or-nothing, or provider-data-preservation decisions.
+
 ## Context
 
 The application supports Chino, Chino Hills, Eastvale, Corona, Jurupa Valley,
@@ -127,7 +132,9 @@ normalization, persistence, notification, API, and React display.
 Do not change the search-criteria schema, React controls, database, alert
 semantics, minimum-price Domain gate, listing record ownership, or AWS schedule.
 Saving criteria affects the next worker run and does not backfill stored
-inventory.
+inventory. ADR 0019 proposes queuing that next run after a changed save; the
+save request remains asynchronous and the first successful changed-revision
+run remains a quiet baseline.
 
 Do not change wildfire geometry or target kinds. The five cities retain exact
 `incorporated-jurisdiction` coverage and Stevenson Ranch retains
@@ -225,6 +232,7 @@ exception must be recorded and tested as a new decision.
 - [Block 26 Five-City Direct Market Coverage](../knowledge-base/block-26-five-city-direct-market-coverage.md)
 - [ADR 0012: Conditional RentCast Search Areas](0012-conditional-rentcast-search-areas.md)
 - [ADR 0013: Typed Wildfire Coverage Targets](0013-typed-wildfire-coverage-targets.md)
+- [ADR 0019: Criteria-Triggered Listing Refresh And Lifecycle](0019-criteria-triggered-listing-refresh-and-lifecycle.md)
 - [RentCast Sale Listings API](https://developers.rentcast.io/reference/sale-listings)
 - [RentCast Search Queries](https://developers.rentcast.io/reference/search-queries)
 - [RentCast Billing and Pricing](https://developers.rentcast.io/reference/billing-and-pricing)

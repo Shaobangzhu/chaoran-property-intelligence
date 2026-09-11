@@ -22,6 +22,48 @@ export interface ListingSummary {
   firstDiscoveredAt: string;
 }
 
+export type ListingLifecycleState =
+  | "current"
+  | "out_of_scope"
+  | "missing"
+  | "inactive"
+  | "sold";
+
+export interface ListingLifecycleSummary {
+  state: ListingLifecycleState;
+  appliedRevision: number;
+  firstMatchedAt: string;
+  lastMatchedAt: string;
+  lastServerObservedAt: string;
+  consecutiveCompleteRunAbsenceCount: number;
+  inactiveAt: string | null;
+  explicitProviderStatus: "sold" | null;
+  explicitProviderStatusObservedAt: string | null;
+}
+
+export interface InventoryListingSummary extends ListingSummary {
+  lifecycle: ListingLifecycleSummary;
+  acquisitionEligible: boolean;
+  currentDisplayEligible: boolean;
+}
+
+export interface CurrentListingInventorySnapshot {
+  appliedRevision: number;
+  refreshedAt: string;
+  listings: InventoryListingSummary[];
+}
+
+export interface ListingHistoryPageSnapshot {
+  listings: InventoryListingSummary[];
+  nextCursor: string | null;
+}
+
+export interface ListingHistoryRequest {
+  lifecycleStates: readonly Exclude<ListingLifecycleState, "current">[];
+  cursor: string | null;
+  limit: number;
+}
+
 export interface ManualListingDraft {
   addressLine1: string;
   addressLine2?: string;
@@ -131,6 +173,107 @@ export async function fetchListings(
   }
 
   return parseListListingsResponse(body);
+}
+
+export async function fetchCurrentListingInventory(
+  options: FetchListingsOptions = {},
+): Promise<CurrentListingInventorySnapshot | null> {
+  const response = await getJson("/api/listings/current", options);
+  const body = await readResponseJson(response);
+  if (!isExactRecord(body, ["current"])) throw invalidResponse();
+  if (body.current === null) return null;
+  if (
+    !isExactRecord(body.current, [
+      "appliedRevision",
+      "refreshedAt",
+      "listings",
+    ])
+  ) {
+    throw invalidResponse();
+  }
+  if (!Array.isArray(body.current.listings)) throw invalidResponse();
+  const appliedRevision = readPositiveInteger(body.current.appliedRevision);
+  const listings = body.current.listings.map(parseInventoryListingSummary);
+  if (
+    listings.some(
+      (listing) =>
+        listing.lifecycle.state !== "current" ||
+        listing.lifecycle.appliedRevision !== appliedRevision ||
+        !listing.currentDisplayEligible,
+    )
+  ) {
+    throw invalidResponse();
+  }
+  return {
+    appliedRevision,
+    refreshedAt: readCanonicalTimestamp(body.current.refreshedAt),
+    listings,
+  };
+}
+
+export async function fetchListingHistory(
+  query: ListingHistoryRequest,
+  options: FetchListingsOptions = {},
+): Promise<ListingHistoryPageSnapshot> {
+  const normalized = normalizeHistoryRequest(query);
+  const parameters = new URLSearchParams({
+    lifecycleStates: normalized.lifecycleStates.join(","),
+    limit: String(normalized.limit),
+  });
+  if (normalized.cursor !== null) parameters.set("cursor", normalized.cursor);
+  const response = await getJson(
+    `/api/listings/history?${parameters.toString()}`,
+    options,
+  );
+  const body = await readResponseJson(response);
+  if (!isExactRecord(body, ["history"])) throw invalidResponse();
+  if (!isExactRecord(body.history, ["listings", "nextCursor"])) {
+    throw invalidResponse();
+  }
+  if (
+    !Array.isArray(body.history.listings) ||
+    (body.history.nextCursor !== null &&
+      (typeof body.history.nextCursor !== "string" ||
+        body.history.nextCursor.length === 0))
+  ) {
+    throw invalidResponse();
+  }
+  const listings = body.history.listings.map(parseInventoryListingSummary);
+  if (listings.some((listing) => listing.lifecycle.state === "current")) {
+    throw invalidResponse();
+  }
+  return {
+    listings,
+    nextCursor: body.history.nextCursor,
+  };
+}
+
+async function getJson(
+  url: string,
+  options: FetchListingsOptions,
+): Promise<Response> {
+  const request: RequestInit = {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    method: "GET",
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+  };
+  const response = await (options.fetchImplementation ?? fetch)(url, request);
+  if (response.status === 401) {
+    throw new SessionAuthenticationRequiredError();
+  }
+  if (!response.ok) {
+    throw new Error(`Unable to load listing inventory (${response.status})`);
+  }
+  return response;
+}
+
+async function readResponseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw invalidResponse();
+  }
 }
 
 export async function createManualListing(
@@ -317,6 +460,90 @@ function parseListingSummary(value: unknown): ListingSummary {
   };
 }
 
+function parseInventoryListingSummary(
+  value: unknown,
+): InventoryListingSummary {
+  if (!isRecord(value)) throw invalidResponse();
+  const lifecycle = value.lifecycle;
+  if (
+    !isExactRecord(lifecycle, [
+      "state",
+      "appliedRevision",
+      "firstMatchedAt",
+      "lastMatchedAt",
+      "lastServerObservedAt",
+      "consecutiveCompleteRunAbsenceCount",
+      "inactiveAt",
+      "explicitProviderStatus",
+      "explicitProviderStatusObservedAt",
+    ]) ||
+    typeof value.acquisitionEligible !== "boolean" ||
+    typeof value.currentDisplayEligible !== "boolean"
+  ) {
+    throw invalidResponse();
+  }
+  const state = readLifecycleState(lifecycle.state);
+  if (
+    lifecycle.explicitProviderStatus !== null &&
+    lifecycle.explicitProviderStatus !== "sold"
+  ) {
+    throw invalidResponse();
+  }
+  return {
+    ...parseListingSummary(value),
+    lifecycle: {
+      state,
+      appliedRevision: readPositiveInteger(lifecycle.appliedRevision),
+      firstMatchedAt: readCanonicalTimestamp(lifecycle.firstMatchedAt),
+      lastMatchedAt: readCanonicalTimestamp(lifecycle.lastMatchedAt),
+      lastServerObservedAt: readCanonicalTimestamp(
+        lifecycle.lastServerObservedAt,
+      ),
+      consecutiveCompleteRunAbsenceCount: readNonnegativeInteger(
+        lifecycle.consecutiveCompleteRunAbsenceCount,
+      ),
+      inactiveAt: readNullableCanonicalTimestamp(lifecycle.inactiveAt),
+      explicitProviderStatus: lifecycle.explicitProviderStatus,
+      explicitProviderStatusObservedAt: readNullableCanonicalTimestamp(
+        lifecycle.explicitProviderStatusObservedAt,
+      ),
+    },
+    acquisitionEligible: value.acquisitionEligible,
+    currentDisplayEligible: value.currentDisplayEligible,
+  };
+}
+
+function normalizeHistoryRequest(
+  query: ListingHistoryRequest,
+): ListingHistoryRequest {
+  if (
+    !Array.isArray(query.lifecycleStates) ||
+    query.lifecycleStates.length === 0 ||
+    new Set(query.lifecycleStates).size !== query.lifecycleStates.length ||
+    query.lifecycleStates.some(
+      (state) =>
+        state !== "out_of_scope" &&
+        state !== "missing" &&
+        state !== "inactive" &&
+        state !== "sold",
+    ) ||
+    !Number.isSafeInteger(query.limit) ||
+    query.limit < 1 ||
+    query.limit > 100 ||
+    (query.cursor !== null &&
+      (typeof query.cursor !== "string" ||
+        query.cursor.length === 0 ||
+        query.cursor.length > 512))
+  ) {
+    throw new Error("Listing history request was invalid");
+  }
+  return {
+    lifecycleStates: [...query.lifecycleStates],
+    cursor: query.cursor,
+    limit: query.limit,
+  };
+}
+
 function readString(value: Record<string, unknown>, key: string): string {
   const field = value[key];
   if (typeof field !== "string") {
@@ -369,6 +596,54 @@ function readSource(value: unknown): ListingSummary["source"] {
   return value;
 }
 
+function readLifecycleState(value: unknown): ListingLifecycleState {
+  if (
+    value !== "current" &&
+    value !== "out_of_scope" &&
+    value !== "missing" &&
+    value !== "inactive" &&
+    value !== "sold"
+  ) {
+    throw invalidResponse();
+  }
+  return value;
+}
+
+function readPositiveInteger(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 1
+  ) {
+    throw invalidResponse();
+  }
+  return value;
+}
+
+function readNonnegativeInteger(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    throw invalidResponse();
+  }
+  return value;
+}
+
+function readCanonicalTimestamp(value: unknown): string {
+  if (typeof value !== "string") throw invalidResponse();
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== value) {
+    throw invalidResponse();
+  }
+  return value;
+}
+
+function readNullableCanonicalTimestamp(value: unknown): string | null {
+  return value === null ? null : readCanonicalTimestamp(value);
+}
+
 function isManualListingField(value: unknown): value is ManualListingField {
   return (
     typeof value === "string" &&
@@ -397,6 +672,19 @@ const manualListingFields = new Set<ManualListingField>([
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isExactRecord(
+  value: unknown,
+  expectedKeys: readonly string[],
+): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
 }
 
 function invalidResponse(): Error {

@@ -8,6 +8,9 @@ export interface ApiLogContext {
   outcome?: string;
   rentCastRequestCount?: number;
   openAIRequestCount?: number;
+  plannedProviderRequestCount?: number;
+  refreshDispatch?: "not-required" | "dispatched" | "failed";
+  refreshStatus?: "none" | "queued" | "running" | "succeeded" | "failed" | "superseded";
 }
 
 export interface ApiLogger {

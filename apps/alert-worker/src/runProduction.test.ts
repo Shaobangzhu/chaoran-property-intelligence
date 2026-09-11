@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ListingAlertNotificationPort,
-  ListingSearchProfile,
-  ListingSourcePort,
+import {
+  FakeListingAlertStateRepository,
+  type CompleteListingRefreshRunResult,
+  type ListingAlertNotificationPort,
+  type ListingRefreshRun,
+  type ListingRefreshRunRepositoryPort,
+  type ListingSearchProfile,
+  type ListingSourcePort,
+  type QueueListingRefreshInput,
 } from "@chaoran-property-intelligence/application";
-import { FakeListingAlertStateRepository } from "@chaoran-property-intelligence/application";
 import {
   defaultListingSearchCriteria,
   type ListingSearchCriteriaV1,
@@ -15,124 +19,56 @@ import type {
   SqlDatabase,
   SqlQueryResult,
 } from "@chaoran-property-intelligence/postgres";
-import type {
-  RentCastSaleListingsSearchArea,
-} from "@chaoran-property-intelligence/rentcast";
+import type { RentCastSaleListingsSearchArea } from "@chaoran-property-intelligence/rentcast";
 
 import {
   runProduction,
   type ProductionDependencies,
 } from "./runProduction.js";
 
-const allFiveDirectCityAreas =
-  "city-Chino,city-Chino Hills,city-Eastvale,city-Corona,city-Jurupa Valley";
-const allSixDirectCityAreas = `${allFiveDirectCityAreas},city-Irvine`;
-const defaultSixMarketSourceEvent =
-  `source:rentcast-secret:Single Family:850000:4:2.5:${allFiveDirectCityAreas},zip-91381`;
-const allSevenMarketAreas = `${allFiveDirectCityAreas},zip-91381,city-Irvine`;
+const scheduledRunId = "0198c7d2-7668-7775-b0fc-b789690a6012";
+const signaledRunId = "0198c7d2-7668-7775-b0fc-b789690a6013";
+const claimedAt = "2026-09-10T15:00:00.000Z";
 
 describe("runProduction", () => {
-  it("migrates, executes the use case, and closes the database", async () => {
+  it("migrates, creates a scheduled refresh, reconciles, and closes", async () => {
     const events: string[] = [];
     const database = new FakeSqlDatabase(events);
-    const dependencies = createDependencies(database, events);
+    const dependencies = createDependencies(database, events, createProfile());
 
     await runProduction(createRuntime(), dependencies);
 
     expect(events).toEqual([
       "database:connection-string",
       "migrate",
-      "profile:create",
-      "profile:load",
       "repository:create",
       "repository:legacy-initialize",
-      defaultSixMarketSourceEvent,
       "notifications:telegram-secret:123456789",
+      "profile:create",
+      "run-repository:create",
+      "run:claim:none",
+      "profile:load",
+      "run:queue:scheduled:1:6",
+      "run:claim:queued",
+      "source:rentcast-secret:Single Family:850000:4:2.5:city-Chino,city-Chino Hills,city-Eastvale,city-Corona,city-Jurupa Valley,zip-91381",
       "source:fetch",
+      "run:complete:succeeded:6:0:0",
       "database:close",
     ]);
-    expect(database.queries).toEqual([]);
-  });
-
-  it("closes the database when migration fails", async () => {
-    const events: string[] = [];
-    const database = new FakeSqlDatabase(events);
-    const dependencies = createDependencies(database, events);
-    dependencies.runMigrations = async () => {
-      events.push("migrate");
-      throw new Error("Migration failed");
-    };
-
-    await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
-      "Migration failed",
-    );
-
-    expect(events.at(-1)).toBe("database:close");
-  });
-
-  it("closes the database when legacy initialization fails", async () => {
-    const events: string[] = [];
-    const database = new FakeSqlDatabase(events);
-    const dependencies = createDependencies(database, events);
-    dependencies.createRepository = () => ({
-      ...createRepositoryStub(),
-      async initializeLegacyListingAlertState() {
-        events.push("repository:legacy-initialize");
-        throw new Error("Legacy initialization failed");
-      },
-    });
-
-    await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
-      "Legacy initialization failed",
-    );
-
-    expect(events.at(-1)).toBe("database:close");
   });
 
   it.each([
-    ["one incorporated market", ["Corona"], "city-Corona"],
-    ["Irvine only", ["Irvine"], "city-Irvine"],
+    ["one market", ["Corona"], "city-Corona"],
+    ["Irvine", ["Irvine"], "city-Irvine"],
     [
-      "all incorporated markets",
-      ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
-      allFiveDirectCityAreas,
-    ],
-    ["Stevenson Ranch only", ["Stevenson Ranch"], "zip-91381"],
-    [
-      "all six incorporated markets",
-      [
-        "Irvine",
-        "Jurupa Valley",
-        "Corona",
-        "Eastvale",
-        "Chino Hills",
-        "Chino",
-      ],
-      allSixDirectCityAreas,
-    ],
-    [
-      "all seven product markets",
-      [
-        "Irvine",
-        "Stevenson Ranch",
-        "Jurupa Valley",
-        "Corona",
-        "Eastvale",
-        "Chino Hills",
-        "Chino",
-      ],
-      allSevenMarketAreas,
-    ],
-    [
-      "mixed markets",
+      "mixed",
       ["Stevenson Ranch", "Corona"],
       "city-Corona,zip-91381",
     ],
   ] as const)(
-    "projects provider fields and acquisition areas for %s",
+    "projects criteria and sequential acquisition areas for %s",
     async (_label, cities, expectedAreas) => {
       const events: string[] = [];
-      const database = new FakeSqlDatabase(events);
       const criteria: ListingSearchCriteriaV1 = {
         ...defaultListingSearchCriteria,
         propertyType: "Condo",
@@ -141,6 +77,7 @@ describe("runProduction", () => {
         minimumBathrooms: 0,
         cities,
       };
+      const database = new FakeSqlDatabase(events);
 
       await runProduction(
         createRuntime(),
@@ -152,104 +89,113 @@ describe("runProduction", () => {
       ).toEqual([
         `source:rentcast-secret:Condo:1250000:0:0:${expectedAreas}`,
       ]);
-      expect(events.filter((event) => event === "source:fetch")).toHaveLength(
-        1,
+      expect(events).toContain(
+        `run:complete:succeeded:${cities.length}:0:0`,
       );
     },
   );
 
-  it("silently baselines an unapplied revision through the production composition", async () => {
+  it("claims an opaque signaled run without creating scheduled work", async () => {
     const events: string[] = [];
     const database = new FakeSqlDatabase(events);
+    const profile = createProfile({ revision: 2, appliedRevision: 1 });
     const dependencies = createDependencies(
       database,
       events,
-      createProfile({ revision: 2, appliedRevision: 1 }),
+      profile,
+      createRun({
+        runId: signaledRunId,
+        requestedRevision: 2,
+        selectedMarkets: profile.criteria.cities,
+        selectedMarketCount: profile.criteria.cities.length,
+        plannedProviderRequestCount: profile.criteria.cities.length,
+      }),
     );
 
-    await runProduction(createRuntime(), dependencies);
-
-    expect(events).toEqual([
-      "database:connection-string",
-      "migrate",
-      "profile:create",
-      "profile:load",
-      "repository:create",
-      "repository:legacy-initialize",
-      defaultSixMarketSourceEvent,
-      "notifications:telegram-secret:123456789",
-      "source:fetch",
-      "repository:revision-baseline:2:1:0",
-      "database:close",
-    ]);
-  });
-
-  it("fails closed before source construction when the profile is missing", async () => {
-    const events: string[] = [];
-    const database = new FakeSqlDatabase(events);
-    const dependencies = createDependencies(database, events, null);
-
-    await expect(runProduction(createRuntime(), dependencies)).rejects.toThrow(
-      "Listing search profile was unavailable",
+    await runProduction(
+      createRuntime({ LISTING_REFRESH_RUN_ID: signaledRunId }),
+      dependencies,
     );
 
-    expect(events).toEqual([
-      "database:connection-string",
-      "migrate",
-      "profile:create",
-      "profile:load",
-      "database:close",
-    ]);
+    expect(events).toContain(`run:claim:${signaledRunId}`);
+    expect(events.some((event) => event.startsWith("run:queue"))).toBe(false);
+    expect(events.some((event) => event === "profile:load")).toBe(false);
   });
 
-  it("fails closed before source construction for a malformed profile", async () => {
+  it("does not construct a source for a stale signaled run", async () => {
     const events: string[] = [];
     const database = new FakeSqlDatabase(events);
-    const malformedProfile = {
-      ...createProfile(),
-      criteria: {
-        ...defaultListingSearchCriteria,
-        state: "NV",
-      },
-    } as unknown as ListingSearchProfile;
 
+    await runProduction(
+      createRuntime({ LISTING_REFRESH_RUN_ID: signaledRunId }),
+      createDependencies(database, events, createProfile()),
+    );
+
+    expect(events).toContain(`run:claim:${signaledRunId}`);
+    expect(events.some((event) => event.startsWith("source:"))).toBe(false);
+    expect(events.at(-1)).toBe("database:close");
+  });
+
+  it("closes the database when migration or reconciliation fails", async () => {
+    const migrationEvents: string[] = [];
+    const migrationDatabase = new FakeSqlDatabase(migrationEvents);
+    const migrationDependencies = createDependencies(
+      migrationDatabase,
+      migrationEvents,
+      createProfile(),
+    );
+    migrationDependencies.runMigrations = async () => {
+      migrationEvents.push("migrate");
+      throw new Error("Migration failed");
+    };
+    await expect(
+      runProduction(createRuntime(), migrationDependencies),
+    ).rejects.toThrow("Migration failed");
+    expect(migrationEvents.at(-1)).toBe("database:close");
+
+    const profileEvents: string[] = [];
+    const profileDatabase = new FakeSqlDatabase(profileEvents);
     await expect(
       runProduction(
         createRuntime(),
-        createDependencies(database, events, malformedProfile),
+        createDependencies(profileDatabase, profileEvents, null),
       ),
-    ).rejects.toThrow("Listing search profile contract was invalid");
-
-    expect(events).toEqual([
-      "database:connection-string",
-      "migrate",
-      "profile:create",
-      "profile:load",
-      "database:close",
-    ]);
+    ).rejects.toMatchObject({ failureCode: "profile-unavailable" });
+    expect(profileEvents.at(-1)).toBe("database:close");
   });
 });
 
-function createRuntime() {
+function createRuntime(
+  environmentOverrides: Record<string, string> = {},
+) {
+  const ids = [
+    "0198c7d2-7668-7775-b0fc-b789690a6011",
+    scheduledRunId,
+    "0198c7d2-7668-7775-b0fc-b789690a6014",
+  ];
   return {
     environment: {
       DATABASE_URL: "postgresql://database.example/app",
       RENTCAST_API_KEY: "rentcast-secret",
       TELEGRAM_BOT_TOKEN: "telegram-secret",
       TELEGRAM_CHAT_ID: "123456789",
+      ...environmentOverrides,
     },
     fetch: (async () => {
       throw new Error("Unexpected HTTP request");
     }) as typeof fetch,
-    now: () => new Date("2026-08-19T17:00:00.000Z"),
+    now: () => new Date(claimedAt),
+    createId: () => ids.shift() ?? scheduledRunId,
   };
 }
 
 function createDependencies(
   database: SqlDatabase,
   events: string[],
-  profile: ListingSearchProfile | null = createProfile(),
+  profile: ListingSearchProfile | null,
+  queuedRun: ListingRefreshRun | null = null,
 ): ProductionDependencies {
+  const runRepository = new FakeRunRepository(events, profile, queuedRun);
   return {
     createDatabase(connection) {
       events.push(`database:${connection.kind}`);
@@ -258,43 +204,39 @@ function createDependencies(
     async runMigrations() {
       events.push("migrate");
     },
+    createRepository() {
+      events.push("repository:create");
+      const repository = new FakeListingAlertStateRepository({
+        baselineInitialized: true,
+      });
+      return {
+        async initializeLegacyListingAlertState() {
+          events.push("repository:legacy-initialize");
+        },
+        isPriceObservationBaselineInitialized: () =>
+          repository.isPriceObservationBaselineInitialized(),
+        initializePriceObservationBaseline: (entries) =>
+          repository.initializePriceObservationBaseline(entries),
+        findPriceObservations: (keys) =>
+          repository.findPriceObservations(keys),
+        saveListingAlertTransitions: (transitions) =>
+          repository.saveListingAlertTransitions(transitions),
+        findPendingListingAlertEvents: () =>
+          repository.findPendingListingAlertEvents(),
+        markListingAlertEventsSent: (keys) =>
+          repository.markListingAlertEventsSent(keys),
+      };
+    },
+    createRefreshRunRepository() {
+      events.push("run-repository:create");
+      return runRepository;
+    },
     createSearchProfileQuery() {
       events.push("profile:create");
       return {
         async findPrimaryProfile() {
           events.push("profile:load");
           return profile;
-        },
-      };
-    },
-    createRepository() {
-      events.push("repository:create");
-      const repository = new FakeListingAlertStateRepository({
-        baselineInitialized: true,
-        listingSearchRevision: profile?.revision ?? 1,
-        listingSearchAppliedRevision: profile?.appliedRevision ?? 1,
-      });
-      return {
-        isPriceObservationBaselineInitialized: () =>
-          repository.isPriceObservationBaselineInitialized(),
-        initializePriceObservationBaseline: (entries) =>
-          repository.initializePriceObservationBaseline(entries),
-        findPriceObservations: (addressKeys) =>
-          repository.findPriceObservations(addressKeys),
-        saveListingAlertTransitions: (transitions) =>
-          repository.saveListingAlertTransitions(transitions),
-        findPendingListingAlertEvents: () =>
-          repository.findPendingListingAlertEvents(),
-        markListingAlertEventsSent: (eventKeys) =>
-          repository.markListingAlertEventsSent(eventKeys),
-        applyListingSearchRevisionBaseline: async (input) => {
-          events.push(
-            `repository:revision-baseline:${input.expectedRevision}:${input.expectedAppliedRevision}:${input.candidates.length}`,
-          );
-          return repository.applyListingSearchRevisionBaseline(input);
-        },
-        async initializeLegacyListingAlertState() {
-          events.push("repository:legacy-initialize");
         },
       };
     },
@@ -313,6 +255,10 @@ function createDependencies(
       return {
         async getActiveSaleListings() {
           events.push("source:fetch");
+          for (const _area of options.searchAreas) {
+            options.onProviderRequest();
+            options.onProviderResponse(0);
+          }
           return [];
         },
       };
@@ -328,12 +274,92 @@ function createDependencies(
   };
 }
 
-function describeSearchArea(area: RentCastSaleListingsSearchArea): string {
-  if (area.kind === "radius") {
-    return "radius";
+class FakeRunRepository implements ListingRefreshRunRepositoryPort {
+  private queuedRun: ListingRefreshRun | null;
+  private claimedRun: ListingRefreshRun | null = null;
+
+  constructor(
+    private readonly events: string[],
+    private readonly profile: ListingSearchProfile | null,
+    queuedRun: ListingRefreshRun | null,
+  ) {
+    this.queuedRun = queuedRun;
   }
 
-  return area.kind === "city" ? `city-${area.city}` : `zip-${area.zipCode}`;
+  async claimLatestRun(
+    input: Parameters<ListingRefreshRunRepositoryPort["claimLatestRun"]>[0],
+  ) {
+    this.events.push(
+      `run:claim:${input.signaledRunId ?? (this.queuedRun === null ? "none" : "queued")}`,
+    );
+    if (this.queuedRun === null || this.profile === null) {
+      return { status: "no-queued-run" } as const;
+    }
+    const run = this.queuedRun;
+    this.queuedRun = null;
+    this.claimedRun = {
+      ...run,
+      status: "running" as const,
+      effectiveRevision: this.profile.revision,
+      startedAt: input.claimedAt,
+    };
+    return {
+      status: "claimed" as const,
+      claim: {
+        claimToken: input.claimToken,
+        run: this.claimedRun,
+        criteria: this.profile.criteria,
+        appliedRevision: this.profile.appliedRevision,
+      },
+    };
+  }
+
+  async queueRun(input: QueueListingRefreshInput): Promise<ListingRefreshRun> {
+    this.events.push(
+      `run:queue:${input.triggerReason}:${input.revision}:${input.plan.plannedProviderRequestCount}`,
+    );
+    this.queuedRun = createRun({
+      runId: input.runId,
+      requestedRevision: input.revision,
+      requestedAt: input.requestedAt,
+      triggerReason: input.triggerReason,
+      status: "queued",
+      effectiveRevision: null,
+      startedAt: null,
+      selectedMarkets: input.plan.selectedMarkets,
+      selectedMarketCount: input.plan.selectedMarketCount,
+      plannedProviderRequestCount: input.plan.plannedProviderRequestCount,
+    });
+    return this.queuedRun;
+  }
+
+  async completeRun(
+    input: Parameters<ListingRefreshRunRepositoryPort["completeRun"]>[0],
+  ): Promise<CompleteListingRefreshRunResult> {
+    if (this.claimedRun === null) {
+      throw new Error("Unexpected completion without a claim");
+    }
+    this.events.push(
+      `run:complete:${input.outcome}:${input.actualProviderRequestCount}:${input.returnedListingCount}:${input.outcome === "succeeded" ? input.publishedCurrentCount : 0}`,
+    );
+    return {
+      status: "completed" as const,
+      run: {
+        ...this.claimedRun,
+        status: input.outcome === "succeeded" ? "succeeded" : "failed",
+        completedAt: input.completedAt,
+        actualProviderRequestCount: input.actualProviderRequestCount,
+        returnedListingCount: input.returnedListingCount,
+        publishedCurrentCount:
+          input.outcome === "succeeded" ? input.publishedCurrentCount : 0,
+        failureCode: input.outcome === "failed" ? input.failureCode : null,
+      },
+    };
+  }
+
+  async findLatestRun() {
+    return this.queuedRun;
+  }
 }
 
 function createProfile(
@@ -352,58 +378,46 @@ function createProfile(
   };
 }
 
-function createRepositoryStub() {
-  const repository = new FakeListingAlertStateRepository({
-    baselineInitialized: true,
-  });
+function createRun(overrides: Partial<ListingRefreshRun> = {}): ListingRefreshRun {
   return {
-    isPriceObservationBaselineInitialized: () =>
-      repository.isPriceObservationBaselineInitialized(),
-    initializePriceObservationBaseline: (entries: Parameters<
-      typeof repository.initializePriceObservationBaseline
-    >[0]) => repository.initializePriceObservationBaseline(entries),
-    findPriceObservations: (addressKeys: Parameters<
-      typeof repository.findPriceObservations
-    >[0]) => repository.findPriceObservations(addressKeys),
-    saveListingAlertTransitions: (transitions: Parameters<
-      typeof repository.saveListingAlertTransitions
-    >[0]) => repository.saveListingAlertTransitions(transitions),
-    findPendingListingAlertEvents: () =>
-      repository.findPendingListingAlertEvents(),
-    markListingAlertEventsSent: (eventKeys: Parameters<
-      typeof repository.markListingAlertEventsSent
-    >[0]) => repository.markListingAlertEventsSent(eventKeys),
-    applyListingSearchRevisionBaseline: (input: Parameters<
-      typeof repository.applyListingSearchRevisionBaseline
-    >[0]) => repository.applyListingSearchRevisionBaseline(input),
+    runId: signaledRunId,
+    profileKey: "primary",
+    requestedRevision: 1,
+    effectiveRevision: null,
+    triggerReason: "criteria-change",
+    status: "queued",
+    requestedAt: claimedAt,
+    startedAt: null,
+    completedAt: null,
+    selectedMarkets: defaultListingSearchCriteria.cities,
+    selectedMarketCount: defaultListingSearchCriteria.cities.length,
+    plannedProviderRequestCount: defaultListingSearchCriteria.cities.length,
+    actualProviderRequestCount: 0,
+    returnedListingCount: 0,
+    publishedCurrentCount: 0,
+    failureCode: null,
+    supersededByRunId: null,
+    ...overrides,
   };
 }
 
-interface RecordedQuery {
-  text: string;
-  parameters: readonly unknown[];
+function describeSearchArea(area: RentCastSaleListingsSearchArea): string {
+  if (area.kind === "radius") return "radius";
+  return area.kind === "city" ? `city-${area.city}` : `zip-${area.zipCode}`;
 }
 
 class FakeSqlDatabase implements SqlDatabase {
-  readonly queries: RecordedQuery[] = [];
-
   constructor(private readonly events: string[]) {}
 
-  async query(
-    text: string,
-    parameters: readonly unknown[] = [],
-  ): Promise<SqlQueryResult> {
-    this.queries.push({ text, parameters });
+  async query(): Promise<SqlQueryResult> {
     return { rows: [] };
   }
 
-  async transaction<T>(
-    operation: (connection: SqlConnection) => Promise<T>,
-  ): Promise<T> {
+  async transaction<T>(operation: (connection: SqlConnection) => Promise<T>) {
     return operation(this);
   }
 
-  async close(): Promise<void> {
+  async close() {
     this.events.push("database:close");
   }
 }

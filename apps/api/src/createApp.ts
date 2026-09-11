@@ -5,6 +5,14 @@ import {
   CurrentShowingListDraftNotFoundError,
   type ArchiveManualListingInput,
   type CreateManualListingInput,
+  type CurrentListingInventory,
+  type ListingHistoryPage,
+  type ListingHistoryQuery,
+  type ListingRefreshRun,
+  type RetryLatestListingRefreshInput,
+  type RetryLatestListingRefreshResult,
+  type UpdateListingSearchCriteriaAndQueueRefreshResult,
+  InvalidListingRefreshRetryInputError,
   InvalidListingSearchCriteriaInputError,
   InvalidPriceDecisionEvidenceResultError,
   InvalidPriceDecisionInputError,
@@ -14,6 +22,7 @@ import {
   InvalidCredentialsError,
   InvalidManualListingError,
   ListingSearchCriteriaChangedError,
+  ListingRefreshRetryUnavailableError,
   ManualListingNotFoundError,
   InsufficientPriceDecisionEvidenceError,
   PriceDecisionEvidenceUnavailableError,
@@ -56,7 +65,23 @@ import {
   InvalidListingSearchCriteriaRequestError,
   parseUpdateListingSearchCriteriaRequest,
   toListingSearchCriteriaResponse,
+  toUpdateListingSearchCriteriaResponse,
 } from "./listingSearchCriteriaDto.js";
+import {
+  InvalidListingHistoryQueryError,
+  InvalidListingRefreshRetryRequestError,
+  parseListingHistoryQuery,
+  parseRetryLatestListingRefreshRequest,
+  toCurrentListingInventoryResponse,
+  toLatestListingRefreshResponse,
+  toListingHistoryResponse,
+  toRetryLatestListingRefreshResponse,
+} from "./listingRefreshDto.js";
+import {
+  defaultListingRefreshRetryRateLimitConfig,
+  ListingRefreshRetryRateLimit,
+  type ListingRefreshRetryRateLimitConfig,
+} from "./listingRefreshRetryRateLimit.js";
 import {
   InvalidManualListingRequestError,
   parseManualListingDraftDto,
@@ -109,6 +134,7 @@ import {
 
 const loginJsonBodyLimitBytes = 4_096;
 const listingSearchCriteriaJsonBodyLimitBytes = 4_096;
+const listingRefreshRetryJsonBodyLimitBytes = 1_024;
 const manualListingJsonBodyLimitBytes = 8_192;
 const showingListJsonBodyLimitBytes = 256 * 1_024;
 const priceEstimationJsonBodyLimitBytes = 2_048;
@@ -167,7 +193,25 @@ export interface GetListingSearchCriteriaUseCase {
 export interface UpdateListingSearchCriteriaUseCase {
   execute(
     input: UpdateListingSearchCriteriaInput,
-  ): Promise<ListingSearchCriteriaResult>;
+  ): Promise<UpdateListingSearchCriteriaAndQueueRefreshResult>;
+}
+
+export interface GetLatestListingRefreshStatusUseCase {
+  execute(): Promise<ListingRefreshRun | null>;
+}
+
+export interface RetryLatestListingRefreshUseCase {
+  execute(
+    input: RetryLatestListingRefreshInput,
+  ): Promise<RetryLatestListingRefreshResult>;
+}
+
+export interface GetCurrentListingInventoryUseCase {
+  execute(): Promise<CurrentListingInventory | null>;
+}
+
+export interface ListHistoricalListingInventoryUseCase {
+  execute(query: ListingHistoryQuery): Promise<ListingHistoryPage>;
 }
 
 export interface CreateAppOptions {
@@ -179,9 +223,13 @@ export interface CreateAppOptions {
   getCurrentShowingListArtifact: GetCurrentShowingListArtifactUseCase;
   getCurrentShowingListDraft: GetCurrentShowingListDraftUseCase;
   getListingSearchCriteria: GetListingSearchCriteriaUseCase;
+  getLatestListingRefreshStatus: GetLatestListingRefreshStatusUseCase;
+  getCurrentListingInventory: GetCurrentListingInventoryUseCase;
   httpSecurity: ApiHttpSecurityConfig;
   logger: ApiLogger;
   loginRateLimit?: LoginRateLimitConfig;
+  listingRefreshRetryRateLimit?: ListingRefreshRetryRateLimitConfig;
+  listHistoricalListingInventory: ListHistoricalListingInventoryUseCase;
   now?: () => Date;
   priceEstimation?: PriceEstimationUseCase | null;
   priceEstimationRequestControl?: PriceEstimationRequestControlConfig;
@@ -189,6 +237,7 @@ export interface CreateAppOptions {
   releaseIdentity?: ReleaseIdentity;
   markCurrentShowingListDraftReviewed: MarkCurrentShowingListDraftReviewedUseCase;
   saveCurrentShowingListDraft: SaveCurrentShowingListDraftUseCase;
+  retryLatestListingRefresh: RetryLatestListingRefreshUseCase;
   updateListingSearchCriteria: UpdateListingSearchCriteriaUseCase;
   updateManualListing: UpdateManualListingUseCase;
 }
@@ -206,6 +255,11 @@ export function createApp(options: CreateAppOptions): Express {
   const priceEstimationRequestControl = new PriceEstimationRequestControl(
     options.priceEstimationRequestControl ??
       defaultPriceEstimationRequestControlConfig,
+    () => readNowMilliseconds(now),
+  );
+  const listingRefreshRetryRateLimit = new ListingRefreshRetryRateLimit(
+    options.listingRefreshRetryRateLimit ??
+      defaultListingRefreshRetryRateLimitConfig,
     () => readNowMilliseconds(now),
   );
 
@@ -471,8 +525,13 @@ export function createApp(options: CreateAppOptions): Express {
     authenticate,
     requireAdmin,
     async (_request, response) => {
-      const result = await options.getListingSearchCriteria.execute();
-      response.status(200).json(toListingSearchCriteriaResponse(result));
+      const [result, refresh] = await Promise.all([
+        options.getListingSearchCriteria.execute(),
+        options.getLatestListingRefreshStatus.execute(),
+      ]);
+      response
+        .status(200)
+        .json(toListingSearchCriteriaResponse(result, refresh));
     },
   );
 
@@ -492,9 +551,86 @@ export function createApp(options: CreateAppOptions): Express {
 
       options.logger.info(
         "api.listing_search_criteria.updated",
+        {
+          ...readLogContext(response.locals),
+          refreshDispatch: result.refreshDispatch,
+          refreshStatus: result.refreshRun?.status ?? "none",
+        },
+      );
+      response
+        .status(200)
+        .json(toUpdateListingSearchCriteriaResponse(result));
+    },
+  );
+
+  app.get(
+    "/api/listing-refresh/latest",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const refresh = await options.getLatestListingRefreshStatus.execute();
+      response.status(200).json(toLatestListingRefreshResponse(refresh));
+    },
+  );
+
+  app.post(
+    "/api/listing-refresh/retry",
+    authenticate,
+    requireAdmin,
+    (_request, response, next) => {
+      const actor = readAuthenticatedUser(response.locals);
+      if (listingRefreshRetryRateLimit.acquire(actor.id)) {
+        next();
+        return;
+      }
+      options.logger.info(
+        "api.listing_refresh.retry.rate_limited",
         readLogContext(response.locals),
       );
-      response.status(200).json(toListingSearchCriteriaResponse(result));
+      response.status(429).json({
+        error: {
+          code: "LISTING_REFRESH_RETRY_RATE_LIMITED",
+          message: "Too many listing refresh retry requests",
+        },
+      });
+    },
+    createListingRefreshRetryJsonBodyParser(),
+    async (request, response) => {
+      const input = parseRetryLatestListingRefreshRequest(request.body);
+      const result = await options.retryLatestListingRefresh.execute(input);
+      options.logger.info("api.listing_refresh.retry.requested", {
+        ...readLogContext(response.locals),
+        plannedProviderRequestCount:
+          result.refreshRun.plannedProviderRequestCount,
+        refreshDispatch: result.refreshDispatch,
+        refreshStatus: result.refreshRun.status,
+      });
+      response
+        .status(202)
+        .json(toRetryLatestListingRefreshResponse(result));
+    },
+  );
+
+  app.get(
+    "/api/listings/current",
+    authenticate,
+    requireAdmin,
+    async (_request, response) => {
+      const inventory = await options.getCurrentListingInventory.execute();
+      response
+        .status(200)
+        .json(toCurrentListingInventoryResponse(inventory));
+    },
+  );
+
+  app.get(
+    "/api/listings/history",
+    authenticate,
+    requireAdmin,
+    async (request, response) => {
+      const query = parseListingHistoryQuery(request.query);
+      const page = await options.listHistoricalListingInventory.execute(query);
+      response.status(200).json(toListingHistoryResponse(page));
     },
   );
 
@@ -612,12 +748,27 @@ export function createApp(options: CreateAppOptions): Express {
 
     if (
       error instanceof InvalidListingSearchCriteriaRequestError ||
-      error instanceof InvalidListingSearchCriteriaInputError
+      error instanceof InvalidListingSearchCriteriaInputError ||
+      error instanceof InvalidListingRefreshRetryRequestError ||
+      error instanceof InvalidListingRefreshRetryInputError ||
+      error instanceof InvalidListingHistoryQueryError
     ) {
       response.status(400).json({
         error: {
-          code: "INVALID_LISTING_SEARCH_CRITERIA",
-          message: "Listing search criteria are invalid",
+          code:
+            error instanceof InvalidListingHistoryQueryError
+              ? "INVALID_LISTING_HISTORY_QUERY"
+              : error instanceof InvalidListingRefreshRetryRequestError ||
+                  error instanceof InvalidListingRefreshRetryInputError
+                ? "INVALID_LISTING_REFRESH_RETRY"
+                : "INVALID_LISTING_SEARCH_CRITERIA",
+          message:
+            error instanceof InvalidListingHistoryQueryError
+              ? "Listing history query is invalid"
+              : error instanceof InvalidListingRefreshRetryRequestError ||
+                  error instanceof InvalidListingRefreshRetryInputError
+                ? "Listing refresh retry is invalid"
+                : "Listing search criteria are invalid",
         },
       });
       return;
@@ -741,6 +892,16 @@ export function createApp(options: CreateAppOptions): Express {
       return;
     }
 
+    if (error instanceof ListingRefreshRetryUnavailableError) {
+      response.status(409).json({
+        error: {
+          code: "LISTING_REFRESH_RETRY_UNAVAILABLE",
+          message: "The latest listing refresh cannot be retried",
+        },
+      });
+      return;
+    }
+
     if (error instanceof CurrentShowingListDraftChangedError) {
       response.status(409).json({
         error: {
@@ -841,6 +1002,19 @@ function createListingSearchCriteriaJsonBodyParser(): RequestHandler {
         error === undefined
           ? undefined
           : new InvalidListingSearchCriteriaRequestError(),
+      );
+    });
+  };
+}
+
+function createListingRefreshRetryJsonBodyParser(): RequestHandler {
+  const parser = createJsonBodyParser(listingRefreshRetryJsonBodyLimitBytes);
+  return (request, response, next) => {
+    parser(request, response, (error?: unknown) => {
+      next(
+        error === undefined
+          ? undefined
+          : new InvalidListingRefreshRetryRequestError(),
       );
     });
   };

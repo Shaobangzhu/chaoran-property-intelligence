@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,7 @@ import {
 } from "./listingFixtures.js";
 import {
   ManualListingValidationError,
+  type InventoryListingSummary,
   type ListingSummary,
 } from "./listingsApi.js";
 
@@ -37,13 +38,13 @@ describe("ListingsScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the empty state when no stored listings exist", async () => {
+  it("shows the empty state when no current listings exist", async () => {
     render(
       <ListingsScreen loadListings={async () => []} mapView={PassiveMap} />,
     );
 
     expect(
-      await screen.findByRole("heading", { name: "No stored listings" }),
+      await screen.findByRole("heading", { name: "No current listings" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add listing" })).toBeEnabled();
   });
@@ -182,7 +183,87 @@ describe("ListingsScreen", () => {
     expect(screen.getByText("4 bd")).toBeInTheDocument();
     expect(screen.getByText("2.5 ba")).toBeInTheDocument();
     expect(screen.getByText(/CRMLS #IG26000001/)).toBeInTheDocument();
-    expect(screen.getByText("1 stored listing")).toBeInTheDocument();
+    expect(screen.getByText("1 current listing")).toBeInTheDocument();
+  });
+
+  it("shows the applied provider inventory alongside manual listings", async () => {
+    const currentListing = inventoryListing(eastvaleListing, "current");
+    render(
+      <ListingsScreen
+        loadCurrentInventory={async () => ({
+          appliedRevision: 4,
+          refreshedAt: "2026-08-24T15:00:00.000Z",
+          listings: [currentListing],
+        })}
+        loadHistory={async () => ({ listings: [], nextCursor: null })}
+        loadListings={async () => [coronaListing, manualListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: eastvaleListing.addressLine1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: manualListing.addressLine1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: coronaListing.addressLine1 }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Applied revision 4")).toBeInTheDocument();
+    expect(screen.getByText("2 current listings")).toBeInTheDocument();
+  });
+
+  it("filters and paginates lifecycle history without labeling missing as sold", async () => {
+    const user = userEvent.setup();
+    const missing = inventoryListing(eastvaleListing, "missing");
+    const sold = inventoryListing(coronaListing, "sold");
+    const loadHistory = vi.fn(async (query) =>
+      query.cursor === null
+        ? { listings: [missing], nextCursor: "cursor-2" }
+        : { listings: [sold], nextCursor: null },
+    );
+    render(
+      <ListingsScreen
+        loadHistory={loadHistory}
+        loadListings={async () => [eastvaleListing]}
+        mapView={PassiveMap}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: eastvaleListing.addressLine1 });
+    await user.click(screen.getByRole("tab", { name: "Historical" }));
+
+    const missingRow = await screen.findByRole("button", {
+      name: missing.formattedAddress,
+    });
+    expect(within(missingRow).getByText("Missing")).toBeInTheDocument();
+    expect(within(missingRow).queryByText("Sold")).not.toBeInTheDocument();
+    expect(loadHistory).toHaveBeenLastCalledWith(
+      {
+        lifecycleStates: ["out_of_scope", "missing", "inactive", "sold"],
+        cursor: null,
+        limit: 25,
+      },
+      expect.any(AbortSignal),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Load more history" }));
+    const soldRow = await screen.findByRole("button", {
+      name: sold.formattedAddress,
+    });
+    expect(within(soldRow).getByText("Sold")).toBeInTheDocument();
+    expect(screen.getByText("2 historical listings")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Sold" }));
+    expect(loadHistory).toHaveBeenLastCalledWith(
+      {
+        lifecycleStates: ["out_of_scope", "missing", "inactive"],
+        cursor: null,
+        limit: 25,
+      },
+      expect.any(AbortSignal),
+    );
   });
 
   it("preserves RentCast provider city for the ZIP 91381 market", async () => {
@@ -504,3 +585,33 @@ const manualListing: ListingSummary = {
   latitude: 33.8753,
   longitude: -117.5664,
 };
+
+function inventoryListing(
+  listing: ListingSummary,
+  lifecycleState: InventoryListingSummary["lifecycle"]["state"],
+): InventoryListingSummary {
+  const isCurrent = lifecycleState === "current";
+  const isSold = lifecycleState === "sold";
+  return {
+    ...listing,
+    lifecycle: {
+      state: lifecycleState,
+      appliedRevision: 4,
+      firstMatchedAt: "2026-08-19T17:00:00.000Z",
+      lastMatchedAt: "2026-08-24T15:00:00.000Z",
+      lastServerObservedAt: "2026-08-24T15:00:00.000Z",
+      consecutiveCompleteRunAbsenceCount:
+        lifecycleState === "missing" ? 1 : 0,
+      inactiveAt:
+        lifecycleState === "inactive" || isSold
+          ? "2026-08-24T15:00:00.000Z"
+          : null,
+      explicitProviderStatus: isSold ? "sold" : null,
+      explicitProviderStatusObservedAt: isSold
+        ? "2026-08-24T15:00:00.000Z"
+        : null,
+    },
+    acquisitionEligible: isCurrent,
+    currentDisplayEligible: isCurrent,
+  };
+}

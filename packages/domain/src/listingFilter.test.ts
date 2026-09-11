@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  matchesCurrentListingCriteria,
   matchesListingAcquisitionCriteria,
   matchesMvpSearchCriteria,
   matchesNewListingCriteria,
@@ -216,6 +217,7 @@ describe("configurable listing search criteria", () => {
     const belowFloor = { ...condoInCorona, price: 575000 };
 
     expect(matchesListingAcquisitionCriteria(belowFloor, criteria)).toBe(true);
+    expect(matchesCurrentListingCriteria(belowFloor, criteria)).toBe(false);
     expect(matchesNewListingCriteria(belowFloor, criteria)).toBe(false);
   });
 

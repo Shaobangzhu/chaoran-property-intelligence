@@ -31,9 +31,17 @@ import {
   ListingSearchCriteriaChangedError,
   ListingSearchCriteriaValidationError,
   type EditableListingSearchCriteria,
+  type SavedListingSearchCriteriaSnapshot,
   type ListingSearchCriteriaSnapshot,
   type UpdateListingSearchCriteriaInput,
 } from "./listingSearchCriteriaApi.js";
+import {
+  ListingRefreshRetryRateLimitedError,
+  ListingRefreshRetryUnavailableError,
+  type ListingRefreshSnapshot,
+  type RetryListingRefreshInput,
+  type RetryListingRefreshResult,
+} from "./listingRefreshApi.js";
 
 export type ListingSearchCriteriaLoader = (
   signal: AbortSignal,
@@ -41,10 +49,23 @@ export type ListingSearchCriteriaLoader = (
 
 export type ListingSearchCriteriaSaver = (
   input: UpdateListingSearchCriteriaInput,
-) => Promise<ListingSearchCriteriaSnapshot>;
+) => Promise<
+  ListingSearchCriteriaSnapshot | SavedListingSearchCriteriaSnapshot
+>;
+
+export type ListingRefreshLoader = (
+  signal: AbortSignal,
+) => Promise<ListingRefreshSnapshot | null>;
+
+export type ListingRefreshRetrier = (
+  input: RetryListingRefreshInput,
+) => Promise<RetryListingRefreshResult>;
 
 interface SearchCriteriaScreenProps {
   loadCriteria: ListingSearchCriteriaLoader;
+  loadRefresh?: ListingRefreshLoader;
+  now?: () => number;
+  retryRefresh?: ListingRefreshRetrier;
   saveCriteria: ListingSearchCriteriaSaver;
 }
 
@@ -69,7 +90,12 @@ type ScreenState =
       draft: CriteriaFormValues;
     };
 
-type Operation = "idle" | "saving" | "reloading";
+type Operation = "idle" | "saving" | "reloading" | "retrying";
+type RefreshDispatchAttempt = {
+  attemptedAt: number;
+  runId: string;
+  status: "dispatched" | "failed";
+};
 type Feedback =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string }
@@ -84,15 +110,24 @@ const bathroomOptions = Array.from(
   { length: maximumListingSearchBathrooms * 2 + 1 },
   (_value, index) => index / 2,
 );
+const queuedStartTimeoutMs = 5 * 60 * 1_000;
 
 export function SearchCriteriaScreen({
   loadCriteria,
+  loadRefresh,
+  now = Date.now,
+  retryRefresh,
   saveCriteria,
 }: SearchCriteriaScreenProps): React.JSX.Element {
   const [requestNumber, setRequestNumber] = useState(0);
   const [state, setState] = useState<ScreenState>({ status: "loading" });
   const [operation, setOperation] = useState<Operation>("idle");
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [refreshDispatchAttempt, setRefreshDispatchAttempt] =
+    useState<RefreshDispatchAttempt | null>(null);
+  const [timedOutQueuedRunId, setTimedOutQueuedRunId] = useState<string | null>(
+    null,
+  );
   const [showValidation, setShowValidation] = useState(false);
   const [cityDisclosureOpen, setCityDisclosureOpen] = useState(false);
   const cityDisclosureRef = useRef<HTMLDivElement>(null);
@@ -103,6 +138,8 @@ export function SearchCriteriaScreen({
     setState({ status: "loading" });
     setOperation("idle");
     setFeedback(null);
+    setRefreshDispatchAttempt(null);
+    setTimedOutQueuedRunId(null);
     setShowValidation(false);
     setCityDisclosureOpen(false);
 
@@ -125,6 +162,80 @@ export function SearchCriteriaScreen({
 
     return () => controller.abort();
   }, [loadCriteria, requestNumber]);
+
+  const refreshRun = state.status === "ready" ? state.persisted.refresh : null;
+  const queuedStartUnavailable = isQueuedStartUnavailable(
+    refreshRun,
+    refreshDispatchAttempt,
+    timedOutQueuedRunId,
+    now(),
+  );
+  useEffect(() => {
+    if (
+      refreshRun?.status !== "queued" ||
+      refreshRun.startedAt !== null ||
+      queuedStartUnavailable
+    ) {
+      return;
+    }
+
+    const startTime = queuedStartTime(refreshRun, refreshDispatchAttempt);
+    if (!Number.isFinite(startTime)) return;
+    const remaining = startTime + queuedStartTimeoutMs - now();
+    if (remaining <= 0) {
+      setTimedOutQueuedRunId(refreshRun.runId);
+      return;
+    }
+
+    const timer = setTimeout(
+      () => setTimedOutQueuedRunId(refreshRun.runId),
+      remaining,
+    );
+    return () => clearTimeout(timer);
+  }, [
+    now,
+    queuedStartUnavailable,
+    refreshDispatchAttempt,
+    refreshRun,
+  ]);
+  useEffect(() => {
+    if (
+      loadRefresh === undefined ||
+      queuedStartUnavailable ||
+      (refreshRun?.status !== "queued" && refreshRun?.status !== "running")
+    ) {
+      return;
+    }
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async (): Promise<void> => {
+      try {
+        const refresh = await loadRefresh(controller.signal);
+        if (controller.signal.aborted) return;
+        setState((current) =>
+          current.status !== "ready"
+            ? current
+            : {
+                ...current,
+                persisted: applyRefreshToSnapshot(current.persisted, refresh),
+              },
+        );
+        if (refresh?.status === "queued" || refresh?.status === "running") {
+          timer = setTimeout(() => void poll(), 5_000);
+        }
+      } catch {
+        // A transient status-poll failure must not discard the saved form.
+        if (!controller.signal.aborted) {
+          timer = setTimeout(() => void poll(), 5_000);
+        }
+      }
+    };
+    timer = setTimeout(() => void poll(), 5_000);
+    return () => {
+      controller.abort();
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [loadRefresh, queuedStartUnavailable, refreshRun?.runId, refreshRun?.status]);
 
   useEffect(() => {
     if (!cityDisclosureOpen) {
@@ -211,9 +322,30 @@ export function SearchCriteriaScreen({
       });
       setShowValidation(false);
       setCityDisclosureOpen(false);
+      const dispatchStatus =
+        "refreshDispatch" in saved &&
+        (saved.refreshDispatch === "dispatched" ||
+          saved.refreshDispatch === "failed")
+          ? saved.refreshDispatch
+          : null;
+      setRefreshDispatchAttempt(
+        saved.refresh === null || dispatchStatus === null
+          ? null
+          : {
+              attemptedAt: now(),
+              runId: saved.refresh.runId,
+              status: dispatchStatus,
+            },
+      );
+      setTimedOutQueuedRunId(null);
       setFeedback({
-        kind: "success",
-        message: `Saved as revision ${saved.revision}. The next alert run will apply these criteria.`,
+        kind: dispatchStatus === "failed" ? "error" : "success",
+        message:
+          "refreshDispatch" in saved && saved.refreshDispatch === "failed"
+            ? `Saved as revision ${saved.revision}. Refresh dispatch failed; the queued run remains available.`
+            : saved.refresh === null
+              ? `Saved as revision ${saved.revision}. No refresh was required.`
+              : `Saved as revision ${saved.revision}. Refresh queued.`,
       });
     } catch (error) {
       if (error instanceof ListingSearchCriteriaChangedError) {
@@ -279,6 +411,70 @@ export function SearchCriteriaScreen({
     }
   };
 
+  const handleRetryRefresh = async (): Promise<void> => {
+    const refresh = state.status === "ready" ? state.persisted.refresh : null;
+    if (
+      state.status !== "ready" ||
+      operation !== "idle" ||
+      retryRefresh === undefined ||
+      refresh === null ||
+      (refresh.status !== "failed" &&
+        !isQueuedStartUnavailable(
+          refresh,
+          refreshDispatchAttempt,
+          timedOutQueuedRunId,
+          now(),
+        ))
+    ) {
+      return;
+    }
+    setOperation("retrying");
+    setFeedback(null);
+    try {
+      const result = await retryRefresh({
+        expectedRevision: state.persisted.revision,
+        confirmedPlannedProviderRequestCount:
+          refresh.plannedProviderRequestCount,
+      });
+      setState((current) =>
+        current.status !== "ready"
+          ? current
+          : {
+              ...current,
+              persisted: {
+                ...current.persisted,
+                refresh: result.refresh,
+              },
+            },
+      );
+      setRefreshDispatchAttempt({
+        attemptedAt: now(),
+        runId: result.refresh.runId,
+        status: result.refreshDispatch,
+      });
+      setTimedOutQueuedRunId(null);
+      setFeedback({
+        kind: result.refreshDispatch === "failed" ? "error" : "success",
+        message:
+          result.refreshDispatch === "failed"
+            ? "Retry was queued, but dispatch is currently unavailable."
+            : "Refresh retry queued.",
+      });
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message:
+          error instanceof ListingRefreshRetryRateLimitedError
+            ? "Refresh retry is temporarily rate limited."
+            : error instanceof ListingRefreshRetryUnavailableError
+              ? "This refresh can no longer be retried. Reload the latest state."
+              : "Refresh retry is unavailable. Try again.",
+      });
+    } finally {
+      setOperation("idle");
+    }
+  };
+
   if (state.status === "loading") {
     return <LoadingState />;
   }
@@ -308,6 +504,17 @@ export function SearchCriteriaScreen({
           </time>
         </div>
       </div>
+
+      <RefreshStatusPanel
+        appliedRevision={persisted.appliedRevision}
+        isRetrying={operation === "retrying"}
+        queuedStartUnavailable={queuedStartUnavailable}
+        {...(retryRefresh === undefined
+          ? {}
+          : { onRetry: () => void handleRetryRefresh() })}
+        refresh={persisted.refresh}
+        savedRevision={persisted.revision}
+      />
 
       <form
         className="criteria-form"
@@ -515,6 +722,177 @@ export function SearchCriteriaScreen({
       </form>
     </main>
   );
+}
+
+function RefreshStatusPanel({
+  appliedRevision,
+  isRetrying,
+  onRetry,
+  queuedStartUnavailable,
+  refresh,
+  savedRevision,
+}: {
+  appliedRevision: number;
+  isRetrying: boolean;
+  onRetry?: () => void;
+  queuedStartUnavailable: boolean;
+  refresh: ListingRefreshSnapshot | null;
+  savedRevision: number;
+}): React.JSX.Element {
+  const presentation = describeRefreshStatus(
+    savedRevision,
+    appliedRevision,
+    refresh,
+    queuedStartUnavailable,
+  );
+  const canRetry =
+    (refresh?.status === "failed" || queuedStartUnavailable) &&
+    onRetry !== undefined;
+  return (
+    <section
+      className={`refresh-status-card refresh-status-${presentation.tone}`}
+      aria-label="Listing refresh status"
+      aria-live="polite"
+    >
+      <div className="refresh-status-copy">
+        {presentation.tone === "failed" ? (
+          <AlertCircle aria-hidden="true" size={18} />
+        ) : presentation.tone === "active" ? (
+          <LoaderCircle className="spin" aria-hidden="true" size={18} />
+        ) : (
+          <CheckCircle2 aria-hidden="true" size={18} />
+        )}
+        <div>
+          <strong>{presentation.title}</strong>
+          <span>{presentation.detail}</span>
+        </div>
+      </div>
+      {canRetry ? (
+        <button
+          className="secondary-button refresh-retry-button"
+          type="button"
+          disabled={isRetrying}
+          onClick={onRetry}
+        >
+          {isRetrying ? (
+            <LoaderCircle className="spin" aria-hidden="true" size={15} />
+          ) : (
+            <RefreshCw aria-hidden="true" size={15} />
+          )}
+          {isRetrying
+            ? "Retrying"
+            : `Retry refresh (${refresh?.plannedProviderRequestCount ?? 0} requests)`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function describeRefreshStatus(
+  savedRevision: number,
+  appliedRevision: number,
+  refresh: ListingRefreshSnapshot | null,
+  queuedStartUnavailable: boolean,
+): { tone: "active" | "failed" | "ready"; title: string; detail: string } {
+  if (refresh?.status === "queued" && queuedStartUnavailable) {
+    return {
+      tone: "failed",
+      title: "Dispatch unavailable / not started",
+      detail: `Revision ${refresh.requestedRevision} has not been claimed by a worker. Showing revision ${appliedRevision}; retry the ${refresh.plannedProviderRequestCount}-request refresh when dispatch is available.`,
+    };
+  }
+  if (refresh?.status === "queued") {
+    return {
+      tone: "active",
+      title: `Saved revision ${savedRevision}; refresh queued`,
+      detail: `${refresh.plannedProviderRequestCount} provider requests planned across ${refresh.selectedMarketCount} markets. Showing revision ${appliedRevision} until publication completes.`,
+    };
+  }
+  if (refresh?.status === "running") {
+    return {
+      tone: "active",
+      title: `Refreshing revision ${refresh.effectiveRevision ?? savedRevision}`,
+      detail: `Showing revision ${appliedRevision} until the complete inventory publishes.`,
+    };
+  }
+  if (refresh?.status === "failed") {
+    return {
+      tone: "failed",
+      title: `Revision ${refresh.requestedRevision} refresh failed; showing revision ${appliedRevision}`,
+      detail: `${refresh.actualProviderRequestCount} of ${refresh.plannedProviderRequestCount} provider requests were attempted. Previous applied listings remain unchanged.`,
+    };
+  }
+  if (refresh?.status === "superseded") {
+    return {
+      tone: "active",
+      title: `Revision ${refresh.requestedRevision} refresh was superseded`,
+      detail: `Showing revision ${appliedRevision} while the latest queued revision is selected.`,
+    };
+  }
+  if (refresh?.status === "succeeded" && refresh.completedAt !== null) {
+    return {
+      tone: "ready",
+      title: `Showing revision ${appliedRevision}`,
+      detail: `Last successful refresh ${formatRefreshTime(refresh.completedAt)}.`,
+    };
+  }
+  return {
+    tone: "ready",
+    title: `Saved revision ${savedRevision}; showing revision ${appliedRevision}`,
+    detail: "No completed refresh status is available yet.",
+  };
+}
+
+function isQueuedStartUnavailable(
+  refresh: ListingRefreshSnapshot | null,
+  dispatchAttempt: RefreshDispatchAttempt | null,
+  timedOutRunId: string | null,
+  currentTime: number,
+): boolean {
+  if (refresh?.status !== "queued" || refresh.startedAt !== null) return false;
+  if (timedOutRunId === refresh.runId) return true;
+  if (
+    dispatchAttempt?.runId === refresh.runId &&
+    dispatchAttempt.status === "failed"
+  ) {
+    return true;
+  }
+
+  const startTime = queuedStartTime(refresh, dispatchAttempt);
+  return (
+    Number.isFinite(startTime) &&
+    currentTime - startTime >= queuedStartTimeoutMs
+  );
+}
+
+function queuedStartTime(
+  refresh: ListingRefreshSnapshot,
+  dispatchAttempt: RefreshDispatchAttempt | null,
+): number {
+  return dispatchAttempt?.runId === refresh.runId
+    ? dispatchAttempt.attemptedAt
+    : Date.parse(refresh.requestedAt);
+}
+
+function applyRefreshToSnapshot(
+  snapshot: ListingSearchCriteriaSnapshot,
+  refresh: ListingRefreshSnapshot | null,
+): ListingSearchCriteriaSnapshot {
+  return {
+    ...snapshot,
+    appliedRevision:
+      refresh?.status === "succeeded" && refresh.effectiveRevision !== null
+        ? refresh.effectiveRevision
+        : snapshot.appliedRevision,
+    refresh,
+  };
+}
+
+function formatRefreshTime(value: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function PriceField({

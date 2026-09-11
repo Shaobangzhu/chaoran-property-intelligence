@@ -1,6 +1,9 @@
 import type {
   EditableListingSearchCriteria,
+  ListingRefreshDispatchStatus,
+  ListingRefreshRun,
   ListingSearchCriteriaResult,
+  UpdateListingSearchCriteriaAndQueueRefreshResult,
 } from "@chaoran-property-intelligence/application";
 import {
   listingSearchCriteriaSchemaVersion,
@@ -26,6 +29,12 @@ export interface UpdateListingSearchCriteriaRequest {
 
 export interface ListingSearchCriteriaResponse {
   readonly searchCriteria: ListingSearchCriteriaResult;
+  readonly refresh: ReturnType<typeof toListingRefreshRunDto> | null;
+}
+
+export interface UpdateListingSearchCriteriaResponse
+  extends ListingSearchCriteriaResponse {
+  readonly refreshDispatch: ListingRefreshDispatchStatus;
 }
 
 export class InvalidListingSearchCriteriaRequestError extends Error {
@@ -79,6 +88,7 @@ export function parseUpdateListingSearchCriteriaRequest(
 
 export function toListingSearchCriteriaResponse(
   result: ListingSearchCriteriaResult,
+  refresh: ListingRefreshRun | null,
 ): ListingSearchCriteriaResponse {
   return {
     searchCriteria: {
@@ -91,8 +101,43 @@ export function toListingSearchCriteriaResponse(
         cities: [...result.criteria.cities],
       },
       revision: result.revision,
+      appliedRevision: result.appliedRevision,
       updatedAt: result.updatedAt,
     },
+    refresh: refresh === null ? null : toListingRefreshRunDto(refresh),
+  };
+}
+
+export function toUpdateListingSearchCriteriaResponse(
+  result: UpdateListingSearchCriteriaAndQueueRefreshResult,
+): UpdateListingSearchCriteriaResponse {
+  return {
+    ...toListingSearchCriteriaResponse(
+      result.searchCriteria,
+      result.refreshRun,
+    ),
+    refreshDispatch: result.refreshDispatch,
+  };
+}
+
+export function toListingRefreshRunDto(run: ListingRefreshRun) {
+  return {
+    runId: run.runId,
+    requestedRevision: run.requestedRevision,
+    effectiveRevision: run.effectiveRevision,
+    triggerReason: run.triggerReason,
+    status: run.status,
+    requestedAt: run.requestedAt,
+    startedAt: run.startedAt,
+    completedAt: run.completedAt,
+    selectedMarkets: [...run.selectedMarkets],
+    selectedMarketCount: run.selectedMarketCount,
+    plannedProviderRequestCount: run.plannedProviderRequestCount,
+    actualProviderRequestCount: run.actualProviderRequestCount,
+    returnedListingCount: run.returnedListingCount,
+    publishedCurrentCount: run.publishedCurrentCount,
+    failureCode: run.failureCode,
+    supersededByRunId: run.supersededByRunId,
   };
 }
 

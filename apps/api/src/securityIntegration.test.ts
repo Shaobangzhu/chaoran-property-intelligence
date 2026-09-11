@@ -66,7 +66,9 @@ describe("authentication security integration", () => {
       getCurrentUser: new GetCurrentUser({ repository, tokenService }),
       getCurrentShowingListArtifact: unusedShowingListUseCase(),
       getCurrentShowingListDraft: unusedShowingListUseCase(),
+      getCurrentListingInventory: unusedShowingListUseCase(),
       getListingSearchCriteria: unusedShowingListUseCase(),
+      getLatestListingRefreshStatus: unusedShowingListUseCase(),
       httpSecurity: {
         deploymentMode: "local",
         originVerificationSecret: null,
@@ -82,9 +84,11 @@ describe("authentication security integration", () => {
         tokenService,
       }),
       markCurrentShowingListDraftReviewed: unusedShowingListUseCase(),
+      listHistoricalListingInventory: unusedShowingListUseCase(),
       now: () => now,
       requestIdFactory: () => requestId,
       saveCurrentShowingListDraft: unusedShowingListUseCase(),
+      retryLatestListingRefresh: unusedShowingListUseCase(),
       updateListingSearchCriteria: unusedShowingListUseCase(),
       updateManualListing: {
         async execute() {

@@ -1,7 +1,12 @@
 import {
+  normalizeListingRefreshRequestPlan,
   PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+  type ListingRefreshRequestPlan,
   type ListingSearchProfile,
+  type ListingSearchProfileRefreshRepositoryPort,
   type ListingSearchProfileRepositoryPort,
+  type SaveListingSearchProfileAndQueueRefreshInput,
+  type SaveListingSearchProfileAndQueueRefreshResult,
   type SaveListingSearchProfileInput,
   type SaveListingSearchProfileResult,
 } from "@chaoran-property-intelligence/application";
@@ -15,6 +20,7 @@ import type {
   SqlDatabase,
   SqlQueryResult,
 } from "./sqlDatabase.js";
+import { insertQueuedListingRefreshRun } from "./listingRefreshRunRow.js";
 
 const maximumSafeRevision = Number.MAX_SAFE_INTEGER;
 
@@ -57,7 +63,9 @@ const updatePrimaryProfileSql = `
 `;
 
 export class PostgresListingSearchProfileRepository
-  implements ListingSearchProfileRepositoryPort
+  implements
+    ListingSearchProfileRepositoryPort,
+    ListingSearchProfileRefreshRepositoryPort
 {
   constructor(private readonly database: SqlDatabase) {}
 
@@ -121,6 +129,97 @@ export class PostgresListingSearchProfileRepository
       return { status: "updated", profile: updatedProfile };
     });
   }
+
+  async savePrimaryProfileAndQueueRefresh(
+    input: SaveListingSearchProfileAndQueueRefreshInput,
+  ): Promise<SaveListingSearchProfileAndQueueRefreshResult> {
+    const normalizedInput = normalizeSaveAndQueueInput(input);
+
+    return this.database.transaction(async (connection) => {
+      const currentResult = await connection.query(lockPrimaryProfileSql, [
+        PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+      ]);
+      if (currentResult.rows.length === 0) {
+        throw new Error("PostgreSQL listing search profile was missing");
+      }
+
+      const currentProfile = parseRequiredProfile(currentResult);
+      if (currentProfile.revision !== normalizedInput.expectedRevision) {
+        return { status: "conflict" };
+      }
+      if (
+        criteriaAreEqual(currentProfile.criteria, normalizedInput.criteria)
+      ) {
+        return { status: "unchanged", profile: currentProfile };
+      }
+      if (
+        Date.parse(normalizedInput.updatedAt) <
+        Date.parse(currentProfile.updatedAt)
+      ) {
+        throwInvalidPersistenceInput();
+      }
+
+      const updateResult = await connection.query(updatePrimaryProfileSql, [
+        PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+        normalizedInput.criteria.schemaVersion,
+        JSON.stringify(normalizedInput.criteria),
+        normalizedInput.updatedByUserId,
+        normalizedInput.updatedAt,
+        normalizedInput.expectedRevision,
+      ]);
+      const updatedProfile = parseRequiredProfile(updateResult);
+      if (
+        updatedProfile.revision !== currentProfile.revision + 1 ||
+        updatedProfile.appliedRevision !== currentProfile.appliedRevision
+      ) {
+        return throwInvalidProfileRow();
+      }
+
+      const run = await insertQueuedListingRefreshRun(connection, {
+        runId: normalizedInput.runId,
+        profileKey: PRIMARY_LISTING_SEARCH_PROFILE_KEY,
+        revision: updatedProfile.revision,
+        triggerReason: "criteria-change",
+        requestedAt: normalizedInput.updatedAt,
+        plan: normalizedInput.plan,
+      });
+      if (run === null) {
+        throw new Error(
+          "PostgreSQL criteria refresh run could not be created atomically",
+        );
+      }
+      return { status: "updated", profile: updatedProfile, run };
+    });
+  }
+}
+
+interface NormalizedSaveAndQueueInput extends SaveListingSearchProfileInput {
+  readonly runId: string;
+  readonly plan: ListingRefreshRequestPlan;
+}
+
+function normalizeSaveAndQueueInput(
+  input: SaveListingSearchProfileAndQueueRefreshInput,
+): NormalizedSaveAndQueueInput {
+  const normalized = normalizeSaveInput(input);
+  if (!isUuid(input.runId)) {
+    return throwInvalidPersistenceInput();
+  }
+
+  let plan: ListingRefreshRequestPlan;
+  try {
+    plan = normalizeListingRefreshRequestPlan(input.plan);
+  } catch {
+    return throwInvalidPersistenceInput();
+  }
+  if (
+    JSON.stringify(plan.selectedMarkets) !==
+    JSON.stringify(normalized.criteria.cities)
+  ) {
+    return throwInvalidPersistenceInput();
+  }
+
+  return Object.freeze({ ...normalized, runId: input.runId, plan });
 }
 
 function normalizeSaveInput(

@@ -19,6 +19,8 @@ import {
 
 import {
   ListingsScreen,
+  type CurrentListingInventoryLoader,
+  type ListingHistoryLoader,
   type ListingsLoader,
   type ListingsMapViewProps,
   type ManualListingArchiver,
@@ -31,6 +33,8 @@ import {
   SessionAuthenticationRequiredError,
   archiveManualListing,
   createManualListing,
+  fetchCurrentListingInventory,
+  fetchListingHistory,
   fetchListings,
   updateManualListing,
 } from "./listingsApi.js";
@@ -49,6 +53,8 @@ import {
 } from "./showingListApi.js";
 import {
   SearchCriteriaScreen,
+  type ListingRefreshLoader,
+  type ListingRefreshRetrier,
   type ListingSearchCriteriaLoader,
   type ListingSearchCriteriaSaver,
 } from "./SearchCriteriaScreen.js";
@@ -56,6 +62,10 @@ import {
   fetchListingSearchCriteria,
   updateListingSearchCriteria,
 } from "./listingSearchCriteriaApi.js";
+import {
+  fetchLatestListingRefresh,
+  retryLatestListingRefresh,
+} from "./listingRefreshApi.js";
 import {
   PriceEstimationScreen,
   type PriceEstimator,
@@ -71,6 +81,10 @@ import {
 
 const defaultLoadListings: ListingsLoader = (signal) =>
   fetchListings({ signal });
+const defaultLoadCurrentListingInventory: CurrentListingInventoryLoader =
+  (signal) => fetchCurrentListingInventory({ signal });
+const defaultLoadListingHistory: ListingHistoryLoader = (query, signal) =>
+  fetchListingHistory(query, { signal });
 const defaultCreateListing: ManualListingCreator = (draft) =>
   createManualListing(draft);
 const defaultUpdateListing: ManualListingUpdater = (listingId, patch) =>
@@ -89,6 +103,10 @@ const defaultLoadListingSearchCriteria: ListingSearchCriteriaLoader = (signal) =
   fetchListingSearchCriteria({ signal });
 const defaultSaveListingSearchCriteria: ListingSearchCriteriaSaver = (input) =>
   updateListingSearchCriteria(input);
+const defaultLoadListingRefresh: ListingRefreshLoader = (signal) =>
+  fetchLatestListingRefresh({ signal });
+const defaultRetryListingRefresh: ListingRefreshRetrier = (input) =>
+  retryLatestListingRefresh(input);
 const defaultEstimatePrice: PriceEstimator = (input, signal) =>
   estimatePropertyPrice(input, { signal });
 
@@ -104,6 +122,9 @@ interface AppProps {
   downloadShowingList?: CurrentShowingListDownloader;
   estimatePrice?: PriceEstimator;
   loadCurrentShowingList?: CurrentShowingListLoader;
+  loadCurrentListingInventory?: CurrentListingInventoryLoader;
+  loadListingHistory?: ListingHistoryLoader;
+  loadListingRefresh?: ListingRefreshLoader;
   loadSearchCriteria?: ListingSearchCriteriaLoader;
   markShowingListReviewed?: CurrentShowingListReviewer;
   sessionClient?: SessionClient;
@@ -111,6 +132,7 @@ interface AppProps {
   mapView?: ComponentType<ListingsMapViewProps>;
   saveShowingList?: CurrentShowingListSaver;
   saveSearchCriteria?: ListingSearchCriteriaSaver;
+  retryListingRefresh?: ListingRefreshRetrier;
   updateListing?: ManualListingUpdater;
 }
 
@@ -120,6 +142,9 @@ export function App({
   downloadShowingList = defaultDownloadCurrentShowingList,
   estimatePrice = defaultEstimatePrice,
   loadCurrentShowingList = defaultLoadCurrentShowingList,
+  loadCurrentListingInventory: suppliedCurrentListingInventory,
+  loadListingHistory: suppliedListingHistory,
+  loadListingRefresh = defaultLoadListingRefresh,
   loadSearchCriteria = defaultLoadListingSearchCriteria,
   markShowingListReviewed = defaultReviewCurrentShowingList,
   sessionClient = defaultSessionClient,
@@ -127,8 +152,19 @@ export function App({
   mapView,
   saveShowingList = defaultSaveCurrentShowingList,
   saveSearchCriteria = defaultSaveListingSearchCriteria,
+  retryListingRefresh = defaultRetryListingRefresh,
   updateListing = defaultUpdateListing,
 }: AppProps = {}): React.JSX.Element {
+  const loadCurrentListingInventory =
+    suppliedCurrentListingInventory ??
+    (loadListings === defaultLoadListings
+      ? defaultLoadCurrentListingInventory
+      : undefined);
+  const loadListingHistory =
+    suppliedListingHistory ??
+    (loadListings === defaultLoadListings
+      ? defaultLoadListingHistory
+      : undefined);
   const [state, setState] = useState<AppState>({ status: "checking" });
   const [sessionRequest, setSessionRequest] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -172,6 +208,41 @@ export function App({
       }
     },
     [loadListings],
+  );
+
+  const protectedCurrentListingInventoryLoader =
+    useCallback<CurrentListingInventoryLoader>(
+      async (signal) => {
+        if (loadCurrentListingInventory === undefined) {
+          throw new Error("Current listing inventory is unavailable");
+        }
+        try {
+          return await loadCurrentListingInventory(signal);
+        } catch (error) {
+          if (error instanceof SessionAuthenticationRequiredError) {
+            setState({ status: "signed-out" });
+          }
+          throw error;
+        }
+      },
+      [loadCurrentListingInventory],
+    );
+
+  const protectedListingHistoryLoader = useCallback<ListingHistoryLoader>(
+    async (query, signal) => {
+      if (loadListingHistory === undefined) {
+        throw new Error("Listing history is unavailable");
+      }
+      try {
+        return await loadListingHistory(query, signal);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [loadListingHistory],
   );
 
   const protectedListingCreator = useCallback<ManualListingCreator>(
@@ -300,6 +371,34 @@ export function App({
       },
       [saveSearchCriteria],
     );
+
+  const protectedListingRefreshLoader = useCallback<ListingRefreshLoader>(
+    async (signal) => {
+      try {
+        return await loadListingRefresh(signal);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [loadListingRefresh],
+  );
+
+  const protectedListingRefreshRetrier = useCallback<ListingRefreshRetrier>(
+    async (input) => {
+      try {
+        return await retryListingRefresh(input);
+      } catch (error) {
+        if (error instanceof SessionAuthenticationRequiredError) {
+          setState({ status: "signed-out" });
+        }
+        throw error;
+      }
+    },
+    [retryListingRefresh],
+  );
 
   const protectedPriceEstimator = useCallback<PriceEstimator>(
     async (input, signal) => {
@@ -433,6 +532,15 @@ export function App({
             <ListingsScreen
               archiveListing={protectedListingArchiver}
               createListing={protectedListingCreator}
+              {...(loadCurrentListingInventory === undefined
+                ? {}
+                : {
+                    loadCurrentInventory:
+                      protectedCurrentListingInventoryLoader,
+                  })}
+              {...(loadListingHistory === undefined
+                ? {}
+                : { loadHistory: protectedListingHistoryLoader })}
               loadListings={protectedListingsLoader}
               {...(mapView === undefined ? {} : { mapView })}
               updateListing={protectedListingUpdater}
@@ -450,6 +558,8 @@ export function App({
           {activeWorkspace === "search-criteria" ? (
             <SearchCriteriaScreen
               loadCriteria={protectedSearchCriteriaLoader}
+              loadRefresh={protectedListingRefreshLoader}
+              retryRefresh={protectedListingRefreshRetrier}
               saveCriteria={protectedSearchCriteriaSaver}
             />
           ) : null}

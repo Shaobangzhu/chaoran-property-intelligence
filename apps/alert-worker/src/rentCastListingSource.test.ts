@@ -109,6 +109,29 @@ describe("RentCastListingSource", () => {
     expect(now).not.toHaveBeenCalled();
   });
 
+  it("reports attempted requests and successful response row counts in sequence", async () => {
+    const providerFailure = new Error("RentCast request failed");
+    const client = createSequentialClient([
+      createPage([createListing(), createListing({ id: "rentcast-2" })]),
+      providerFailure,
+    ]);
+    const accounting: string[] = [];
+    const source = new RentCastListingSource({
+      client,
+      searchCriteria: defaultRentCastSaleListingsSearchCriteria,
+      searchAreas: [
+        { kind: "city", city: "Corona" },
+        { kind: "city", city: "Irvine" },
+      ],
+      now: () => new Date("2026-08-24T20:00:00.000Z"),
+      onProviderRequest: () => accounting.push("request"),
+      onProviderResponse: (count) => accounting.push(`response:${count}`),
+    });
+
+    await expect(source.getActiveSaleListings()).rejects.toBe(providerFailure);
+    expect(accounting).toEqual(["request", "response:2", "request"]);
+  });
+
   it.each([
     {
       name: "exceeds the result limit",

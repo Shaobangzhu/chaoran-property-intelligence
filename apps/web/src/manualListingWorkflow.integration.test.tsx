@@ -64,11 +64,12 @@ describe("manual listing browser workflow integration", () => {
 
     expect(await screen.findByText("Listing archived.")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "No stored listings" }),
+      screen.getByRole("heading", { name: "No current listings" }),
     ).toBeInTheDocument();
     expect(http.archivedListingId).toBe(manualListing.id);
     expect(http.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
       "GET /api/auth/me",
+      "GET /api/listings/current",
       "GET /api/listings",
       "POST /api/listings/manual",
       `PATCH /api/listings/${manualListing.id}`,
@@ -103,6 +104,9 @@ class StatefulBrowserApi {
     }
     if (url === "/api/listings" && method === "GET") {
       return jsonResponse({ listings: this.listing === null ? [] : [this.listing] });
+    }
+    if (url === "/api/listings/current" && method === "GET") {
+      return jsonResponse({ current: null });
     }
     if (url === "/api/listings/manual" && method === "POST") {
       this.createdDraft = readJsonBody(init);
