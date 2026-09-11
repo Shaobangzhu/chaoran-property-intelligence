@@ -90,7 +90,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Showing List" }));
 
     expect(
@@ -111,7 +111,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Search Criteria" }));
 
     expect(
@@ -132,7 +132,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     expect(
       within(screen.getByRole("navigation", { name: "Workspace" }))
         .getAllByRole("button")
@@ -236,7 +236,7 @@ describe("App authentication boundary", () => {
 
     resolveLogin?.(authenticatedUser);
     expect(
-      await screen.findByRole("heading", { name: "No stored listings" }),
+      await screen.findByRole("heading", { name: "No current listings" }),
     ).toBeInTheDocument();
   });
 
@@ -285,7 +285,7 @@ describe("App authentication boundary", () => {
     await user.type(screen.getByLabelText("Password"), "correct horse");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(
-      await screen.findByRole("heading", { name: "No stored listings" }),
+      await screen.findByRole("heading", { name: "No current listings" }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
@@ -310,14 +310,14 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(
       await screen.findByText("Sign out failed. Your workspace remains open."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "No stored listings" }),
+      screen.getByRole("heading", { name: "No current listings" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/private upstream detail/)).not.toBeInTheDocument();
   });
@@ -354,7 +354,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Showing List" }));
 
     expect(
@@ -375,7 +375,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Search Criteria" }));
 
     expect(
@@ -397,7 +397,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Search Criteria" }));
     await screen.findByRole("heading", { name: "Search Criteria" });
     await user.selectOptions(screen.getByLabelText("Property type"), "Condo");
@@ -421,7 +421,7 @@ describe("App authentication boundary", () => {
       />,
     );
 
-    await screen.findByRole("heading", { name: "No stored listings" });
+    await screen.findByRole("heading", { name: "No current listings" });
     await user.click(screen.getByRole("button", { name: "Price Estimation" }));
     await user.type(
       screen.getByLabelText("Street number and name"),
@@ -552,7 +552,9 @@ function searchCriteriaSnapshot(): ListingSearchCriteriaSnapshot {
       cities: ["Chino", "Chino Hills", "Eastvale", "Corona", "Jurupa Valley"],
     },
     revision: 2,
+    appliedRevision: 2,
     updatedAt: "2026-08-22T20:00:00.000Z",
+    refresh: null,
   };
 }
 

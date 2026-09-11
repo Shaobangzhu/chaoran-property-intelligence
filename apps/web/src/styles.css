@@ -492,6 +492,138 @@ a:focus-visible {
   font-weight: 650;
 }
 
+.inventory-toolbar {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+  border-top: 1px solid #d9dee4;
+  border-bottom: 1px solid #d9dee4;
+}
+
+.inventory-view-tabs {
+  display: flex;
+  align-self: stretch;
+}
+
+.inventory-view-tabs button {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #596774;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.inventory-view-tabs button[aria-selected="true"] {
+  border-bottom-color: #a24f2a;
+  color: #17212b;
+}
+
+.inventory-view-tabs button:focus-visible {
+  outline: 3px solid rgba(13, 110, 110, 0.2);
+  outline-offset: -3px;
+}
+
+.inventory-view-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.inventory-freshness {
+  display: grid;
+  gap: 2px;
+  padding-right: 4px;
+  color: #63707d;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.inventory-freshness strong {
+  color: #27333e;
+  font-size: 0.76rem;
+}
+
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid #d9dee4;
+  background: #f7faf9;
+}
+
+.history-filters legend {
+  padding: 0 6px;
+  color: #4d5a67;
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.history-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #3d4a56;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 680;
+}
+
+.history-filters input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #0d6e6e;
+}
+
+.lifecycle-label {
+  padding: 3px 6px;
+  border: 1px solid #c8d0d6;
+  border-radius: 4px;
+  background: #f3f5f6;
+  color: #4d5a67;
+  font-size: 0.65rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.lifecycle-missing,
+.lifecycle-inactive {
+  border-color: #d8c6a1;
+  background: #fff9ec;
+  color: #75541b;
+}
+
+.lifecycle-out_of_scope {
+  border-color: #cbd1d7;
+  background: #f3f5f6;
+  color: #596774;
+}
+
+.lifecycle-sold {
+  border-color: #d8b4ad;
+  background: #fff7f5;
+  color: #7d332e;
+}
+
+.history-load-more {
+  width: calc(100% - 24px);
+  margin: 12px;
+}
+
 .read-state,
 .listing-list {
   border-top: 1px solid #d9dee4;
@@ -2113,6 +2245,69 @@ a:focus-visible {
   width: min(920px, 100%);
 }
 
+.refresh-status-card {
+  display: flex;
+  width: min(920px, 100%);
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #cbd4d9;
+  background: #f7faf9;
+}
+
+.refresh-status-copy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.refresh-status-copy > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.refresh-status-copy > div {
+  display: grid;
+  gap: 3px;
+}
+
+.refresh-status-copy strong {
+  color: #27333e;
+  font-size: 0.8rem;
+}
+
+.refresh-status-copy span {
+  color: #63707d;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.refresh-status-ready .refresh-status-copy > svg {
+  color: #1e6b47;
+}
+
+.refresh-status-active .refresh-status-copy > svg {
+  color: #0d6e6e;
+}
+
+.refresh-status-failed {
+  border-color: #d8b4ad;
+  background: #fff7f5;
+}
+
+.refresh-status-failed .refresh-status-copy > svg {
+  color: #923a34;
+}
+
+.refresh-retry-button {
+  flex: 0 0 auto;
+  padding: 0 12px;
+}
+
 .criteria-command-bar {
   display: flex;
   min-height: 62px;
@@ -2410,6 +2605,33 @@ a:focus-visible {
 }
 
 @media (max-width: 620px) {
+  .inventory-toolbar,
+  .refresh-status-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inventory-toolbar {
+    padding-top: 8px;
+  }
+
+  .inventory-view-tabs {
+    min-height: 44px;
+  }
+
+  .inventory-view-tabs button {
+    flex: 1;
+  }
+
+  .inventory-freshness {
+    padding: 0 10px 10px;
+    text-align: left;
+  }
+
+  .refresh-retry-button {
+    width: 100%;
+  }
+
   .criteria-revision {
     text-align: left;
   }

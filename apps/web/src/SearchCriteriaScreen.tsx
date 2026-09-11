@@ -31,9 +31,17 @@ import {
   ListingSearchCriteriaChangedError,
   ListingSearchCriteriaValidationError,
   type EditableListingSearchCriteria,
+  type SavedListingSearchCriteriaSnapshot,
   type ListingSearchCriteriaSnapshot,
   type UpdateListingSearchCriteriaInput,
 } from "./listingSearchCriteriaApi.js";
+import {
+  ListingRefreshRetryRateLimitedError,
+  ListingRefreshRetryUnavailableError,
+  type ListingRefreshSnapshot,
+  type RetryListingRefreshInput,
+  type RetryListingRefreshResult,
+} from "./listingRefreshApi.js";
 
 export type ListingSearchCriteriaLoader = (
   signal: AbortSignal,
@@ -41,10 +49,22 @@ export type ListingSearchCriteriaLoader = (
 
 export type ListingSearchCriteriaSaver = (
   input: UpdateListingSearchCriteriaInput,
-) => Promise<ListingSearchCriteriaSnapshot>;
+) => Promise<
+  ListingSearchCriteriaSnapshot | SavedListingSearchCriteriaSnapshot
+>;
+
+export type ListingRefreshLoader = (
+  signal: AbortSignal,
+) => Promise<ListingRefreshSnapshot | null>;
+
+export type ListingRefreshRetrier = (
+  input: RetryListingRefreshInput,
+) => Promise<RetryListingRefreshResult>;
 
 interface SearchCriteriaScreenProps {
   loadCriteria: ListingSearchCriteriaLoader;
+  loadRefresh?: ListingRefreshLoader;
+  retryRefresh?: ListingRefreshRetrier;
   saveCriteria: ListingSearchCriteriaSaver;
 }
 
@@ -69,7 +89,7 @@ type ScreenState =
       draft: CriteriaFormValues;
     };
 
-type Operation = "idle" | "saving" | "reloading";
+type Operation = "idle" | "saving" | "reloading" | "retrying";
 type Feedback =
   | { kind: "success"; message: string }
   | { kind: "error"; message: string }
@@ -87,6 +107,8 @@ const bathroomOptions = Array.from(
 
 export function SearchCriteriaScreen({
   loadCriteria,
+  loadRefresh,
+  retryRefresh,
   saveCriteria,
 }: SearchCriteriaScreenProps): React.JSX.Element {
   const [requestNumber, setRequestNumber] = useState(0);
@@ -125,6 +147,45 @@ export function SearchCriteriaScreen({
 
     return () => controller.abort();
   }, [loadCriteria, requestNumber]);
+
+  const refreshRun = state.status === "ready" ? state.persisted.refresh : null;
+  useEffect(() => {
+    if (
+      loadRefresh === undefined ||
+      (refreshRun?.status !== "queued" && refreshRun?.status !== "running")
+    ) {
+      return;
+    }
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async (): Promise<void> => {
+      try {
+        const refresh = await loadRefresh(controller.signal);
+        if (controller.signal.aborted) return;
+        setState((current) =>
+          current.status !== "ready"
+            ? current
+            : {
+                ...current,
+                persisted: applyRefreshToSnapshot(current.persisted, refresh),
+              },
+        );
+        if (refresh?.status === "queued" || refresh?.status === "running") {
+          timer = setTimeout(() => void poll(), 5_000);
+        }
+      } catch {
+        // A transient status-poll failure must not discard the saved form.
+        if (!controller.signal.aborted) {
+          timer = setTimeout(() => void poll(), 5_000);
+        }
+      }
+    };
+    timer = setTimeout(() => void poll(), 5_000);
+    return () => {
+      controller.abort();
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [loadRefresh, refreshRun?.runId, refreshRun?.status]);
 
   useEffect(() => {
     if (!cityDisclosureOpen) {
@@ -213,7 +274,12 @@ export function SearchCriteriaScreen({
       setCityDisclosureOpen(false);
       setFeedback({
         kind: "success",
-        message: `Saved as revision ${saved.revision}. The next alert run will apply these criteria.`,
+        message:
+          "refreshDispatch" in saved && saved.refreshDispatch === "failed"
+            ? `Saved as revision ${saved.revision}. Refresh dispatch failed; the queued run remains available.`
+            : saved.refresh === null
+              ? `Saved as revision ${saved.revision}. No refresh was required.`
+              : `Saved as revision ${saved.revision}. Refresh queued.`,
       });
     } catch (error) {
       if (error instanceof ListingSearchCriteriaChangedError) {
@@ -279,6 +345,56 @@ export function SearchCriteriaScreen({
     }
   };
 
+  const handleRetryRefresh = async (): Promise<void> => {
+    if (
+      state.status !== "ready" ||
+      operation !== "idle" ||
+      retryRefresh === undefined ||
+      state.persisted.refresh?.status !== "failed"
+    ) {
+      return;
+    }
+    setOperation("retrying");
+    setFeedback(null);
+    try {
+      const result = await retryRefresh({
+        expectedRevision: state.persisted.revision,
+        confirmedPlannedProviderRequestCount:
+          state.persisted.refresh.plannedProviderRequestCount,
+      });
+      setState((current) =>
+        current.status !== "ready"
+          ? current
+          : {
+              ...current,
+              persisted: {
+                ...current.persisted,
+                refresh: result.refresh,
+              },
+            },
+      );
+      setFeedback({
+        kind: result.refreshDispatch === "failed" ? "error" : "success",
+        message:
+          result.refreshDispatch === "failed"
+            ? "Retry was queued, but dispatch is currently unavailable."
+            : "Refresh retry queued.",
+      });
+    } catch (error) {
+      setFeedback({
+        kind: "error",
+        message:
+          error instanceof ListingRefreshRetryRateLimitedError
+            ? "Refresh retry is temporarily rate limited."
+            : error instanceof ListingRefreshRetryUnavailableError
+              ? "This refresh can no longer be retried. Reload the latest state."
+              : "Refresh retry is unavailable. Try again.",
+      });
+    } finally {
+      setOperation("idle");
+    }
+  };
+
   if (state.status === "loading") {
     return <LoadingState />;
   }
@@ -308,6 +424,16 @@ export function SearchCriteriaScreen({
           </time>
         </div>
       </div>
+
+      <RefreshStatusPanel
+        appliedRevision={persisted.appliedRevision}
+        isRetrying={operation === "retrying"}
+        {...(retryRefresh === undefined
+          ? {}
+          : { onRetry: () => void handleRetryRefresh() })}
+        refresh={persisted.refresh}
+        savedRevision={persisted.revision}
+      />
 
       <form
         className="criteria-form"
@@ -515,6 +641,133 @@ export function SearchCriteriaScreen({
       </form>
     </main>
   );
+}
+
+function RefreshStatusPanel({
+  appliedRevision,
+  isRetrying,
+  onRetry,
+  refresh,
+  savedRevision,
+}: {
+  appliedRevision: number;
+  isRetrying: boolean;
+  onRetry?: () => void;
+  refresh: ListingRefreshSnapshot | null;
+  savedRevision: number;
+}): React.JSX.Element {
+  const presentation = describeRefreshStatus(
+    savedRevision,
+    appliedRevision,
+    refresh,
+  );
+  const canRetry = refresh?.status === "failed" && onRetry !== undefined;
+  return (
+    <section
+      className={`refresh-status-card refresh-status-${presentation.tone}`}
+      aria-label="Listing refresh status"
+      aria-live="polite"
+    >
+      <div className="refresh-status-copy">
+        {presentation.tone === "failed" ? (
+          <AlertCircle aria-hidden="true" size={18} />
+        ) : presentation.tone === "active" ? (
+          <LoaderCircle className="spin" aria-hidden="true" size={18} />
+        ) : (
+          <CheckCircle2 aria-hidden="true" size={18} />
+        )}
+        <div>
+          <strong>{presentation.title}</strong>
+          <span>{presentation.detail}</span>
+        </div>
+      </div>
+      {canRetry ? (
+        <button
+          className="secondary-button refresh-retry-button"
+          type="button"
+          disabled={isRetrying}
+          onClick={onRetry}
+        >
+          {isRetrying ? (
+            <LoaderCircle className="spin" aria-hidden="true" size={15} />
+          ) : (
+            <RefreshCw aria-hidden="true" size={15} />
+          )}
+          {isRetrying
+            ? "Retrying"
+            : `Retry refresh (${refresh.plannedProviderRequestCount} requests)`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function describeRefreshStatus(
+  savedRevision: number,
+  appliedRevision: number,
+  refresh: ListingRefreshSnapshot | null,
+): { tone: "active" | "failed" | "ready"; title: string; detail: string } {
+  if (refresh?.status === "queued") {
+    return {
+      tone: "active",
+      title: `Saved revision ${savedRevision}; refresh queued`,
+      detail: `${refresh.plannedProviderRequestCount} provider requests planned across ${refresh.selectedMarketCount} markets. Showing revision ${appliedRevision} until publication completes.`,
+    };
+  }
+  if (refresh?.status === "running") {
+    return {
+      tone: "active",
+      title: `Refreshing revision ${refresh.effectiveRevision ?? savedRevision}`,
+      detail: `Showing revision ${appliedRevision} until the complete inventory publishes.`,
+    };
+  }
+  if (refresh?.status === "failed") {
+    return {
+      tone: "failed",
+      title: `Revision ${refresh.requestedRevision} refresh failed; showing revision ${appliedRevision}`,
+      detail: `${refresh.actualProviderRequestCount} of ${refresh.plannedProviderRequestCount} provider requests were attempted. Previous applied listings remain unchanged.`,
+    };
+  }
+  if (refresh?.status === "superseded") {
+    return {
+      tone: "active",
+      title: `Revision ${refresh.requestedRevision} refresh was superseded`,
+      detail: `Showing revision ${appliedRevision} while the latest queued revision is selected.`,
+    };
+  }
+  if (refresh?.status === "succeeded" && refresh.completedAt !== null) {
+    return {
+      tone: "ready",
+      title: `Showing revision ${appliedRevision}`,
+      detail: `Last successful refresh ${formatRefreshTime(refresh.completedAt)}.`,
+    };
+  }
+  return {
+    tone: "ready",
+    title: `Saved revision ${savedRevision}; showing revision ${appliedRevision}`,
+    detail: "No completed refresh status is available yet.",
+  };
+}
+
+function applyRefreshToSnapshot(
+  snapshot: ListingSearchCriteriaSnapshot,
+  refresh: ListingRefreshSnapshot | null,
+): ListingSearchCriteriaSnapshot {
+  return {
+    ...snapshot,
+    appliedRevision:
+      refresh?.status === "succeeded" && refresh.effectiveRevision !== null
+        ? refresh.effectiveRevision
+        : snapshot.appliedRevision,
+    refresh,
+  };
+}
+
+function formatRefreshTime(value: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function PriceField({
