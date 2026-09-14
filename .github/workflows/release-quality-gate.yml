@@ -13,8 +13,52 @@ concurrency:
   group: release-promotion-${{ github.event.pull_request.number }}
 
 jobs:
+  classify:
+    name: Classify release changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    outputs:
+      application_required: ${{ steps.release-changes.outputs.application_required }}
+      changed_file_count: ${{ steps.release-changes.outputs.changed_file_count }}
+      classification_valid: ${{ steps.release-changes.outputs.classification_valid }}
+      documentation_only: ${{ steps.release-changes.outputs.documentation_only }}
+      platform_required: ${{ steps.release-changes.outputs.platform_required }}
+      unclassified_file_count: ${{ steps.release-changes.outputs.unclassified_file_count }}
+
+    env:
+      CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+
+    steps:
+      - name: Checkout trusted base classifier with full ancestry
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+
+      - name: Classify application, platform, and non-deployable changes
+        id: release-changes
+        run: |-
+          set +e
+          node tools/release/classifyReleaseChanges.mjs \
+            --base "$CPI_RELEASE_BASE_SHA" \
+            --head "$CPI_RELEASE_CANDIDATE_SHA" \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary-file test-results/release-change-classification.md
+          classification_status="$?"
+          set -e
+          cat test-results/release-change-classification.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$classification_status"
+
   regression:
     name: Promote exact AWS DEV release
+    needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 45
 

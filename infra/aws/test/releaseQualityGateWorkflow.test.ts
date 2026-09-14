@@ -36,6 +36,43 @@ describe("release promotion gate workflow", () => {
     expect(workflow).toContain("name: Promote exact AWS DEV release");
   });
 
+  it("classifies release changes before running a deployment-specific gate", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(workflow).toContain("name: Classify release changes");
+    expect(workflow).toContain(
+      "CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+    );
+    expect(workflow).toContain(
+      "CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}",
+    );
+    expect(workflow).toContain(
+      "name: Checkout trusted base classifier with full ancestry",
+    );
+    expect(workflow).toContain("ref: ${{ github.event.pull_request.base.sha }}");
+    expect(workflow).toContain("classifyReleaseChanges.mjs");
+    expect(workflow).toContain("--base \"$CPI_RELEASE_BASE_SHA\"");
+    expect(workflow).toContain("--head \"$CPI_RELEASE_CANDIDATE_SHA\"");
+    expect(workflow).toContain("--github-output \"$GITHUB_OUTPUT\"");
+    expect(workflow).toContain(
+      "test-results/release-change-classification.md",
+    );
+    expect(workflow).toContain(
+      "application_required: ${{ steps.release-changes.outputs.application_required }}",
+    );
+    expect(workflow).toContain(
+      "platform_required: ${{ steps.release-changes.outputs.platform_required }}",
+    );
+    expect(workflow).toContain(
+      "documentation_only: ${{ steps.release-changes.outputs.documentation_only }}",
+    );
+    expect(workflow).toContain(
+      "classification_valid: ${{ steps.release-changes.outputs.classification_valid }}",
+    );
+    expect(workflow).toContain("regression:\n    name:");
+    expect(workflow).toContain("needs: classify");
+  });
+
   it("accepts only a same-repository dev-to-main pull request", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
