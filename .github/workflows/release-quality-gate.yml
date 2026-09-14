@@ -56,9 +56,12 @@ jobs:
           cat test-results/release-change-classification.md >> "$GITHUB_STEP_SUMMARY"
           exit "$classification_status"
 
-  regression:
+  application_release:
     name: Promote exact AWS DEV release
     needs: classify
+    if: >-
+      needs.classify.outputs.classification_valid == 'true' &&
+      needs.classify.outputs.application_required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -73,16 +76,16 @@ jobs:
       CPI_TEST_ENVIRONMENT: aws-dev-release
 
     steps:
-      - name: Enforce protected dev-to-main release path
+      - name: Enforce application dev-to-main release path
         run: |-
           if [ "$CPI_RELEASE_HEAD_REF" != "dev" ]; then
-            echo "::error title=Invalid release source::Open feature branches against dev. Only the protected dev branch can be promoted to main."
+            echo "::error title=Invalid application release source::Application changes must be promoted from the protected dev branch."
             {
-              echo "## Release promotion rejected"
+              echo "## Application release promotion rejected"
               echo
-              echo "This gate accepts only a same-repository \`dev -> main\` pull request."
+              echo "The exact DEV application lane accepts only a same-repository \`dev -> main\` pull request."
               echo
-              echo "Retarget this feature pull request to \`dev\`. After it is merged and deployed to AWS DEV, open the release pull request from \`dev\` to \`main\`."
+              echo "Retarget this application change to \`dev\`. After it is merged and deployed to AWS DEV, open the release pull request from \`dev\` to \`main\`."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
@@ -136,7 +139,7 @@ jobs:
             echo
             echo "Candidate: \`$CPI_RELEASE_CANDIDATE_SHA\`"
             echo
-            echo "Source path: protected \`dev -> main\` pull request"
+            echo "Source path: protected \`dev -> main\` application release"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 

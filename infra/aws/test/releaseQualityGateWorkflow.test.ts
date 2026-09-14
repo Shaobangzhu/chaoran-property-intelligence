@@ -69,11 +69,28 @@ describe("release promotion gate workflow", () => {
     expect(workflow).toContain(
       "classification_valid: ${{ steps.release-changes.outputs.classification_valid }}",
     );
-    expect(workflow).toContain("regression:\n    name:");
+    expect(workflow).toContain("application_release:\n    name:");
     expect(workflow).toContain("needs: classify");
   });
 
-  it("accepts only a same-repository dev-to-main pull request", () => {
+  it("runs the exact DEV release lane only for classified application changes", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const applicationLaneIndex = workflow.indexOf("  application_release:");
+    const sourceEnforcementIndex = workflow.indexOf(
+      "- name: Enforce application dev-to-main release path",
+    );
+
+    expect(applicationLaneIndex).toBeGreaterThan(-1);
+    expect(workflow).toContain(
+      "needs.classify.outputs.classification_valid == 'true'",
+    );
+    expect(workflow).toContain(
+      "needs.classify.outputs.application_required == 'true'",
+    );
+    expect(sourceEnforcementIndex).toBeGreaterThan(applicationLaneIndex);
+  });
+
+  it("requires application releases to use a same-repository dev-to-main pull request", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("pull_request:");
@@ -81,8 +98,9 @@ describe("release promotion gate workflow", () => {
     expect(workflow).toContain(
       'if [ "$CPI_RELEASE_HEAD_REF" != "dev" ]; then',
     );
-    expect(workflow).toContain("Open feature branches against dev");
-    expect(workflow).toContain("Retarget this feature pull request");
+    expect(workflow).toContain("Application changes must be promoted");
+    expect(workflow).toContain("exact DEV application lane accepts only");
+    expect(workflow).toContain("Retarget this application change");
     expect(workflow).toContain("CPI_RELEASE_HEAD_REPOSITORY");
     expect(workflow).not.toMatch(/^\s*push:/mu);
   });
