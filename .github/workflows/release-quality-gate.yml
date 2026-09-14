@@ -249,3 +249,202 @@ jobs:
         run: |-
           test "${{ steps.playwright.outputs.exit_code || '1' }}" = "0"
           test "${{ steps.flake-analysis.outputs.exit_code || '1' }}" = "0"
+
+  platform_synth:
+    name: Synthesize account Guardrails candidate
+    needs: classify
+    if: >-
+      needs.classify.outputs.classification_valid == 'true' &&
+      needs.classify.outputs.platform_required == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CPI_RELEASE_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+
+    steps:
+      - name: Enforce same-repository platform source
+        run: |-
+          if [ "$CPI_RELEASE_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error title=Invalid platform source::Account Guardrails plans accept only same-repository pull requests."
+            exit 1
+          fi
+
+      - name: Checkout exact platform candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install candidate dependencies without AWS credentials
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify platform candidate without AWS credentials
+        run: |-
+          test "$(git rev-parse HEAD)" = "$CPI_RELEASE_CANDIDATE_SHA"
+          pnpm exec vitest run \
+            infra/aws/test \
+            tools/aws \
+            tools/flaky-tests \
+            tools/quality-gate \
+            tools/release
+          pnpm --dir infra/aws typecheck
+          pnpm --dir infra/aws build
+
+      - name: Synthesize isolated Guardrails cloud assembly
+        run: |-
+          pnpm --dir infra/aws exec cdk synth \
+            ChaoranPropertyIntelligenceGuardrails \
+            --app 'node dist/bin/guardrails.js' \
+            --ci \
+            --exclusively \
+            --no-lookups \
+            --output "$GITHUB_WORKSPACE/guardrails-candidate-assembly" \
+            --quiet
+
+      - name: Verify isolated cloud assembly scope
+        run: |-
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const manifest = JSON.parse(readFileSync("guardrails-candidate-assembly/manifest.json", "utf8"));
+            const stacks = Object.entries(manifest.artifacts)
+              .filter(([, artifact]) => artifact.type === "aws:cloudformation:stack")
+              .map(([id]) => id);
+            if (JSON.stringify(stacks) !== JSON.stringify(["ChaoranPropertyIntelligenceGuardrails"])) {
+              throw new Error(`Expected one isolated Guardrails stack, received: ${stacks.join(", ")}`);
+            }
+          '
+
+      - name: Upload isolated Guardrails candidate assembly
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: guardrails-candidate-assembly-${{ github.run_id }}-${{ github.run_attempt }}
+          path: guardrails-candidate-assembly/
+          retention-days: 7
+
+  platform_plan:
+    name: Plan account Guardrails changes
+    needs:
+      - classify
+      - platform_synth
+    if: >-
+      needs.classify.outputs.classification_valid == 'true' &&
+      needs.classify.outputs.platform_required == 'true' &&
+      needs.platform_synth.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      AWS_REGION: us-west-2
+      CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+
+    steps:
+      - name: Checkout trusted base planning tools
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: 24.19.0
+
+      - name: Install trusted planning dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download isolated Guardrails candidate assembly
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: guardrails-candidate-assembly-${{ github.run_id }}-${{ github.run_attempt }}
+          path: guardrails-candidate-assembly
+
+      - name: Validate trusted plan inputs
+        run: |-
+          test -n "${{ vars.AWS_ACCOUNT_ID }}"
+          test "$(git rev-parse HEAD)" = "$CPI_RELEASE_BASE_SHA"
+          printf '%s' "$CPI_RELEASE_CANDIDATE_SHA" | grep -Eq '^[a-f0-9]{40}$'
+          mkdir -p guardrails-plan
+
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cpi-release-guardrails-plan
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy
+
+      - name: Verify target AWS account
+        run: |-
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+
+      - name: Capture template-only account-backed Guardrails diff
+        run: |-
+          set +e
+          pnpm --dir infra/aws exec cdk diff \
+            ChaoranPropertyIntelligenceGuardrails \
+            --app "$GITHUB_WORKSPACE/guardrails-candidate-assembly" \
+            --ci \
+            --exclusively \
+            --fail \
+            --method template \
+            --no-color 2>&1 | tee guardrails-plan/cdk-diff.txt
+          diff_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "$diff_status" -gt 1 ]; then
+            exit "$diff_status"
+          fi
+
+      - name: Reject Guardrails resource deletions
+        run: |-
+          node tools/aws/classifyCdkDiff.mjs \
+            --input guardrails-plan/cdk-diff.txt \
+            --output guardrails-plan/cdk-diff-summary.md \
+            --title "Release Guardrails plan" \
+            --fail-on-delete
+          cat guardrails-plan/cdk-diff-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create immutable Guardrails plan digest
+        id: approval
+        run: |-
+          node tools/aws/createDeploymentApproval.mjs \
+            --commit "$CPI_RELEASE_CANDIDATE_SHA" \
+            --diff guardrails-plan/cdk-diff.txt \
+            --stage account-guardrails \
+            --output guardrails-plan/approval.json \
+            --github-output "$GITHUB_OUTPUT" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Guardrails promotion plan
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          if-no-files-found: error
+          name: release-guardrails-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: guardrails-plan/
+          retention-days: 30

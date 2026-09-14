@@ -37,6 +37,8 @@ describe("release change classification", () => {
         "infra/aws/lib/accountGuardrailsStack.ts",
         ".github/workflows/deploy-account-guardrails.yml",
         ".github/workflows/release-quality-gate.yml",
+        "infra/aws/bin/guardrails.ts",
+        "infra/aws/lib/accountGuardrailsApplication.ts",
         "tools/aws/createDeploymentApproval.mjs",
         "tools/release/classifyReleaseChanges.mjs",
       ]),
@@ -47,6 +49,8 @@ describe("release change classification", () => {
       platformFiles: [
         ".github/workflows/deploy-account-guardrails.yml",
         ".github/workflows/release-quality-gate.yml",
+        "infra/aws/bin/guardrails.ts",
+        "infra/aws/lib/accountGuardrailsApplication.ts",
         "infra/aws/lib/accountGuardrailsStack.ts",
         "tools/aws/createDeploymentApproval.mjs",
         "tools/release/classifyReleaseChanges.mjs",

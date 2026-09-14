@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { validateMultilineWorkflowShell } from "./workflowShellSyntax.js";
+
 const workflowPath = fileURLToPath(
   new URL(
     "../../../.github/workflows/release-quality-gate.yml",
@@ -17,6 +19,12 @@ const legacyCiPath = fileURLToPath(
 );
 
 describe("release promotion gate workflow", () => {
+  it("keeps every multiline shell run block syntactically valid", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    expect(validateMultilineWorkflowShell(workflow)).toBeGreaterThan(0);
+  });
+
   it("uses the DEV PR quality gate as the only source verification workflow", () => {
     const workflow = readFileSync(prQualityGatePath, "utf8");
 
@@ -107,12 +115,13 @@ describe("release promotion gate workflow", () => {
 
   it("does not emit secondary report failures when release preflight fails", () => {
     const workflow = readFileSync(workflowPath, "utf8");
-    const guardedEvidenceSteps = workflow.match(
+    const applicationLane = extractWorkflowJob(workflow, "application_release");
+    const guardedEvidenceSteps = applicationLane.match(
       /if: always\(\) && steps\.playwright\.outcome == 'success'/gu,
     );
 
     expect(guardedEvidenceSteps).toHaveLength(5);
-    expect(workflow).not.toMatch(/^\s+if: always\(\)\s*$/gmu);
+    expect(applicationLane).not.toMatch(/^\s+if: always\(\)\s*$/gmu);
   });
 
   it("checks out the exact candidate with full ancestry", () => {
@@ -138,13 +147,72 @@ describe("release promotion gate workflow", () => {
     );
   });
 
-  it("uses only the public DEV origin and never requests AWS credentials", () => {
+  it("keeps the application lane on the public DEV origin without AWS credentials", () => {
     const workflow = readFileSync(workflowPath, "utf8");
+    const applicationLane = extractWorkflowJob(workflow, "application_release");
 
-    expect(workflow).toContain("vars.CPI_AWS_DEV_BASE_URL");
-    expect(workflow).not.toContain("id-token: write");
-    expect(workflow).not.toContain("configure-aws-credentials");
-    expect(workflow).not.toMatch(/^\s+aws\s/imu);
+    expect(applicationLane).toContain("vars.CPI_AWS_DEV_BASE_URL");
+    expect(applicationLane).not.toContain("id-token: write");
+    expect(applicationLane).not.toContain("configure-aws-credentials");
+    expect(applicationLane).not.toMatch(/^\s+aws\s/imu);
+  });
+
+  it("synthesizes an isolated Guardrails candidate without AWS credentials", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const synthLane = extractWorkflowJob(workflow, "platform_synth");
+
+    expect(synthLane).toContain(
+      "needs.classify.outputs.platform_required == 'true'",
+    );
+    expect(synthLane).toContain("permissions:\n      contents: read");
+    expect(synthLane).not.toContain("id-token: write");
+    expect(synthLane).not.toContain("configure-aws-credentials");
+    expect(synthLane).toContain("Enforce same-repository platform source");
+    expect(synthLane).toContain(
+      'if [ "$CPI_RELEASE_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then',
+    );
+    expect(synthLane).toContain(
+      "ref: ${{ github.event.pull_request.head.sha }}",
+    );
+    expect(synthLane).toContain("pnpm exec vitest run");
+    expect(synthLane).toContain("--app 'node dist/bin/guardrails.js'");
+    expect(synthLane).toContain("--exclusively");
+    expect(synthLane).toContain("--no-lookups");
+    expect(synthLane).toContain(
+      'JSON.stringify(["ChaoranPropertyIntelligenceGuardrails"])',
+    );
+    expect(synthLane).toContain("guardrails-candidate-assembly-");
+  });
+
+  it("creates a template-only account-backed Guardrails plan without deploying", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const planLane = extractWorkflowJob(workflow, "platform_plan");
+
+    expect(planLane).toContain("- platform_synth");
+    expect(planLane).toContain(
+      "needs.classify.outputs.platform_required == 'true'",
+    );
+    expect(planLane).toContain("needs.platform_synth.result == 'success'");
+    expect(planLane).toContain("id-token: write");
+    expect(planLane).toContain("environment:\n      name: production");
+    expect(planLane).toContain(
+      "ref: ${{ github.event.pull_request.base.sha }}",
+    );
+    expect(planLane).toContain("actions/download-artifact@");
+    expect(planLane).toContain("role/cpi-github-deploy");
+    expect(planLane).toContain("aws sts get-caller-identity");
+    expect(planLane).toContain("--method template");
+    expect(planLane).toContain("--fail-on-delete");
+    expect(planLane).toContain("createDeploymentApproval.mjs");
+    expect(planLane).toContain("--stage account-guardrails");
+    expect(planLane).toContain("retention-days: 30");
+    expect(planLane).not.toContain("cdk deploy");
+    expect(planLane).not.toContain("CPI_ALERT_EMAIL");
+    expect(planLane).not.toContain("CPI_MONTHLY_BUDGET_USD");
+    expect(planLane).not.toContain("ChaoranPropertyIntelligenceDev");
+    expect(planLane).not.toContain("ChaoranPropertyIntelligenceProduction");
+    expect(planLane).not.toContain("scheduleEnabled");
+    expect(planLane).not.toContain("showingListScheduleEnabled");
   });
 
   it("reuses source verification and runs only remote promotion evidence", () => {
@@ -168,4 +236,28 @@ describe("release promotion gate workflow", () => {
     expect(workflow).toContain("artifact-url");
     expect(workflow).toContain("retention-days: 30");
   });
+
+  it("pins every third-party action to an immutable commit", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+
+    for (const line of workflow
+      .split("\n")
+      .filter((candidate) => candidate.trim().startsWith("uses:"))) {
+      expect(line).toMatch(/@[a-f0-9]{40}(?:\s|$)/u);
+    }
+  });
 });
+
+function extractWorkflowJob(workflow: string, jobId: string): string {
+  const start = workflow.indexOf(`  ${jobId}:`);
+  if (start === -1) {
+    throw new Error(`Workflow job ${jobId} was not found`);
+  }
+
+  const remaining = workflow.slice(start + 1);
+  const nextJobOffset = remaining.search(/^  [a-z][a-z0-9_]*:\s*$/mu);
+
+  return nextJobOffset === -1
+    ? workflow.slice(start)
+    : workflow.slice(start, start + 1 + nextJobOffset);
+}

@@ -24,6 +24,8 @@ const platformExactPaths = new Set([
   ".github/workflows/deploy-account-guardrails.yml",
   ".github/workflows/pr-quality-gate.yml",
   ".github/workflows/release-quality-gate.yml",
+  "infra/aws/bin/guardrails.ts",
+  "infra/aws/lib/accountGuardrailsApplication.ts",
   "infra/aws/lib/accountGuardrailsStack.ts",
   "tools/aws/classifyCdkDiff.mjs",
   "tools/aws/createDeploymentApproval.mjs",
