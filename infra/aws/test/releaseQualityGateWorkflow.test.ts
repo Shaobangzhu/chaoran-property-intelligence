@@ -1,9 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { validateMultilineWorkflowShell } from "./workflowShellSyntax.js";
+import {
+  extractMultilineWorkflowShellScripts,
+  validateMultilineWorkflowShell,
+} from "./workflowShellSyntax.js";
 
 const workflowPath = fileURLToPath(
   new URL(
@@ -37,11 +43,19 @@ describe("release promotion gate workflow", () => {
     expect(existsSync(legacyCiPath)).toBe(false);
   });
 
-  it("is named for exact AWS DEV promotion", () => {
+  it("keeps the stable exact AWS DEV promotion context on the final gate", () => {
     const workflow = readFileSync(workflowPath, "utf8");
 
     expect(workflow).toContain("name: Release Promotion Gate");
-    expect(workflow).toContain("name: Promote exact AWS DEV release");
+    expect(workflow.match(/name: Promote exact AWS DEV release/gu)).toHaveLength(
+      1,
+    );
+    expect(extractWorkflowJob(workflow, "application_release")).toContain(
+      "name: Verify exact AWS DEV application release",
+    );
+    expect(extractWorkflowJob(workflow, "release_gate")).toContain(
+      "name: Promote exact AWS DEV release",
+    );
   });
 
   it("classifies release changes before running a deployment-specific gate", () => {
@@ -105,6 +119,161 @@ describe("release promotion gate workflow", () => {
     expect(noDeploymentLane).not.toContain("configure-aws-credentials");
     expect(noDeploymentLane).not.toContain("environment:");
     expect(noDeploymentLane).not.toMatch(/^\s+aws\s/imu);
+  });
+
+  it("aggregates every conditional lane into one stable required check", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const releaseGate = extractWorkflowJob(workflow, "release_gate");
+
+    expect(releaseGate).toContain("name: Promote exact AWS DEV release");
+    expect(releaseGate).toContain("- classify");
+    expect(releaseGate).toContain("- no_deployment");
+    expect(releaseGate).toContain("- application_release");
+    expect(releaseGate).toContain("- platform_synth");
+    expect(releaseGate).toContain("- platform_plan");
+    expect(releaseGate).toContain("if: always()");
+    expect(releaseGate).toContain("permissions: {}");
+    expect(releaseGate).toContain(
+      "CPI_CLASSIFICATION_RESULT: ${{ needs.classify.result }}",
+    );
+    expect(releaseGate).toContain(
+      "CPI_APPLICATION_RELEASE_RESULT: ${{ needs.application_release.result }}",
+    );
+    expect(releaseGate).toContain(
+      "CPI_NO_DEPLOYMENT_RESULT: ${{ needs.no_deployment.result }}",
+    );
+    expect(releaseGate).toContain(
+      "CPI_PLATFORM_SYNTH_RESULT: ${{ needs.platform_synth.result }}",
+    );
+    expect(releaseGate).toContain(
+      "CPI_PLATFORM_PLAN_RESULT: ${{ needs.platform_plan.result }}",
+    );
+    expect(releaseGate).toContain("require_boolean");
+    expect(releaseGate).toContain("require_result");
+    expect(releaseGate).toContain("No release lane selected");
+    expect(releaseGate).toContain("Conflicting release lanes");
+    expect(releaseGate).toContain("Stable release promotion decision");
+    expect(releaseGate).toContain('exit "$gate_status"');
+    expect(releaseGate).not.toContain("uses:");
+    expect(releaseGate).not.toContain("actions/checkout");
+    expect(releaseGate).not.toContain("id-token: write");
+    expect(releaseGate).not.toContain("environment:");
+  });
+
+  it("accepts every valid release-lane result matrix", () => {
+    const scenarios: Array<{
+      name: string;
+      overrides: Record<string, string>;
+    }> = [
+      {
+        name: "documentation and tests only",
+        overrides: {},
+      },
+      {
+        name: "application only",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "success",
+          CPI_APPLICATION_REQUIRED: "true",
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+        },
+      },
+      {
+        name: "platform only",
+        overrides: {
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+          CPI_PLATFORM_PLAN_RESULT: "success",
+          CPI_PLATFORM_REQUIRED: "true",
+          CPI_PLATFORM_SYNTH_RESULT: "success",
+        },
+      },
+      {
+        name: "mixed application and platform",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "success",
+          CPI_APPLICATION_REQUIRED: "true",
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+          CPI_PLATFORM_PLAN_RESULT: "success",
+          CPI_PLATFORM_REQUIRED: "true",
+          CPI_PLATFORM_SYNTH_RESULT: "success",
+        },
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const result = runStableReleaseGate(scenario.overrides);
+
+      expect({
+        scenario: scenario.name,
+        status: result.status,
+        stderr: result.stderr,
+        stdout: result.stdout,
+      }).toMatchObject({
+        scenario: scenario.name,
+        status: 0,
+      });
+      expect(result.summary).toContain("Stable release promotion decision");
+    }
+  });
+
+  it("fails closed for invalid, failed, unexpected, and conflicting lanes", () => {
+    const scenarios: Array<{
+      expectedError: string;
+      name: string;
+      overrides: Record<string, string>;
+    }> = [
+      {
+        expectedError: "Release classification failed",
+        name: "failed classification",
+        overrides: {
+          CPI_CLASSIFICATION_RESULT: "failure",
+          CPI_CLASSIFICATION_VALID: "false",
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+        },
+      },
+      {
+        expectedError: "Release lane outcome mismatch",
+        name: "failed required application lane",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "failure",
+          CPI_APPLICATION_REQUIRED: "true",
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+        },
+      },
+      {
+        expectedError: "Release lane outcome mismatch",
+        name: "unexpected non-required application lane",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "success",
+        },
+      },
+      {
+        expectedError: "Conflicting release lanes",
+        name: "documentation combined with application",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "success",
+          CPI_APPLICATION_REQUIRED: "true",
+        },
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const result = runStableReleaseGate(scenario.overrides);
+
+      expect({
+        scenario: scenario.name,
+        status: result.status,
+      }).toMatchObject({
+        scenario: scenario.name,
+        status: 1,
+      });
+      expect(result.stdout).toContain(scenario.expectedError);
+      expect(result.summary).toContain("Stable release promotion decision");
+    }
   });
 
   it("runs the exact DEV release lane only for classified application changes", () => {
@@ -286,4 +455,46 @@ function extractWorkflowJob(workflow: string, jobId: string): string {
   return nextJobOffset === -1
     ? workflow.slice(start)
     : workflow.slice(start, start + 1 + nextJobOffset);
+}
+
+function runStableReleaseGate(overrides: Record<string, string>) {
+  const workflow = readFileSync(workflowPath, "utf8");
+  const script = extractMultilineWorkflowShellScripts(workflow).find(
+    ({ name }) => name === "Enforce selected release lane outcomes",
+  )?.script;
+  if (script === undefined) {
+    throw new Error("Stable release gate shell script was not found");
+  }
+
+  const outputDirectory = mkdtempSync(join(tmpdir(), "cpi-release-gate-"));
+  const summaryPath = join(outputDirectory, "summary.md");
+
+  try {
+    const result = spawnSync("bash", ["-c", script], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CPI_APPLICATION_RELEASE_RESULT: "skipped",
+        CPI_APPLICATION_REQUIRED: "false",
+        CPI_CLASSIFICATION_RESULT: "success",
+        CPI_CLASSIFICATION_VALID: "true",
+        CPI_DOCUMENTATION_ONLY: "true",
+        CPI_NO_DEPLOYMENT_RESULT: "success",
+        CPI_PLATFORM_PLAN_RESULT: "skipped",
+        CPI_PLATFORM_REQUIRED: "false",
+        CPI_PLATFORM_SYNTH_RESULT: "skipped",
+        GITHUB_STEP_SUMMARY: summaryPath,
+        ...overrides,
+      },
+    });
+
+    return {
+      status: result.status,
+      stderr: result.stderr,
+      stdout: result.stdout,
+      summary: existsSync(summaryPath) ? readFileSync(summaryPath, "utf8") : "",
+    };
+  } finally {
+    rmSync(outputDirectory, { force: true, recursive: true });
+  }
 }

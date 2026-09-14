@@ -83,7 +83,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   application_release:
-    name: Promote exact AWS DEV release
+    name: Verify exact AWS DEV application release
     needs: classify
     if: >-
       needs.classify.outputs.classification_valid == 'true' &&
@@ -474,3 +474,115 @@ jobs:
           name: release-guardrails-plan-${{ github.run_id }}-${{ github.run_attempt }}
           path: guardrails-plan/
           retention-days: 30
+
+  release_gate:
+    name: Promote exact AWS DEV release
+    needs:
+      - classify
+      - no_deployment
+      - application_release
+      - platform_synth
+      - platform_plan
+    if: always()
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      CPI_APPLICATION_RELEASE_RESULT: ${{ needs.application_release.result }}
+      CPI_APPLICATION_REQUIRED: ${{ needs.classify.outputs.application_required }}
+      CPI_CLASSIFICATION_RESULT: ${{ needs.classify.result }}
+      CPI_CLASSIFICATION_VALID: ${{ needs.classify.outputs.classification_valid }}
+      CPI_DOCUMENTATION_ONLY: ${{ needs.classify.outputs.documentation_only }}
+      CPI_NO_DEPLOYMENT_RESULT: ${{ needs.no_deployment.result }}
+      CPI_PLATFORM_PLAN_RESULT: ${{ needs.platform_plan.result }}
+      CPI_PLATFORM_REQUIRED: ${{ needs.classify.outputs.platform_required }}
+      CPI_PLATFORM_SYNTH_RESULT: ${{ needs.platform_synth.result }}
+
+    steps:
+      - name: Enforce selected release lane outcomes
+        run: |-
+          gate_status=0
+
+          require_boolean() {
+            output_name="$1"
+            output_value="$2"
+            if [ "$output_value" != "true" ] && [ "$output_value" != "false" ]; then
+              echo "::error title=Invalid release classification::$output_name must be true or false."
+              gate_status=1
+            fi
+          }
+
+          require_result() {
+            lane_name="$1"
+            expected_result="$2"
+            actual_result="$3"
+            if [ "$actual_result" != "$expected_result" ]; then
+              echo "::error title=Release lane outcome mismatch::$lane_name expected $expected_result but finished $actual_result."
+              gate_status=1
+            fi
+          }
+
+          require_boolean "classification_valid" "$CPI_CLASSIFICATION_VALID"
+          require_boolean "application_required" "$CPI_APPLICATION_REQUIRED"
+          require_boolean "platform_required" "$CPI_PLATFORM_REQUIRED"
+          require_boolean "documentation_only" "$CPI_DOCUMENTATION_ONLY"
+
+          if [ "$CPI_CLASSIFICATION_RESULT" != "success" ]; then
+            echo "::error title=Release classification failed::Trusted change classification finished $CPI_CLASSIFICATION_RESULT."
+            gate_status=1
+          fi
+          if [ "$CPI_CLASSIFICATION_VALID" != "true" ]; then
+            echo "::error title=Release classification rejected::The release candidate does not have a valid fail-closed classification."
+            gate_status=1
+          fi
+
+          if [ "$CPI_CLASSIFICATION_VALID" = "true" ]; then
+            selected_lane_count=0
+
+            if [ "$CPI_APPLICATION_REQUIRED" = "true" ]; then
+              selected_lane_count=$((selected_lane_count + 1))
+              require_result "Application exact DEV release" "success" "$CPI_APPLICATION_RELEASE_RESULT"
+            else
+              require_result "Application exact DEV release" "skipped" "$CPI_APPLICATION_RELEASE_RESULT"
+            fi
+
+            if [ "$CPI_PLATFORM_REQUIRED" = "true" ]; then
+              selected_lane_count=$((selected_lane_count + 1))
+              require_result "Guardrails candidate synthesis" "success" "$CPI_PLATFORM_SYNTH_RESULT"
+              require_result "Guardrails account plan" "success" "$CPI_PLATFORM_PLAN_RESULT"
+            else
+              require_result "Guardrails candidate synthesis" "skipped" "$CPI_PLATFORM_SYNTH_RESULT"
+              require_result "Guardrails account plan" "skipped" "$CPI_PLATFORM_PLAN_RESULT"
+            fi
+
+            if [ "$CPI_DOCUMENTATION_ONLY" = "true" ]; then
+              selected_lane_count=$((selected_lane_count + 1))
+              require_result "Documentation and tests no-deployment" "success" "$CPI_NO_DEPLOYMENT_RESULT"
+            else
+              require_result "Documentation and tests no-deployment" "skipped" "$CPI_NO_DEPLOYMENT_RESULT"
+            fi
+
+            if [ "$selected_lane_count" -eq 0 ]; then
+              echo "::error title=No release lane selected::A valid classification must select at least one release lane."
+              gate_status=1
+            fi
+            if [ "$CPI_DOCUMENTATION_ONLY" = "true" ] && [ "$selected_lane_count" -ne 1 ]; then
+              echo "::error title=Conflicting release lanes::The no-deployment lane cannot be combined with an application or platform lane."
+              gate_status=1
+            fi
+          fi
+
+          {
+            echo "## Stable release promotion decision"
+            echo
+            echo "| Concern | Required | Result |"
+            echo "| --- | --- | --- |"
+            echo "| Trusted classification | $CPI_CLASSIFICATION_VALID | $CPI_CLASSIFICATION_RESULT |"
+            echo "| Application exact DEV release | $CPI_APPLICATION_REQUIRED | $CPI_APPLICATION_RELEASE_RESULT |"
+            echo "| Guardrails candidate synthesis | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_SYNTH_RESULT |"
+            echo "| Guardrails account plan | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_PLAN_RESULT |"
+            echo "| Documentation/tests no-deployment | $CPI_DOCUMENTATION_ONLY | $CPI_NO_DEPLOYMENT_RESULT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$gate_status"
