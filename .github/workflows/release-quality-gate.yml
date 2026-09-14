@@ -56,6 +56,32 @@ jobs:
           cat test-results/release-change-classification.md >> "$GITHUB_STEP_SUMMARY"
           exit "$classification_status"
 
+  no_deployment:
+    name: Confirm no deployment required
+    needs: classify
+    if: >-
+      needs.classify.outputs.classification_valid == 'true' &&
+      needs.classify.outputs.documentation_only == 'true'
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      CPI_CHANGED_FILE_COUNT: ${{ needs.classify.outputs.changed_file_count }}
+
+    steps:
+      - name: Record docs and tests no-deployment decision
+        run: |-
+          {
+            echo "## No deployment required"
+            echo
+            echo "The trusted release classifier found only documentation and test changes."
+            echo
+            echo "Changed files: \`$CPI_CHANGED_FILE_COUNT\`"
+            echo
+            echo "No AWS credentials, DEV release verification, or remote regression was requested."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   application_release:
     name: Promote exact AWS DEV release
     needs: classify

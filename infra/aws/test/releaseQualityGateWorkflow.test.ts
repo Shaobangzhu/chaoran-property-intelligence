@@ -81,6 +81,32 @@ describe("release promotion gate workflow", () => {
     expect(workflow).toContain("needs: classify");
   });
 
+  it("records docs and tests as an explicit no-deployment lane", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const noDeploymentLane = extractWorkflowJob(workflow, "no_deployment");
+
+    expect(noDeploymentLane).toContain(
+      "needs.classify.outputs.classification_valid == 'true'",
+    );
+    expect(noDeploymentLane).toContain(
+      "needs.classify.outputs.documentation_only == 'true'",
+    );
+    expect(noDeploymentLane).toContain("permissions: {}");
+    expect(noDeploymentLane).toContain(
+      "CPI_CHANGED_FILE_COUNT: ${{ needs.classify.outputs.changed_file_count }}",
+    );
+    expect(noDeploymentLane).toContain("No deployment required");
+    expect(noDeploymentLane).not.toContain("uses:");
+    expect(noDeploymentLane).not.toContain("actions/checkout");
+    expect(noDeploymentLane).not.toContain("pnpm");
+    expect(noDeploymentLane).not.toContain("playwright");
+    expect(noDeploymentLane).not.toContain("CPI_AWS_DEV_BASE_URL");
+    expect(noDeploymentLane).not.toContain("id-token: write");
+    expect(noDeploymentLane).not.toContain("configure-aws-credentials");
+    expect(noDeploymentLane).not.toContain("environment:");
+    expect(noDeploymentLane).not.toMatch(/^\s+aws\s/imu);
+  });
+
   it("runs the exact DEV release lane only for classified application changes", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const applicationLaneIndex = workflow.indexOf("  application_release:");
