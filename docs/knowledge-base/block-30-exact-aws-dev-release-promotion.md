@@ -10,6 +10,11 @@ quality gate. DEV-to-main confidence belongs to promotion evidence from the
 deployed DEV origin. These are separate questions and should not run the same
 work twice.
 
+ADR 0020 later preserved this exact DEV path as the application lane while
+adding platform and documentation/tests-only routes. The required context name
+is unchanged, but it is now emitted by a final aggregator rather than the
+conditional application job.
+
 ## Workflow Ownership
 
 ### Feature To DEV
@@ -29,7 +34,7 @@ smoke. Documentation/test-only changes retain the intentional no-deploy record.
 
 ### DEV To Main
 
-`Release Promotion Gate / Promote exact AWS DEV release` verifies:
+For application or mixed candidates, the application lane verifies:
 
 1. the PR source is the same repository's protected `dev` branch
 2. checkout matches the exact PR head SHA
@@ -40,7 +45,14 @@ smoke. Documentation/test-only changes retain the intentional no-deploy record.
 7. retry and quarantine evidence contains no unexpected result
 
 It intentionally does not run Vitest, typecheck, a local build, or local
-Playwright smoke.
+Playwright smoke. Platform-only candidates instead synthesize the isolated
+Guardrails stack and compare it with a trusted-base template without credentials
+or a GitHub Environment. The source comparison cannot authorize deployment; a
+protected account-backed plan remains a separate post-merge operation.
+Documentation/tests-only candidates record an intentional no-deployment result.
+A stable aggregator publishes
+`Release Promotion Gate / Promote exact AWS DEV release` for every PR to
+`main` and fails unless every selected lane succeeds.
 
 ### Main And Production
 
@@ -51,15 +63,15 @@ roles, environments, or stack boundaries.
 
 ## Rollout
 
-1. Merge the source change through the protected feature-to-DEV quality gate.
-2. Confirm the DEV workflow and remote smoke remain green.
-3. Open the DEV-to-main PR and confirm the new promotion context appears.
-4. Change the repository rulesets to require the new stable contexts described
-   in ADR 0018 and remove `CI / verify`.
-5. Merge only after the exact AWS DEV promotion gate succeeds.
+The original Block 30 cutover is complete. For the ADR 0020 amendment, follow
+the [change-classified release promotion runbook](../runbooks/change-classified-release-promotion.md).
+The first rollout deliberately requires both exact DEV application evidence and
+the Guardrails source-template comparison when the trusted base classifier is
+not yet installed. After merge, the base classifier owns normal routing.
 
-Do not remove the old required context before the source workflow can emit the
-new one. Do not merge while either ruleset has no required quality status.
+Do not remove the stable required context during the amendment rollout. Its
+name is unchanged; only its ownership moves from the application job to the
+final aggregator.
 
 ## Non-Goals
 
@@ -73,5 +85,7 @@ new one. Do not merge while either ruleset has no required quality status.
 ## References
 
 - [ADR 0018](../adr/0018-exact-aws-dev-release-promotion.md)
+- [ADR 0020](../adr/0020-change-classified-release-promotion.md)
+- [Change-classified promotion runbook](../runbooks/change-classified-release-promotion.md)
 - [Testing framework](../testing/test-framework.md)
 - [Release delivery runbook](../runbooks/release-production-delivery.md)

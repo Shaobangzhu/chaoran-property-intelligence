@@ -56,9 +56,13 @@ describe("account Guardrails deployment workflow", () => {
     expect(
       workflow.match(/ChaoranPropertyIntelligenceGuardrails/gu),
     ).toHaveLength(4);
+    expect(
+      workflow.match(/--app 'node dist\/bin\/guardrails\.js'/gu),
+    ).toHaveLength(2);
     expect(workflow.match(/--exclusively/gu)).toHaveLength(2);
     expect(workflow).toContain("--method template");
     expect(workflow).toContain("--fail-on-delete");
+    expect(workflow).not.toContain("targetStage");
     expect(workflow).not.toContain("ChaoranPropertyIntelligenceDev");
     expect(workflow).not.toContain("ChaoranPropertyIntelligenceProduction");
     expect(workflow).not.toContain("scheduleEnabled");

@@ -105,7 +105,7 @@ jobs:
           set +e
           pnpm --dir infra/aws exec cdk diff \
             ChaoranPropertyIntelligenceGuardrails \
-            -c targetStage=dev \
+            --app 'node dist/bin/guardrails.js' \
             --ci \
             --exclusively \
             --fail \
@@ -163,7 +163,7 @@ jobs:
           mkdir -p guardrails-evidence
           pnpm --dir infra/aws exec cdk deploy \
             ChaoranPropertyIntelligenceGuardrails \
-            -c targetStage=dev \
+            --app 'node dist/bin/guardrails.js' \
             --exclusively \
             --outputs-file "$GITHUB_WORKSPACE/guardrails-evidence/cdk-outputs.json" \
             --require-approval never \

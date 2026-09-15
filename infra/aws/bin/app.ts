@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { App } from "aws-cdk-lib";
 
-import { AccountGuardrailsStack } from "../lib/accountGuardrailsStack.js";
+import { createAccountGuardrailsStack } from "../lib/accountGuardrailsApplication.js";
 import { EdgeSecurityStack } from "../lib/edgeSecurityStack.js";
 import { PublicApplicationStack } from "../lib/publicApplicationStack.js";
 import { resolveDeploymentEnvironment } from "../lib/deploymentEnvironment.js";
@@ -26,24 +26,7 @@ const priceEstimationOpenAiEnabled = readBooleanContext(
   false,
 );
 
-const guardrailsStack = new AccountGuardrailsStack(
-  app,
-  "ChaoranPropertyIntelligenceGuardrails",
-  {
-    env: environment,
-    githubDevAdminBootstrapEnvironment: "development-admin-bootstrap",
-    githubDevDeploymentRegions: ["us-west-2", "us-east-1"],
-    githubDevEnvironment: "development",
-    githubOwner: "Shaobangzhu",
-    githubOwnerId: "8231137",
-    githubProductionAdminBootstrapEnvironment:
-      "production-admin-bootstrap",
-    githubProductionEnvironment: "production",
-    githubProductionDeploymentRegions: ["us-west-2", "us-east-1"],
-    githubRepository: "chaoran-property-intelligence",
-    githubRepositoryId: "1338908571",
-  },
-);
+const guardrailsStack = createAccountGuardrailsStack(app, environment);
 if (deploymentStage === "production") {
   const productionStack = new PropertyAlertStack(
     app,
