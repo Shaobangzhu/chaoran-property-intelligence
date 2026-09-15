@@ -497,11 +497,19 @@ describe("release promotion gate workflow", () => {
       "ref: ${{ github.event.pull_request.base.sha }}",
     );
     expect(planLane).toContain("actions/download-artifact@");
-    expect(planLane).toContain("guardrails-base-assembly");
+    expect(planLane).toContain(
+      "CPI_GUARDRAILS_BASE_ASSEMBLY: ${{ runner.temp }}/guardrails-base-assembly",
+    );
     expect(planLane).toContain("Synthesize trusted base Guardrails template");
+    expect(planLane).toContain(
+      "if [ ! -f infra/aws/dist/bin/guardrails.js ]; then",
+    );
+    expect(planLane).toContain("guardrails_entrypoint='dist/bin/app.js'");
+    expect(planLane).toContain("legacy CDK app with an exclusive stack target");
+    expect(planLane).toContain("guardrails-plan/comparison-inputs.txt");
     expect(planLane).toContain("--no-lookups");
     expect(planLane).toContain(
-      "--template \"$GITHUB_WORKSPACE/guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json\"",
+      "--template \"$CPI_GUARDRAILS_BASE_ASSEMBLY/ChaoranPropertyIntelligenceGuardrails.template.json\"",
     );
     expect(planLane).toContain("--method template");
     expect(planLane).toContain("--fail-on-delete");

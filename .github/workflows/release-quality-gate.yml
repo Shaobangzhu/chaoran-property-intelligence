@@ -402,6 +402,7 @@ jobs:
     timeout-minutes: 15
 
     env:
+      CPI_GUARDRAILS_BASE_ASSEMBLY: ${{ runner.temp }}/guardrails-base-assembly
       CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
 
@@ -435,20 +436,31 @@ jobs:
         run: |-
           test "$(git rev-parse HEAD)" = "$CPI_RELEASE_BASE_SHA"
           printf '%s' "$CPI_RELEASE_CANDIDATE_SHA" | grep -Eq '^[a-f0-9]{40}$'
-          mkdir -p guardrails-base-assembly guardrails-plan
+          mkdir -p "$CPI_GUARDRAILS_BASE_ASSEMBLY" guardrails-plan
+          {
+            echo "schema_version=1"
+            echo "base_sha=$CPI_RELEASE_BASE_SHA"
+            echo "candidate_sha=$CPI_RELEASE_CANDIDATE_SHA"
+          } > guardrails-plan/comparison-inputs.txt
 
       - name: Synthesize trusted base Guardrails template
         run: |-
           pnpm --dir infra/aws build
+          guardrails_entrypoint='dist/bin/guardrails.js'
+          if [ ! -f infra/aws/dist/bin/guardrails.js ]; then
+            guardrails_entrypoint='dist/bin/app.js'
+            echo "Trusted base predates the isolated Guardrails entrypoint; using the legacy CDK app with an exclusive stack target."
+          fi
+          test -f "infra/aws/$guardrails_entrypoint"
           pnpm --dir infra/aws exec cdk synth \
             ChaoranPropertyIntelligenceGuardrails \
-            --app 'node dist/bin/guardrails.js' \
+            --app "node $guardrails_entrypoint" \
             --ci \
             --exclusively \
             --no-lookups \
-            --output "$GITHUB_WORKSPACE/guardrails-base-assembly" \
+            --output "$CPI_GUARDRAILS_BASE_ASSEMBLY" \
             --quiet
-          test -f guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json
+          test -f "$CPI_GUARDRAILS_BASE_ASSEMBLY/ChaoranPropertyIntelligenceGuardrails.template.json"
 
       - name: Capture credential-free Guardrails source-template diff
         run: |-
@@ -456,7 +468,7 @@ jobs:
           pnpm --dir infra/aws exec cdk diff \
             ChaoranPropertyIntelligenceGuardrails \
             --app "$GITHUB_WORKSPACE/guardrails-candidate-assembly" \
-            --template "$GITHUB_WORKSPACE/guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json" \
+            --template "$CPI_GUARDRAILS_BASE_ASSEMBLY/ChaoranPropertyIntelligenceGuardrails.template.json" \
             --ci \
             --exclusively \
             --fail \
