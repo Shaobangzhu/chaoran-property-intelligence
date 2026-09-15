@@ -82,6 +82,13 @@ application identity, and pass the credential-free Guardrails source-template
 comparison. After merge, the classifier exists on `main`; all later runs use
 normal fail-closed classification and report `bootstrap_fallback=false`.
 
+The trusted base can also predate the isolated `guardrails.js` CDK entrypoint.
+The comparison prefers that isolated entrypoint when it exists and otherwise
+synthesizes only the named Guardrails target through the legacy `app.js`. Base
+assembly output stays outside the checkout so the legacy application's asset
+staging cannot recursively copy its own output. This compatibility path runs no
+candidate code and uses no AWS credentials.
+
 Future classifier evolution is two-phase when a change introduces a previously
 unknown path: first merge the classifier policy update through an already-known
 platform path, then introduce the new path. Do not execute a candidate

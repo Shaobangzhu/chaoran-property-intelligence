@@ -163,6 +163,9 @@ pinning; absence of workflow path filters; and the first-run bootstrap fallback.
 - If the Guardrails source comparison fails before a runner starts, confirm the
   job has no `environment` or `id-token: write`; pull-request comparison must not
   depend on Production deployment-branch rules or AWS credentials.
+- If trusted base synthesis reports a missing `dist/bin/guardrails.js`, confirm
+  the job selected the legacy `dist/bin/app.js` fallback and wrote its assembly
+  under the runner temporary directory rather than inside the checkout.
 - If the first-run fallback cannot validate exact DEV, complete or repair the
   DEV deployment before retrying.
 - If the workflow itself is invalid, keep the existing required check in place,
