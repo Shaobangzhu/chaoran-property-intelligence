@@ -254,7 +254,7 @@ flowchart TD
     Direct["Platform/docs PR<br/>Direct to main"]
     Promote["Stable release aggregate<br/>One required context"]
     Application["Application lane<br/>Exact DEV evidence"]
-    Platform["Platform lane<br/>Guardrails synth + plan"]
+    Platform["Platform lane<br/>Guardrails source comparison"]
     Docs["Docs/tests lane<br/>No deployment"]
     Main["Merge to main"]
     Prod["Manual Production workflow<br/>Plan, review digest, deploy, smoke"]
@@ -271,7 +271,7 @@ flowchart TD
 | --- | --- |
 | [PR Quality Gate](.github/workflows/pr-quality-gate.yml) | PR to `dev`; classifies changed files, selects relevant suites, and uses the full fallback for shared or unknown impact |
 | [Deploy DEV](.github/workflows/deploy-dev.yml) | Protected `dev` push after a merged PR, or manual dispatch; builds the candidate, validates ArcGIS assets, plans/deploys CDK, and runs remote smoke |
-| [Release Promotion Gate](.github/workflows/release-quality-gate.yml) | PR to `main`; application changes require exact DEV evidence, platform changes require an isolated Guardrails synth and protected template-only plan, and docs/tests-only changes record no deployment; one stable aggregator enforces the selected lanes |
+| [Release Promotion Gate](.github/workflows/release-quality-gate.yml) | PR to `main`; application changes require exact DEV evidence, platform changes require an isolated Guardrails synth and credential-free trusted-base template comparison, and docs/tests-only changes record no deployment; one stable aggregator enforces the selected lanes |
 | [Deploy production](.github/workflows/deploy-production.yml) | Manual `main` operation; verifies the candidate, produces a reviewed plan digest, then deploys and runs safe Production smoke |
 | [Weekly DEV Regression](.github/workflows/weekly-dev-regression.yml) | Sunday at 10:00 PM `America/Los_Angeles`, or manual dispatch; tests deployed DEV and publishes protected Allure reports |
 

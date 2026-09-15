@@ -63,7 +63,7 @@ jobs:
               echo "Trusted base classifier: not yet installed"
               echo "Bootstrap fallback: conservative application and platform lanes"
               echo
-              echo "The candidate classifier was not executed. Exact DEV application evidence and the account-backed Guardrails plan are both required for this one-time rollout."
+              echo "The candidate classifier was not executed. Exact DEV application evidence and the credential-free Guardrails source-template comparison are both required for this one-time rollout."
             } > test-results/release-change-classification.md
             cat test-results/release-change-classification.md >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -388,7 +388,7 @@ jobs:
           retention-days: 7
 
   platform_plan:
-    name: Plan account Guardrails changes
+    name: Compare Guardrails source templates
     needs:
       - classify
       - platform_synth
@@ -398,14 +398,10 @@ jobs:
       needs.platform_synth.result == 'success'
     permissions:
       contents: read
-      id-token: write
-    environment:
-      name: production
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     env:
-      AWS_REGION: us-west-2
       CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
 
@@ -437,33 +433,35 @@ jobs:
 
       - name: Validate trusted plan inputs
         run: |-
-          test -n "${{ vars.AWS_ACCOUNT_ID }}"
           test "$(git rev-parse HEAD)" = "$CPI_RELEASE_BASE_SHA"
           printf '%s' "$CPI_RELEASE_CANDIDATE_SHA" | grep -Eq '^[a-f0-9]{40}$'
-          mkdir -p guardrails-plan
+          mkdir -p guardrails-base-assembly guardrails-plan
 
-      - name: Configure temporary AWS credentials
-        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: cpi-release-guardrails-plan
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/cpi-github-deploy
-
-      - name: Verify target AWS account
+      - name: Synthesize trusted base Guardrails template
         run: |-
-          actual_account="$(aws sts get-caller-identity --query Account --output text)"
-          test "$actual_account" = "${{ vars.AWS_ACCOUNT_ID }}"
+          pnpm --dir infra/aws build
+          pnpm --dir infra/aws exec cdk synth \
+            ChaoranPropertyIntelligenceGuardrails \
+            --app 'node dist/bin/guardrails.js' \
+            --ci \
+            --exclusively \
+            --no-lookups \
+            --output "$GITHUB_WORKSPACE/guardrails-base-assembly" \
+            --quiet
+          test -f guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json
 
-      - name: Capture template-only account-backed Guardrails diff
+      - name: Capture credential-free Guardrails source-template diff
         run: |-
           set +e
           pnpm --dir infra/aws exec cdk diff \
             ChaoranPropertyIntelligenceGuardrails \
             --app "$GITHUB_WORKSPACE/guardrails-candidate-assembly" \
+            --template "$GITHUB_WORKSPACE/guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json" \
             --ci \
             --exclusively \
             --fail \
             --method template \
+            --no-lookups \
             --no-color 2>&1 | tee guardrails-plan/cdk-diff.txt
           diff_status="${PIPESTATUS[0]}"
           set -e
@@ -476,27 +474,38 @@ jobs:
           node tools/aws/classifyCdkDiff.mjs \
             --input guardrails-plan/cdk-diff.txt \
             --output guardrails-plan/cdk-diff-summary.md \
-            --title "Release Guardrails plan" \
+            --title "Release Guardrails source comparison" \
             --fail-on-delete
           cat guardrails-plan/cdk-diff-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create immutable Guardrails plan digest
-        id: approval
+      - name: Create immutable Guardrails source-comparison digest
         run: |-
-          node tools/aws/createDeploymentApproval.mjs \
-            --commit "$CPI_RELEASE_CANDIDATE_SHA" \
-            --diff guardrails-plan/cdk-diff.txt \
-            --stage account-guardrails \
-            --output guardrails-plan/approval.json \
-            --github-output "$GITHUB_OUTPUT" \
-            >> "$GITHUB_STEP_SUMMARY"
+          source_diff_sha256="$(sha256sum guardrails-plan/cdk-diff.txt | cut -d ' ' -f 1)"
+          review_digest="$(printf '%s\n%s\n' "$CPI_RELEASE_CANDIDATE_SHA" "$source_diff_sha256" | sha256sum | cut -d ' ' -f 1)"
+          {
+            echo "schema_version=1"
+            echo "candidate_sha=$CPI_RELEASE_CANDIDATE_SHA"
+            echo "source_diff_sha256=$source_diff_sha256"
+            echo "review_digest=$review_digest"
+          } > guardrails-plan/source-comparison.txt
+          {
+            echo "# Account Guardrails Source Comparison"
+            echo
+            echo "Candidate: \`$CPI_RELEASE_CANDIDATE_SHA\`"
+            echo
+            echo "Source-template diff SHA-256: \`$source_diff_sha256\`"
+            echo
+            echo "Review digest: \`$review_digest\`"
+            echo
+            echo "This is credential-free pull-request evidence. It cannot authorize an AWS deployment; run the protected account-backed plan after merge."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload Guardrails promotion plan
+      - name: Upload Guardrails source-comparison evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           if-no-files-found: error
-          name: release-guardrails-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-guardrails-source-comparison-${{ github.run_id }}-${{ github.run_attempt }}
           path: guardrails-plan/
           retention-days: 30
 
@@ -577,10 +586,10 @@ jobs:
             if [ "$CPI_PLATFORM_REQUIRED" = "true" ]; then
               selected_lane_count=$((selected_lane_count + 1))
               require_result "Guardrails candidate synthesis" "success" "$CPI_PLATFORM_SYNTH_RESULT"
-              require_result "Guardrails account plan" "success" "$CPI_PLATFORM_PLAN_RESULT"
+              require_result "Guardrails source-template comparison" "success" "$CPI_PLATFORM_PLAN_RESULT"
             else
               require_result "Guardrails candidate synthesis" "skipped" "$CPI_PLATFORM_SYNTH_RESULT"
-              require_result "Guardrails account plan" "skipped" "$CPI_PLATFORM_PLAN_RESULT"
+              require_result "Guardrails source-template comparison" "skipped" "$CPI_PLATFORM_PLAN_RESULT"
             fi
 
             if [ "$CPI_DOCUMENTATION_ONLY" = "true" ]; then
@@ -609,7 +618,7 @@ jobs:
             echo "| Bootstrap fallback | n/a | $CPI_BOOTSTRAP_FALLBACK |"
             echo "| Application exact DEV release | $CPI_APPLICATION_REQUIRED | $CPI_APPLICATION_RELEASE_RESULT |"
             echo "| Guardrails candidate synthesis | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_SYNTH_RESULT |"
-            echo "| Guardrails account plan | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_PLAN_RESULT |"
+            echo "| Guardrails source-template comparison | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_PLAN_RESULT |"
             echo "| Documentation/tests no-deployment | $CPI_DOCUMENTATION_ONLY | $CPI_NO_DEPLOYMENT_RESULT |"
           } >> "$GITHUB_STEP_SUMMARY"
 

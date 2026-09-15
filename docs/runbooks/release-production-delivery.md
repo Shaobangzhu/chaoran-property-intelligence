@@ -66,12 +66,13 @@ bounded diagnostics. A pending, failed, divergent, or stale runtime-capable DEV
 release makes the application lane fail.
 
 Platform work uses an isolated candidate Guardrails synthesis without AWS
-credentials. A second job checks out trusted base planning tools, enters the
-protected `production` environment, obtains temporary OIDC credentials, and
-runs an account-backed `cdk diff --method template`. It rejects deletions,
-publishes a digest-bound plan, and never deploys. Documentation/tests-only work
-uses a no-permission no-deployment lane without checkout, dependencies, DEV,
-AWS, or remote regression. Mixed work requires both deployable lanes.
+credentials. A second credential-free job synthesizes the trusted base template
+and runs `cdk diff --method template --template` against the candidate assembly.
+It rejects deletions and publishes source-review evidence that cannot authorize
+deployment. The protected, account-backed Guardrails plan remains a separate
+post-merge manual operation. Documentation/tests-only work uses a no-permission
+no-deployment lane without checkout, dependencies, DEV, AWS, or remote
+regression. Mixed work requires both selected evidence lanes.
 
 Every conditional result feeds an `if: always()` aggregator. The aggregator
 retains the required context name below and fails if selected work is not

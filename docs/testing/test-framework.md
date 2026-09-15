@@ -560,11 +560,13 @@ candidate. Acceptable solutions include:
 - explicit release-candidate deployment identifier
 - another reviewed mechanism that binds test evidence to the candidate commit
 
-The release PR must not deploy production. Platform-only changes use an
-isolated, credential-free Guardrails synthesis plus a protected account-backed
-template plan. Documentation/tests-only changes use an explicit no-deployment
-lane. Unknown changes fail closed, mixed changes require both deployable lanes,
-and one stable final status aggregates all conditional results.
+The release PR must not deploy production. Platform-only changes use isolated,
+credential-free Guardrails synthesis plus a trusted-base source-template
+comparison. This PR evidence neither accesses AWS nor authorizes deployment;
+the protected account-backed plan runs separately after merge. Documentation
+and test-only changes use an explicit no-deployment lane. Unknown changes fail
+closed, mixed changes require both deployable lanes, and one stable final status
+aggregates all conditional results.
 
 Block 28.8 implements the application identity with two independent
 CloudFront-visible resources. App Runner returns CDK-injected `CPI_RELEASE_SHA`
