@@ -12,7 +12,7 @@ migration, worker run, provider call, notification, or schedule enablement.
 | Candidate | Allowed source | Required jobs | AWS mutation |
 | --- | --- | --- | --- |
 | Application only | Protected `dev` | Exact DEV application release | None |
-| Platform only | Same repository | Guardrails candidate synthesis and account-backed plan | None |
+| Platform only | Same repository | Guardrails candidate synthesis and trusted-base source-template comparison | None |
 | Application plus platform | Protected `dev` | Exact DEV application release and both Guardrails jobs | None |
 | Documentation/tests only | Any reviewed branch permitted by repository policy | No-deployment record | None |
 | Unknown or empty | None | Classification and aggregate gate fail | None |
@@ -47,8 +47,8 @@ Use this sequence without removing the existing Main required check:
 5. In `Release Change Classification`, confirm the summary says the trusted
    base classifier is not installed and the conservative application and
    platform fallback is active. The candidate classifier must not run.
-6. Approve the protected `production` environment only for the template-only
-   Guardrails plan. Inspect the diff summary and reject any deletion.
+6. Inspect the credential-free Guardrails source-template comparison and reject
+   any deletion. Its review digest is not an AWS deployment approval.
 7. Confirm the application lane validates the exact deployed DEV identity and
    remote regression.
 8. Confirm the final stable required check succeeds, then merge to `main`.
@@ -83,8 +83,8 @@ Configure repository rulesets as follows:
 - require conversations to be resolved
 - prevent bypass according to the repository's administrator policy
 - do not require `Classify release changes`, `Verify exact AWS DEV application
-  release`, `Synthesize account Guardrails candidate`, `Plan account Guardrails
-  changes`, or `Confirm no deployment required`
+  release`, `Synthesize account Guardrails candidate`, `Compare Guardrails
+  source templates`, or `Confirm no deployment required`
 
 The release workflow must continue to trigger for every PR targeting `main`.
 Do not add workflow-level `paths` or `paths-ignore`; lane selection happens
@@ -97,19 +97,22 @@ inside the workflow so the stable required context is always emitted.
 1. Open the feature PR to `dev` and pass the source quality gate.
 2. Merge to `dev`; wait for the exact DEV deployment and smoke evidence.
 3. Open `dev -> main`.
-4. For mixed changes, approve and review the additional Guardrails plan.
+4. For mixed changes, review the additional Guardrails source-template
+   comparison.
 5. Merge only after the stable aggregate check passes.
 
 ### Platform-only change
 
 1. Update the trusted classifier first if the proposal introduces a new path.
 2. Open a same-repository PR to `main`.
-3. Review unprivileged candidate synthesis.
-4. Approve the protected environment for the account-backed plan.
-5. Reject deletions and merge only after the stable aggregate check passes.
-6. Run `Deploy account guardrails` separately after merge if an AWS mutation is
-   required and explicitly authorized.
-7. Synchronize `main` into `dev`.
+3. Review the unprivileged candidate synthesis and trusted-base source-template
+   comparison. Reject deletions and merge only after the stable aggregate check
+   passes.
+4. If an AWS mutation is required, run the protected `Deploy account guardrails`
+   plan separately after merge and review its live account-backed diff.
+5. Authorize a second run to deploy only when its recomputed account-backed
+   digest matches the reviewed plan.
+6. Synchronize `main` into `dev`.
 
 ### Documentation/tests-only change
 
@@ -157,17 +160,19 @@ pinning; absence of workflow path filters; and the first-run bootstrap fallback.
   policy PR; do not relabel the file as documentation.
 - If a selected job fails, fix that concern and rerun the workflow. Do not make
   the aggregator ignore the result.
-- If the Guardrails plan is waiting, obtain the normal protected-environment
-  review. Waiting is not a deployment deadlock and does not mutate AWS.
+- If the Guardrails source comparison fails before a runner starts, confirm the
+  job has no `environment` or `id-token: write`; pull-request comparison must not
+  depend on Production deployment-branch rules or AWS credentials.
 - If the first-run fallback cannot validate exact DEV, complete or repair the
   DEV deployment before retrying.
 - If the workflow itself is invalid, keep the existing required check in place,
   revert through a reviewed PR, and restore the last known-good workflow. Do not
   bypass or delete Main protection to clear a pending merge.
 
-Record the classification summary, Guardrails plan artifact when applicable,
-application evidence when applicable, final aggregate summary, PR URL, and
-merge SHA as rollout evidence.
+Record the classification summary, Guardrails source-comparison artifact when
+applicable, application evidence when applicable, final aggregate summary, PR
+URL, and merge SHA as rollout evidence. Record the later protected account plan
+and deployment separately if Guardrails are changed after merge.
 
 ## References
 

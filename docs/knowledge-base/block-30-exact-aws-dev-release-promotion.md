@@ -46,9 +46,11 @@ For application or mixed candidates, the application lane verifies:
 
 It intentionally does not run Vitest, typecheck, a local build, or local
 Playwright smoke. Platform-only candidates instead synthesize the isolated
-Guardrails stack without credentials and run a protected account-backed,
-template-only plan. Documentation/tests-only candidates record an intentional
-no-deployment result. A stable aggregator publishes
+Guardrails stack and compare it with a trusted-base template without credentials
+or a GitHub Environment. The source comparison cannot authorize deployment; a
+protected account-backed plan remains a separate post-merge operation.
+Documentation/tests-only candidates record an intentional no-deployment result.
+A stable aggregator publishes
 `Release Promotion Gate / Promote exact AWS DEV release` for every PR to
 `main` and fails unless every selected lane succeeds.
 
@@ -63,9 +65,9 @@ roles, environments, or stack boundaries.
 
 The original Block 30 cutover is complete. For the ADR 0020 amendment, follow
 the [change-classified release promotion runbook](../runbooks/change-classified-release-promotion.md).
-The first rollout deliberately requires both exact DEV application evidence
-and the Guardrails plan when the trusted base classifier is not yet installed.
-After merge, the base classifier owns normal routing.
+The first rollout deliberately requires both exact DEV application evidence and
+the Guardrails source-template comparison when the trusted base classifier is
+not yet installed. After merge, the base classifier owns normal routing.
 
 Do not remove the stable required context during the amendment rollout. Its
 name is unchanged; only its ownership moves from the application job to the

@@ -481,7 +481,7 @@ describe("release promotion gate workflow", () => {
     expect(synthLane).toContain("guardrails-candidate-assembly-");
   });
 
-  it("creates a template-only account-backed Guardrails plan without deploying", () => {
+  it("compares Guardrails source templates without AWS access or deploying", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const planLane = extractWorkflowJob(workflow, "platform_plan");
 
@@ -490,19 +490,34 @@ describe("release promotion gate workflow", () => {
       "needs.classify.outputs.platform_required == 'true'",
     );
     expect(planLane).toContain("needs.platform_synth.result == 'success'");
-    expect(planLane).toContain("id-token: write");
-    expect(planLane).toContain("environment:\n      name: production");
+    expect(planLane).toContain("permissions:\n      contents: read");
+    expect(planLane).not.toContain("id-token: write");
+    expect(planLane).not.toContain("environment:");
     expect(planLane).toContain(
       "ref: ${{ github.event.pull_request.base.sha }}",
     );
     expect(planLane).toContain("actions/download-artifact@");
-    expect(planLane).toContain("role/cpi-github-deploy");
-    expect(planLane).toContain("aws sts get-caller-identity");
+    expect(planLane).toContain("guardrails-base-assembly");
+    expect(planLane).toContain("Synthesize trusted base Guardrails template");
+    expect(planLane).toContain("--no-lookups");
+    expect(planLane).toContain(
+      "--template \"$GITHUB_WORKSPACE/guardrails-base-assembly/ChaoranPropertyIntelligenceGuardrails.template.json\"",
+    );
     expect(planLane).toContain("--method template");
     expect(planLane).toContain("--fail-on-delete");
-    expect(planLane).toContain("createDeploymentApproval.mjs");
-    expect(planLane).toContain("--stage account-guardrails");
+    expect(planLane).toContain("sha256sum guardrails-plan/cdk-diff.txt");
+    expect(planLane).toContain("guardrails-plan/source-comparison.txt");
+    expect(planLane).toContain("cannot authorize an AWS deployment");
+    expect(planLane).toContain("release-guardrails-source-comparison-");
     expect(planLane).toContain("retention-days: 30");
+    expect(planLane).not.toContain("configure-aws-credentials");
+    expect(planLane).not.toContain("AWS_ACCOUNT_ID");
+    expect(planLane).not.toContain("${{ vars.");
+    expect(planLane).not.toContain("${{ secrets.");
+    expect(planLane).not.toContain("role/cpi-github-deploy");
+    expect(planLane).not.toContain("aws sts get-caller-identity");
+    expect(planLane).not.toMatch(/^\s+aws\s/imu);
+    expect(planLane).not.toContain("createDeploymentApproval.mjs");
     expect(planLane).not.toContain("cdk deploy");
     expect(planLane).not.toContain("CPI_ALERT_EMAIL");
     expect(planLane).not.toContain("CPI_MONTHLY_BUDGET_USD");

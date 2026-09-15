@@ -30,7 +30,7 @@ concerns:
 | Classification | Required evidence |
 | --- | --- |
 | Application | Same-repository protected `dev` source, exact or permitted non-runtime-descendant AWS DEV identity, readiness, and full remote-safe Playwright regression |
-| Platform | Same-repository candidate synthesis without credentials, followed by a protected, account-backed, template-method Guardrails plan with deletion rejection |
+| Platform | Same-repository candidate synthesis followed by a credential-free comparison against the trusted base Guardrails template, with deletion rejection |
 | Documentation/tests only | Explicit successful no-deployment record; no checkout, dependencies, AWS, environment, or remote regression |
 | Mixed application and platform | Both application and platform evidence |
 | Unknown or empty | Fail closed |
@@ -41,11 +41,17 @@ application and platform evidence. New paths are unknown until the trusted
 classifier explicitly assigns them.
 
 The classifier is executed from the pull request base SHA. Candidate code does
-not decide whether its own privileged lane is required. Candidate Guardrails
-code is synthesized only in an unprivileged job. The account-backed plan later
-checks out trusted base planning tools, obtains temporary credentials through
-the protected `production` environment, consumes the candidate cloud assembly,
-uses `cdk diff --method template`, and never calls `cdk deploy`.
+not decide whether its own platform lane is required. Candidate Guardrails code
+is synthesized only in an unprivileged job. A second unprivileged job checks out
+the trusted base planning tools, synthesizes the trusted base template, consumes
+the candidate cloud assembly, and uses `cdk diff --method template --template`
+to compare source templates. It never obtains AWS credentials, enters a GitHub
+Environment, reads live account state, or calls `cdk deploy`.
+
+The pull-request comparison is source-review evidence, not a deployable
+approval. After merge, the separately triggered `Deploy account guardrails`
+workflow remains responsible for a protected, account-backed plan and for
+recomputing that live plan before an explicitly authorized deployment.
 
 All conditional jobs feed one `if: always()` aggregator. Its check context
 remains:
@@ -72,9 +78,9 @@ execute the candidate copy. It selects a bounded conservative fallback instead:
 - documentation-only disabled
 
 The first rollout must therefore come from `dev`, match the deployed DEV
-application identity, and pass the protected Guardrails plan. After merge, the
-classifier exists on `main`; all later runs use normal fail-closed
-classification and report `bootstrap_fallback=false`.
+application identity, and pass the credential-free Guardrails source-template
+comparison. After merge, the classifier exists on `main`; all later runs use
+normal fail-closed classification and report `bootstrap_fallback=false`.
 
 Future classifier evolution is two-phase when a change introduces a previously
 unknown path: first merge the classifier policy update through an already-known
@@ -95,8 +101,9 @@ those phases.
 - Platform-only and documentation/tests-only work may open a same-repository PR
   directly to `main`; synchronize `main` back into `dev` after merge.
 - Unknown paths and forked platform candidates remain blocked.
-- Retain review, conversation resolution, no-bypass, and protected-environment
-  approval requirements.
+- Retain review, conversation resolution, and no-bypass requirements. Protected
+  environment approval remains on post-merge account planning and deployment,
+  not on pull-request source comparison.
 
 ## Consequences
 
@@ -107,11 +114,12 @@ AWS access. One required context exists for every pull request to `main`, so
 conditional jobs cannot leave branch protection waiting for a status that will
 never arrive.
 
-The platform plan still needs a production-environment reviewer and currently
-assumes the existing deployment role, even though the command path is
-template-only. A dedicated read-only planning role remains defense-in-depth
-hardening. Guardrails deployment remains a separate administrator-triggered
-workflow after merge; a successful plan does not mutate AWS.
+The platform lane no longer assumes the production deployment role, so a pull
+request merge ref cannot be rejected by Production deployment-branch rules and
+untrusted candidate code cannot request production credentials. The comparison
+does not detect live AWS drift; the required post-merge, account-backed plan is
+the authoritative deployment evidence. Guardrails deployment remains a
+separate administrator-triggered workflow after merge.
 
 This decision does not enable either worker schedule, deploy Production, run a
 migration, call RentCast/OpenAI/Telegram, or change application data.
