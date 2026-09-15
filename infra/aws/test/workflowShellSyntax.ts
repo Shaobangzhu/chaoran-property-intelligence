@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
 
-interface WorkflowRunScript {
+export interface WorkflowRunScript {
   name: string;
   script: string;
 }
 
 export function validateMultilineWorkflowShell(workflow: string): number {
-  const scripts = extractMultilineRunScripts(workflow);
+  const scripts = extractMultilineWorkflowShellScripts(workflow);
 
   for (const { name, script } of scripts) {
     const result = spawnSync("bash", ["-n"], {
@@ -23,7 +23,9 @@ export function validateMultilineWorkflowShell(workflow: string): number {
   return scripts.length;
 }
 
-function extractMultilineRunScripts(workflow: string): WorkflowRunScript[] {
+export function extractMultilineWorkflowShellScripts(
+  workflow: string,
+): WorkflowRunScript[] {
   const lines = workflow.split("\n");
   const scripts: WorkflowRunScript[] = [];
 

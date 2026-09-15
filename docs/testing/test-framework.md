@@ -334,7 +334,7 @@ Block 28.3 implementation details:
 - Non-documentation changes upload the gate plan and reuse the Block 28.2
   Allure summary/artifact flow.
 - Block 30 removes the legacy full CI workflow after the protected PR gate and
-  exact AWS DEV promotion gate assume distinct required-check responsibilities.
+  stable release aggregator assume distinct required-check responsibilities.
 
 ### Initial Change-Impact Matrix
 
@@ -552,22 +552,28 @@ migrations safely.
 
 ### Release Candidate Identity
 
-The `dev -> main` release gate must test the exact release candidate. Acceptable
-solutions include:
+The application lane of the Main release gate must test the exact release
+candidate. Acceptable solutions include:
 
 - verifying deployed SHA from an application endpoint or deployment metadata
 - immutable web artifact and API image versions
 - explicit release-candidate deployment identifier
 - another reviewed mechanism that binds test evidence to the candidate commit
 
-The release PR must not deploy production.
+The release PR must not deploy production. Platform-only changes use an
+isolated, credential-free Guardrails synthesis plus a protected account-backed
+template plan. Documentation/tests-only changes use an explicit no-deployment
+lane. Unknown changes fail closed, mixed changes require both deployable lanes,
+and one stable final status aggregates all conditional results.
 
-Block 28.8 implements the identity with two independent CloudFront-visible
-resources. App Runner returns CDK-injected `CPI_RELEASE_SHA` and stage from
-`/api/release`; the verified Vite artifact carries the same values in
-`/release.json`. The release workflow checks out the exact same-repository
-`dev` head SHA and fails unless Web, API, and PR candidate all match. It has
-`contents: read` only and cannot assume an AWS role or deploy.
+Block 28.8 implements the application identity with two independent
+CloudFront-visible resources. App Runner returns CDK-injected `CPI_RELEASE_SHA`
+and stage from `/api/release`; the verified Vite artifact carries the same
+values in `/release.json`. The release workflow checks out the exact
+same-repository `dev` head SHA and fails unless Web, API, and PR candidate all
+match. That lane has `contents: read` only and cannot assume an AWS role or
+deploy. ADR 0020 retains it behind trusted change classification and publishes
+the branch protection result from an always-running aggregator.
 
 ## Observability And Notification
 

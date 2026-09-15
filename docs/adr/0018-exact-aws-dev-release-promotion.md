@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted for implementation by Block 30.
+Accepted for implementation by Block 30. Amended on 2026-09-14 by
+[ADR 0020](0020-change-classified-release-promotion.md): exact DEV evidence is
+now the application lane inside a change-classified gate, while the stable
+required-check name is emitted by the final aggregator.
 
 ## Context
 
@@ -19,6 +22,10 @@ healthy public DEV origin, passes remote-safe browser regression, and has no
 unexpected retry or quarantine evidence.
 
 ## Decision
+
+The decision below records the original application-release boundary. ADR 0020
+now routes platform-only and documentation/tests-only candidates around this
+lane without weakening it for application or mixed changes.
 
 Use one source-verification boundary and one release-promotion boundary:
 
@@ -79,3 +86,4 @@ Trade-offs:
 - [Testing framework](../testing/test-framework.md)
 - [Release delivery runbook](../runbooks/release-production-delivery.md)
 - [ADR 0016](0016-software-quality-platform-and-aws-delivery-modernization.md)
+- [ADR 0020](0020-change-classified-release-promotion.md)
