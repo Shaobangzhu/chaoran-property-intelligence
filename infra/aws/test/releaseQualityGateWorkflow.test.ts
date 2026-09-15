@@ -497,9 +497,15 @@ describe("release promotion gate workflow", () => {
       "ref: ${{ github.event.pull_request.base.sha }}",
     );
     expect(planLane).toContain("actions/download-artifact@");
+    expect(planLane).not.toContain("${{ runner.temp }}");
+    expect(planLane).toContain('test -n "$RUNNER_TEMP"');
     expect(planLane).toContain(
-      "CPI_GUARDRAILS_BASE_ASSEMBLY: ${{ runner.temp }}/guardrails-base-assembly",
+      'guardrails_base_assembly="$RUNNER_TEMP/guardrails-base-assembly"',
     );
+    expect(planLane).toContain(
+      'echo "CPI_GUARDRAILS_BASE_ASSEMBLY=$guardrails_base_assembly" >> "$GITHUB_ENV"',
+    );
+    expect(planLane).toContain('mkdir -p "$guardrails_base_assembly"');
     expect(planLane).toContain("Synthesize trusted base Guardrails template");
     expect(planLane).toContain(
       "if [ ! -f infra/aws/dist/bin/guardrails.js ]; then",
