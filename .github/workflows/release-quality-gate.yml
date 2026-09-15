@@ -402,7 +402,6 @@ jobs:
     timeout-minutes: 15
 
     env:
-      CPI_GUARDRAILS_BASE_ASSEMBLY: ${{ runner.temp }}/guardrails-base-assembly
       CPI_RELEASE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       CPI_RELEASE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
 
@@ -436,7 +435,10 @@ jobs:
         run: |-
           test "$(git rev-parse HEAD)" = "$CPI_RELEASE_BASE_SHA"
           printf '%s' "$CPI_RELEASE_CANDIDATE_SHA" | grep -Eq '^[a-f0-9]{40}$'
-          mkdir -p "$CPI_GUARDRAILS_BASE_ASSEMBLY" guardrails-plan
+          test -n "$RUNNER_TEMP"
+          guardrails_base_assembly="$RUNNER_TEMP/guardrails-base-assembly"
+          echo "CPI_GUARDRAILS_BASE_ASSEMBLY=$guardrails_base_assembly" >> "$GITHUB_ENV"
+          mkdir -p "$guardrails_base_assembly" guardrails-plan
           {
             echo "schema_version=1"
             echo "base_sha=$CPI_RELEASE_BASE_SHA"
