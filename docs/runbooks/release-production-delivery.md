@@ -49,41 +49,48 @@ shared deployment-impact classifier must find zero intervening runtime,
 infrastructure, delivery, dependency, or unknown files. Production plan and
 deployment remain exact-main operations.
 
-## DEV-To-Main Release Gate
+## Change-Classified Main Release Gate
 
 `.github/workflows/release-quality-gate.yml` runs for pull requests targeting
-`main` and fails unless the source is the same repository's protected `dev`
-branch. It checks out the exact pull-request head SHA rather than GitHub's
-synthetic merge commit.
+`main`. A trusted base-revision classifier selects application, platform, and
+documentation/tests-only concerns; unknown paths fail closed. Application work
+still requires the same repository's protected `dev` branch and checks out the
+exact pull-request head SHA rather than GitHub's synthetic merge commit.
 
-The gate has `contents: read` only. It does not request OIDC, assume an AWS
-role, deploy, migrate, or enter a GitHub deployment environment. Repository
-variable `CPI_AWS_DEV_BASE_URL` supplies the exact public HTTPS CloudFront
-origin.
+The application lane has `contents: read` only. Repository variable
+`CPI_AWS_DEV_BASE_URL` supplies the public HTTPS CloudFront origin. That lane
+performs exact source/repository/checkout validation, quarantine validation,
+bounded readiness, full remote-safe Playwright regression, matching Web/API
+identity and Git ancestry, undeployed-impact rejection, retry enforcement, and
+bounded diagnostics. A pending, failed, divergent, or stale runtime-capable DEV
+release makes the application lane fail.
 
-The release promotion gate reuses the source verification required before code
-can enter protected `dev`. It performs:
+Platform work uses an isolated candidate Guardrails synthesis without AWS
+credentials. A second job checks out trusted base planning tools, enters the
+protected `production` environment, obtains temporary OIDC credentials, and
+runs an account-backed `cdk diff --method template`. It rejects deletions,
+publishes a digest-bound plan, and never deploys. Documentation/tests-only work
+uses a no-permission no-deployment lane without checkout, dependencies, DEV,
+AWS, or remote regression. Mixed work requires both deployable lanes.
 
-1. exact source-branch, repository, checkout, and HTTPS-origin validation
-2. quarantine-policy validation
-3. bounded AWS DEV health readiness
-4. all Playwright tests eligible for remote read-only execution
-5. matching Web/API DEV release identity and Git ancestry verification
-6. zero undeployed runtime-capable changes between deployed and candidate SHAs
-7. retry and stale-quarantine enforcement
-8. Allure, Playwright, trace/screenshot, JSON, and bounded flake artifacts
-
-An AWS DEV deployment that is pending, failed, divergent, or behind any
-runtime-capable `dev` change makes the release gate fail. A deployed ancestor
-is accepted only when every intervening change is explicit documentation or
-test evidence. Source verification is not repeated; remote regression expects
-the actual deployed SHA.
+Every conditional result feeds an `if: always()` aggregator. The aggregator
+retains the required context name below and fails if selected work is not
+successful or unselected work is not skipped. The first rollout uses a
+conservative application-plus-platform fallback only while the trusted base
+classifier is absent; it never runs the candidate classifier.
 
 The required GitHub checks are `PR Quality Gate / quality-gate` for protected
 feature-to-DEV pull requests and
-`Release Promotion Gate / Promote exact AWS DEV release` for DEV-to-main.
+`Release Promotion Gate / Promote exact AWS DEV release` for every pull request
+to `main`. Application and mixed candidates still require the `dev -> main`
+route; platform-only and documentation/tests-only candidates follow the route
+defined by ADR 0020.
 Merging to `main` does not run the removed legacy `CI / verify` workflow and
 does not automatically deploy Production.
+
+Branch routing, the one-time bootstrap, classifier evolution, and recovery are
+defined in the
+[change-classified promotion runbook](change-classified-release-promotion.md).
 
 ## Production Stack Boundary
 
@@ -225,7 +232,9 @@ procedure.
 - `dev` deployment has succeeded and exposes either the exact candidate or a
   proven non-runtime ancestor
 - the `dev -> main` release gate is green for the candidate/deployed identity
-  relationship
+  relationship when application evidence is required
+- any required Guardrails promotion plan is approved, deletion-free, and green
+- the stable release aggregator is green for the selected change concerns
 - production plan artifact is reviewed by all four action categories
 - no unsafe stateful replacement or deletion is present
 - API startup migrations are reviewed before entering migration confirmation

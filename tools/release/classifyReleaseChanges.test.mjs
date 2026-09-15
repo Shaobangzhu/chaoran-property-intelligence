@@ -59,6 +59,31 @@ describe("release change classification", () => {
     });
   });
 
+  it("keeps the release-policy bundle platform-only while tests and docs stay non-deployable", () => {
+    expect(
+      classifyReleaseChanges([
+        ".github/workflows/release-quality-gate.yml",
+        "tools/release/classifyReleaseChanges.mjs",
+        "infra/aws/test/releaseQualityGateWorkflow.test.ts",
+        "docs/adr/0020-change-classified-release-promotion.md",
+      ]),
+    ).toMatchObject({
+      applicationRequired: false,
+      platformRequired: true,
+      documentationOnly: false,
+      applicationFiles: [],
+      platformFiles: [
+        ".github/workflows/release-quality-gate.yml",
+        "tools/release/classifyReleaseChanges.mjs",
+      ],
+      nonDeployableFiles: [
+        "docs/adr/0020-change-classified-release-promotion.md",
+        "infra/aws/test/releaseQualityGateWorkflow.test.ts",
+      ],
+      unclassifiedFiles: [],
+    });
+  });
+
   it("marks shared delivery files as application and platform changes", () => {
     const classification = classifyReleaseChanges([
       ".github/workflows/deploy-production.yml",

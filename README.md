@@ -238,10 +238,11 @@ the source expression from daily to Monday 08:00 Pacific.
 
 ## CI/CD
 
-GitHub Actions separates source verification, deployment, and release promotion.
-A feature PR enters `dev` through a dependency-aware quality gate. Deployable
-changes then trigger a protected DEV plan/deploy workflow. Promotion to
-`main` verifies the application actually running on AWS DEV.
+GitHub Actions separates source verification, deployment, and release
+promotion. A feature PR enters `dev` through a dependency-aware quality gate.
+Deployable application changes then trigger a protected DEV plan/deploy
+workflow. Promotion to `main` classifies application, account-platform, and
+documentation/test concerns before selecting their independent evidence.
 
 ```mermaid
 flowchart TD
@@ -249,33 +250,49 @@ flowchart TD
     Quality["PR Quality Gate<br/>Selected tests, typecheck, build"]
     Dev["Merge to dev<br/>Protected DEV plan and deploy"]
     Verify["DEV readiness and smoke<br/>Matching Web/API release"]
-    Promote["dev-to-main PR<br/>Release Promotion Gate"]
+    Classify["PR to main<br/>Trusted release classification"]
+    Direct["Platform/docs PR<br/>Direct to main"]
+    Promote["Stable release aggregate<br/>One required context"]
+    Application["Application lane<br/>Exact DEV evidence"]
+    Platform["Platform lane<br/>Guardrails synth + plan"]
+    Docs["Docs/tests lane<br/>No deployment"]
     Main["Merge to main"]
     Prod["Manual Production workflow<br/>Plan, review digest, deploy, smoke"]
 
-    Feature --> Quality --> Dev --> Verify --> Promote --> Main --> Prod
+    Feature --> Quality --> Dev --> Verify --> Classify
+    Direct --> Classify
+    Classify --> Application --> Promote
+    Classify --> Platform --> Promote
+    Classify --> Docs --> Promote
+    Promote --> Main --> Prod
 ```
 
 | Workflow | Trigger and responsibility |
 | --- | --- |
 | [PR Quality Gate](.github/workflows/pr-quality-gate.yml) | PR to `dev`; classifies changed files, selects relevant suites, and uses the full fallback for shared or unknown impact |
 | [Deploy DEV](.github/workflows/deploy-dev.yml) | Protected `dev` push after a merged PR, or manual dispatch; builds the candidate, validates ArcGIS assets, plans/deploys CDK, and runs remote smoke |
-| [Release Promotion Gate](.github/workflows/release-quality-gate.yml) | `dev -> main` PR; verifies DEV health/release identity and runs all currently discovered remote-safe Playwright tests with flake checks |
+| [Release Promotion Gate](.github/workflows/release-quality-gate.yml) | PR to `main`; application changes require exact DEV evidence, platform changes require an isolated Guardrails synth and protected template-only plan, and docs/tests-only changes record no deployment; one stable aggregator enforces the selected lanes |
 | [Deploy production](.github/workflows/deploy-production.yml) | Manual `main` operation; verifies the candidate, produces a reviewed plan digest, then deploys and runs safe Production smoke |
 | [Weekly DEV Regression](.github/workflows/weekly-dev-regression.yml) | Sunday at 10:00 PM `America/Los_Angeles`, or manual dispatch; tests deployed DEV and publishes protected Allure reports |
 
 Documentation-only PRs record a successful source-gate skip. Documentation and
-test-only DEV changes can skip deployment. The promotion and weekly gates accept
-an older deployed ancestor only when every intervening change is classified as
-non-runtime; otherwise the release check fails.
+test-only DEV changes can skip deployment. At promotion, unknown paths fail
+closed, mixed changes require both application and platform evidence, and the
+stable required context is emitted without workflow path filters. The
+application and weekly gates accept an older deployed ancestor only when every
+intervening change is classified as non-runtime; otherwise the release check
+fails.
 
 `/release.json` and `/api/release` must report matching commit and stage
-identities. The release-promotion gate does not repeat local Vitest, typecheck,
-or builds; those belong to source verification and artifact creation.
-Production retains its own verification and explicit deployment controls.
-AWS workflows use temporary OIDC credentials and protected GitHub environments.
+identities whenever the application lane runs. That lane does not repeat local
+Vitest, typecheck, or builds; the platform lane performs its own bounded
+infrastructure verification before synthesis. Production retains its own
+verification and explicit deployment controls. AWS workflows use temporary
+OIDC credentials and protected GitHub environments.
 
-Details: [exact DEV release promotion](docs/knowledge-base/block-30-exact-aws-dev-release-promotion.md),
+Details: [change-classified release promotion](docs/runbooks/change-classified-release-promotion.md),
+[release classification decision](docs/adr/0020-change-classified-release-promotion.md),
+[exact DEV application promotion](docs/knowledge-base/block-30-exact-aws-dev-release-promotion.md),
 [DEV delivery](docs/runbooks/aws-dev-deployment.md),
 [Production delivery](docs/runbooks/release-production-delivery.md),
 [weekly regression](docs/runbooks/weekly-dev-regression.md).

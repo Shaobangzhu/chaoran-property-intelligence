@@ -20,6 +20,7 @@ jobs:
 
     outputs:
       application_required: ${{ steps.release-changes.outputs.application_required }}
+      bootstrap_fallback: ${{ steps.release-changes.outputs.bootstrap_fallback }}
       changed_file_count: ${{ steps.release-changes.outputs.changed_file_count }}
       classification_valid: ${{ steps.release-changes.outputs.classification_valid }}
       documentation_only: ${{ steps.release-changes.outputs.documentation_only }}
@@ -45,6 +46,30 @@ jobs:
       - name: Classify application, platform, and non-deployable changes
         id: release-changes
         run: |-
+          if [ ! -f tools/release/classifyReleaseChanges.mjs ]; then
+            mkdir -p test-results
+            {
+              echo "application_required=true"
+              echo "bootstrap_fallback=true"
+              echo "changed_file_count=0"
+              echo "classification_valid=true"
+              echo "documentation_only=false"
+              echo "platform_required=true"
+              echo "unclassified_file_count=0"
+            } >> "$GITHUB_OUTPUT"
+            {
+              echo "## Release Change Classification"
+              echo
+              echo "Trusted base classifier: not yet installed"
+              echo "Bootstrap fallback: conservative application and platform lanes"
+              echo
+              echo "The candidate classifier was not executed. Exact DEV application evidence and the account-backed Guardrails plan are both required for this one-time rollout."
+            } > test-results/release-change-classification.md
+            cat test-results/release-change-classification.md >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "bootstrap_fallback=false" >> "$GITHUB_OUTPUT"
           set +e
           node tools/release/classifyReleaseChanges.mjs \
             --base "$CPI_RELEASE_BASE_SHA" \
@@ -491,6 +516,7 @@ jobs:
     env:
       CPI_APPLICATION_RELEASE_RESULT: ${{ needs.application_release.result }}
       CPI_APPLICATION_REQUIRED: ${{ needs.classify.outputs.application_required }}
+      CPI_BOOTSTRAP_FALLBACK: ${{ needs.classify.outputs.bootstrap_fallback }}
       CPI_CLASSIFICATION_RESULT: ${{ needs.classify.result }}
       CPI_CLASSIFICATION_VALID: ${{ needs.classify.outputs.classification_valid }}
       CPI_DOCUMENTATION_ONLY: ${{ needs.classify.outputs.documentation_only }}
@@ -525,6 +551,7 @@ jobs:
 
           require_boolean "classification_valid" "$CPI_CLASSIFICATION_VALID"
           require_boolean "application_required" "$CPI_APPLICATION_REQUIRED"
+          require_boolean "bootstrap_fallback" "$CPI_BOOTSTRAP_FALLBACK"
           require_boolean "platform_required" "$CPI_PLATFORM_REQUIRED"
           require_boolean "documentation_only" "$CPI_DOCUMENTATION_ONLY"
 
@@ -579,6 +606,7 @@ jobs:
             echo "| Concern | Required | Result |"
             echo "| --- | --- | --- |"
             echo "| Trusted classification | $CPI_CLASSIFICATION_VALID | $CPI_CLASSIFICATION_RESULT |"
+            echo "| Bootstrap fallback | n/a | $CPI_BOOTSTRAP_FALLBACK |"
             echo "| Application exact DEV release | $CPI_APPLICATION_REQUIRED | $CPI_APPLICATION_RELEASE_RESULT |"
             echo "| Guardrails candidate synthesis | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_SYNTH_RESULT |"
             echo "| Guardrails account plan | $CPI_PLATFORM_REQUIRED | $CPI_PLATFORM_PLAN_RESULT |"

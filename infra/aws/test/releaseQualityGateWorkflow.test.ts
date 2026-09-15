@@ -23,6 +23,18 @@ const prQualityGatePath = fileURLToPath(
 const legacyCiPath = fileURLToPath(
   new URL("../../../.github/workflows/ci.yml", import.meta.url),
 );
+const releasePolicyAdrPath = fileURLToPath(
+  new URL(
+    "../../../docs/adr/0020-change-classified-release-promotion.md",
+    import.meta.url,
+  ),
+);
+const releasePolicyRunbookPath = fileURLToPath(
+  new URL(
+    "../../../docs/runbooks/change-classified-release-promotion.md",
+    import.meta.url,
+  ),
+);
 
 describe("release promotion gate workflow", () => {
   it("keeps every multiline shell run block syntactically valid", () => {
@@ -56,6 +68,29 @@ describe("release promotion gate workflow", () => {
     expect(extractWorkflowJob(workflow, "release_gate")).toContain(
       "name: Promote exact AWS DEV release",
     );
+    expect(workflow).not.toMatch(/^\s+paths(?:-ignore)?:/gmu);
+  });
+
+  it("keeps rollout and branch-policy documentation aligned with the stable gate", () => {
+    const adr = readFileSync(releasePolicyAdrPath, "utf8");
+    const runbook = readFileSync(releasePolicyRunbookPath, "utf8");
+    const requiredContext =
+      "Release Promotion Gate / Promote exact AWS DEV release";
+
+    expect(adr).toContain(requiredContext);
+    expect(adr).toContain("bootstrap_fallback=false");
+    expect(adr).toContain("Application or mixed work follows");
+    expect(runbook).toContain(requiredContext);
+    expect(runbook).toContain("## One-Time Rollout");
+    expect(runbook).toContain("## Normal Branch Policy");
+    expect(runbook).toContain("PR Quality Gate / quality-gate");
+    expect(runbook).toContain(
+      "do not require `Classify release changes`, `Verify exact AWS DEV application",
+    );
+    expect(runbook).toContain(
+      "Do not add workflow-level `paths` or `paths-ignore`",
+    );
+    expect(runbook).toContain("Never copy or execute the candidate classifier");
   });
 
   it("classifies release changes before running a deployment-specific gate", () => {
@@ -83,6 +118,9 @@ describe("release promotion gate workflow", () => {
       "application_required: ${{ steps.release-changes.outputs.application_required }}",
     );
     expect(workflow).toContain(
+      "bootstrap_fallback: ${{ steps.release-changes.outputs.bootstrap_fallback }}",
+    );
+    expect(workflow).toContain(
       "platform_required: ${{ steps.release-changes.outputs.platform_required }}",
     );
     expect(workflow).toContain(
@@ -93,6 +131,54 @@ describe("release promotion gate workflow", () => {
     );
     expect(workflow).toContain("application_release:\n    name:");
     expect(workflow).toContain("needs: classify");
+  });
+
+  it("uses both high-assurance lanes only while the trusted classifier is absent", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const classificationJob = extractWorkflowJob(workflow, "classify");
+    const classificationScript = extractMultilineWorkflowShellScripts(
+      workflow,
+    ).find(
+      ({ name }) =>
+        name === "Classify application, platform, and non-deployable changes",
+    )?.script;
+
+    expect(classificationScript).toBeDefined();
+    expect(classificationJob).toContain(
+      "ref: ${{ github.event.pull_request.base.sha }}",
+    );
+    expect(classificationJob).not.toContain(
+      "ref: ${{ github.event.pull_request.head.sha }}",
+    );
+    expect(classificationScript).toContain(
+      "if [ ! -f tools/release/classifyReleaseChanges.mjs ]; then",
+    );
+    expect(classificationScript).toContain('echo "application_required=true"');
+    expect(classificationScript).toContain('echo "platform_required=true"');
+    expect(classificationScript).toContain('echo "documentation_only=false"');
+    expect(classificationScript).toContain('echo "classification_valid=true"');
+    expect(classificationScript).toContain('echo "bootstrap_fallback=true"');
+    expect(classificationScript).toContain(
+      'echo "bootstrap_fallback=false"',
+    );
+    expect(classificationScript).toContain(
+      "The candidate classifier was not executed.",
+    );
+
+    const result = runClassificationBootstrapFallback(
+      classificationScript ?? "",
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("application_required=true");
+    expect(result.output).toContain("platform_required=true");
+    expect(result.output).toContain("documentation_only=false");
+    expect(result.output).toContain("classification_valid=true");
+    expect(result.output).toContain("bootstrap_fallback=true");
+    expect(result.summary).toContain("Trusted base classifier: not yet installed");
+    expect(result.summary).toContain(
+      "conservative application and platform lanes",
+    );
   });
 
   it("records docs and tests as an explicit no-deployment lane", () => {
@@ -135,6 +221,9 @@ describe("release promotion gate workflow", () => {
     expect(releaseGate).toContain("permissions: {}");
     expect(releaseGate).toContain(
       "CPI_CLASSIFICATION_RESULT: ${{ needs.classify.result }}",
+    );
+    expect(releaseGate).toContain(
+      "CPI_BOOTSTRAP_FALLBACK: ${{ needs.classify.outputs.bootstrap_fallback }}",
     );
     expect(releaseGate).toContain(
       "CPI_APPLICATION_RELEASE_RESULT: ${{ needs.application_release.result }}",
@@ -193,6 +282,19 @@ describe("release promotion gate workflow", () => {
         overrides: {
           CPI_APPLICATION_RELEASE_RESULT: "success",
           CPI_APPLICATION_REQUIRED: "true",
+          CPI_DOCUMENTATION_ONLY: "false",
+          CPI_NO_DEPLOYMENT_RESULT: "skipped",
+          CPI_PLATFORM_PLAN_RESULT: "success",
+          CPI_PLATFORM_REQUIRED: "true",
+          CPI_PLATFORM_SYNTH_RESULT: "success",
+        },
+      },
+      {
+        name: "one-time conservative bootstrap fallback",
+        overrides: {
+          CPI_APPLICATION_RELEASE_RESULT: "success",
+          CPI_APPLICATION_REQUIRED: "true",
+          CPI_BOOTSTRAP_FALLBACK: "true",
           CPI_DOCUMENTATION_ONLY: "false",
           CPI_NO_DEPLOYMENT_RESULT: "skipped",
           CPI_PLATFORM_PLAN_RESULT: "success",
@@ -476,6 +578,7 @@ function runStableReleaseGate(overrides: Record<string, string>) {
         ...process.env,
         CPI_APPLICATION_RELEASE_RESULT: "skipped",
         CPI_APPLICATION_REQUIRED: "false",
+        CPI_BOOTSTRAP_FALLBACK: "false",
         CPI_CLASSIFICATION_RESULT: "success",
         CPI_CLASSIFICATION_VALID: "true",
         CPI_DOCUMENTATION_ONLY: "true",
@@ -496,5 +599,33 @@ function runStableReleaseGate(overrides: Record<string, string>) {
     };
   } finally {
     rmSync(outputDirectory, { force: true, recursive: true });
+  }
+}
+
+function runClassificationBootstrapFallback(script: string) {
+  const workingDirectory = mkdtempSync(
+    join(tmpdir(), "cpi-release-classification-bootstrap-"),
+  );
+  const outputPath = join(workingDirectory, "github-output.txt");
+  const summaryPath = join(workingDirectory, "summary.md");
+
+  try {
+    const result = spawnSync("bash", ["-c", script], {
+      cwd: workingDirectory,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GITHUB_OUTPUT: outputPath,
+        GITHUB_STEP_SUMMARY: summaryPath,
+      },
+    });
+
+    return {
+      status: result.status,
+      output: existsSync(outputPath) ? readFileSync(outputPath, "utf8") : "",
+      summary: existsSync(summaryPath) ? readFileSync(summaryPath, "utf8") : "",
+    };
+  } finally {
+    rmSync(workingDirectory, { force: true, recursive: true });
   }
 }
